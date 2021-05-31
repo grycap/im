@@ -22,6 +22,7 @@ import json
 import tempfile
 import logging
 import sys
+import os.path
 from netaddr import IPNetwork, IPAddress
 
 from radl.radl import network, RADL
@@ -288,7 +289,14 @@ class VirtualMachine(LoggerMixin):
                 proxy_user, proxy_pass, proxy_ip, proxy_port = get_user_pass_host_port(net.getValue("proxy_host"))
                 if not proxy_port:
                     proxy_port = 22
-                return SSH(proxy_ip, proxy_user, proxy_pass, net.getValue("proxy_key"), proxy_port)
+                proxy_key = net.getValue("proxy_key")
+                # If credentials are not set, use the default ssh key of the current host
+                if not proxy_pass and not proxy_key:
+                    ssh_key_filename = os.path.expanduser("~/.ssh/id_rsa")
+                    if os.path.isfile(ssh_key_filename):
+                        with open(ssh_key_filename) as file:
+                            proxy_key = file.read()
+                return SSH(proxy_ip, proxy_user, proxy_pass, proxy_key, proxy_port)
         return None
 
     def getIfaceIP(self, iface_num):
