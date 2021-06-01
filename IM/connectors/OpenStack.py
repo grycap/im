@@ -1843,6 +1843,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             net_quotas = driver.ex_get_network_quotas(tenant_id)
         except Exception:
             net_quotas = None
+        try:
+            vol_quotas = driver.ex_get_volume_quotas(tenant_id)
+        except Exception:
+            vol_quotas = None
 
         quotas_dict = {}
         quotas_dict["cores"] = {"used": quotas.cores.in_use + quotas.cores.reserved,
@@ -1862,4 +1866,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             quotas_dict["security_groups"] = {"used": net_quotas.security_group.in_use +
                                               net_quotas.security_group.reserved,
                                               "limit": net_quotas.security_group.limit}
+        if vol_quotas:
+            quotas_dict["volumes"] = {"used": net_quotas.volumes.in_use + net_quotas.volumes.reserved,
+                                           "limit": net_quotas.volumes.limit}
+            quotas_dict["volume_storage"] = {"used": net_quotas.gigabytes.in_use + net_quotas.gigabytes.reserved,
+                                           "limit": net_quotas.gigabytes.limit}
+
         return quotas_dict
