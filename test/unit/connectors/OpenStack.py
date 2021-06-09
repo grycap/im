@@ -938,13 +938,24 @@ class TestOSTConnector(TestCloudConnectorBase):
         net_quotas.security_group.limit = 6
         driver.ex_get_network_quotas.return_value = net_quotas
 
+        vol_quotas = MagicMock(['gigabytes', 'volumes'])
+        vol_quotas.gigabytes = MagicMock(['in_use', 'reserved', 'limit'])
+        vol_quotas.gigabytes.in_use = vol_quotas.gigabytes.reserved = 2
+        vol_quotas.gigabytes.limit = 6
+        vol_quotas.volumes = MagicMock(['in_use', 'reserved', 'limit'])
+        vol_quotas.volumes.in_use = vol_quotas.volumes.reserved = 2
+        vol_quotas.volumes.limit = 6
+        driver.ex_get_volume_quotas.return_value = vol_quotas
+
         self.maxDiff = None
         res = ost_cloud.get_quotas(auth)
         self.assertEquals(res, {"cores": {"used": 2, "limit": 4},
                                 "ram": {"used": 2, "limit": 4},
                                 "instances": {"used": 2, "limit": 4},
                                 "floating_ips": {"used": 4, "limit": 6},
-                                "security_groups": {"used": 4, "limit": 6}})
+                                "security_groups": {"used": 4, "limit": 6},
+                                'volume_storage': {'limit': 6, 'used': 4},
+                                'volumes': {'limit': 6, 'used': 4}})
 
 
 if __name__ == '__main__':
