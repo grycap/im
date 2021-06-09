@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ANSIBLE_VERSION="2.9.15"
+ANSIBLE_VERSION="2.9.21"
 
 distribution_id() {
     RETVAL=""
