@@ -1868,8 +1868,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                               "limit": net_quotas.security_group.limit}
         if vol_quotas:
             quotas_dict["volumes"] = {"used": net_quotas.volumes.in_use + net_quotas.volumes.reserved,
-                                           "limit": net_quotas.volumes.limit}
+                                      "limit": net_quotas.volumes.limit}
             quotas_dict["volume_storage"] = {"used": net_quotas.gigabytes.in_use + net_quotas.gigabytes.reserved,
-                                           "limit": net_quotas.gigabytes.limit}
+                                             "limit": net_quotas.gigabytes.limit}
 
         return quotas_dict
