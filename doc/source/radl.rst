@@ -635,7 +635,7 @@ The optional "option" lines enable to specify some contextualizacion option valu
 ``ansible_version`` is supported. It enables the user to specify the ansible version to be installed
 in the "master" VM that will be used to configure all the VMs of the infrastructure. For example::
 
-   option ansible_version = 2.6.20
+   option ansible_version = '2.6.20'
 
 Each line inside the contextualize section enables to specify which configure section ``configure_id``
 will be applied in the nodes of type ``system_id``. Optionally a step number can be specified to set
