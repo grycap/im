@@ -1067,9 +1067,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     def get_image_id(path):
         url_path = urlparse(path)[2][1:]
         if url_path.startswith("image"):
-            return url_path[7:]
+            return url_path[6:]
         elif not url_path.startswith("volume"):
-            return url_path[1:]
+            return url_path
         return None
 
     @staticmethod
