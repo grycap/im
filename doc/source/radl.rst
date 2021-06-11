@@ -351,7 +351,8 @@ machine.  The supported features are:
 ``disk.<diskId>.type = <string>``
    Set the type of the disk, if it is a disk with no source set.
    The types depends on the provider: e.g. in GCE posible types are: pd-standard | pd-ssd,
-   in EC2 possible values are: standard | io1 | gp2.
+   in EC2 possible values are: standard | io1 | gp2. In OpenStack possible values are ephemeral,
+   or any volume type supported by the provider.
 
 ``disk.0.free_size = <positive integer value>B|K|M|G``
    Set the free space available in boot disk.

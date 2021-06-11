@@ -983,7 +983,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         return nets
 
     @staticmethod
-    def get_volumes(driver, image, radl):
+    def get_volumes(driver, image, volume, radl):
         """
         Create the required volumes (in the RADL) for the VM.
 
@@ -994,14 +994,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         boot_disk = {
             'boot_index': 0,
-            'source_type': "image",
+            'source_type': "image" if image else "volume",
             'delete_on_termination': False,
-            'uuid': image.id
+            'uuid': image.id if image else volume.id
         }
 
+        if volume:
+            boot_disk['destination_type'] = 'volume'
         # if the user sets the size, we create a volume with this size
         # instead of booting directly from the image
-        if system.getValue("disk.0.size"):
+        elif system.getValue("disk.0.size"):
             boot_disk['destination_type'] = 'volume'
             boot_disk['volume_size'] = system.getFeature("disk.0.size").getValue('G')
             boot_disk['delete_on_termination'] = True
@@ -1022,13 +1024,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             disk_size = None
             if disk_url:
-                volume = driver.ex_get_volume(os.path.basename(disk_url))
+                new_volume = driver.ex_get_volume(os.path.basename(disk_url))
                 disk = {
                     'boot_index': cont,
                     'source_type': "volume",
                     'delete_on_termination': False,
                     'destination_type': "volume",
-                    'uuid': volume.id
+                    'uuid': new_volume.id
                 }
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
@@ -1041,6 +1043,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     'delete_on_termination': True,
                     'volume_size': disk_size
                 }
+                if disk_type == "ephemeral":
+                    boot_disk['destination_type'] = 'local'
                 if disk_type:
                     disk['volume_type'] = disk_type
             if disk_device:
@@ -1059,11 +1063,28 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 return auth['vo']
         return None
 
+    @staticmethod
+    def get_image_id(path):
+        url_path = urlparse(path)[2][1:]
+        if url_path.startswith("image"):
+            return url_path[7:]
+        elif not url_path.startswith("volume"):
+            return url_path[1:]
+        return None
+
+    @staticmethod
+    def get_volume_id(path):
+        url_path = urlparse(path)[2][1:]
+        if url_path.startswith("volume"):
+            return url_path[7:]
+        return None
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
 
         system = radl.systems[0]
 
+        volume = image = None
         image_url = system.getValue("disk.0.image.url")
         if urlparse(image_url)[0] == "appdb":
             vo = self.get_vo_name(auth_data)
@@ -1073,13 +1094,22 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 raise Exception("Error in appdb image: %s" % msg)
         else:
             image_id = self.get_image_id(system.getValue("disk.0.image.url"))
-        image = driver.get_image(image_id)
+
+        if image_id:
+            image = driver.get_image(image_id)
+        else:
+            volume_id = self.get_volume_id(system.getValue("disk.0.image.url"))
+            if not volume_id:
+                raise Exception("Incorrect OpenStack image set.")
+            volume = driver.ex_get_volume(volume_id)
+            if not volume:
+                raise Exception("Incorrect OpenStack volume id.")
 
         instance_type = self.get_instance_type(driver, system)
         if not instance_type:
             raise Exception("No flavor found for the specified VM requirements.")
 
-        blockdevicemappings = self.get_volumes(driver, image, radl)
+        blockdevicemappings = self.get_volumes(driver, image, volume, radl)
 
         with inf._lock:
             self.create_networks(driver, radl, inf)
