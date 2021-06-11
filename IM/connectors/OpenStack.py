@@ -1044,7 +1044,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     'volume_size': disk_size
                 }
                 if disk_type == "ephemeral":
-                    boot_disk['destination_type'] = 'local'
+                    disk['destination_type'] = 'local'
                 elif disk_type:
                     disk['volume_type'] = disk_type
             if disk_device:
