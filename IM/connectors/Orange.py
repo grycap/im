@@ -127,7 +127,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
             return None
 
     @staticmethod
-    def get_volumes(driver, image, radl):
+    def get_volumes(driver, image, volume, radl):
         """
         Create the required volumes (in the RADL) for the VM.
 
