@@ -643,3 +643,10 @@ IM 1.10.3:
     * Fix error in context if IM remote dir is deleted.
     * Fix error in OpenStack getting sda as the device of an attached volume.
     * Use ansible parted to create partitions in ctxt.
+
+IM 1.10.4:
+    * Enable to create ephemeral disks in OpenStack conn.
+    * Fix error setting boot disk size in OpenStack conn.
+    * Use default installed ssh key to connect with proxy hosts if creds are not provided.
+    * Add support to proxy_host in TOSCA
+    * Openstack: deploy OS image in a volume.
