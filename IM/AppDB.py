@@ -86,18 +86,30 @@ class AppDB:
         """
         Get the image ID from the site id, image and vo names
         """
+        images = []
         data = AppDB.appdb_call('/rest/1.0/va_providers/%s' % site_id)
         if data:
             if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
                 for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
-                    if (image['@archived'] == "false" and image['@appcname'] == image_name and
-                            (not vo_name or image['@voname'] == vo_name)):
+                    if (image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name)):
                         image_basename = os.path.basename(image['@va_provider_image_id'])
-                        parts = image_basename.split("#")
-                        if len(parts) > 1:
-                            return parts[1]
-                        else:
-                            return image_basename
+                        images.append((image_basename, image['@vmiversion']))
+
+        image = None
+        if len(images) == 1:
+            # If there are only one, get it
+            image = images[0][0]
+        elif len(images) > 1:
+            # if there are more than one, try to return last vmiversion
+            images = sorted(images, key=lambda x: x[1], reverse=True)   # sort by version
+            image = images[0][0]
+
+        if image:
+            parts = image.split("#")
+            if len(parts) > 1:
+                return parts[1]
+            else:
+                return image
 
         return None
 
