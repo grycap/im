@@ -93,17 +93,16 @@ class AppDB:
                 for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
                     if (image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name)):
                         image_basename = os.path.basename(image['@va_provider_image_id'])
-                        images.append((image_basename, image['@archived']))
+                        images.append((image_basename, image['@vmiversion']))
 
         image = None
         if len(images) == 1:
             # If there are only one, get it
             image = images[0][0]
         elif len(images) > 1:
-            # if there are more than one, try to return non archived one
-            for img, archived in images:
-                if not image or archived == "false":
-                    image = img
+            # if there are more than one, try to return last vmiversion
+            images = sorted(images, key=lambda x: x[1], reverse=True)   # sort by version
+            image = images[0][0]
 
         if image:
             parts = image.split("#")
