@@ -1325,6 +1325,8 @@ class Tosca:
                 res.setValue("proxy_host", host)
                 if token_type == "private_key" and token:
                     res.setValue("proxy_key", token)
+            else:
+                raise Exception("Property 'proxy_credential' must bet set if proxy_host is set.")
 
         return res
 
