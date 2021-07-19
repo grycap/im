@@ -1439,6 +1439,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                      outport.get_remote_port(), '0.0.0.0/0')
                             except Exception as ex:
                                 self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
+                                self.error_messages += ("Exception adding port %s to SG rules.\n" %
+                                                        outport.get_remote_port())
 
         return res
 
