@@ -378,6 +378,8 @@ An example of the auth file::
    id = ost; type = OpenStack; host = https://ostserver:5000; username = indentity_provider; tenant = oidc; password = access_token_value; auth_version = 3.x_oidc_access_token
    # IM auth data
    id = im; type = InfrastructureManager; username = user; password = pass
+   # IM auth data with OIDC token
+   id = im; type = InfrastructureManager; token = access_token_value
    # VMRC auth data
    id = vmrc; type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
    # EC2 auth data
