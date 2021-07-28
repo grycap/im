@@ -655,3 +655,4 @@ IM 1.10.5:
     * Fix error in AppDB not enabling using archived images.
     * Raise error in case of proxy_host is set but no proxy_credential is specified in TOSCA.
     * Show error message in VM log in case of exception adding port to SG in OpenStack conn.
+    * Fix error installing Ansible in CentOS 7.
