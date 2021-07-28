@@ -126,13 +126,13 @@
       pip:
         name: pip>18.0,<21.0
         executable: pip3
-      when: ansible_python_version is version('3.6', '<')
+      when: ansible_python_version is version('3.7', '<')
 
     - name: Upgrade pip in py3.6 +
       pip:
         name: pip>18.0
         executable: pip3
-      when: ansible_python_version is version('3.6', '>=')
+      when: ansible_python_version is version('3.7', '>=')
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest executable=pip3
