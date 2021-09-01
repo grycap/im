@@ -6,6 +6,7 @@ import sys
 import json
 import requests
 import logging
+import signal
 from logging.handlers import RotatingFileHandler
 
 try:
@@ -40,6 +41,13 @@ def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
     return open(abs_file_path, 'r').read()
+
+
+class TimeOutExcetion(Exception):
+
+    def __init__(self, msg="Timeout has been received."):
+        Exception.__init__(self, msg)
+        self.message = msg
 
 
 class ResponseIM:
@@ -338,6 +346,9 @@ def main(url, token, username, password, delay=0.5):
     return 0, "All operations have been completed successfully.", im.get_mean_response_time()
 
 
+def handler(signum, frame):
+    raise TimeOutExcetion()
+
 # ----- RUN -----------------------------------------------------------------
 
 
@@ -349,17 +360,26 @@ if __name__ == '__main__':
         # Parse input arguments
         parser = argparse.ArgumentParser(description='Monitorize IM operations.')
         parser.add_argument('-u', '--url', help='URL of the IM REST API endpoint', default="http://localhost:8800")
-        parser.add_argument('-t', '--token', help='OIDC access token to autenticate with IM', default=None)
+        parser.add_argument('-T', '--token', help='OIDC access token to autenticate with IM', default=None)
         parser.add_argument('-f', '--log_file', help='Path to the log file', default=None)
         parser.add_argument('-l', '--log_level', help='Set the log level', default='INFO')
         parser.add_argument('-p', '--password', help='Password to autenticate with IM', default='monz')
         parser.add_argument('-n', '--username', help='Username to autenticate with IM', default='mon_test_1X')
+        parser.add_argument('-t', '--timeout', help='Test timeout', default=10, type=int)
         args = parser.parse_args()
 
         log_setup(args.log_level, args.log_file)
         logging.info("Initializing --------------")
 
+        # Register the signal function handler
+        signal.signal(signal.SIGALRM, handler)
+        # Define the timeout
+        signal.alarm(args.timeout)
         rc, msg, mean_time = main(args.url, args.token, args.username, args.password)
+    except TimeOutExcetion as tex:
+        rc = 2
+        msg = str(tex)
+        mean_time = 0
     except Exception as ex:
         rc = 3
         msg = str(ex)
