@@ -16,7 +16,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -u URL, --url URL     URL of the IM REST API endpoint
   -T TOKEN, --token TOKEN
-                        OIDC access token to autenticate with IM
+                        OIDC access token to autenticate with IM. It accepts the token or the path of a file with the token
   -f LOG_FILE, --log_file LOG_FILE
                         Path to the log file
   -l LOG_LEVEL, --log_level LOG_LEVEL
