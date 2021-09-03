@@ -360,7 +360,9 @@ if __name__ == '__main__':
         # Parse input arguments
         parser = argparse.ArgumentParser(description='Monitorize IM operations.')
         parser.add_argument('-u', '--url', help='URL of the IM REST API endpoint', default="http://localhost:8800")
-        parser.add_argument('-T', '--token', help='OIDC access token to autenticate with IM', default=None)
+        parser.add_argument('-T', '--token', help='OIDC access token to autenticate with IM. '
+                                                  'It accepts the token or the path of a file with the token',
+                            default=None)
         parser.add_argument('-f', '--log_file', help='Path to the log file', default=None)
         parser.add_argument('-l', '--log_level', help='Set the log level', default='INFO')
         parser.add_argument('-p', '--password', help='Password to autenticate with IM', default='monz')
@@ -375,6 +377,12 @@ if __name__ == '__main__':
         signal.signal(signal.SIGALRM, handler)
         # Define the timeout
         signal.alarm(args.timeout)
+
+        # if the token param is a file, read the contents
+        if args.token and os.path.isfile(args.token):
+            with open(args.token) as file:
+                args.token = file.read().replace('\n','')
+
         rc, msg, mean_time = main(args.url, args.token, args.username, args.password)
     except TimeOutExcetion as tex:
         rc = 2
