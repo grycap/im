@@ -369,7 +369,7 @@ if __name__ == '__main__':
                                                   'It accepts the token or the path of a file with the token',
                             default=None)
         parser.add_argument('-f', '--log_file', help='Path to the log file', default=None)
-        parser.add_argument('-l', '--log_level', help='Set the log level', default='INFO')
+        parser.add_argument('-l', '--log_level', help='Set the log level (use NONE to disable it)', default='INFO')
         parser.add_argument('-p', '--password', help='Password to autenticate with IM', default='monz')
         parser.add_argument('-n', '--username', help='Username to autenticate with IM', default='mon_test_1X')
         parser.add_argument('-t', '--timeout', help='Test timeout', default=10, type=int)
