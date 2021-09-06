@@ -2,7 +2,7 @@
 
 Summary: Nagios monitoring tool IM probe.
 Name: nagios-plugins-grycap-im
-Version: 0.1.2
+Version: 0.1.3
 Release: 1 
 License: GPL version 3, http://www.gnu.org/licenses/gpl-3.0.txt
 BuildArch: noarch
