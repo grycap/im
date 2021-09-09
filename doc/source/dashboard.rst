@@ -240,7 +240,7 @@ The main menu bar is located on top of the pages:
 * "External Links" show a set of configurables information links (documentation, video tutorials, etc.)
 * Finally on the right top corner appears the "User" menu item. This item shows the full name of the logged user,
   and an avatar obtained from `Gravatar <https://www.gravatar.com/>`_. In this menu the user can access their 
-  "Service Credentials" with the cloud providers or logout the application.
+  "Cloud Credentials" with the cloud providers or logout the application.
 
 Cloud Crecentials
 ^^^^^^^^^^^^^^^^^^^
@@ -329,10 +329,6 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
 **List of Actions**:
 
-* Delete: Delete this infrastructure and all the asociated resources. It also has the option to "Force" de deletion.
-  In this case the infrastructure will be removed from the IM service even if some cloud resources cannot be deleted.
-  Only use this option if you know what you are doing.
-
 * Add nodes: The Add nodes action enables to add new VMs to the users' deployment. As depicted in
   :ref:`Fig. 9 <figure_dash_add_nodes>` it will show the list of different types of nodes currently deployed in 
   the infrastructure and the user have to set the number of nodes of each type he wants to deploy.
@@ -346,6 +342,10 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
 * Log: Shows the error/contextualization log of the infrastructure.
 
+* Stop: Stops/Suspends all the VMs of the infrastructure.
+
+* Start: Starts/Resume previously stopped infrastructure.
+
 * Outputs: Shows the outputs of the TOSCA template. In case of private key of credentials it enables to download it
   as a file or copy to the clipboard.
 
@@ -354,13 +354,21 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
    Fig 10. TOSCA outputs.
 
+* Delete: Delete this infrastructure and all the asociated resources. It also has the option to "Force" de deletion.
+  In this case the infrastructure will be removed from the IM service even if some cloud resources cannot be deleted.
+  Only use this option if you know what you are doing.
+
+* Delete & Recreate: Delete this infrastructure as the previous option, but once it is deleted it will redirect to the
+  infrastructure creation form, with all the input fields filled with the same set of values used to create the deleted
+  infrastructure.
+
 * Reconfigure: Starts the reconfiguration of the infrastructure.
 
 **VM Info page**:
 
 The VM Info page will show all the information about the selected VM and will enable to manage the lifecycle of it.
-On the top right corner the "Manage VM" dropdown menu will enable: Stop, Start, Reboot and Terminate the VM. Furthermore
-the user can check the error/contextualization log of this particular VM.
+On the top right corner the "Manage VM" dropdown menu will enable: Stop/Start, Reboot, Resize, Reconfigure and Terminate the VM.
+Furthermore the user can check the error/contextualization log of this particular VM.
 
 The VM infomation is splitted in two dofferent tables, the first one with the main information: State, IPs, HW features and
 the SSH credentials needed to access it. Second table will show other additional fields.
@@ -369,3 +377,11 @@ the SSH credentials needed to access it. Second table will show other additional
 .. figure:: images/dash_vm_info.png
 
    Fig 11. VM Info page.
+
+In case of Resizing the VM the user must provide the new size of the VM in terms of number of CPUs and ammount of memory as
+show in :ref:`Fig. 11 <figure_dash_vm_resize>`.
+
+.. _figure_dash_vm_resize:
+.. figure:: images/dash_vm_resize.png
+
+   Fig 11. VM Resize modal form.
