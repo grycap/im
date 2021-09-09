@@ -20,7 +20,7 @@ optional arguments:
   -f LOG_FILE, --log_file LOG_FILE
                         Path to the log file
   -l LOG_LEVEL, --log_level LOG_LEVEL
-                        Set the log level
+                        Set the log level (use NONE to disable it)
   -p PASSWORD, --password PASSWORD
                         Password to autenticate with IM
   -n USERNAME, --username USERNAME
