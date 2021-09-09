@@ -6,6 +6,7 @@ import sys
 import json
 import requests
 import logging
+import signal
 from logging.handlers import RotatingFileHandler
 
 try:
@@ -40,6 +41,13 @@ def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
     return open(abs_file_path, 'r').read()
+
+
+class TimeOutExcetion(Exception):
+
+    def __init__(self, msg="Timeout has been received."):
+        Exception.__init__(self, msg)
+        self.message = msg
 
 
 class ResponseIM:
@@ -235,30 +243,35 @@ class IM:
 
 
 def log_setup(loglevel, log_file):
-    if not log_file:
-        tests_path = os.path.dirname(os.path.abspath(__file__))
-        log_file = tests_path + '/probeim.log'
-    log_handler = RotatingFileHandler(log_file, maxBytes=1048576, backupCount=5)
-
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s -- %(filename)s::%(funcName)s'
-                                  ' line     %(lineno)d', '%b %d %H:%M:%S')
-    formatter.converter = time.gmtime
-    log_handler.setFormatter(formatter)
-    logger = logging.getLogger()
-    logger.addHandler(log_handler)
-
-    if loglevel == 'ERROR':
-        lvl = 40
-    elif loglevel == 'WARNING':
-        lvl = 30
-    elif loglevel == 'INFO':
-        lvl = 20
-    elif loglevel == 'DEBUG':
-        lvl = 10
+    if loglevel in [None, 'NONE']:
+        # Disable logging
+        logger = logging.getLogger()
+        logger.disabled = True
     else:
-        lvl = 30
+        if not log_file:
+            tests_path = os.path.dirname(os.path.abspath(__file__))
+            log_file = tests_path + '/probeim.log'
+        log_handler = RotatingFileHandler(log_file, maxBytes=1048576, backupCount=5)
 
-    logger.setLevel(lvl)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s -- %(filename)s::%(funcName)s'
+                                      ' line     %(lineno)d', '%b %d %H:%M:%S')
+        formatter.converter = time.gmtime
+        log_handler.setFormatter(formatter)
+        logger = logging.getLogger()
+        logger.addHandler(log_handler)
+
+        if loglevel == 'ERROR':
+            lvl = 40
+        elif loglevel == 'WARNING':
+            lvl = 30
+        elif loglevel == 'INFO':
+            lvl = 20
+        elif loglevel == 'DEBUG':
+            lvl = 10
+        else:
+            lvl = 30
+
+        logger.setLevel(lvl)
 
 
 def main(url, token, username, password, delay=0.5):
@@ -338,6 +351,9 @@ def main(url, token, username, password, delay=0.5):
     return 0, "All operations have been completed successfully.", im.get_mean_response_time()
 
 
+def handler(signum, frame):
+    raise TimeOutExcetion()
+
 # ----- RUN -----------------------------------------------------------------
 
 
@@ -349,17 +365,34 @@ if __name__ == '__main__':
         # Parse input arguments
         parser = argparse.ArgumentParser(description='Monitorize IM operations.')
         parser.add_argument('-u', '--url', help='URL of the IM REST API endpoint', default="http://localhost:8800")
-        parser.add_argument('-t', '--token', help='OIDC access token to autenticate with IM', default=None)
+        parser.add_argument('-T', '--token', help='OIDC access token to autenticate with IM. '
+                                                  'It accepts the token or the path of a file with the token',
+                            default=None)
         parser.add_argument('-f', '--log_file', help='Path to the log file', default=None)
-        parser.add_argument('-l', '--log_level', help='Set the log level', default='INFO')
+        parser.add_argument('-l', '--log_level', help='Set the log level (use NONE to disable it)', default='INFO')
         parser.add_argument('-p', '--password', help='Password to autenticate with IM', default='monz')
         parser.add_argument('-n', '--username', help='Username to autenticate with IM', default='mon_test_1X')
+        parser.add_argument('-t', '--timeout', help='Test timeout', default=10, type=int)
         args = parser.parse_args()
 
         log_setup(args.log_level, args.log_file)
         logging.info("Initializing --------------")
 
+        # Register the signal function handler
+        signal.signal(signal.SIGALRM, handler)
+        # Define the timeout
+        signal.alarm(args.timeout)
+
+        # if the token param is a file, read the contents
+        if args.token and os.path.isfile(args.token):
+            with open(args.token) as file:
+                args.token = file.read().replace('\n', '')
+
         rc, msg, mean_time = main(args.url, args.token, args.username, args.password)
+    except TimeOutExcetion as tex:
+        rc = 2
+        msg = str(tex)
+        mean_time = 0
     except Exception as ex:
         rc = 3
         msg = str(ex)
