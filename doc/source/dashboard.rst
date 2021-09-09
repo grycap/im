@@ -356,7 +356,7 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
 * Delete: Delete this infrastructure and all the asociated resources. It also has the option to "Force" de deletion.
   In this case the infrastructure will be removed from the IM service even if some cloud resources cannot be deleted.
-  Only use this option if you know what you are doing.
+  **Only use this option if you know what you are doing**.
 
 * Delete & Recreate: Delete this infrastructure as the previous option, but once it is deleted it will redirect to the
   infrastructure creation form, with all the input fields filled with the same set of values used to create the deleted
