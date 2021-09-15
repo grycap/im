@@ -52,6 +52,9 @@ class ThreadSSH(Thread):
         self.client = None
         self.proxy = None
 
+    def __del__(self):
+        self.close()
+
     def close(self):
         """
         Close the SSH client connection
@@ -120,6 +123,9 @@ class SSH:
             private_key_obj.seek(0)
             self.private_key_obj = paramiko.RSAKey.from_private_key(
                 private_key_obj)
+
+    def __del__(self):
+        self.close()
 
     def close(self):
         """
