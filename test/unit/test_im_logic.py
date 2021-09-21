@@ -550,7 +550,7 @@ class TestIM(unittest.TestCase):
         delay = int(time.time()) - before
         # self.assertLess(delay, 17)
         # self.assertGreater(delay, 14)
-        self.assertLess(delay, 9)
+        self.assertLess(delay, 12)
         self.assertGreater(delay, 4)
         Config.MAX_SIMULTANEOUS_LAUNCHES = 1
 
