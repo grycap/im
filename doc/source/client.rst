@@ -248,7 +248,9 @@ The available keys are:
   plugin check the documentation of the Azure python SDK:
   `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
 
-* ``token`` indicates the OpenID token associated to the credential. This field is used in the EGI and OCCI plugins. 
+* ``token`` indicates the OpenID token associated to the credential. This field is used in the EGI, OCCI plugins
+  and also to authenticate with the InfrastructureManager. To refer to the output of a command you must
+  use the function "command(command)" as shown in the examples.
 
 * ``vo`` indicates the VO name associated to the credential. This field is used in the EGI plugin. 
 
@@ -374,6 +376,8 @@ An example of the auth file::
    id = ost; type = OpenStack; host = https://ostserver:5000; username = user; password = pass; tenant = tenant
    # OpenStack site using VOMS proxy authentication
    id = ostvoms; type = OpenStack; proxy = file(/tmp/proxy.pem); host = https://keystone:5000; tenant = tname
+   # OpenStack site using OIDC authentication for EGI Sites
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = egi.eu; tenant = openid; password = command(oidc-token OIDC_ACCOUNT); auth_version = 3.x_oidc_access_token; domain = project_name_or_id
    #  OpenStack site using OpenID authentication
    id = ost; type = OpenStack; host = https://ostserver:5000; username = indentity_provider; tenant = oidc; password = access_token_value; auth_version = 3.x_oidc_access_token
    # IM auth data
@@ -412,6 +416,9 @@ An example of the auth file::
    id = orange; type = Orange; username = usern; password = pass; domain = DOMAIN; region = region; tenant = tenant
    #  EGI auth data
    id = egi; type = EGI; host = SITE_NAME; vo = vo_name; token = egi_aai_token_value
+   #  EGI auth data command
+   id = egi; type = EGI; host = SITE_NAME; vo = vo_name; token = command(oidc-token OIDC_ACCOUNT)
+
 
 IM Server does not store the credentials used in the creation of
 infrastructures. Then the user has to provide them in every call of
