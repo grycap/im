@@ -419,6 +419,33 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         except Exception as ex:
             self.log_warn("Error getting volume info: %s" % get_ex_error(ex))
 
+    def addAdditionalIP(self, vm, driver):
+        system = vm.info.systems[0]
+
+        # TODO: Manage if there are more that 1 port
+        if system.getValue('net_interface.0.additional_ip'):
+            additional_ip = system.getValue('net_interface.0.additional_ip')
+            # Find the port attached to the VM
+            port_bound = None
+            try:
+                for port in driver.ex_list_ports():
+                    if ("device_id" in port.extra and port.extra["device_id"] and
+                            port.extra["device_id"] == vm.id):
+                        port_bound = port
+            except Exception:
+                self.log_exception("Error getting port list")
+
+            if port_bound:
+                # set the additional IP
+                try:
+                    driver.ex_update_port(port_bound, allowed_address_pairs=[{"ip_address": additional_ip}])
+                    self.log_debug("Additional IP %s added to port %s" % (additional_ip, port_bound.id))
+                    system.delValue('net_interface.0.additional_ip')
+                except Exception:
+                    self.log_exception("Error adding addtional IP")
+            else:
+                self.log_warn("No port found for VM %s" % vm.id)
+
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
@@ -443,6 +470,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             except Exception as ex:
                 self.log_warn("Error updating VM info from flavor ID: %s" % get_ex_error(ex))
 
+            self.addAdditionalIP(vm, node.driver)
             self.addRouterInstance(vm, node.driver)
             self.setIPsFromInstance(vm, node)
             self.setVolumesInfo(vm, node)
