@@ -442,7 +442,7 @@ class TestIM(unittest.TestCase):
 
         self.__class__.inf_id = str(os.path.basename(resp.text))
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 1200)
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 1800)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
