@@ -530,7 +530,7 @@ class TestIM(unittest.TestCase):
         Config.MAX_SIMULTANEOUS_LAUNCHES = 1
         vms = IM.AddResource(infId, str(radl), auth0)
         delay = int(time.time()) - before
-        self.assertLess(delay, 19)
+        self.assertLess(delay, 21)
         self.assertGreater(delay, 14)
 
         self.assertEqual(vms, [0, 1, 2, 3, 4, 5])
