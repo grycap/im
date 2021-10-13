@@ -237,7 +237,6 @@ class ConfManager(LoggerMixin, threading.Thread):
                 vm.kill_check_ctxt_process()
             except Exception:
                 self.log_exception("Error killing ctxt processes in VM: %s" % vm.id)
-            vm.configured = None
 
     def run(self):
         self.log_info("Starting the ConfManager Thread")
@@ -256,6 +255,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 if self.ansible_process and self.ansible_process.is_alive():
                     self.log_info("Stopping pending Ansible process.")
                     self.ansible_process.terminate()
+                    self._stop_thread = True
 
                 # Set as unconfigured all non finished ctxt VMs
                 for vm in self.inf.get_vm_list():
