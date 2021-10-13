@@ -50,7 +50,8 @@ class LibCloudCloudConnector(CloudConnector):
         NodeState.TERMINATED: VirtualMachine.OFF,
         NodeState.STOPPED: VirtualMachine.STOPPED,
         NodeState.ERROR: VirtualMachine.FAILED,
-        NodeState.UNKNOWN: VirtualMachine.UNKNOWN
+        NodeState.UNKNOWN: VirtualMachine.UNKNOWN,
+        NodeState.SUSPENDED: VirtualMachine.STOPPED
     }
     """State map"""
 
