@@ -656,3 +656,9 @@ IM 1.10.5:
     * Raise error in case of proxy_host is set but no proxy_credential is specified in TOSCA.
     * Show error message in VM log in case of exception adding port to SG in OpenStack conn.
     * Fix error installing Ansible in CentOS 7.
+
+IM 1.10.6:
+    * Fix SSH connection with proxy hosts not closed.
+    * Fix Infrastructure context raises Max context time but it remains in state running.
+    * Add net_interface.0.additional_ip support in OST.
+    * Enable to filter disabled OpenStack flavors #1222.

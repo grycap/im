@@ -19,7 +19,7 @@ __all__ = ['auth', 'CloudInfo', 'config', 'ConfManager', 'db',
            'InfrastructureInfo', 'InfrastructureManager', 'recipe', 'request', 'REST', 'retry',
            'ServiceRequests', 'SSH', 'SSHRetry', 'timedcall', 'UnixHTTPAdapter',
            'VirtualMachine', 'VMRC', 'xmlobject']
-__version__ = '1.10.5'
+__version__ = '1.10.6'
 __author__ = 'Miguel Caballer'
 
 
