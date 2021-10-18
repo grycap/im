@@ -246,6 +246,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     else:
                         size.extra['pci_devices'] += 1
 
+            # do not add disabled images
             if 'disabled' not in size.extra or not size.extra['disabled']:
                 res.append(size)
 
