@@ -246,8 +246,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     else:
                         size.extra['pci_devices'] += 1
 
-        if 'disabled' not in size.extra or not size.extra['disabled']:
-            res.append(size)
+            if 'disabled' not in size.extra or not size.extra['disabled']:
+                res.append(size)
 
         return res
 
