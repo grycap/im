@@ -660,4 +660,5 @@ IM 1.10.5:
 IM 1.10.6:
     * Fix SSH connection with proxy hosts not closed.
     * Fix Infrastructure context raises Max context time but it remains in state running.
-    * Add net_interface.0.additional_ip support in OST
+    * Add net_interface.0.additional_ip support in OST.
+    * Enable to filter disabled OpenStack flavors #1222.
