@@ -1620,7 +1620,7 @@ class Tosca:
                 return node_type
 
     @staticmethod
-    def _get_interfaces(node, interface_names=['Standard','Configure'],
+    def _get_interfaces(node, interface_names=['Standard', 'Configure'],
                         steps=['create', 'configure', 'start', 'stop', 'delete']):
         """
         Get a dict of InterfacesDef of the specified node
@@ -1638,7 +1638,7 @@ class Tosca:
                         if name in steps:
                             if name not in interfaces:
                                 interfaces[name] = InterfacesDef(node_type, interface_name, name=name,
-                                                                value=elems, node_template=node)
+                                                                 value=elems, node_template=node)
 
             if node_type.parent_type is not None:
                 node_type = node_type.parent_type
