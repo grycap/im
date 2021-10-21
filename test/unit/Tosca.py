@@ -50,6 +50,7 @@ class TestTosca(unittest.TestCase):
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
         print(radl)
+        self.assertFalse(True)
         radl = parse_radl(str(radl))
         net = radl.get_network_by_id('public_net')
         net1 = radl.get_network_by_id('public_net_1')
