@@ -84,6 +84,10 @@
       apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
+    - name: Debian/Ubuntu 16 install libffi-dev with apt
+      apt: name=libffi-dev install_recommends=no
+      when: ansible_os_distribution == "Ubuntu" and ansible_distribution_major_version == "16"
+
     - name: Yum install requisites RH 7/8 or Fedora
       command: yum install -y python3-pip python3-setuptools sshpass openssh-clients
       when: ansible_os_family == "RedHat"
