@@ -93,6 +93,8 @@ class TestTosca(unittest.TestCase):
                          "{{ groups['lrms_wn']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list"
                          " if 'lrms_wn' in groups else []}}")
         self.assertEqual([d.id for d in radl.deploys][2], 'lrms_wn')
+        att_conf = radl.get_configure_by_name('lrms_server_tosca.relationships.indigo.onedatastorage.attachesto_conf')
+        conf = yaml.safe_load(att_conf.recipes)[0]
 
     def test_tosca_get_outputs(self):
         """Test TOSCA get_outputs function"""
