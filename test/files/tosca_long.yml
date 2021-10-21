@@ -101,18 +101,9 @@ topology_template:
         - local_storage:
             node: my_onedata_storage
             relationship:
-              type: AttachesTo
+              type: tosca.relationships.indigo.OneDataStorage.AttachesTo
               properties:
                 location: /mnt/disk
-              interfaces:
-                Configure:
-                  pre_configure_source:
-                    implementation:
-                      file: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/onedata/oneclient_install.yml
-                      type: tosca.artifacts.Implementation.YAML
-                    inputs:
-                      onedata_token: { get_property: [ TARGET, credential, token ] }
-                      onedata_location: { get_property: [ SELF, location ] }
 
     my_onedata_storage:
       type: tosca.nodes.indigo.OneDataStorage

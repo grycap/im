@@ -557,12 +557,13 @@ class Tosca:
             rel_tpl = Tosca._get_relationship_template(rel, src, trgt)
 
             rel_tlp_def_interfaces = {}
-            if rel_tpl.type_definition.interfaces and 'Standard' in rel_tpl.type_definition.interfaces:
-                rel_tlp_def_interfaces = rel_tpl.type_definition.interfaces['Standard']
+            for inteface_name in ['Standard', 'Configure']:
+                if rel_tpl.type_definition.interfaces and inteface_name in rel_tpl.type_definition.interfaces:
+                    rel_tlp_def_interfaces = rel_tpl.type_definition.interfaces[inteface_name]
 
             if src.name == node.name:
                 # Also add the configure of the target node of the relation
-                trgt_interfaces = Tosca._get_interfaces(trgt, ['pre_configure_source', 'post_configure_source'])
+                trgt_interfaces = Tosca._get_interfaces(trgt, steps=['pre_configure_source', 'post_configure_source'])
                 for name in ['pre_configure_source', 'post_configure_source', 'add_source']:
                     if trgt_interfaces and name in trgt_interfaces:
                         res[name] = trgt_interfaces[name]
@@ -576,7 +577,7 @@ class Tosca:
                                                   node_template=rel_tpl)
 
             elif trgt.name == node.name:
-                src_interfaces = Tosca._get_interfaces(src, ['pre_configure_target', 'post_configure_target'])
+                src_interfaces = Tosca._get_interfaces(src, steps=['pre_configure_target', 'post_configure_target'])
                 for name in ['pre_configure_target', 'post_configure_target', 'add_target',
                              'target_changed', 'remove_target']:
                     if src_interfaces and name in src_interfaces:
@@ -1619,7 +1620,8 @@ class Tosca:
                 return node_type
 
     @staticmethod
-    def _get_interfaces(node, steps=['create', 'configure', 'start', 'stop', 'delete']):
+    def _get_interfaces(node, interface_names=['Standard', 'Configure'],
+                        steps=['create', 'configure', 'start', 'stop', 'delete']):
         """
         Get a dict of InterfacesDef of the specified node
         """
@@ -1630,12 +1632,13 @@ class Tosca:
         node_type = node.type_definition
 
         while True:
-            if node_type.interfaces and 'Standard' in node_type.interfaces:
-                for name, elems in node_type.interfaces['Standard'].items():
-                    if name in steps:
-                        if name not in interfaces:
-                            interfaces[name] = InterfacesDef(node_type, 'Standard', name=name,
-                                                             value=elems, node_template=node)
+            for interface_name in interface_names:
+                if node_type.interfaces and interface_name in node_type.interfaces:
+                    for name, elems in node_type.interfaces[interface_name].items():
+                        if name in steps:
+                            if name not in interfaces:
+                                interfaces[name] = InterfacesDef(node_type, interface_name, name=name,
+                                                                 value=elems, node_template=node)
 
             if node_type.parent_type is not None:
                 node_type = node_type.parent_type
