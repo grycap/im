@@ -201,7 +201,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             epc_size = epc_size_feature.getValue("m")
         for k, v in size.extra.items():
             if epc_size:
-                #If epc size is set only check it
+                # If epc size is set only check it
                 if k.lower().find("sgx") != -1 and k.lower().find("epc_size") != 1 and int(v) >= epc_size:
                     return True
             else:
