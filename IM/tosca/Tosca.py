@@ -1438,6 +1438,7 @@ class Tosca:
             'num_gpus': 'gpu.count',
             'gpu_vendor': 'gpu.vendor',
             'gpu_model': 'gpu.model',
+            'sgx': 'cpu.sgx'
         }
 
         for cap_type in ['os', 'host']:
@@ -1472,7 +1473,7 @@ class Tosca:
                                 raise Exception("User must be specified in the image credentials.")
                             name = "disk.0.os.credentials.username"
                             value = value['user']
-                        elif prop.name == "preemtible_instance":
+                        elif prop.name == ["preemtible_instance", "sgx"]:
                             value = 'yes' if value else 'no'
 
                         if isinstance(value, float) or isinstance(value, int):
