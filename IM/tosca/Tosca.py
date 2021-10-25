@@ -1438,7 +1438,8 @@ class Tosca:
             'num_gpus': 'gpu.count',
             'gpu_vendor': 'gpu.vendor',
             'gpu_model': 'gpu.model',
-            'sgx': 'cpu.sgx'
+            'sgx': 'cpu.sgx',
+            'sgx_epc_size': 'cpu.sgx.epc_size'
         }
 
         for cap_type in ['os', 'host']:
