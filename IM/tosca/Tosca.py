@@ -1474,7 +1474,7 @@ class Tosca:
                                 raise Exception("User must be specified in the image credentials.")
                             name = "disk.0.os.credentials.username"
                             value = value['user']
-                        elif prop.name == ["preemtible_instance", "sgx"]:
+                        elif prop.name in ["preemtible_instance", "sgx"]:
                             value = 'yes' if value else 'no'
 
                         if isinstance(value, float) or isinstance(value, int):
