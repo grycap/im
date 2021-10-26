@@ -194,6 +194,22 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             return driver
 
     @staticmethod
+    def guess_instance_type_sgx(size, epc_size_feature):
+        """Try to guess if this NodeSize has SGX support"""
+        epc_size = None
+        if epc_size_feature:
+            epc_size = epc_size_feature.getValue("m")
+        for k, v in size.extra.items():
+            if epc_size:
+                # If epc size is set only check it
+                if k.lower().find("sgx") != -1 and k.lower().find("epc_size") != 1 and int(v) >= epc_size:
+                    return True
+            else:
+                if k.lower().find("sgx") != -1 and v.lower() not in ['false', 'no', '0']:
+                    return True
+        return False
+
+    @staticmethod
     def guess_instance_type_gpu(size, num_gpus, vendor=None, model=None):
         """Try to guess if this NodeSize has GPU support"""
         for k, v in size.extra.items():
@@ -260,6 +276,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         num_gpus = radl.getValue('gpu.count')
         gpu_model = radl.getValue('gpu.model')
         gpu_vendor = radl.getValue('gpu.vendor')
+        sgx = radl.getValue('cpu.sgx')
+        epc_size = radl.getFeature('cpu.sgx.epc_size')
 
         # get the node size with the lowest price, vcpus, memory and disk
         sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram, x.disk, x.extra['pci_devices']))
@@ -268,6 +286,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             comparison = comparison and memory_op(size.ram, memory)
             comparison = comparison and disk_free_op(size.disk, disk_free)
             if num_gpus and not self.guess_instance_type_gpu(size, num_gpus, gpu_vendor, gpu_model):
+                continue
+            if sgx == "yes" and not self.guess_instance_type_sgx(size, epc_size):
                 continue
 
             if comparison:
