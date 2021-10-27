@@ -397,7 +397,14 @@ class Tosca:
             if cap_props and "private_ip" in cap_props:
                 private_ip = self._final_function_result(cap_props["private_ip"].value, node)
             if cap_props and "ports" in cap_props:
-                ports = self._final_function_result(cap_props["ports"].value, node)
+                node_ports = self._final_function_result(cap_props["ports"].value, node)
+                if node_ports:
+                    for p in node_ports.values():
+                        protocol = "tcp"
+                        if "protocol" in p:
+                            protocol = self._final_function_result(p["protocol"], node)
+                        port = self._final_function_result(p["source"], node)
+                        ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}
             if cap_props and "port" in cap_props:
                 port = self._final_function_result(cap_props["port"].value, node)
                 protocol = "tcp"
