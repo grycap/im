@@ -523,7 +523,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         parts = hostname[6:].split("@")
                         auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
                         headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
-                        url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1], domain[:-1], ip)
+                        url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
+                                                                                                  domain[:-1],
+                                                                                                  ip)
                         resp = requests.get(url, headers=headers)
                         resp.raise_for_status()
             return True
