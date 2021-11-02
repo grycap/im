@@ -528,6 +528,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                                                   ip)
                         resp = requests.get(url, headers=headers)
                         resp.raise_for_status()
+                    else:
+                        #TODO: https://docs.openstack.org/designate/latest/index.html
+                        return False
             return True
         except Exception as ex:
             self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
