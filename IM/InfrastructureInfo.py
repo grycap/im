@@ -674,36 +674,45 @@ class InfrastructureInfo:
         """
         if self.auth is not None:
             self_im_auth = self.auth.getAuthInfo("InfrastructureManager")[0]
-            other_im_auth = auth.getAuthInfo("InfrastructureManager")[0]
 
-            for elem in ['username', 'password']:
-                if elem not in other_im_auth:
-                    return False
-                if elem not in self_im_auth:
-                    InfrastructureInfo.logger.error("Inf ID %s has not elem %s in the auth data" % (self.id, elem))
-                    return True
-                if self_im_auth[elem] != other_im_auth[elem]:
-                    return False
+            for other_im_auth in auth.getAuthInfo("InfrastructureManager"):
 
-            if 'token' in self_im_auth:
-                if 'token' not in other_im_auth:
-                    return False
-                decoded_token = JWT().get_info(other_im_auth['token'])
-                password = str(decoded_token['iss']) + str(decoded_token['sub'])
-                # check that the token provided is associated with the current owner of the inf.
-                if self_im_auth['password'] != password:
-                    return False
+                res = True
+                for elem in ['username', 'password']:
+                    if elem not in other_im_auth:
+                        res = False
+                        break
+                    if elem not in self_im_auth:
+                        InfrastructureInfo.logger.error("Inf ID %s has not elem %s in the auth data" % (self.id, elem))
+                    if self_im_auth[elem] != other_im_auth[elem]:
+                        res = False
+                        break
 
-                # In case of OIDC token update it in each call to get a fresh version
-                self_im_auth['token'] = other_im_auth['token']
+                if 'token' in self_im_auth:
+                    if 'token' not in other_im_auth:
+                        res = False
+                        break
+                    decoded_token = JWT().get_info(other_im_auth['token'])
+                    password = str(decoded_token['iss']) + str(decoded_token['sub'])
+                    # check that the token provided is associated with the current owner of the inf.
+                    if self_im_auth['password'] != password:
+                        res = False
+                        break
 
-            if (self_im_auth['username'].startswith(InfrastructureInfo.OPENID_USER_PREFIX) and
-                    'token' not in other_im_auth):
-                # This is a OpenID user do not enable to get data using user/pass creds
-                InfrastructureInfo.logger.warn("Inf ID %s: A non OpenID user tried to access it." % self.id)
-                return False
+                    # In case of OIDC token update it in each call to get a fresh version
+                    self_im_auth['token'] = other_im_auth['token']
 
-            return True
+                if (self_im_auth['username'].startswith(InfrastructureInfo.OPENID_USER_PREFIX) and
+                        'token' not in other_im_auth):
+                    # This is a OpenID user do not enable to get data using user/pass creds
+                    InfrastructureInfo.logger.warn("Inf ID %s: A non OpenID user tried to access it." % self.id)
+                    res = False
+                    break
+
+                if res:
+                    return res
+
+            return False
         else:
             return False
 

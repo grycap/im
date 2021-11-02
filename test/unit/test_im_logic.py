@@ -610,7 +610,17 @@ class TestIM(unittest.TestCase):
         inf_ids = IM.GetInfrastructureList(auth0, ".*nonexist.*")
         self.assertEqual(inf_ids, [])
 
-        IM.DestroyInfrastructure(infId, auth0)
+        auth1 = self.getAuth([1], [], [("Dummy", 0)])
+        infId1 = IM.CreateInfrastructure(radl, auth1)
+
+        auth = self.getAuth([0, 1], [], [("Dummy", 0)])
+        inf_ids = IM.GetInfrastructureList(auth)
+        self.assertEqual(len(inf_ids), 2)
+        inf_ids = IM.GetInfrastructureList(auth0)
+        self.assertEqual(len(inf_ids), 1)
+
+        IM.DestroyInfrastructure(infId, auth)
+        IM.DestroyInfrastructure(infId1, auth)
 
     def test_reconfigure(self):
         """Reconfigure."""
