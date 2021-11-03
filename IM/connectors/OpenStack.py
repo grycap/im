@@ -243,12 +243,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         res = []
         for size in driver.list_sizes():
             # If extra specs are not fetch in the list_sizes function
-            if len(size.extra) == 0:
-                try:
-                    # get it now
-                    size.extra = driver.ex_get_size_extra_specs(size.id)
-                except Exception:
-                    self.log_exception("Error trying to get flavor '%s' extra_specs." % size.id)
+            try:
+                size.extra.update(driver.ex_get_size_extra_specs(size.id))
+            except Exception:
+                self.log_exception("Error trying to get flavor '%s' extra_specs." % size.id)
 
             size.extra['pci_devices'] = 0
             # Count to pci devices to enable sorting
