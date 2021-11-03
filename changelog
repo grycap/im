@@ -663,3 +663,8 @@ IM 1.10.6:
     * Add net_interface.0.additional_ip support in OST.
     * Enable to filter disabled OpenStack flavors.
     * Fix TOSCA Configure interface.
+
+IM 1.10.7:
+    * Fix TOSCA endpoint ports not correctly processed.
+    * Enable to access infrastructure using multiple IM credentials.
+    * Fix Flavor extra specs are not get on OST conn.
