@@ -44,7 +44,8 @@ class Authentication:
         for auth in self.auth_list:
             if 'id' in auth and auth['id']:
                 pattern = re.compile(r'[a-zA-Z_.][\w\d_.-]*')
-                if not pattern.match(auth['id']):
+                res = pattern.match(auth['id'])
+                if not res or res.group(0) != auth['id']:
                     raise Exception('Incorrect value in auth item id: %s' % auth['id'])
 
     def getAuthInfo(self, auth_type, host=None):
