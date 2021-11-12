@@ -30,6 +30,7 @@ from IM import get_ex_error
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
+from IM.vault import VaultCredentials
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -201,23 +202,27 @@ def get_auth_header():
         REST_URL = get_full_url("")
 
     auth_header = bottle.request.headers['AUTHORIZATION']
+
+    user_pass = None
+    token = None
+    if auth_header.startswith("Basic "):
+        auth_data = str(base64.b64decode(auth_header[6:]))
+        user_pass = auth_data.split(":")
+        im_auth = {"type": "InfrastructureManager",
+                   "username": user_pass[0],
+                   "password": user_pass[1]}
+    elif auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+        im_auth = {"type": "InfrastructureManager",
+                   "token": token}
+
     if Config.SINGLE_SITE:
-        if auth_header.startswith("Basic "):
-            auth_data = str(base64.b64decode(auth_header[6:]))
-            user_pass = auth_data.split(":")
-            im_auth = {"type": "InfrastructureManager",
-                       "username": user_pass[0],
-                       "password": user_pass[1]}
+        if user_pass:
             single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
                                 "host": Config.SINGLE_SITE_AUTH_HOST,
                                 "username": user_pass[0],
                                 "password": user_pass[1]}
-            return Authentication([im_auth, single_site_auth])
-        elif auth_header.startswith("Bearer "):
-            token = auth_header[7:].strip()
-            im_auth = {"type": "InfrastructureManager",
-                       "username": "user",
-                       "token": token}
+        elif token:
             if Config.SINGLE_SITE_TYPE == "OpenStack":
                 single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
                                     "host": Config.SINGLE_SITE_AUTH_HOST,
@@ -228,7 +233,13 @@ def get_auth_header():
                 single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
                                     "host": Config.SINGLE_SITE_AUTH_HOST,
                                     "token": token}
-            return Authentication([im_auth, single_site_auth])
+        return Authentication([im_auth, single_site_auth])
+    elif Config.VAULT_URL and token:
+        vault = VaultCredentials(Config.VAULT_URL)
+        vault_auth = vault.get_creds(token)
+        vault_auth.append(im_auth)
+        return Authentication(vault_auth)
+
     auth_data = auth_header.replace(AUTH_NEW_LINE_SEPARATOR, "\n")
     auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
     return Authentication(Authentication.read_auth_data(auth_data))
