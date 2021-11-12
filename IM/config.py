@@ -110,6 +110,7 @@ class Config:
     BOOT_MODE = 0  # It can be 0-Normal, 1-ReadOnly, 2-ReadDelete
     ENABLE_CORS = False
     CORS_ORIGIN = '*'
+    VAULT_URL = ''
 
 
 config = ConfigParser()
