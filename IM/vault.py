@@ -23,6 +23,7 @@ import hvac
 import requests
 import json
 
+
 class VaultCredentials():
 
     def __init__(self, vault_url, vault_path="credentials/", role=None):
