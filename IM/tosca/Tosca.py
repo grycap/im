@@ -31,15 +31,18 @@ class Tosca:
 
     """
 
-    ARTIFACTS_PATH = os.path.dirname(
-        os.path.realpath(__file__)) + "/tosca-types/artifacts"
+    ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/artifacts"
     ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/"
 
     logger = logging.getLogger('InfrastructureManager')
 
-    def __init__(self, yaml_str):
+    def __init__(self, yaml_str, verify=True):
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
         self.yaml = yaml.safe_load(yaml_str)
+        if not verify:
+            def verify_fake(tpl):
+                return True
+            ToscaTemplate.verify_template = verify_fake
         self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
 
     def serialize(self):
@@ -47,7 +50,8 @@ class Tosca:
 
     @staticmethod
     def deserialize(str_data):
-        return Tosca(str_data)
+        # avoid validation in this case
+        return Tosca(str_data, False)
 
     def _get_placement_property(self, sys_name, prop):
         """
