@@ -209,12 +209,12 @@ def get_auth_header():
         auth_data = str(base64.b64decode(auth_header[6:]))
         user_pass = auth_data.split(":")
         im_auth = {"type": "InfrastructureManager",
-                    "username": user_pass[0],
-                    "password": user_pass[1]}
+                   "username": user_pass[0],
+                   "password": user_pass[1]}
     elif auth_header.startswith("Bearer "):
         token = auth_header[7:].strip()
         im_auth = {"type": "InfrastructureManager",
-                    "token": token}
+                   "token": token}
 
     if Config.SINGLE_SITE:
         if user_pass:
