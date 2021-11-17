@@ -564,8 +564,9 @@ class ConfManager(LoggerMixin, threading.Thread):
         out.write('IM_MASTER_HOSTNAME=' + master_name + '\n')
         out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
         out.write('IM_MASTER_DOMAIN=' + masterdom + '\n')
-        out.write('IM_INFRASTRUCTURE_ID=' + self.inf.id + '\n\n')
-        out.write('IM_INFRASTRUCTURE_RADL=' + self.inf.get_json_radl() + '\n\n')
+        out.write('IM_INFRASTRUCTURE_ID=' + self.inf.id + '\n')
+        out.write('IM_INFRASTRUCTURE_RADL=' + self.inf.get_json_radl() + '\n')
+        out.write('IM_INFRASTRUCTURE_AUTH=' + self.inf.get_auth() + '\n\n')
 
         if windows:
             out.write('[windows]\n' + windows + "\n")
