@@ -750,3 +750,19 @@ class InfrastructureInfo:
                 self.add_cont_msg("Infrastructure deleted. Do not add resources.")
                 raise Exception("Infrastructure deleted. Do not add resources.")
             self.adding = value
+
+    def get_auth(self):
+        """
+        Return IM auth in a simple way
+        """
+        if self.auth is not None:
+            self_im_auth = self.auth.getAuthInfo("InfrastructureManager")[0]
+            if 'token' in self_im_auth:
+                return self_im_auth['token']
+            elif 'username' in self_im_auth and 'password' in self_im_auth:
+                return "%s:%s" % (self_im_auth['username'], self_im_auth['password'])
+            else:
+                # This should never happen
+                return None
+        else:
+            return None
