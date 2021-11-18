@@ -76,10 +76,16 @@ class TestTosca(unittest.TestCase):
         lrms_server = radl.get_system_by_name('lrms_server')
         self.assertEqual(lrms_server.getValue('memory.size'), 1000000000)
         self.assertEqual(lrms_server.getValue('net_interface.0.dns_name'), 'slurmserver')
-        self.assertEqual(lrms_server.getValue("disk.1.size"), 10000000000)
-        self.assertEqual(lrms_server.getValue("disk.1.mount_path"), "/mnt/disk2")
-        self.assertEqual(lrms_server.getValue("disk.2.size"), 20000000000)
-        self.assertEqual(lrms_server.getValue("disk.2.mount_path"), "/mnt/disk3")
+        if lrms_server.getValue("disk.1.size") == 10000000000:
+            self.assertEqual(lrms_server.getValue("disk.1.mount_path"), "/mnt/disk2")
+        else:
+            self.assertEqual(lrms_server.getValue("disk.1.size"), 20000000000)
+            self.assertEqual(lrms_server.getValue("disk.1.mount_path"), "/mnt/disk3")
+        if lrms_server.getValue("disk.2.size") == 10000000000:
+            self.assertEqual(lrms_server.getValue("disk.2.mount_path"), "/mnt/disk2")
+        else:
+            self.assertEqual(lrms_server.getValue("disk.2.size"), 20000000000)
+            self.assertEqual(lrms_server.getValue("disk.2.mount_path"), "/mnt/disk3")
 
         self.assertEqual("cloudid", radl.deploys[0].cloud_id)
         self.assertEqual("cloudid", radl.deploys[1].cloud_id)
