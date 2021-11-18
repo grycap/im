@@ -104,6 +104,18 @@ topology_template:
               type: tosca.relationships.indigo.OneDataStorage.AttachesTo
               properties:
                 location: /mnt/disk
+        - local_storage:
+            node: my_storage2
+            relationship:
+              type: AttachesTo
+              properties:
+                location: /mnt/disk2
+        - local_storage:
+            node: my_storage3
+            relationship:
+              type: AttachesTo
+              properties:
+                location: /mnt/disk3
 
     my_onedata_storage:
       type: tosca.nodes.indigo.OneDataStorage
@@ -114,6 +126,16 @@ topology_template:
         credential:
           token: some_token
           token_type: token
+
+    my_storage2:
+      type: tosca.nodes.BlockStorage
+      properties:
+        size: 10 GB
+
+    my_storage3:
+      type: tosca.nodes.BlockStorage
+      properties:
+        size: 20 GB
 
     wn_node:
       type: tosca.nodes.indigo.LRMS.WorkerNode.Slurm
