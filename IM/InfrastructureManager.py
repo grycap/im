@@ -39,6 +39,7 @@ from radl.radl_json import dump_radl as dump_radl_json
 
 from IM.openid.JWT import JWT
 from IM.openid.OpenIDClient import OpenIDClient
+from IM.vault import VaultCredentials
 
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
@@ -1370,8 +1371,38 @@ class InfrastructureManager:
             raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
 
     @staticmethod
+    def get_auth_from_vault(auth):
+        """Get credentials from Vault if required."""
+        vault_auth = auth.getAuthInfo("Vault")
+        im_auth = auth.getAuthInfo("InfrastructureManager")
+        if vault_auth:
+            if im_auth and "token" in im_auth[0]:
+                vault_host = None
+                vault_path = None
+                vault_role = None
+                if "host" in vault_auth[0]:
+                    vault_host = vault_auth[0]["host"]
+                else:
+                    InfrastructureManager.logger.warning("Vault credentials without host.")
+                    return auth
+                if "path" in vault_auth[0]:
+                    vault_path = vault_auth[0]["path"]
+                if "role" in vault_auth[0]:
+                    vault_role = vault_auth[0]["role"]
+                vault = VaultCredentials(vault_host, vault_path, vault_role)
+                creds = vault.get_creds(im_auth[0]["token"])
+                creds.extend(auth.auth_list)
+                return Authentication(creds)
+            else:
+                InfrastructureManager.logger.warning("Vault credentials without token in InfrastructureManager auth.")
+                return auth
+        else:
+            return auth
+
+    @staticmethod
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
+        auth = InfrastructureManager.get_auth_from_vault(auth)
         im_auth = auth.getAuthInfo("InfrastructureManager")
 
         if not im_auth:
