@@ -40,10 +40,10 @@ class TestVaultCredentials(unittest.TestCase):
 
         v = VaultCredentials("http://host:8200")
         creds = v.get_creds("atoken")
-        self.assertEqual(creds, [{"id": "credid", "type": "type", "username": "user", "password": "pass"},
-                                 {'auth_version': '3.x_oidc_access_token', 'domain': 'prj', 'host': 'server',
-                                  'id': 'fed', 'password': 'atoken', 'tenant': 'openid', 'type': 'OpenStack',
-                                  'username': 'egi.eu'}])
+        self.assertIn({"id": "credid", "type": "type", "username": "user", "password": "pass"}, creds)
+        self.assertIn({'auth_version': '3.x_oidc_access_token', 'domain': 'prj', 'host': 'server',
+                       'id': 'fed', 'password': 'atoken', 'tenant': 'openid', 'type': 'OpenStack',
+                       'username': 'egi.eu'}, creds)
 
 
 if __name__ == '__main__':
