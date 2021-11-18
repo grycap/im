@@ -130,7 +130,7 @@ topology_template:
     my_storage2:
       type: tosca.nodes.BlockStorage
       properties:
-        size: 10 GB
+        size: 10GB
 
     my_storage3:
       type: tosca.nodes.BlockStorage

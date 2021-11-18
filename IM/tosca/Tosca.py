@@ -18,6 +18,7 @@ except ImportError:
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
+from toscaparser.elements.scalarunit import ScalarUnit_Size
 from IM.ansible_utils import merge_recipes
 from radl.radl import (system, deploy, network, Feature, Features, configure,
                        contextualize_item, RADL, contextualize, ansible)
@@ -1287,15 +1288,7 @@ class Tosca:
         """
         Normalize the size and units to bytes
         """
-        parts = str_value.split(" ")
-        value = float(parts[0])
-        unit = 'M'
-        if len(parts) > 1:
-            unit = parts[1]
-
-        value = int(value * Tosca._unit_to_bytes(unit))
-
-        return value, 'B'
+        return ScalarUnit_Size(str_value).get_num_from_scalar_unit('B'), 'B'
 
     def _gen_network(self, node):
         """
