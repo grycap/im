@@ -235,7 +235,7 @@ def get_auth_header():
                                     "token": token}
         return Authentication([im_auth, single_site_auth])
     elif Config.VAULT_URL and token:
-        vault = VaultCredentials(Config.VAULT_URL)
+        vault = VaultCredentials(Config.VAULT_URL, Config.VAULT_PATH, Config.VAULT_ROLE)
         vault_auth = vault.get_creds(token)
         vault_auth.append(im_auth)
         return Authentication(vault_auth)
