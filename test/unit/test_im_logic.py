@@ -1349,6 +1349,20 @@ configure step2 (
         with self.assertRaises(Exception):
             IM.GetCloudQuotas("cloud2", auth)
 
+    @patch('IM.InfrastructureManager.VaultCredentials')
+    def test_get_auth_from_vault(self, vault):
+        vault_mock = MagicMock()
+        vault_mock.get_creds.return_value = [{'id': 'cloud1', 'type': 'OpenNebula', 'username': 'user',
+                                              'password': 'pass'}]
+        vault.return_value = vault_mock
+        auth = Authentication([{'type': 'Vault', 'host': 'http://vault.com:8200/'},
+                               {'type': 'InfrastructureManager', 'token': 'atoken'}])
+        res = IM.get_auth_from_vault(auth)
+        expected_res = [{'id': 'cloud1', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass'},
+                        {'type': 'Vault', 'host': 'http://vault.com:8200/'},
+                        {'type': 'InfrastructureManager', 'token': 'atoken'}]
+        self.assertEqual(res.auth_list, expected_res)
+
 
 if __name__ == "__main__":
     unittest.main()

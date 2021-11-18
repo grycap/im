@@ -26,8 +26,10 @@ import json
 
 class VaultCredentials():
 
-    def __init__(self, vault_url, vault_path="credentials/", role=None):
-        self.vault_path = vault_path
+    def __init__(self, vault_url, vault_path=None, role=None):
+        self.vault_path = "credentials/"
+        if vault_path:
+            self.vault_path = vault_path
         self.role = role
         self.client = None
         self.url = vault_url
