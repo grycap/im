@@ -549,12 +549,13 @@ class Tosca:
         rel_tpls = src.get_relationship_template()
         rel_tpls.extend(trgt.get_relationship_template())
         for rel_tpl in rel_tpls:
-            if rel.type == rel_tpl.type:
-                return rel_tpl
-            else:
-                root_type = Tosca._get_root_parent_type(rel_tpl).type
-                if root_type == rel.type:
+            if rel_tpl.source.name == src.name and rel_tpl.target.name == trgt.name:
+                if rel.type == rel_tpl.type:
                     return rel_tpl
+                else:
+                    root_type = Tosca._get_root_parent_type(rel_tpl).type
+                    if root_type == rel.type:
+                        return rel_tpl
         return None
 
     @staticmethod
