@@ -68,6 +68,16 @@ class VaultCredentials():
                 new_item = json.loads(cred_json)
                 if new_item['enabled']:
                     del new_item['enabled']
+                    if new_item['type'] == "fedcloud":
+                        new_item['type'] = "OpenStack"
+                        new_item['username'] = "egi.eu"
+                        new_item['tenant'] = "openid"
+                        new_item['auth_version'] = "3.x_oidc_access_token"
+                        new_item['password'] = token
+                        if 'project_id' in new_item:
+                            new_item['domain'] = new_item['project_id']
+                            del new_item['project_id']
+                        del new_item['vo']
                     data.append(new_item)
         except Exception:
             pass
