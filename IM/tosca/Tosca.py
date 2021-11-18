@@ -18,6 +18,7 @@ except ImportError:
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
+from toscaparser.elements.scalarunit import ScalarUnit_Size
 from IM.ansible_utils import merge_recipes
 from radl.radl import (system, deploy, network, Feature, Features, configure,
                        contextualize_item, RADL, contextualize, ansible)
@@ -1257,45 +1258,11 @@ class Tosca:
             return 1
 
     @staticmethod
-    def _unit_to_bytes(unit):
-        """Return the value of an unit."""
-        if not unit:
-            return 1
-        unit = unit.upper()
-
-        if unit.startswith("KI"):
-            return 1024
-        elif unit.startswith("K"):
-            return 1000
-        elif unit.startswith("MI"):
-            return 1048576
-        elif unit.startswith("M"):
-            return 1000000
-        elif unit.startswith("GI"):
-            return 1073741824
-        elif unit.startswith("G"):
-            return 1000000000
-        elif unit.startswith("TI"):
-            return 1099511627776
-        elif unit.startswith("T"):
-            return 1000000000000
-        else:
-            return 1
-
-    @staticmethod
     def _get_size_and_unit(str_value):
         """
         Normalize the size and units to bytes
         """
-        parts = str_value.split(" ")
-        value = float(parts[0])
-        unit = 'M'
-        if len(parts) > 1:
-            unit = parts[1]
-
-        value = int(value * Tosca._unit_to_bytes(unit))
-
-        return value, 'B'
+        return ScalarUnit_Size(str_value).get_num_from_scalar_unit('B'), 'B'
 
     def _gen_network(self, node):
         """
