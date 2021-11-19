@@ -990,7 +990,11 @@ class AzureCloudConnector(CloudConnector):
             async_vm_deallocate = compute_client.virtual_machines.deallocate(group_name, vm_name)
             async_vm_deallocate.wait()
 
-            instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
+            new_system = self.resize_vm_radl(vm, radl)
+            if not new_system:
+                return (True, "")
+
+            instance_type = self.get_instance_type(new_system, credentials, subscription_id)
             vm_parameters = " { 'hardware_profile': { 'vm_size': %s } } " % instance_type.name
 
             async_vm_update = compute_client.virtual_machines.create_or_update(group_name,
