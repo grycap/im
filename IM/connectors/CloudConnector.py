@@ -628,6 +628,14 @@ class CloudConnector(LoggerMixin):
         return res
 
     def resize_vm_radl(self, vm, radl):
+        """
+        Update the current VM RADL with the new RADL
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - radl(RADL): RADL document.
+        Returns: an RADL system or None if no changes are made
+        """
         orig_system = vm.info.systems[0].clone()
         new_cpu = radl.systems[0].getValue('cpu.count')
         if new_cpu:
