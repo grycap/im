@@ -1525,9 +1525,13 @@ class EC2CloudConnector(CloudConnector):
         else:
             return (False, "The instance has not been found")
 
+        new_system = self.resize_vm_radl(vm, radl)
+        if not new_system:
+            return (True, "")
+
         success = True
-        if radl.systems:
-            instance_type = self.get_instance_type(radl.systems[0])
+        if new_system:
+            instance_type = self.get_instance_type(new_system)
 
             if instance_type and instance.instance_type != instance_type.name:
                 stopped = self.waitStop(instance)
