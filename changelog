@@ -670,3 +670,7 @@ IM 1.10.7:
     * Fix Flavor extra specs are not get on OST conn.
     * Initial integration EGI Dynamic DNS service. 
     * Fix simbol & is not supported in cloud ids.
+    * Add vault credentials support.
+    * Fix error in case of declaring multiple local_storage in TOSCA node.
+    * Improve resize VM functions.
+

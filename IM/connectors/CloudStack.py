@@ -419,7 +419,11 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
     def alterVM(self, vm, radl, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            instance_type = self.get_instance_type(node.driver, radl.systems[0])
+            new_system = self.resize_vm_radl(vm, radl)
+            if not new_system:
+                return (True, "")
+
+            instance_type = self.get_instance_type(node.driver, new_system)
 
             try:
                 if node.ex_stop() == "Stopped":
