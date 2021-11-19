@@ -626,3 +626,24 @@ class CloudConnector(LoggerMixin):
                 res.append((hostname, domain, ip))
 
         return res
+
+    def resize_vm_radl(self, vm, radl):
+        orig_system = vm.info.systems[0].clone()
+        new_cpu = radl.systems[0].getValue('cpu.count')
+        if new_cpu:
+            orig_system.setValue('cpu.count', new_cpu)
+        new_memory = radl.systems[0].getValue('memory.size')
+        if new_memory:
+            orig_system.setValue('memory.size', new_memory)
+        instance_type = radl.systems[0].getValue('instance_type')
+        if instance_type:
+            orig_system.setValue('instance_type', instance_type)
+        new_gpu = radl.systems[0].getValue('gpu.count')
+        if new_gpu:
+            orig_system.setValue('gpu.count', new_gpu)
+
+        if any([new_cpu, new_memory, instance_type, new_gpu]):
+            return orig_system
+        else:
+            self.log_debug("No memory nor cpu nor instance_type nor gpu specified. VM not resized.")
+            return None

@@ -1743,14 +1743,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     def resizeVM(self, vm, radl, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            new_cpu = radl.systems[0].getValue('cpu.count')
-            new_memory = radl.systems[0].getValue('memory.size')
-            instance_type = radl.systems[0].getValue('instance_type')
-            if not any([new_cpu, new_memory, instance_type]):
-                self.log_debug("No memory nor cpu nor instance_type specified. VM not resized.")
+            new_system = self.resize_vm_radl(vm, radl)
+            if not new_system:
                 return (True, "")
             else:
-                instance_type = self.get_instance_type(node.driver, radl.systems[0])
+                instance_type = self.get_instance_type(node.driver, new_system)
                 if instance_type is None:
                     return (False, "Error resizing VM: No instance type found.")
                 if node.extra['flavorId'] != instance_type.id:
