@@ -178,6 +178,10 @@ The :program:`im_client` is called like this::
       Import the data of an infrastructure previously exported with the previous function.
       The ``json_file`` is a file with the data generated with the  ``export`` function.
 
+   ``wait infId``
+      Wait infrastructure with ID ``infId`` to get a final state. It will return code ``0`` if it
+      becomes ``configured`` or ``1`` otherwhise.
+
 .. _auth-file:
 
 Authorization File
