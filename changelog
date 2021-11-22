@@ -669,8 +669,9 @@ IM 1.10.7:
     * Enable to access infrastructure using multiple IM credentials.
     * Fix Flavor extra specs are not get on OST conn.
     * Initial integration EGI Dynamic DNS service. 
-    * Fix simbol & is not supported in cloud ids.
+    * Fix symbol & is not supported in cloud ids.
     * Add vault credentials support.
     * Fix error in case of declaring multiple local_storage in TOSCA node.
     * Improve resize VM functions.
+    * Fix errors in contextualization in case of unnatended apt process running.
 
