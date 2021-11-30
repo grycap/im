@@ -42,5 +42,6 @@ class SSLSimpleXMLRPCServer(SimpleXMLRPCServer, object):
                                      certfile=self._certfile,
                                      ca_certs=self._ca_certs,
                                      cert_reqs=self._cert_reqs,
+                                     ssl_version=ssl.PROTOCOL_TLSv1,
                                      server_side=True)
         return client_ssl, addr
