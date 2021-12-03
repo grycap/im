@@ -451,8 +451,8 @@ class OpenNebulaCloudConnector(CloudConnector):
                     sg_id = self._get_security_group(sg_name, auth_data)
                     if not sg_id:
                         sg_template = ""
-                        # open always SSH port on public nets
-                        if network.isPublic():
+                        # open always SSH port on public nets or with proxy_host
+                        if network.isPublic() or network.getValue("proxy_host"):
                             sg_template += "RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 22:22 ]\n"
 
                         outports = network.getOutPorts()
