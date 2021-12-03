@@ -1495,8 +1495,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 res.append(sg)
 
             try:
-                # open always SSH port on public nets
-                if network.isPublic():
+                # open always SSH port on public nets or private with proxy host
+                if network.isPublic() or network.getValue("proxy_host"):
                     driver.ex_create_security_group_rule(sg, 'tcp', 22, 22, '0.0.0.0/0')
                 # open all the ports for the VMs in the security group
                 driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
