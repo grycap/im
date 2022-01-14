@@ -183,6 +183,14 @@ The :program:`im_client` is called like this::
       becomes ``configured`` or ``1`` otherwhise. Optional parameter ``max_time`` to set the max time
       to wait.
 
+   ``create_wait_outputs inputfile``
+      This operation is a combination of the create, wait and getoutputs functions. First it creates the
+      infrastructure using the specified ``inputfile``, then waits for it to be configured, and finally
+      gets the TOSCA outputs. In case of failure in then infrastructure creation step only the error message
+      will be returned. The results will be returned to stdout in json format::
+         
+         {"infid": "ID", "error": "Error message"}
+
 .. _auth-file:
 
 Authorization File
