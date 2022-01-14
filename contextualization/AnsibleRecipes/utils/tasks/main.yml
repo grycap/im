@@ -30,3 +30,9 @@
 - name: Copy the /etc/hosts in windows native
   win_copy: src=etc_hosts dest=c:\Windows\System32\Drivers\etc\hosts
   when: ansible_os_family == "Windows"
+
+- name: Set BEARER_TOKEN environment variable
+  lineinfile:
+    dest: /etc/environment
+    line: "BEARER_TOKEN={{IM_INFRASTRUCTURE_AUTH}}"
+  when: IM_INFRASTRUCTURE_AUTH is defined and IM_INFRASTRUCTURE_AUTH is not search(":")
