@@ -113,7 +113,10 @@ class Config:
     VAULT_URL = None
     VAULT_PATH = None
     VAULT_ROLE = None
-
+    VM_TAG_USERNAME = None
+    VM_TAG_INF_ID = None
+    VM_TAG_IM_URL = None
+    VM_TAG_IM = None
 
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
