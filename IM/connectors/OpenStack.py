@@ -122,7 +122,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                           "volume_url": None,
                           "api_version": "2.0",
                           "domain": None,
-                          "tenant_domain_id": None}
+                          "tenant_domain_id": None,
+                          "microversion": None}
 
             if 'username' in auth and 'password' in auth and 'tenant' in auth:
                 username = auth['username']
@@ -162,7 +163,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             for key, value in parameters.items():
                 if value:
                     if key in ['base_url', 'auth_token', 'service_type', 'image_url', 'volume_url',
-                               'network_url', 'service_region', 'auth_version', 'auth_url']:
+                               'network_url', 'service_region', 'auth_version', 'auth_url', 'microversion']:
                         key = 'ex_force_%s' % key
                     elif key == 'domain':
                         key = 'ex_domain_name'
