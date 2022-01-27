@@ -118,6 +118,7 @@ class Config:
     VM_TAG_IM_URL = None
     VM_TAG_IM = None
 
+
 config = ConfigParser()
 config.read([Config.IM_PATH + '/../im.cfg', Config.IM_PATH +
              '/../etc/im.cfg', '/etc/im/im.cfg'])
