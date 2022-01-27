@@ -470,11 +470,14 @@ class CloudConnector(LoggerMixin):
                 value = parts[1].strip()
                 tags[key] = value
         # If available try to set the IM username as a tag
-        if auth_data and auth_data.getAuthInfo('InfrastructureManager'):
+        if "eu.egi.cloud.orchestrator.user" not in tags and auth_data and auth_data.getAuthInfo('InfrastructureManager'):
             im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
-            tags["IM-USER"] = im_username
-        if inf:
-            tags["IM_INFRA_ID"] = inf.id
+            tags["eu.egi.cloud.orchestrator.user"] = im_username
+        if "eu.egi.cloud.orchestrator.id" not in tags and inf:
+            tags["eu.egi.cloud.orchestrator.id"] = inf.id
+        from IM.REST import REST_URL
+        if "eu.egi.cloud.orchestrator.url" not in tags and REST_URL:
+            tags["eu.egi.cloud.orchestrator.url"] = REST_URL
         return tags
 
     @staticmethod
