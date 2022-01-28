@@ -5,7 +5,7 @@
   gather_facts: false
   vars:
     # Ansible specific Version or "latest"
-    ANSIBLE_VERSION: 2.9.27
+    ANSIBLE_VERSION: 2.9.26
   tasks:
     - name: Set Ansible version from env if defined
       set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
@@ -71,15 +71,15 @@
       command: yum install -y epel-release
       args:
         creates: /etc/yum.repos.d/epel.repo
-      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
+      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora" and ansible_distribution_major_version|int < 9
 
     - name: Ensure to Enable EPEL repo
       ini_file:
         dest: /etc/yum.repos.d/epel.repo
         section: epel
         option: enabled
-        value: 1
-      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
+        value: "1"
+      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora" and ansible_distribution_major_version|int < 9
       ignore_errors: yes
 
     - name: Ubuntu/Debian apt update
