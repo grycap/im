@@ -30,6 +30,10 @@ if sys.version_info > (3, 0):
     suds_pkg = "suds-py3"
     sqlite_pkg = ""
 
+# Avoid using wheel as it does not copy data_files to / dir
+if 'bdist_wheel' in sys.argv:
+    raise RuntimeError("This setup.py does not support wheels")
+
 # Add contextualization dir files
 install_path = '/usr/share/im'
 datafiles = [(os.path.join(install_path, root), [os.path.join(root, f) for f in files])
