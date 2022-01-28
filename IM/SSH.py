@@ -20,7 +20,7 @@ import paramiko
 try:
     import scp
 except Exception:
-    print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
+    print("WARN: SCP library not correctly installed. Some sftp functions will not work!.")
 import os
 try:
     from StringIO import StringIO

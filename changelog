@@ -675,3 +675,7 @@ IM 1.10.7:
     * Improve resize VM functions.
     * Fix errors in contextualization in case of unnatended apt process running.
 
+IM 1.10.8:
+    * Open SSH port on networks with proxy host.
+    * Add OIDC Access Token inside the VM.
+    * Enable to set OpenStack microversion.

@@ -5,7 +5,7 @@
   gather_facts: false
   vars:
     # Ansible specific Version or "latest"
-    ANSIBLE_VERSION: 2.9.21
+    ANSIBLE_VERSION: 2.9.26
   tasks:
     - name: Set Ansible version from env if defined
       set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
@@ -71,15 +71,15 @@
       command: yum install -y epel-release
       args:
         creates: /etc/yum.repos.d/epel.repo
-      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
+      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora" and ansible_distribution_major_version|int < 9
 
     - name: Ensure to Enable EPEL repo
       ini_file:
         dest: /etc/yum.repos.d/epel.repo
         section: epel
         option: enabled
-        value: 1
-      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
+        value: "1"
+      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora" and ansible_distribution_major_version|int < 9
       ignore_errors: yes
 
     - name: Ubuntu/Debian apt update
@@ -98,16 +98,12 @@
       apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
-    - name: Debian 10-/Ubuntu 16- install additional requisites with apt
-      apt: name=libffi-dev,gcc,python3-dev install_recommends=no
-      when: (ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "16") or (ansible_distribution == "Debian" and ansible_distribution_major_version|int <= 10)
-
     - name: Yum install requisites RH 7/8 or Fedora
       command: yum install -y python3-pip python3-setuptools sshpass openssh-clients
       when: ansible_os_family == "RedHat"
 
     - name: Zypper install requirements Suse
-      zypper: name=python3-pip,python3-setuptools,gcc,python3-devel,wget,libffi-devel,openssl-devel,python3-cryptography,make state=present
+      zypper: name=python3-pip,python3-setuptools,wget,python3-cryptography state=present
       when: ansible_os_family == "Suse"
 
     - name: Install python-setuptools
@@ -157,35 +153,37 @@
 
     - name: Install cryptography
       pip:
-        name: cryptography<3.3
+        name: cryptography
         executable: pip3
+        extra_args: --prefer-binary
 
     - name: Install pyOpenSSL
       pip:
-        name: pyOpenSSL>20.0,<21.0
+        name: pyOpenSSL>20.0
         executable: pip3
+        extra_args: --prefer-binary
 
     - name: Install pyyaml
-      pip: name=pyyaml executable=pip3
+      pip: name=pyyaml executable=pip3 extra_args=--prefer-binary
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip3
       when: ANSIBLE_VERSION != "latest"
 
     - name: Install latest ansible version with Pip
-      pip: name=ansible state=latest executable=pip3
+      pip: name=ansible state=latest executable=pip3 
       when: ANSIBLE_VERSION == "latest"
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
 
     - name: Install jmespath with Pip
-      pip: name=jmespath executable=pip3
+      pip: name=jmespath executable=pip3 extra_args=--prefer-binary
 
     - name: Install scp with Pip
-      pip: name=scp executable=pip3
+      pip: name=scp executable=pip3 extra_args=--prefer-binary
 
     - name: Install pywinrm with Pip
-      pip: name=pywinrm executable=pip3
+      pip: name=pywinrm executable=pip3 extra_args=--prefer-binary 
       ignore_errors: yes
 
 ################################################ Configure Ansible  ###################################################
