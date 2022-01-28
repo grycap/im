@@ -469,12 +469,18 @@ class CloudConnector(LoggerMixin):
                 key = parts[0].strip()
                 value = parts[1].strip()
                 tags[key] = value
-        # If available try to set the IM username as a tag
-        if auth_data and auth_data.getAuthInfo('InfrastructureManager'):
+        # If available try to set the IM information as tags
+        if (Config.VM_TAG_USERNAME and Config.VM_TAG_USERNAME not in tags and
+                auth_data and auth_data.getAuthInfo('InfrastructureManager')):
             im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
-            tags["IM-USER"] = im_username
-        if inf:
-            tags["IM_INFRA_ID"] = inf.id
+            tags[Config.VM_TAG_USERNAME] = im_username
+        if Config.VM_TAG_INF_ID and Config.VM_TAG_INF_ID not in tags and inf:
+            tags[Config.VM_TAG_INF_ID] = inf.id
+        from IM.REST import REST_URL
+        if Config.VM_TAG_IM_URL and Config.VM_TAG_IM_URL not in tags and REST_URL:
+            tags[Config.VM_TAG_IM_URL] = REST_URL
+        if Config.VM_TAG_IM and Config.VM_TAG_IM not in tags:
+            tags[Config.VM_TAG_IM] = "es.upv.grycap.im"
         return tags
 
     @staticmethod
