@@ -30,8 +30,8 @@ if sys.version_info > (3, 0):
     suds_pkg = "suds-py3"
     sqlite_pkg = ""
 
-if 'bdist_wheel' in sys.argv:
-    raise RuntimeError("This setup.py does not support wheels")
+#if 'bdist_wheel' in sys.argv:
+#    raise RuntimeError("This setup.py does not support wheels")
 
 # Add contextualization dir files
 install_path = '/usr/share/im'
