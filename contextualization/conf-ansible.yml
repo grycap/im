@@ -98,16 +98,12 @@
       apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
-    - name: Debian 10-/Ubuntu 16- install additional requisites with apt
-      apt: name=libffi-dev,gcc,make,python3-dev install_recommends=no
-      when: (ansible_distribution == "Ubuntu" and ansible_distribution_major_version == "16") or (ansible_distribution == "Debian" and ansible_distribution_major_version|int <= 10)
-
     - name: Yum install requisites RH 7/8 or Fedora
       command: yum install -y python3-pip python3-setuptools sshpass openssh-clients
       when: ansible_os_family == "RedHat"
 
     - name: Zypper install requirements Suse
-      zypper: name=python3-pip,python3-setuptools,gcc,python3-devel,wget,libffi-devel,openssl-devel,python3-cryptography,make state=present
+      zypper: name=python3-pip,python3-setuptools,wget,python3-cryptography state=present
       when: ansible_os_family == "Suse"
 
     - name: Install python-setuptools
