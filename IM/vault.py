@@ -52,7 +52,7 @@ class VaultCredentials():
         vault_auth_token = deserialized_response["auth"]["client_token"]
         vault_entity_id = deserialized_response["auth"]["entity_id"]
 
-        self.client = hvac.Client(url=self.url, token=vault_auth_token)
+        self.client = hvac.Client(url=self.url, token=vault_auth_token, verify=False)
         if not self.client.is_authenticated():
             raise Exception("Error authenticating against Vault with token: {}".format(vault_auth_token))
 
