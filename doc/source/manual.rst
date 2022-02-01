@@ -636,8 +636,44 @@ If you need to specify more advanced details of the logging configuration you ha
 Vault Configuration
 ^^^^^^^^^^^^^^^^^^^^
 
-TBC
+From version 1.10.7 the IM service supports reading authorization data from a Vault server.
 
+.. confval:: VAULT_URL 
+
+   URL to the Vault server API.
+
+.. confval:: VAULT_PATH 
+
+   Configured path of the KV (ver 1) secret. 
+
+.. confval:: VAULT_ROLE 
+
+   Configured role with the correct permissions to read the credentials secret store.
+
+Vault server must configured with the JWT authentication method enabled.
+
+
+Virtual Machine Tags
+^^^^^^^^^^^^^^^^^^^^^
+
+Name of the tags that IM will add in the VMs with username, infrastructure ID, URL of the IM service,
+and IM name comment or leave empty not to set them
+
+.. confval:: VM_TAG_USERNAME
+
+   Name of the tag to set the IM username as tag in the IM created VMs.
+
+.. confval:: VM_TAG_INF_ID
+
+   Name of the tag to set the IM infrastructure ID as tag in the IM created VMs.
+
+.. confval:: VM_TAG_IM_URL
+
+   Name of the tag to set the IM URL as tag in the IM created VMs.
+
+.. confval:: VM_TAG_IM
+
+   Name of the tag to set the IM string as tag in the IM created VMs.
 
 .. _options-ha:
 
