@@ -631,6 +631,13 @@ If you need to specify more advanced details of the logging configuration you ha
 	format=%(asctime)s - %(hostname)s - %(name)s - %(levelname)s - %(message)s
 	datefmt=
 
+.. _vault-creds:
+
+Vault Configuration
+^^^^^^^^^^^^^^^^^^^^
+
+TBC
+
 
 .. _options-ha:
 

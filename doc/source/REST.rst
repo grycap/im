@@ -11,7 +11,9 @@ In the following link you can follow the IM REST API in Swaggerhub:
 Every HTTP request must be accompanied by the header ``AUTHORIZATION`` with
 the content of the :ref:`auth-file`, but putting all the elements in one line
 using "\\n" as separator. If the content cannot be parsed successfully, or the user and
-password are not valid, it is returned the HTTP error code 401.
+password are not valid, it is returned the HTTP error code 401. In case that Vault
+support has been configured (:ref:`vault-creds`) also a Bearer authorization header
+is supported, using the same access token to authenticate with the Vault server.
 
 Next tables summaries the resources and the HTTP methods available.
 
