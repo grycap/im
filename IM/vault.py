@@ -85,7 +85,8 @@ class VaultCredentials():
                     elif (new_item['type'] == "OpenStack" and 'auth_version' in new_item and
                             new_item['auth_version'] == '3.x_oidc_access_token'):
                         new_item['password'] = token
-                    data.append(new_item)
+                    if new_item['type'] != "Vault":
+                        data.append(new_item)
         except Exception:
             pass
 
