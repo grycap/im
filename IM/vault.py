@@ -80,6 +80,11 @@ class VaultCredentials():
                             new_item['domain'] = new_item['project_id']
                             del new_item['project_id']
                         del new_item['vo']
+                    elif new_item['type'] == "EGI":
+                        new_item['token'] = token
+                    elif (new_item['type'] == "OpenStack" and 'auth_version' in new_item and
+                            new_item['auth_version'] == '3.x_oidc_access_token'):
+                        new_item['password'] = token
                     data.append(new_item)
         except Exception:
             pass
