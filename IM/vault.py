@@ -67,8 +67,9 @@ class VaultCredentials():
             creds = self.client.secrets.kv.v1.read_secret(path=vault_entity_id, mount_point=self.vault_path)
             for cred_json in creds["data"].values():
                 new_item = json.loads(cred_json)
-                if new_item['enabled']:
-                    del new_item['enabled']
+                if 'enabled' not in new_item or new_item['enabled']:
+                    if 'enabled' in new_item:
+                        del new_item['enabled']
                     if new_item['type'] == "fedcloud":
                         new_item['type'] = "OpenStack"
                         new_item['username'] = "egi.eu"
