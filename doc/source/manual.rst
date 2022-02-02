@@ -637,6 +637,8 @@ Vault Configuration
 ^^^^^^^^^^^^^^^^^^^^
 
 From version 1.10.7 the IM service supports reading authorization data from a Vault server.
+These values are used by the REST API enabling to use ``Bearer`` authentication header and
+get the all the credential values from the configured Vault server.
 
 .. confval:: VAULT_URL 
 
@@ -703,6 +705,8 @@ Must be stored in the vault KV secrect, setting ``one`` as key and this content 
 
    {"id": "one", "type": "OpenNebula", "host": "oneserver:2633", "username": "user", "password": "pass"}
 
+In all the auth lines where an access token is needed it must not be set and the IM will replace it with
+then access token used to authenticate with the IM itself.
 
 Virtual Machine Tags
 ^^^^^^^^^^^^^^^^^^^^^
