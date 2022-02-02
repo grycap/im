@@ -30,7 +30,6 @@ from IM import get_ex_error
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
-from IM.vault import VaultCredentials
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -235,10 +234,12 @@ def get_auth_header():
                                     "token": token}
         return Authentication([im_auth, single_site_auth])
     elif Config.VAULT_URL and token:
-        vault = VaultCredentials(Config.VAULT_URL, Config.VAULT_PATH, Config.VAULT_ROLE)
-        vault_auth = vault.get_creds(token)
-        vault_auth.append(im_auth)
-        return Authentication(vault_auth)
+        vault_auth = {"type": "Vault", "host": Config.VAULT_URL, "token": token}
+        if Config.VAULT_PATH:
+            vault_auth["path"] = Config.VAULT_PATH
+        if Config.VAULT_ROLE:
+            vault_auth["role"] = Config.VAULT_ROLE
+        return Authentication([im_auth, vault_auth])
 
     auth_data = auth_header.replace(AUTH_NEW_LINE_SEPARATOR, "\n")
     auth_data = auth_data.split(AUTH_LINE_SEPARATOR)

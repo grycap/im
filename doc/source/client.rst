@@ -217,7 +217,7 @@ The available keys are:
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
   ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic``,
-  ``Kubernetes``, ``vSphere``, ``Linode``, ``Orange`` and ``EGI``.
+  ``Kubernetes``, ``vSphere``, ``Linode``, ``Orange``, ``EGI`` and ``Vault``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
@@ -267,6 +267,17 @@ The available keys are:
 
 * ``vo`` indicates the VO name associated to the credential. This field is used in the EGI plugin. 
 
+* ``path`` indicates the Vault path to read user credentials credential. This field is used in the Vault type.
+  This field is optional with default value ``credentials/``.
+
+* ``role`` indicates the Vault role to read user credentials credential. This field is used in the Vault type.
+  This field is optional with default value ``im``.
+
+Vault Credentials support
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The IM also supports to read user credentials from a Vault server instead of passing all the information in the
+authorization file. See :ref:`vault-creds` to configure the Vault support to the IM server.
 
 OpenStack additional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -383,6 +394,11 @@ Examples
 
 An example of the auth file::
 
+   # InfrastructureManager auth
+   type = InfrastructureManager; username = user; password: pass
+   type = InfrastructureManager: token = access_token_value
+   # Vault auth
+   type = Vault; host = https://vault.com:8200; token = access_token_value; role = role; path = path
    # OpenNebula site
    id = one; type = OpenNebula; host = osenserver:2633; username = user; password = pass
    # OpenStack site using standard user, password, tenant format

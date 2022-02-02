@@ -26,12 +26,13 @@ import json
 
 class VaultCredentials():
 
-    def __init__(self, vault_url, vault_path=None, role=None):
+    def __init__(self, vault_url, vault_path=None, role=None, ssl_verify=False):
         self.vault_path = "credentials/"
         if vault_path:
             self.vault_path = vault_path
         self.role = role
         self.client = None
+        self.ssl_verify = ssl_verify
         self.url = vault_url
 
     def _login(self, token):
@@ -42,7 +43,7 @@ class VaultCredentials():
         else:
             data = '{ "jwt": "' + token + '" }'
 
-        response = requests.post(login_url, data=data, verify=False, timeout=5)
+        response = requests.post(login_url, data=data, verify=self.ssl_verify, timeout=5)
 
         if not response.ok:
             raise Exception("Error getting Vault token: {} - {}".format(response.status_code, response.text))
@@ -52,7 +53,7 @@ class VaultCredentials():
         vault_auth_token = deserialized_response["auth"]["client_token"]
         vault_entity_id = deserialized_response["auth"]["entity_id"]
 
-        self.client = hvac.Client(url=self.url, token=vault_auth_token, verify=False)
+        self.client = hvac.Client(url=self.url, token=vault_auth_token, verify=self.ssl_verify)
         if not self.client.is_authenticated():
             raise Exception("Error authenticating against Vault with token: {}".format(vault_auth_token))
 
@@ -66,8 +67,9 @@ class VaultCredentials():
             creds = self.client.secrets.kv.v1.read_secret(path=vault_entity_id, mount_point=self.vault_path)
             for cred_json in creds["data"].values():
                 new_item = json.loads(cred_json)
-                if new_item['enabled']:
-                    del new_item['enabled']
+                if 'enabled' not in new_item or new_item['enabled']:
+                    if 'enabled' in new_item:
+                        del new_item['enabled']
                     if new_item['type'] == "fedcloud":
                         new_item['type'] = "OpenStack"
                         new_item['username'] = "egi.eu"
@@ -78,7 +80,13 @@ class VaultCredentials():
                             new_item['domain'] = new_item['project_id']
                             del new_item['project_id']
                         del new_item['vo']
-                    data.append(new_item)
+                    elif new_item['type'] == "EGI":
+                        new_item['token'] = token
+                    elif (new_item['type'] == "OpenStack" and 'auth_version' in new_item and
+                            new_item['auth_version'] == '3.x_oidc_access_token'):
+                        new_item['password'] = token
+                    if new_item['type'] != "Vault":
+                        data.append(new_item)
         except Exception:
             pass
 
