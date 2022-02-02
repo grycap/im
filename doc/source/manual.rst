@@ -4,6 +4,7 @@ IM Docker Image (Recommended Option)
 The recommended option to use the Infrastructure Manager service is using the available docker image.
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
 default configuration. Information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im/ <https://registry.hub.docker.com/u/grycap/im/>`_.
+It is also available in Github Container registry ghcr.io/grycap/im: `https://github.com/grycap/im/pkgs/container/im <https://github.com/grycap/im/pkgs/container/im>`_.
 
 How to launch the IM service using docker::
 
