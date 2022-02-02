@@ -4,6 +4,7 @@ IM Docker Image (Recommended Option)
 The recommended option to use the Infrastructure Manager service is using the available docker image.
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
 default configuration. Information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im/ <https://registry.hub.docker.com/u/grycap/im/>`_.
+It is also available in Github Container registry ghcr.io/grycap/im: `https://github.com/grycap/im/pkgs/container/im <https://github.com/grycap/im/pkgs/container/im>`_.
 
 How to launch the IM service using docker::
 
@@ -32,6 +33,8 @@ IM needs at least Python 2.7 (Python 3.5 or higher recommended) to run, as well 
 
 * `The RADL parser <https://github.com/grycap/radl>`_.
   (Since IM version 1.5.3, it requires RADL version 1.1.0 or later).
+* `The TOSCA parser <https://github.com/openstack/tosca-parser>`_.
+  A TOSCA YAML Spec 1.0 Parser.
 * `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python
   (version 1.14 or later).
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
