@@ -1358,8 +1358,8 @@ configure step2 (
         auth = Authentication([{'type': 'Vault', 'host': 'http://vault.com:8200/', 'token': 'atoken'},
                                {'type': 'InfrastructureManager', 'token': 'atoken'}])
         res = IM.get_auth_from_vault(auth)
-        self.assertIn({'id': 'cloud1', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass'},res.auth_list)
-        self.assertIn({'type': 'InfrastructureManager', 'token': 'atoken'} ,res.auth_list)
+        self.assertIn({'id': 'cloud1', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass'}, res.auth_list)
+        self.assertIn({'type': 'InfrastructureManager', 'token': 'atoken'}, res.auth_list)
 
 
 if __name__ == "__main__":
