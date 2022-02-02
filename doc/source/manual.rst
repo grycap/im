@@ -631,6 +631,104 @@ If you need to specify more advanced details of the logging configuration you ha
 	format=%(asctime)s - %(hostname)s - %(name)s - %(levelname)s - %(message)s
 	datefmt=
 
+.. _vault-creds:
+
+Vault Configuration
+^^^^^^^^^^^^^^^^^^^^
+
+From version 1.10.7 the IM service supports reading authorization data from a Vault server.
+These values are used by the REST API enabling to use ``Bearer`` authentication header and
+get the all the credential values from the configured Vault server.
+
+.. confval:: VAULT_URL 
+
+   URL to the Vault server API.
+   The default value is ``''``.
+
+.. confval:: VAULT_PATH 
+
+   Configured path of the KV (ver 1) secret. 
+   The default value is ``'credentials/'``.
+
+.. confval:: VAULT_ROLE 
+   
+   Configured role with the correct permissions to read the credentials secret store.
+   There is no default value, so the default value configured in the JWT authentication
+   method will be used.
+
+Vault server must configured with the JWT authentication method enabled, setting
+you OIDC issuer, e.g. using the EGI Checkin issuer, and setting ``im`` as the default
+role::
+
+   vault write auth/jwt/config \
+      oidc_discovery_url="https://aai.egi.eu/oidc/" \
+      default_role="im"
+
+A KV (v1) secret store must be enabled setting the desired path. In this example the 
+default vaule ``credentials`` is used::
+
+   vault secrets enable -version=1 -path=credentials kv
+
+Also a policy must be created to enable the users to manage only their own credentials::
+
+   vault policy write manage-imcreds - <<EOF
+   path "credentials/{{identity.entity.id}}" {
+   capabilities = [ "create", "read", "update", "delete", "list" ]
+   }
+   EOF
+
+And finally the ``im`` role to assign the policy to the JWT users::
+
+   vault write auth/jwt/role/im - <<EOF
+   {
+   "role_type": "jwt",
+   "policies": ["manage-imcreds"],
+   "token_explicit_max_ttl": 60,
+   "user_claim": "sub",
+   "bound_claims": {
+      "sub": "*"
+   },
+   "bound_claims_type": "glob"
+   }
+   EOF
+
+These set of commands are only an example of how to configure the Vault server to be
+accesed by the IM. Read `Vault documentation <https://www.vaultproject.io/docs>`_ for more details.
+
+The authentication data must be stored using one item per line in the :ref:`auth-file`, setting as
+key value the ``id`` of the item and all the auth line (in JSON format) as the value, e.g. An auth
+line like that::
+
+   id = one; type = OpenNebula; host = oneserver:2633; username = user; password = pass
+
+Must be stored in the vault KV secrect, setting ``one`` as key and this content as value::
+
+   {"id": "one", "type": "OpenNebula", "host": "oneserver:2633", "username": "user", "password": "pass"}
+
+In all the auth lines where an access token is needed it must not be set and the IM will replace it with
+then access token used to authenticate with the IM itself.
+
+Virtual Machine Tags
+^^^^^^^^^^^^^^^^^^^^^
+
+Name of the tags that IM will add in the VMs with username, infrastructure ID, URL of the IM service,
+and IM name comment or leave empty not to set them
+
+.. confval:: VM_TAG_USERNAME
+
+   Name of the tag to set the IM username as tag in the IM created VMs.
+
+.. confval:: VM_TAG_INF_ID
+
+   Name of the tag to set the IM infrastructure ID as tag in the IM created VMs.
+
+.. confval:: VM_TAG_IM_URL
+
+   Name of the tag to set the IM URL as tag in the IM created VMs.
+
+.. confval:: VM_TAG_IM
+
+   Name of the tag to set the IM string (``'es.grycap.upv.im'```) as tag in the IM created VMs.
 
 .. _options-ha:
 

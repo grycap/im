@@ -1374,9 +1374,8 @@ class InfrastructureManager:
     def get_auth_from_vault(auth):
         """Get credentials from Vault if required."""
         vault_auth = auth.getAuthInfo("Vault")
-        im_auth = auth.getAuthInfo("InfrastructureManager")
         if vault_auth:
-            if im_auth and "token" in im_auth[0]:
+            if "token" in vault_auth[0]:
                 vault_host = None
                 vault_path = None
                 vault_role = None
@@ -1389,12 +1388,13 @@ class InfrastructureManager:
                     vault_path = vault_auth[0]["path"]
                 if "role" in vault_auth[0]:
                     vault_role = vault_auth[0]["role"]
-                vault = VaultCredentials(vault_host, vault_path, vault_role)
-                creds = vault.get_creds(im_auth[0]["token"])
+                vault = VaultCredentials(vault_host, vault_path, vault_role, Config.VERIFI_SSL)
+                creds = vault.get_creds(vault_auth[0]["token"])
                 creds.extend(auth.auth_list)
+                creds.remove(vault_auth[0])
                 return Authentication(creds)
             else:
-                InfrastructureManager.logger.warning("Vault credentials without token in InfrastructureManager auth.")
+                InfrastructureManager.logger.warning("Vault credentials without token.")
                 return auth
         else:
             return auth
