@@ -32,9 +32,11 @@ class TestVaultCredentials(unittest.TestCase):
     def test_get_creds(self, post, hvac):
         client = MagicMock()
         cred1 = {"id": "credid", "type": "type", "username": "user", "password": "pass", "enabled": 1}
-        cred2 = {"id": "fed", "type": "fedcloud", "host": "server", "vo": "vo", "project_id": "prj", "enabled": 1}
+        cred2 = {"id": "fed", "type": "fedcloud", "host": "server", "vo": "vo", "project_id": "prj"}
+        cred3 = {"id": "ost", "type": "OpenStack", "host": "server", "auth_version": "3.x_oidc_access_token"}
         client.secrets.kv.v1.read_secret.return_value = {"data": {"credid": json.dumps(cred1),
-                                                                  "fed": json.dumps(cred2)}}
+                                                                  "fed": json.dumps(cred2),
+                                                                  "ost": json.dumps(cred3)}}
 
         hvac.return_value = client
 
@@ -44,6 +46,8 @@ class TestVaultCredentials(unittest.TestCase):
         self.assertIn({'auth_version': '3.x_oidc_access_token', 'domain': 'prj', 'host': 'server',
                        'id': 'fed', 'password': 'atoken', 'tenant': 'openid', 'type': 'OpenStack',
                        'username': 'egi.eu'}, creds)
+        self.assertIn({"id": "ost", "type": "OpenStack", "host": "server",
+                       "auth_version": "3.x_oidc_access_token", "password": "atoken"}, creds)
 
 
 if __name__ == '__main__':
