@@ -1,0 +1,85 @@
+{
+    "@context": [
+        "https://doi.org/10.5063/schema/codemeta-2.0",
+        "http://schema.org"
+    ],
+    "@type": "SoftwareSourceCode",
+    "identifier": "im",
+    "name": "Infrastructure Manager",
+    "version": "1.10.8",
+    "description": "IM is a tool that deploys complex and customized virtual infrastructures on IaaS Cloud deployments",
+    "license": "GNU General Public License v3.0",
+    "author": [
+        {
+            "@type": "Person",
+            "givenName": "Miguel",
+            "familyName": "Caballer",
+            "@id": "https://orcid.org/0000-0001-9393-3077",
+            "email": "micafer1@upv.pt"
+        }
+    ],
+    "audience": [
+        {
+            "@type": "Audience",
+            "audienceType": "Developers"
+        },
+        {
+            "@type": "Audience",
+            "audienceType": "End Users/Desktop"
+        },
+        {
+            "@type": "Audience",
+            "audienceType": "Science/Research"
+        }
+    ],
+    "provider": {
+        "@id": "https://pypi.org",
+        "@type": "Organization",
+        "name": "The Python Package Index",
+        "url": "https://pypi.org"
+    },
+    "runtimePlatform": "Python 3",
+    "url": "https://github.com/grycap/im",
+    "keywords": "Ansible, DevOps, cloud, Infrastructure-Management, TOSCA, Contextualization",
+    "developmentStatus": "5 - Production/Stable",
+    "programmingLanguage": "Python 2, Python 2.6, Python 2.7, Python 3, Python 3.6, Python 3.7, Python 3.8, Python 3.9",
+    "applicationCategory": "System, Utilities",
+    "codeRepository": "https://github.com/grycap/imr",
+    "releaseNotes": "https://github.com/grycap/im/blob/master/changelog",
+    "citation": "https://doi.org/10.1007/s10723-014-9296-5",
+    "contributor": [
+        {
+            "@type": "Person",
+            "givenName": "Eloy",
+            "familyName": "Romero",
+            "@id": "https://orcid.org/0000-0001-7279-1305",
+            "email": "eromero@jlab.org"
+        }
+    ],
+    "copyrightHolder": "GRyCAP-UPV",
+    "copyrightYear": 2014,
+    "creator": [
+        {
+            "@type": "Person",
+            "givenName": "Miguel",
+            "familyName": "Caballer",
+            "@id": "https://orcid.org/0000-0001-9393-3077",
+            "email": "micafer1@upv.pt"
+        }
+    ],
+    "dateCreated": "2022-02-03",
+    "affiliation": "UPV",
+    "maintainer": [
+        {
+            "@type": "Person",
+            "givenName": "Miguel",
+            "familyName": "Caballer",
+            "@id": "https://orcid.org/0000-0001-9393-3077",
+            "email": "micafer1@upv.pt"
+        }
+    ],
+    "contIntegration": "https://jenkins.i3m.upv.es/job/grycap/job/im-unit-master/",
+    "buildInstructions": "https://imdocs.readthedocs.io/en/latest/manual.html#im-service-installation",
+    "referencePublication": "https://doi.org/10.1007/s10723-014-9296-5",
+    "readme": "https://github.com/grycap/im/blob/master/README.md"
+}
