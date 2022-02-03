@@ -18,7 +18,7 @@ import defusedxml.xmlrpc
 defusedxml.xmlrpc.monkey_patch()
 
 try:
-    from xmlrpclib import ServerProxy
+    from xmlrpclib import ServerProxy # nosec
 except ImportError:
     from xmlrpc.client import ServerProxy
 
