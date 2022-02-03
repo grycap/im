@@ -27,3 +27,4 @@ azure-mgmt-network
 azure-mgmt-resource
 azure-mgmt-dns
 pyVmomi
+hvac
