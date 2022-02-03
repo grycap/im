@@ -63,7 +63,7 @@ Next tables summaries the resources and the HTTP methods available.
 +-------------+--------------------------------------------------------------+
 
 +-------------+---------------------------------------+---------------------------------------------+
-| HTTP method | /clouds/<infId>/images                | /clouds/<infId>/quotas                      | 
+| HTTP method | /clouds/<cloudId>/images                | /clouds/<cloudId>/quotas                      | 
 +=============+=======================================+=============================================+
 | **GET**     | | **List** the available images       | | **Get** the used and available resources  |
 |             | | in the ``cloudId`` provider.        | | in the ``cloudId`` provider.              |
