@@ -67,8 +67,9 @@ class VaultCredentials():
             creds = self.client.secrets.kv.v1.read_secret(path=vault_entity_id, mount_point=self.vault_path)
             for cred_json in creds["data"].values():
                 new_item = json.loads(cred_json)
-                if new_item['enabled']:
-                    del new_item['enabled']
+                if 'enabled' not in new_item or new_item['enabled']:
+                    if 'enabled' in new_item:
+                        del new_item['enabled']
                     if new_item['type'] == "fedcloud":
                         new_item['type'] = "OpenStack"
                         new_item['username'] = "egi.eu"
@@ -79,7 +80,13 @@ class VaultCredentials():
                             new_item['domain'] = new_item['project_id']
                             del new_item['project_id']
                         del new_item['vo']
-                    data.append(new_item)
+                    elif new_item['type'] == "EGI":
+                        new_item['token'] = token
+                    elif (new_item['type'] == "OpenStack" and 'auth_version' in new_item and
+                            new_item['auth_version'] == '3.x_oidc_access_token'):
+                        new_item['password'] = token
+                    if new_item['type'] != "Vault":
+                        data.append(new_item)
         except Exception:
             pass
 
