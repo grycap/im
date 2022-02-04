@@ -17,6 +17,7 @@
 import uuid
 import os
 import time
+import re
 
 try:
     from libcloud.compute.base import NodeSize, NodeState
@@ -545,8 +546,8 @@ class GCECloudConnector(LibCloudCloudConnector):
         if tags:
             args['ex_labels'] = {}
             for key, value in tags.items():
-                value = value.replace("-", "_").replace(".", "_").lower()
-                key = key.replace("-", "_").replace(".", "_").lower()
+                value = re.sub('[^a-zA-Z0-9\-_]', '', value)
+                key = re.sub('[^a-zA-Z0-9\-_]', '', key)
                 args['ex_labels'][key] = value
 
         # include the SSH_KEYS
