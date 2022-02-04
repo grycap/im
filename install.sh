@@ -79,10 +79,10 @@ else
 	    then
 	        apt-get -y install wget ansible
 	    else
-                apt-get -y install software-properties-common
-                apt-add-repository -y ppa:ansible/ansible
-                apt-get update
-                apt-get -y install wget ansible
+            apt-get -y install software-properties-common
+            apt-add-repository -y ppa:ansible/ansible
+            apt-get update
+            apt-get -y install wget ansible
 	    fi
             ;;
         rhel)
@@ -91,7 +91,7 @@ else
             ;;
         centos)
             yum install -y epel-release wget
-            yum install -y ansible
+            yum install -y ansible-python3
             ;;
         fedora)
             yum install -y wget ansible python2-rpm yum
