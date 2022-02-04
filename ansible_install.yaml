@@ -102,6 +102,9 @@
     - name: Install pip libraries
       pip: executable=pip3 name=mysqlclient,xmltodict,cheroot,pymongo
 
+    - name: Install pip ansible
+      pip: executable=pip3 name=ansible<2.9.27
+
     - name: Install IM
       pip: executable=pip3 name=IM
 
