@@ -99,7 +99,8 @@ class EGICloudConnector(OpenStackCloudConnector):
         if protocol in ["ost", "appdb"] and self.cloud.server and not self.cloud.protocol:
             site_host = ""
             if protocol == "ost":
-                site_url = AppDB.get_site_url(self.cloud.server)
+                site_id = AppDB.get_site_id(self.cloud.server, stype="openstack")
+                site_url = AppDB.get_site_url(site_id, stype="openstack")
                 if site_url:
                     site_host = urlparse(site_url)[1].split(':')[0]
 

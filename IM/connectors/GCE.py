@@ -987,6 +987,6 @@ class GCECloudConnector(LibCloudCloudConnector):
         for location in driver.list_locations():
             if not region or region == location.name:
                 for image in gce_images:
-                    images.append({"uri": "gce://%s/%s" % (location.name, image.id),
+                    images.append({"uri": "gce://%s/%s" % (location.name, image.name),
                                    "name": "%s/%s" % (location.name, image.name)})
         return images

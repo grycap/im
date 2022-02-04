@@ -679,3 +679,4 @@ IM 1.10.8:
     * Open SSH port on networks with proxy host.
     * Add OIDC Access Token inside the VM.
     * Enable to set OpenStack microversion.
+    * Fix error in EGI connector using ost:// images.
