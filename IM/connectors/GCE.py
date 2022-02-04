@@ -545,7 +545,9 @@ class GCECloudConnector(LibCloudCloudConnector):
         if tags:
             args['ex_labels'] = {}
             for key, value in tags.items():
-                args['ex_labels'][key.replace("-", "_").replace(".", "_").lower()] = value
+                value = value.replace("-", "_").replace(".", "_").lower()
+                key = key.replace("-", "_").replace(".", "_").lower()
+                args['ex_labels'][key] = value
 
         # include the SSH_KEYS
         username = system.getValue('disk.0.os.credentials.username')
