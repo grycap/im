@@ -38,13 +38,17 @@
       apt: update_cache=yes cache_valid_time=3600
       when: ansible_os_family == "Debian"
 
+    - name: Debian/Ubuntu install requisites
+      apt: name=gcc,openssh-client,sshpass install_recommends=no
+      when: ansible_os_family == "Debian"
+
     - name: Debian/Ubuntu install python3-pip with apt
-      apt: name=python3-pip,python3-dev,gcc,openssh-client,sshpass install_recommends=no
-      when: ansible_distribution == "Debian" or (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20)
+      apt: name=python3-pip,python3-dev install_recommends=no
+      when: ansible_python_version is version('3', '>=')
 
     - name: Debian/Ubuntu install python-pip with apt
-      apt: name=python-pip,python-dev,gcc,openssh-client,sshpass install_recommends=no
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int < 20
+      apt: name=python-pip,python-dev install_recommends=no
+      when: ansible_python_version is version('3', '<')
 
     - name: Apt install requirements Debian
       apt: name=default-libmysqlclient-dev
@@ -85,14 +89,12 @@
       pip:
         name: pip>18.0,<21.0
         executable: "{{pip_exec}}"
-        extra_args: --prefer-binary
       when: ansible_python_version is version('3.6', '<')
 
     - name: Upgrade pip in py3.6 +
       pip:
         name: pip>18.0
         executable: "{{pip_exec}}"
-        extra_args: --prefer-binary
       when: ansible_python_version is version('3.6', '>=')
 
     - name: Install setuptools with pip
