@@ -57,11 +57,10 @@ distribution_major_version() {
 }
 
 ansible_installed=`type -p ansible-playbook`
+ansible3_installed=`type -p ansible-playbook-3`
 
-if [ x${ansible_installed}x != "xx" ]
+if [ x${ansible_installed}x == "xx" ] && [ x${ansible3_installed}x == "xx" ]
 then
-    echo "Ansible installed. Do not install."
-else
     echo "Ansible not installed. Installing ..."
     DISTRO=$(distribution_id)
     case $DISTRO in
@@ -100,6 +99,8 @@ else
             echo "Unsupported distribution: $DISTRO"
             ;;
     esac
+else
+    echo "Ansible installed. Do not install."
 fi
 
 if [ -f "ansible_install.yaml" ]
@@ -111,4 +112,10 @@ else
 fi
 
 echo "Call Ansible playbook to install the IM."
-ansible-playbook ansible_install.yaml
+ansible3_installed=`type -p ansible-playbook-3`
+if [ x${ansible3_installed}x != "xx" ]
+then
+    ansible-playbook-3 ansible_install.yaml
+else
+    ansible-playbook ansible_install.yaml
+fi
