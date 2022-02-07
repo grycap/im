@@ -112,5 +112,3 @@ fi
 
 echo "Call Ansible playbook to install the IM."
 ansible-playbook ansible_install.yaml
-
-im_service.py -v
