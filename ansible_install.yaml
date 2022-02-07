@@ -98,7 +98,9 @@
       when: ansible_python_version is version('3.6', '>=')
 
     - name: Install setuptools with pip
-      pip: executable=pip3 name=setuptools,six extra_args="-I"
+        name: setuptools,six
+        executable: "{{pip_exec}}"
+        extra_args: "-I"
 
     - name: Install cryptography
       pip:
