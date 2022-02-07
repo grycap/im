@@ -680,3 +680,4 @@ IM 1.10.8:
     * Add OIDC Access Token inside the VM.
     * Enable to set OpenStack microversion.
     * Fix error in EGI connector using ost:// images.
+    * Fix error setting a tag with "." in OpenNebula and GCE conns.
