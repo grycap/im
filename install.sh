@@ -75,7 +75,7 @@ else
             ;;
         ubuntu)
             apt-get update
-	    if [ $(distribution_major_version) -eq "20" ]
+	    if [ $(distribution_major_version) -ge "20" ]
 	    then
 	        apt-get -y install wget ansible
 	    else
@@ -87,14 +87,14 @@ else
             ;;
         rhel)
             yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-$(distribution_major_version).noarch.rpm
-            yum install -y wget ansible
+            yum install -y wget ansible-python3
             ;;
         centos)
             yum install -y epel-release wget
             yum install -y ansible-python3
             ;;
         fedora)
-            yum install -y wget ansible python2-rpm yum
+            yum install -y wget ansible-python3 yum
             ;;
     	*)
             echo "Unsupported distribution: $DISTRO"
@@ -112,3 +112,5 @@ fi
 
 echo "Call Ansible playbook to install the IM."
 ansible-playbook ansible_install.yaml
+
+im_service.py -v
