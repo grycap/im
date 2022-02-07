@@ -2,11 +2,11 @@
   connection: local
   tasks:
     - name: Yum install epel-release
-      action: yum pkg=epel-release state=installed
+      command: yum install -y epel-release
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
     - name: Install libselinux-python in RH
-      action: yum pkg=libselinux-python state=installed
+      command: yum install -y libselinux-python
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
 ################################################ Configure Ansible  ###################################################
@@ -44,11 +44,11 @@
 
     - name: Debian/Ubuntu install python3-pip with apt
       apt: name=python3-pip,python3-dev install_recommends=no
-      when: ansible_python_version is version('3', '>=')
+      when: ansible_os_family == "Debian" and ansible_python_version is version('3', '>=')
 
     - name: Debian/Ubuntu install python-pip with apt
       apt: name=python-pip,python-dev install_recommends=no
-      when: ansible_python_version is version('3', '<')
+      when: ansible_os_family == "Debian" and ansible_python_version is version('3', '<')
 
     - name: Apt install requirements Debian
       apt: name=default-libmysqlclient-dev
@@ -67,7 +67,7 @@
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int < 20
 
     - name: Yum install requirements RH
-      yum: name=python3-pip,wget,openssh-clients,sshpass,gcc,python3-devel,mysql-devel
+      command: yum install -y python3-pip wget openssh-clients sshpass gcc python3-devel mysql-devel
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
     - name: Yum install requirements Fedora
