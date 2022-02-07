@@ -104,16 +104,6 @@ Optional Packages
 Installation
 ------------
 
-Using installer (Recommended option)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The IM provides a script to install the IM in one single step (using pip).
-You only need to execute the following command::
-
-	$ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
-
-It works for the most recent version of the main Linux distributions (RHEL, CentOS, Fedora, Ubuntu, Debian).
-In case that you O.S. does not work with this install script see next sections.
-
 From Pip
 ^^^^^^^^
 
@@ -121,17 +111,21 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
     $ apt update
-    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-pysqlite2 python-requests
+    $ apt install gcc python3-dev libffi-dev libssl-dev python3-pip sshpass python-pysqlite2 python-requests
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
 
 	$ yum install epel-release
-	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass python-sqlite3dbm
+	$ yum install which gcc python3-devel libffi-devel openssl-devel python3-pip sshpass default-libmysqlclient-dev
 
 Then you only have to call the install command of the pip tool with the IM package::
 
 	$ pip install IM
+
+You can also install an specific branch of the Github repository::
+
+   $ pip install git+https://github.com/grycap/im.git@master
 
 Pip will also install the, non installed, pre-requisites needed. So Ansible 2.4 or later will 
 be installed in the system. Some of the optional packages are also installed please check if some
@@ -140,68 +134,6 @@ of IM features that you need requires to install some of the packages of section
 You must also remember to modify the ansible.cfg file setting as specified in the 
 "Prerequisites" section.
 
-From RPM packages (RH7)
-^^^^^^^^^^^^^^^^^^^^^^^
-Download the RPM package from `GitHub <https://github.com/grycap/im/releases/latest>`_. 
-Also remember to download the RPM of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_. 
-You must have the epel repository enabled:: 
-
-   $ yum install epel-release
-   
-Then install the downloaded RPMs:: 
-
-   $ yum localinstall IM-*.rpm RADL-*.rpm
-   
-Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip::
-
-	$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns
-
-From Deb package (Tested with Ubuntu 14.04 and 16.04)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Download the Deb package from `GitHub <https://github.com/grycap/im/releases/latest>`_
-Also remember to download the Deb of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_.
-
-In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
-You can download it from their corresponding PPAs. But here you have some links:
- 
- * python-backports.ssl-match-hostname: `download <http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb>`_
- * python-scp: `download <http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb>`_
- * python-libcloud: `download <http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_2.2.1-1_all.deb>`_
- * python-xmltodict: `download <http://archive.ubuntu.com/ubuntu/pool/universe/p/python-xmltodict/python-xmltodict_0.11.0-1_all.deb>`_ 
-
-Also Azure python SDK is not available in Ubuntu 16.04. So if you need the Azure plugin you have to manually install them.
-You can download it from their corresponding PPAs. But here you have some links:
-
- * python-msrestazure: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.3-1_all.deb>`_
- * python-msrest: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.4-1_all.deb>`_
- * python-azure: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-azure_2.0.0~rc6+dfsg-2_all.deb>`_
-
-It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see `Ansible installation <http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu>`_)::
-
-	$ sudo apt-get install software-properties-common
-	$ sudo apt-add-repository ppa:ansible/ansible
-	$ sudo apt-get update
-
-Put all the .deb files in the same directory and do::
-
-	$ sudo dpkg -i *.deb
-	$ sudo apt install -f -y
-
-From Source
-^^^^^^^^^^^
-
-Once the dependences are installed, just download the tarball of *IM Service*
-from `Download <https://github.com/grycap/im>`_, extract the 
-content and move the extracted directory to the installation path (for instance
-:file:`/usr/local` or :file:`/opt`)::
-
-   $ tar xvzf IM-0.1.tar.gz
-   $ sudo chown -R root:root IM-0.1.tar.gz
-   $ sudo mv IM-0.1 /usr/local
-
-Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory::
-
-   $ sudo ln -s /usr/local/IM-0.1/scripts/im /etc/init.d
 
 Configuration
 -------------
