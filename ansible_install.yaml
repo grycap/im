@@ -98,6 +98,7 @@
       when: ansible_python_version is version('3.6', '>=')
 
     - name: Install setuptools with pip
+      pip:
         name: setuptools,six
         executable: "{{pip_exec}}"
         extra_args: "-I"
