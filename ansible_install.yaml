@@ -38,13 +38,13 @@
       apt: update_cache=yes cache_valid_time=3600
       when: ansible_os_family == "Debian"
 
-    - name: Apt install requirements Ubuntu/Debian
-      apt: name=gcc,python3-dev,openssh-client,sshpass,libssl-dev,libffi-dev
-      when: ansible_os_family == "Debian"
+    - name: Debian/Ubuntu install python3-pip with apt
+      apt: name=python3-pip,python3-dev,gcc,openssh-client,sshpass install_recommends=no
+      when: ansible_distribution == "Debian" or (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int >= 20)
 
     - name: Debian/Ubuntu install python-pip with apt
-      apt: name=python3-pip install_recommends=no
-      when: ansible_os_family == "Debian"
+      apt: name=python-pip,python-dev,gcc,openssh-client,sshpass install_recommends=no
+      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int < 20
 
     - name: Apt install requirements Debian
       apt: name=default-libmysqlclient-dev
@@ -63,24 +63,36 @@
       when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int < 20
 
     - name: Yum install requirements RH
-      yum: name=python3-pip,gcc,python3-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel
+      yum: name=python3-pip,wget,openssh-clients,sshpass,gcc,python3-devel,mysql-devel
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
 
     - name: Yum install requirements Fedora
-      yum: name=python3-pip,redhat-rpm-config,gcc,python3-devel,wget,openssh-clients,sshpass,libffi-devel,openssl-devel,mysql-devel
+      yum: name=python3-pip,redhat-rpm-config,wget,openssh-clients,sshpass,gcc,python3-devel,mysql-devel
       when: ansible_distribution == "Fedora"
+
+    - name: Set pip3
+      set_fact:
+        pip_exec: pip3
+      when: ansible_python_version is version('3', '>=')
+
+    - name: Set pip2
+      set_fact:
+        pip_exec: pip2
+      when: ansible_python_version is version('3', '<')
 
     # Version over 21 does not work with python 3.5 or older
     - name: Upgrade pip in py3.5
       pip:
         name: pip>18.0,<21.0
-        executable: pip3
+        executable: "{{pip_exec}}"
+        extra_args: --prefer-binary
       when: ansible_python_version is version('3.6', '<')
 
     - name: Upgrade pip in py3.6 +
       pip:
         name: pip>18.0
-        executable: pip3
+        executable: "{{pip_exec}}"
+        extra_args: --prefer-binary
       when: ansible_python_version is version('3.6', '>=')
 
     - name: Install setuptools with pip
@@ -89,19 +101,27 @@
     - name: Install cryptography
       pip:
         name: cryptography<3.3
-        executable: pip3
+        executable: "{{pip_exec}}"
+        extra_args: --prefer-binary
 
     - name: Install pyOpenSSL
       pip:
         name: pyOpenSSL>20.0
-        executable: pip3
+        executable: "{{pip_exec}}"
+        extra_args: --prefer-binary
+
+    - name: Install Azure pip libraries
+      pip:
+        name: msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns
+        executable: "{{pip_exec}}"
 
     - name: Install pip libraries
-      pip: executable=pip3 name=msrest,msrestazure,azure-common,azure-mgmt-storage,azure-mgmt-compute,azure-mgmt-network,azure-mgmt-resource,azure-mgmt-dns
-
-    - name: Install pip libraries
-      pip: executable=pip3 name=mysqlclient,xmltodict,cheroot,pymongo
+      pip:
+        name: mysqlclient,xmltodict,cheroot,pymongo
+        executable: "{{pip_exec}}"
 
     - name: Install IM
-      pip: executable=pip3 name=IM
+      pip:
+        name: IM
+        executable: "{{pip_exec}}"
 
