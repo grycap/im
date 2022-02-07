@@ -57,8 +57,9 @@ distribution_major_version() {
 }
 
 ansible_installed=`type -p ansible-playbook`
+ansible3_installed=`type -p ansible-playbook-3`
 
-if [ x${ansible_installed}x != "xx" ]
+if [ x${ansible_installed}x != "xx" ] || [ x${ansible_installed3}x != "xx" ]
 then
     echo "Ansible installed. Do not install."
 else
@@ -111,4 +112,9 @@ else
 fi
 
 echo "Call Ansible playbook to install the IM."
-ansible-playbook ansible_install.yaml
+if [ x${ansible3_installed}x != "xx" ]
+then
+    ansible-playbook-3 ansible_install.yaml
+else
+    ansible-playbook ansible_install.yaml
+fi
