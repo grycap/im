@@ -986,7 +986,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
                                 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'},
-                                {'id': 'ost2', 'type': 'OpenStack', 'username': 'idp', 'domain': 'project',
+                               {'id': 'ost2', 'type': 'OpenStack', 'username': 'idp', 'domain': 'project',
                                 'password': 'token', 'tenant': 'openid', 'host': 'https://server.com:5000',
                                 'auth_version': '3.x_oidc_access_token'}])
 
@@ -1002,12 +1002,13 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
                                 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'},
-                                {'id': 'ost2', 'type': 'OpenStack', 'username': 'idp', 'domain': 'project',
+                               {'id': 'ost2', 'type': 'OpenStack', 'username': 'idp', 'domain': 'project',
                                 'password': 'new_token', 'tenant': 'openid', 'host': 'https://server.com:5000',
                                 'auth_version': '3.x_oidc_access_token'}])
 
         ost_cloud.get_driver(auth)
         self.assertEqual(get_driver.call_count, 2)
+
 
 if __name__ == '__main__':
     unittest.main()
