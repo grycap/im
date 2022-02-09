@@ -47,10 +47,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         cloud_info.protocol = "https"
         cloud_info.server = "server.com"
         cloud_info.port = 5000
+        cloud_info.extra['tenant'] = 'tenant'
         inf = MagicMock()
         inf.id = "1"
-        one_cloud = OpenStackCloudConnector(cloud_info, inf)
-        return one_cloud
+        ost_cloud = OpenStackCloudConnector(cloud_info, inf)
+        return ost_cloud
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_10_concrete(self, get_driver):
@@ -963,6 +964,50 @@ class TestOSTConnector(TestCloudConnectorBase):
                                 'volume_storage': {'limit': 6, 'used': 4},
                                 'volumes': {'limit': 6, 'used': 4}})
 
+    @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
+    def test_get_driver(self, get_driver):
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        ost_cloud = self.get_ost_cloud()
+
+        ost_cloud.get_driver(auth)
+        self.assertEqual(get_driver.call_args_list[0][1]['ex_force_auth_url'], 'https://server.com:5000')
+        self.assertEqual(get_driver.call_args_list[0][1]['ex_force_auth_version'], '2.0_password')
+        self.assertEqual(get_driver.call_args_list[0][1]['ex_tenant_name'], 'tenant')
+
+        ost_cloud.cloud.extra['auth_version'] = '3.x_oidc_access_token'
+        ost_cloud.cloud.extra['username'] = 'idp'
+        ost_cloud.cloud.extra['domain'] = 'project'
+
+        with self.assertRaises(Exception) as ex:
+            ost_cloud.get_driver(auth)
+        self.assertEqual('No compatible OpenStack auth data has been specified.',
+                         str(ex.exception))
+
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'},
+                                {'id': 'ost2', 'type': 'OpenStack', 'username': 'idp', 'domain': 'project',
+                                'password': 'token', 'tenant': 'openid', 'host': 'https://server.com:5000',
+                                'auth_version': '3.x_oidc_access_token'}])
+
+        ost_cloud.driver = None
+        ost_cloud.get_driver(auth)
+        self.assertEqual(get_driver.call_args_list[1][1]['ex_force_auth_url'], 'https://server.com:5000')
+        self.assertEqual(get_driver.call_args_list[1][1]['ex_force_auth_version'], '3.x_oidc_access_token')
+        self.assertEqual(get_driver.call_args_list[1][1]['ex_domain_name'], 'project')
+        self.assertEqual(get_driver.call_count, 2)
+
+        ost_cloud.get_driver(auth)
+        self.assertEqual(get_driver.call_count, 2)
+
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'},
+                                {'id': 'ost2', 'type': 'OpenStack', 'username': 'idp', 'domain': 'project',
+                                'password': 'new_token', 'tenant': 'openid', 'host': 'https://server.com:5000',
+                                'auth_version': '3.x_oidc_access_token'}])
+
+        ost_cloud.get_driver(auth)
+        self.assertEqual(get_driver.call_count, 2)
 
 if __name__ == '__main__':
     unittest.main()

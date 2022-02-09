@@ -37,6 +37,25 @@ class EGICloudConnector(OpenStackCloudConnector):
         self.egi_auth = None
         OpenStackCloudConnector.__init__(self, cloud_info, inf)
 
+    def get_egi_auth(self, auths):
+        """
+        Get a compatible auth data.
+        The auth must have the same vo.
+
+        Arguments:
+                - auth(Authentication): parsed authentication tokens.
+
+        Returns: a :py:class:`IM.auth.Authentication`
+        """
+        for auth in auths:
+            auth_vo = auth['vo'] if 'vo' in auth else None
+            cloud_vo = self.cloud.extra['vo'] if 'vo' in self.cloud.extra else None
+
+            if auth_vo and auth_vo == cloud_vo:
+                return auth
+
+        raise Exception("No compatible EGI auth data has been specified (check VO).")
+
     def get_driver(self, auth_data):
         """
         Get the driver from the auth data
@@ -50,7 +69,7 @@ class EGICloudConnector(OpenStackCloudConnector):
         if not auths:
             raise Exception("No auth data has been specified to EGI.")
         else:
-            auth = auths[0]
+            auth = self.get_egi_auth(auths)
 
         if self.driver and self.egi_auth.compare(auth_data, self.type, self.cloud.server):
             return self.driver
