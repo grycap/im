@@ -59,6 +59,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     """ Enable config drive """
     CONFIRM_TIMEOUT = 120
     """ Confirm Timeout """
+    DEFAULT_AUTH_VERSION = '2.0_password'
+    """ Default authentication method """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
@@ -78,6 +80,40 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         node = driver.ex_get_node_details(node_id)
         return node
 
+    def get_auth(self, auths):
+        """
+        Get a compatible auth data.
+        The auth must have the same auth_version and other
+        field equal depeding on the auth_version used.
+
+        Arguments:
+                - auth(Authentication): parsed authentication tokens.
+
+        Returns: a :py:class:`IM.auth.Authentication`
+        """
+        if 'auth_version' not in self.cloud.extra or not self.cloud.extra['auth_version']:
+            self.cloud.extra['auth_version'] = self.DEFAULT_AUTH_VERSION
+        for auth in auths:
+            valid = True
+            fields = ['auth_version']
+            if self.cloud.extra['auth_version'] == "3.x_oidc_access_token":
+                fields.extend(['username', 'domain'])
+            elif "password" in self.cloud.extra['auth_version']:
+                fields.append('tenant')
+
+            if 'auth_version' not in auth or not auth['auth_version']:
+                auth['auth_version'] = self.DEFAULT_AUTH_VERSION
+
+            for field in fields:
+                if auth.get(field) != self.cloud.extra.get(field):
+                    valid = False
+                    break
+
+            if valid:
+                return auth
+
+        raise Exception("No compatible OpenStack auth data has been specified.")
+
     def get_driver(self, auth_data):
         """
         Get the driver from the auth data
@@ -91,7 +127,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if not auths:
             raise Exception("No auth data has been specified to OpenStack.")
         else:
-            auth = auths[0]
+            auth = self.get_auth(auths)
 
         if self.driver and self.auth.compare(auth_data, self.type, self.cloud.server):
             return self.driver
@@ -110,7 +146,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 else:
                     raise Exception("Invalid port/protocol specified for OpenStack site: %s" % self.cloud.server)
 
-            parameters = {"auth_version": '2.0_password',
+            parameters = {"auth_version": self.DEFAULT_AUTH_VERSION,
                           "auth_url": protocol + "://" + self.cloud.server + ":" + str(port),
                           "auth_token": None,
                           "service_type": None,
