@@ -262,5 +262,6 @@ class TestEGIConnector(TestCloudConnectorBase):
                                 'password': 'pass'}])
         egi_cloud.get_driver(auth)
 
+
 if __name__ == '__main__':
     unittest.main()
