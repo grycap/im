@@ -44,6 +44,7 @@ class TestEGIConnector(TestCloudConnectorBase):
         cloud_info = CloudInfo()
         cloud_info.type = "EGI"
         cloud_info.server = "CESGA"
+        cloud_info.extra['vo'] = "vo.access.egi.eu"
         inf = MagicMock()
         inf.id = "1"
         one_cloud = EGICloudConnector(cloud_info, inf)
@@ -231,6 +232,35 @@ class TestEGIConnector(TestCloudConnectorBase):
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
         self.assertEqual(driver.ex_create_subnet.call_args_list[0][0][2], "10.0.1.0/24")
 
+    @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
+    @patch('IM.connectors.EGI.AppDB')
+    def test_get_driver(self, appdb, get_driver):
+        auth = Authentication([{'id': 'egi1', 'type': 'EGI', 'host': 'CESGA',
+                                'vo': 'vo.access.egi.eu', 'token': 'access_token'},
+                               {'type': 'InfrastructureManager', 'username': 'user',
+                                'password': 'pass'}])
+        egi_cloud = self.get_egi_cloud()
+
+        appdb.get_site_id.return_value = "site1"
+        appdb.get_site_url.return_value = "https://site.com:5000/v3"
+        appdb.get_project_ids.return_value = {"vo.access.egi.eu": "projectid"}
+
+        egi_cloud.get_driver(auth)
+
+        egi_cloud.cloud.extra['vo'] = 'other_vo'
+        with self.assertRaises(Exception) as ex:
+            egi_cloud.get_driver(auth)
+        self.assertEqual('No compatible EGI auth data has been specified (check VO).',
+                         str(ex.exception))
+
+        egi_cloud.driver = None
+        auth = Authentication([{'id': 'egi1', 'type': 'EGI', 'host': 'CESGA',
+                                'vo': 'vo.access.egi.eu', 'token': 'access_token'},
+                               {'id': 'egi2', 'type': 'EGI', 'host': 'CESGA',
+                                'vo': 'other_vo', 'token': 'access_token'},
+                               {'type': 'InfrastructureManager', 'username': 'user',
+                                'password': 'pass'}])
+        egi_cloud.get_driver(auth)
 
 if __name__ == '__main__':
     unittest.main()
