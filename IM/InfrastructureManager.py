@@ -158,9 +158,11 @@ class InfrastructureManager:
         return deploy_groups
 
     @staticmethod
-    def _launch_deploy(sel_inf, deploy, cloud_id, cloud, concrete_systems, radl, auth, deployed_vm):
+    def _launch_deploy(sel_inf, dep, cloud_id, cloud, concrete_systems, radl, auth, deployed_vm):
         """Launch a deploy."""
 
+        # Clone the deploy to avoid changes in the original inf deploys
+        deploy = dep.clone()
         if deploy.vm_number <= 0:
             InfrastructureManager.logger.warning(
                 "Inf ID: %s: deploy %s with 0 num: Ignoring." % (sel_inf.id, deploy.id))
@@ -648,9 +650,7 @@ class InfrastructureManager:
 
         error_msg = ""
         # Add the new virtual machines to the infrastructure
-        sel_inf.update_radl(radl,
-                            [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0]) for d in deployed_vm],
-                            False)
+        sel_inf.update_radl(radl, deployed_vm, False)
         if all_failed:
             InfrastructureManager.logger.error("VMs failed when adding to Inf ID: %s" % sel_inf.id)
             sel_inf.add_cont_msg("All VMs failed. No contextualize.")
