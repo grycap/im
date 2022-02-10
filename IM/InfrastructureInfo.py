@@ -376,7 +376,7 @@ class InfrastructureInfo:
                 self.radl.deploys = radl.deploys
 
             # Associate private networks with cloud providers
-            for d, _, _ in deployed_vms:
+            for d in deployed_vms:
                 for private_net in [net.id for net in radl.networks if not net.isPublic() and
                                     net.id in radl.get_system_by_name(d.id).getNetworkIDs()]:
                     if private_net in self.private_networks:
