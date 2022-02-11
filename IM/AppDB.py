@@ -55,7 +55,7 @@ class AppDB:
                     else:
                         services = [site['site:service']]
                     for service in services:
-                        if service['@type'] == stype:
+                        if '@type' in service and service['@type'] == stype:
                             return service['@id']
         else:
             return None
@@ -128,7 +128,8 @@ class AppDB:
                     else:
                         services = [site['site:service']]
                     for service in services:
-                        if service['@type'] == stype and service['@host'] == site_host:
+                        if ('@type' in service and service['@type'] == stype and
+                                '@host' in service and service['@host'] == site_host):
                             return site['@name']
         else:
             return None
