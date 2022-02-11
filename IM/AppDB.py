@@ -154,6 +154,9 @@ class AppDB:
                 image_name = url[1]
             vo_name = url[4]
 
+            if not site_name:
+                return None, None, "No site name returned from EGI AppDB for site host: %s." % site
+
             site_id = AppDB.get_site_id(site_name, stype)
             if not site_id:
                 return None, None, "No site ID returned from EGI AppDB for site: %s." % site_name
