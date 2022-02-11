@@ -340,7 +340,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         src_host = url[1].split(':')[0]
 
         if protocol == "appdb":
-            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack")
+            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack", site=self.cloud.server)
             if not image_id or not site_url:
                 self.log_error(msg)
                 return None
@@ -1208,7 +1208,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         image_url = system.getValue("disk.0.image.url")
         if urlparse(image_url)[0] == "appdb":
             vo = self.get_vo_name(auth_data)
-            _, image_id, msg = AppDB.get_image_data(image_url, "openstack", vo)
+            _, image_id, msg = AppDB.get_image_data(image_url, "openstack", vo, site=self.cloud.server)
             if not image_id:
                 self.log_error(msg)
                 raise Exception("Error in appdb image: %s" % msg)
