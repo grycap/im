@@ -114,9 +114,30 @@ class AppDB:
         return None
 
     @staticmethod
-    def get_image_data(str_url, stype="occi", vo=None):
+    def _get_site_name(site_host, stype="occi"):
+        """
+        Get the name if site.
+        site may be the name itself or the site_url.
+        """
+        data = AppDB.appdb_call('/rest/1.0/sites')
+        if data:
+            for site in data['appdb:appdb']['appdb:site']:
+                if site['@infrastructure'] == "Production":
+                    if isinstance(site['site:service'], list):
+                        services = site['site:service']
+                    else:
+                        services = [site['site:service']]
+                    for service in services:
+                        if service['@type'] == stype and service['@host'] == site_host:
+                            return site['@name']
+        else:
+            return None
+
+    @staticmethod
+    def get_image_data(str_url, stype="occi", vo=None, site=None):
         """
         The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
+        this format: appdb://egi.docker.ubuntu.16.04?fedcloud.egi.eu
         or this one appdb://UPV-GRyCAP/83d5e854-a128-5b1f-9457-d32e10a720a6:8135
         Get the Site url from the AppDB
         """
@@ -124,8 +145,12 @@ class AppDB:
         protocol = url[0]
 
         if protocol == "appdb":
-            site_name = url[1]
-            image_name = url[2][1:]
+            if url[2]:
+                site_name = url[1]
+                image_name = url[2][1:]
+            else:
+                site_name = AppDB._get_site_name(site, stype)
+                image_name = url[1]
             vo_name = url[4]
 
             site_id = AppDB.get_site_id(site_name, stype)
