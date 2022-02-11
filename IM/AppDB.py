@@ -122,7 +122,7 @@ class AppDB:
         data = AppDB.appdb_call('/rest/1.0/sites')
         if data:
             for site in data['appdb:appdb']['appdb:site']:
-                if site['@infrastructure'] == "Production":
+                if site['@infrastructure'] == "Production" and 'site:service' in site:
                     if isinstance(site['site:service'], list):
                         services = site['site:service']
                     else:
