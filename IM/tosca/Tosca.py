@@ -893,6 +893,21 @@ class Tosca:
                     "Intrinsic function %s not supported." % func_name)
                 return None
 
+    def _get_default_attribute(self, node, attribute_name, inf_info):
+        """Get the default value set to an attribute."""
+        try:
+            node_type = node.type_definition
+        except AttributeError:
+            node_type = node.definition
+
+        attributes_def = node_type.get_attributes_def()
+        if attribute_name in attributes_def:
+            attr_schema = attributes_def[attribute_name].schema
+            if 'default' in attr_schema:
+                return self._final_function_result(attr_schema['default'], node, inf_info)
+
+        return None
+
     def _get_attribute_result(self, func, node, inf_info):
         """Get an attribute value of an entity defined in the service template
 
@@ -962,6 +977,10 @@ class Tosca:
                 for req, name in r.items():
                     if req == capability_name:
                         node = func._find_node_template(name)
+
+        attribute_default = self._get_default_attribute(node, attribute_name, inf_info)
+        if attribute_default:
+            return attribute_default
 
         host_node = self._find_host_compute(node, self.tosca.nodetemplates)
 
