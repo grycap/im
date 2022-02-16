@@ -15,7 +15,7 @@
             "givenName": "Miguel",
             "familyName": "Caballer",
             "@id": "https://orcid.org/0000-0001-9393-3077",
-            "email": "micafer1@upv.pt"
+            "email": "micafer1@upv.es"
         }
     ],
     "audience": [
@@ -64,7 +64,7 @@
             "givenName": "Miguel",
             "familyName": "Caballer",
             "@id": "https://orcid.org/0000-0001-9393-3077",
-            "email": "micafer1@upv.pt"
+            "email": "micafer1@upv.es"
         }
     ],
     "dateCreated": "2022-02-03",
@@ -75,7 +75,7 @@
             "givenName": "Miguel",
             "familyName": "Caballer",
             "@id": "https://orcid.org/0000-0001-9393-3077",
-            "email": "micafer1@upv.pt"
+            "email": "micafer1@upv.es"
         }
     ],
     "contIntegration": "https://jenkins.i3m.upv.es/job/grycap/job/im-unit-master/",
