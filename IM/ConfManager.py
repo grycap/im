@@ -139,7 +139,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         while not success and wait < timeout and not self._stop_thread:
             success = True
             for vm in self.inf.get_vm_list():
-
+                if not vm.contextualize():
+                    continue
                 # If the VM is not in a "running" state, ignore it
                 if vm.state in VirtualMachine.NOT_RUNNING_STATES:
                     self.log_warn("The VM ID: " + str(vm.id) +
@@ -181,6 +182,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         while not success and wait < timeout and not self._stop_thread:
             success = True
             for vm in self.inf.get_vm_list():
+                if not vm.contextualize():
+                    continue
                 if vm.hasPublicNet():
                     ip = vm.getPublicIP()
                     if not ip:
@@ -461,6 +464,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                 str(len(vm_group[group])) + '\n'
 
             for vm in vm_group[group]:
+                if not vm.contextualize():
+                    continue
                 # first try to use the public IP
                 ip = vm.getPublicIP()
                 if not ip:
@@ -593,6 +598,8 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             for vm in vm_group[group]:
                 # first try to use the public IP
+                if not vm.contextualize():
+                    continue
                 ip = vm.getPublicIP()
                 if not ip:
                     ip = vm.getPrivateIP()

@@ -479,7 +479,8 @@ class InfrastructureInfo:
         max_vms_connected = -1
         for vm in self.get_vm_list():
             vms_connected = -1
-            if vm.getOS() and vm.getOS().lower() == 'linux' and (vm.hasPublicNet() or vm.getProxyHost()):
+            if (vm.contextualize() and vm.getOS() and vm.getOS().lower() == 'linux' and
+                    (vm.hasPublicNet() or vm.getProxyHost())):
                 # check that is connected with other VMs
                 vms_connected = 0
                 for other_vm in self.get_vm_list():
@@ -612,6 +613,10 @@ class InfrastructureInfo:
 
             use_dist = len(self.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST
             for cont, vm in enumerate(self.get_vm_list()):
+                if not vm.contextualize():
+                    vm.configured = True
+                    vm.cont_out = "Contextualization disabled"
+                    continue
                 tasks = {}
 
                 # Add basic tasks for all VMs
