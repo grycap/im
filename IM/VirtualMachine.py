@@ -517,6 +517,12 @@ class VirtualMachine(LoggerMixin):
             self.info.systems[0].setValue(
                 'net_interface.' + str(num_net) + '.connection', public_net.id)
 
+    def contextualize(self):
+        """
+        Get the contextualize field value
+        """
+        return False if self.requested_radl.systems[0].getValue("disable_contextualize", 0) else True
+
     def update_status(self, auth, force=False):
         """
         Update the status of this virtual machine.
