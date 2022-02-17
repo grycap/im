@@ -519,9 +519,15 @@ class VirtualMachine(LoggerMixin):
 
     def contextualize(self):
         """
-        Get the contextualize field value
+        Get if the current VM shoul ne contextualized or not.
+        It is disabled if en empty configure is defined:
+        'configure system_name ()'
         """
-        return False if self.requested_radl.systems[0].getValue("disable_contextualize", 0) else True
+        config = self.inf.radl.get_configure_by_name(self.info.systems[0].name)
+        if config:
+            return config.recipes is not None
+        else:
+            return True
 
     def update_status(self, auth, force=False):
         """

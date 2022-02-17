@@ -280,10 +280,11 @@ class InfrastructureManager:
         # Add or update configures
         for s in radl.configures:
             # first check that the YAML is correct
-            try:
-                yaml.safe_load(s.recipes)
-            except Exception as ex:
-                raise Exception("Error parsing YAML: %s" % str(ex))
+            if s.recipes:
+                try:
+                    yaml.safe_load(s.recipes)
+                except Exception as ex:
+                    raise Exception("Error parsing YAML: %s" % str(ex))
             sel_inf.radl.add(s.clone(), "replace")
             InfrastructureManager.logger.info(
                 "Inf ID: " + sel_inf.id + ": " +
