@@ -130,7 +130,8 @@ class TestOSCARConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'osc', 'type': 'OSCAR', 'host': 'http://oscar.com', 'token': 'token'}])
+        auth = Authentication([{'id': 'osc', 'type': 'OSCAR', 'host': 'http://oscar.com',
+                                'username': 'user', 'password': 'pass'}])
         oscar_cloud = self.get_oscar_cloud()
 
         requests.side_effect = self.get_response
@@ -144,7 +145,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         print(requests.call_args_list[0][1]['data'])
         self.maxDiff = None
         expected_res = {"name": "plants", "memory": "2048M",
-                        "cpu": "1.00", "script": "plants.sh",
+                        "cpu": "1", "script": "plants.sh",
                         "image": "grycap/oscar-theano-plants",
                         "environment": {"Variables": {"a": "b"}},
                         "input": [{"storage_provider": "minio_id",
@@ -157,6 +158,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                                                                      "region": "mregion",
                                                                      "verify": False}}}}
         self.assertEqual(json.loads(requests.call_args_list[0][1]['data']), expected_res)
+        self.assertEqual(requests.call_args_list[0][1]['headers']['Authorization'], "Basic dXNlcjpwYXNz")
 
     @patch('requests.request')
     def test_30_updateVMInfo(self, requests):
@@ -180,6 +182,8 @@ class TestOSCARConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(requests.call_args_list[0][0][0], "GET")
+        self.assertEqual(requests.call_args_list[0][0][1], "http://oscar.com:80/system/services/fname")
 
     @patch('requests.request')
     def test_55_alter(self, requests):
@@ -226,6 +230,9 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.assertEqual(new_vm.info.systems[0].getValue("cpu.count"), 2)
         self.assertEqual(new_vm.info.systems[0].getValue("memory.size"), 4294967296)
+        self.assertEqual(requests.call_args_list[0][0][0], "PUT")
+        self.assertEqual(requests.call_args_list[0][0][1], "http://oscar.com:80/system/services/fname")
+        self.assertEqual(json.loads(requests.call_args_list[0][1]['data']), {'memory': '4096M', 'cpu': '2'})
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
@@ -242,6 +249,8 @@ class TestOSCARConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(requests.call_args_list[0][0][0], "DELETE")
+        self.assertEqual(requests.call_args_list[0][0][1], "http://oscar.com:80/system/services/fname")
 
 
 if __name__ == '__main__':
