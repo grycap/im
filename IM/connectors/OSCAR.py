@@ -25,6 +25,7 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
+
 class OSCARCloudConnector(CloudConnector):
     """
     Cloud Launcher to create OSCAR functions.
@@ -50,7 +51,7 @@ class OSCARCloudConnector(CloudConnector):
             raise Exception("No auth data has been specified to OSCAR.")
         else:
             auth = auths[0]
-    
+
         if 'username' in auth and 'password' in auth:
             return "Basic %s" % base64.b64encode("%s:%s" % (auth['username'], auth['password']))
         elif 'token' in auth:
@@ -75,32 +76,38 @@ class OSCARCloudConnector(CloudConnector):
         return protocol + "://" + self.cloud.server + ":" + str(port) + self.cloud.path
 
     def _get_service_json(self, radl_system):
-        service = {
-            "name": radl_system.getValue("name"),
-            "memory": "%dMi" % radl_system.getFeature('memory.size').getValue('M'),
-            "cpu": radl_system.getValue("cpu.count"),
-            "script": radl_system.getValue("script"),
-        }
+        service = {}
+
+        if radl_system.getValue("name"):
+            service["name"] = radl_system.getValue("name")
+        if radl_system.getValue("memory.size"):
+            service["memory"] = "%dMi" % radl_system.getFeature('memory.size').getValue('M')
+        if radl_system.getValue("cpu.count"):
+            service["cpu"] = radl_system.getValue("cpu.count")
+        if radl_system.getValue("script"):
+            service["script"] = radl_system.getValue("script")
 
         url_image = urlparse(radl_system.getValue("disk.0.image.url"))
-        service["image"] = url_image.path[1:]
+        if url_image.path:
+            service["image"] = url_image.path[1:]
 
         vars = {}
-        for elem in  radl_system.getValue("environment.variables"):
+        for elem in radl_system.getValue("environment.variables", []):
             parts = elem.split(":")
             vars[parts[0]] = parts[1]
         if vars:
             service["environment"] = {"Variables": vars}
 
         for elem in ["input", "output"]:
-            service[elem] = {
-                "storage_provider": radl_system.getValue("%s.provider" % elem),
-                "path": radl_system.getValue("%s.path" % elem)
-            }
-            if radl_system.getValue("%s.suffix" % elem):
-                service[elem]["suffix"] = radl_system.getValue("%s.suffix" % elem)
-            if radl_system.getValue("%s.prefix" % elem):
-                service[elem]["prefix"] = radl_system.getValue("%s.prefix" % elem)
+            if radl_system.getValue("%s.provider" % elem):
+                service[elem] = {
+                    "storage_provider": radl_system.getValue("%s.provider" % elem),
+                    "path": radl_system.getValue("%s.path" % elem)
+                }
+                if radl_system.getValue("%s.suffix" % elem):
+                    service[elem]["suffix"] = radl_system.getValue("%s.suffix" % elem)
+                if radl_system.getValue("%s.prefix" % elem):
+                    service[elem]["prefix"] = radl_system.getValue("%s.prefix" % elem)
 
         storage_providers = {}
         i = 0
@@ -159,7 +166,7 @@ class OSCARCloudConnector(CloudConnector):
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         res = []
         for func_num in range(num_vm):
-            vm_id = radl.systems[0].getValue("name") 
+            vm_id = radl.systems[0].getValue("name")
             if func_num > 0:
                 vm_id += "%d" % func_num
             vm = VirtualMachine(inf, vm_id, self.cloud,
@@ -205,8 +212,8 @@ class OSCARCloudConnector(CloudConnector):
 
     def update_system_info_from_service_info(self, system, service_info):
         system.addFeature(Feature("cpu.count", "=", service_info["cpu"]),
-                                  conflict="other", missing="other")
-    
+                          conflict="other", missing="other")
+
     def updateVMInfo(self, vm, auth_data):
         try:
             url = "%s/system/services/%s" % (self._get_oscar_url(), vm.id)
@@ -233,8 +240,8 @@ class OSCARCloudConnector(CloudConnector):
                 msg = "Error code %d: %s" % (response.status_code, response.text)
                 return False, msg
             else:
-                return True, ""
+                self.update_system_info_from_service_info(vm.info.systems[0], service)
+                return True, vm
         except Exception as ex:
             self.log_exception("Error getting OSCAR function: %s." % ex)
             return False, "%s" % ex
-

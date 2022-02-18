@@ -83,15 +83,15 @@ class TestOSCARConnector(TestCloudConnectorBase):
                     "cpu": 1.0, "script": "plants.sh",
                     "image": "grycap/oscar-theano-plants",
                     "environment": {"Variables": {"a": "b"}},
-                    "input": {"storage_provider": "minio_id", 
+                    "input": {"storage_provider": "minio_id",
                                 "path": "/input", "suffix": ["*.txt"]},
                     "output": {"storage_provider": "minio_id",
-                                "path": "/output"},
+                               "path": "/output"},
                     "storage_providers": {"minio": {"minio_id": {"access_key": "AK",
-                                                                "secret_key": "SK",
-                                                                "endpoint": "https://minio.com",
-                                                                "region": "mregion",
-                                                                "verify": False}}}}
+                                                                 "secret_key": "SK",
+                                                                 "endpoint": "https://minio.com",
+                                                                 "region": "mregion",
+                                                                 "verify": False}}}}
         elif method == "POST":
             if url == "/system/services":
                 resp.status_code = 201
@@ -101,7 +101,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                 resp.status_code = 204
         elif method == "PUT":
             if url == "/system/services/fname":
-                resp.status_code = 201
+                resp.status_code = 204
 
         return resp
 
@@ -147,15 +147,15 @@ class TestOSCARConnector(TestCloudConnectorBase):
                         "cpu": 1.0, "script": "plants.sh",
                         "image": "grycap/oscar-theano-plants",
                         "environment": {"Variables": {"a": "b"}},
-                        "input": {"storage_provider": "minio_id", 
+                        "input": {"storage_provider": "minio_id",
                                   "path": "/input", "suffix": ["*.txt"]},
                         "output": {"storage_provider": "minio_id",
-                                  "path": "/output"},
+                                   "path": "/output"},
                         "storage_providers": {"minio": {"minio_id": {"access_key": "AK",
-                                                                    "secret_key": "SK",
-                                                                    "endpoint": "https://minio.com",
-                                                                    "region": "mregion",
-                                                                    "verify": False}}}}
+                                                                     "secret_key": "SK",
+                                                                     "endpoint": "https://minio.com",
+                                                                     "region": "mregion",
+                                                                     "verify": False}}}}
         self.assertEqual(json.loads(requests.call_args_list[0][1]['data']), expected_res)
 
     @patch('requests.request')
@@ -220,10 +220,11 @@ class TestOSCARConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        success, _ = oscar_cloud.alterVM(vm, new_radl, auth)
+        success, new_vm = oscar_cloud.alterVM(vm, new_radl, auth)
 
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(new_vm.info.systems[0].getValue("cpu.count"), 2)
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
@@ -231,7 +232,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         oscar_cloud = self.get_oscar_cloud()
 
         inf = MagicMock()
-        inf.id = "namespace"
+        inf.id = "infid"
         vm = VirtualMachine(inf, "fname", oscar_cloud.cloud, "", "", oscar_cloud, 1)
 
         requests.side_effect = self.get_response
