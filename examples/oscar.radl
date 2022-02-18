@@ -1,0 +1,23 @@
+system plants (
+    name = 'plants' and
+    memory.size = 2G and
+    cpu.count = 1.0 and
+    disk.0.image.url = 'oscar://quirky-joliot8.im.grycap.net/grycap/oscar-theano-plants' and
+    script = '#!/bin/bash
+              echo "HOLA"' and
+    environment.variables = ['a:b'] and
+    input.provider = 'minio.default' and
+    input.path = '/input' and
+    input.suffix = ['*'] and
+    output.provider = 'minio.default' and
+    output.path = '/output'
+    #minio.0.id = 'minio_id' and
+    #minio.0.endpoint = 'https://minio.com' and
+    #minio.0.region = 'mregion' and
+    #minio.0.access_key = 'AK' and
+    #minio.0.secret_key = 'SK'
+)
+
+configure plants ()
+
+deploy test 1
