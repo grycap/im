@@ -578,12 +578,18 @@ class InfrastructureInfo:
             max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
 
         self.configured = None
+        all_configure_disabled = True
         for vm in self.get_vm_list():
             # Assure to update the VM status before running the ctxt process
             vm.update_status(auth)
             vm.cont_out = ""
             vm.cloud_connector = None
             vm.configured = None
+            if vm.contextualize():
+                all_configure_disabled = False
+
+        if all_configure_disabled:
+            ctxt = False
 
         if not ctxt:
             InfrastructureInfo.logger.info("Inf ID: " + str(self.id) + ": Contextualization disabled by the RADL. " +
