@@ -188,6 +188,7 @@ class OSCARCloudConnector(CloudConnector):
                                             headers=headers, verify=self.verify_ssl)
                 if response.status_code == 201:
                     vm.destroy = False
+                    vm.state = VirtualMachine.RUNNING
                     res.append((True, vm))
                 else:
                     msg = "Error code %d: %s" % (response.status_code, response.text)
@@ -254,7 +255,6 @@ class OSCARCloudConnector(CloudConnector):
                 return False, msg
             else:
                 self.update_system_info_from_service_info(vm.info.systems[0], response.json())
-                vm.state = VirtualMachine.RUNNING
                 return True, vm
         except Exception as ex:
             self.log_exception("Error getting OSCAR function: %s." % ex)
