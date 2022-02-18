@@ -79,7 +79,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
             if url == "/system/services/fname":
                 resp.status_code = 200
                 resp.json.return_value = {
-                    "name": "plants", "memory": "2048Mi",
+                    "name": "plants", "memory": "2048M",
                     "cpu": 1.0, "script": "plants.sh",
                     "image": "grycap/oscar-theano-plants",
                     "environment": {"Variables": {"a": "b"}},
@@ -143,7 +143,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         print(requests.call_args_list[0][1]['data'])
         self.maxDiff = None
-        expected_res = {"name": "plants", "memory": "2048Mi",
+        expected_res = {"name": "plants", "memory": "2048M",
                         "cpu": 1.0, "script": "plants.sh",
                         "image": "grycap/oscar-theano-plants",
                         "environment": {"Variables": {"a": "b"}},
@@ -225,6 +225,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.assertEqual(new_vm.info.systems[0].getValue("cpu.count"), 2)
+        self.assertEqual(new_vm.info.systems[0].getValue("memory.size"), 4294967296)
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
