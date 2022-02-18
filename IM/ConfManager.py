@@ -139,7 +139,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         while not success and wait < timeout and not self._stop_thread:
             success = True
             for vm in self.inf.get_vm_list():
-
+                if not vm.contextualize():
+                    continue
                 # If the VM is not in a "running" state, ignore it
                 if vm.state in VirtualMachine.NOT_RUNNING_STATES:
                     self.log_warn("The VM ID: " + str(vm.id) +
@@ -181,6 +182,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         while not success and wait < timeout and not self._stop_thread:
             success = True
             for vm in self.inf.get_vm_list():
+                if not vm.contextualize():
+                    continue
                 if vm.hasPublicNet():
                     ip = vm.getPublicIP()
                     if not ip:
@@ -461,6 +464,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                 str(len(vm_group[group])) + '\n'
 
             for vm in vm_group[group]:
+                if not vm.contextualize():
+                    continue
                 # first try to use the public IP
                 ip = vm.getPublicIP()
                 if not ip:
@@ -593,6 +598,8 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             for vm in vm_group[group]:
                 # first try to use the public IP
+                if not vm.contextualize():
+                    continue
                 ip = vm.getPublicIP()
                 if not ip:
                     ip = vm.getPrivateIP()
@@ -772,14 +779,14 @@ class ConfManager(LoggerMixin, threading.Thread):
             vault_password = vm.info.systems[0].getValue("vault.password")
             if vault_password:
                 vault_edit = self.get_vault_editor(vault_password)
-                if configure.recipes.strip().startswith("$ANSIBLE_VAULT"):
+                if configure.recipes and configure.recipes.strip().startswith("$ANSIBLE_VAULT"):
                     recipes = vault_edit.vault.decrypt(configure.recipes.strip()).decode()
                 else:
-                    recipes = configure.recipes
+                    recipes = configure.recipes or ""
                 conf_content = merge_recipes(conf_content, recipes)
                 conf_content = vault_edit.vault.encrypt(conf_content).decode()
             else:
-                conf_content = merge_recipes(conf_content, configure.recipes)
+                conf_content = merge_recipes(conf_content, configure.recipes or "")
 
             conf_out = open(conf_filename, 'w')
             conf_out.write(str(conf_content))
@@ -1022,7 +1029,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             filenames = []
             if self.inf.radl.configures:
                 for elem in self.inf.radl.configures:
-                    if elem is not None and not os.path.isfile(tmp_dir + "/" + elem.name + ".yml"):
+                    if elem is not None and elem.recipes and not os.path.isfile(tmp_dir + "/" + elem.name + ".yml"):
                         conf_out = open(tmp_dir + "/" + elem.name + ".yml", 'w')
                         conf_out.write(elem.recipes)
                         conf_out.write("\n\n")

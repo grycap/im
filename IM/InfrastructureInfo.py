@@ -479,7 +479,8 @@ class InfrastructureInfo:
         max_vms_connected = -1
         for vm in self.get_vm_list():
             vms_connected = -1
-            if vm.getOS() and vm.getOS().lower() == 'linux' and (vm.hasPublicNet() or vm.getProxyHost()):
+            if (vm.contextualize() and vm.getOS() and vm.getOS().lower() == 'linux' and
+                    (vm.hasPublicNet() or vm.getProxyHost())):
                 # check that is connected with other VMs
                 vms_connected = 0
                 for other_vm in self.get_vm_list():
@@ -577,12 +578,18 @@ class InfrastructureInfo:
             max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
 
         self.configured = None
+        all_configure_disabled = True
         for vm in self.get_vm_list():
             # Assure to update the VM status before running the ctxt process
             vm.update_status(auth)
             vm.cont_out = ""
             vm.cloud_connector = None
             vm.configured = None
+            if vm.contextualize():
+                all_configure_disabled = False
+
+        if all_configure_disabled:
+            ctxt = False
 
         if not ctxt:
             InfrastructureInfo.logger.info("Inf ID: " + str(self.id) + ": Contextualization disabled by the RADL. " +
@@ -612,6 +619,10 @@ class InfrastructureInfo:
 
             use_dist = len(self.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST
             for cont, vm in enumerate(self.get_vm_list()):
+                if not vm.contextualize():
+                    vm.configured = True
+                    vm.cont_out = "Contextualization disabled"
+                    continue
                 tasks = {}
 
                 # Add basic tasks for all VMs
