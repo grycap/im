@@ -42,6 +42,7 @@ class OSCARCloudConnector(CloudConnector):
 
         if protocol == "oscar" and self.cloud.server == src_host:
             res_system = radl_system.clone()
+            res_system.setValue('disk.0.os.credentials.username', 'oscar')
             return res_system
         else:
             return None
@@ -54,7 +55,9 @@ class OSCARCloudConnector(CloudConnector):
             auth = auths[0]
 
         if 'username' in auth and 'password' in auth:
-            return "Basic %s" % base64.b64encode("%s:%s" % (auth['username'], auth['password']))
+            user_pass = "%s:%s" % (auth['username'], auth['password'])
+            encoded = base64.b64encode(user_pass.encode("utf-8")).decode("utf-8")
+            return "Basic %s" % encoded
         elif 'token' in auth:
             return "Bearer %s" % auth['token']
         else:
@@ -84,7 +87,7 @@ class OSCARCloudConnector(CloudConnector):
         if radl_system.getValue("memory.size"):
             service["memory"] = "%dM" % radl_system.getFeature('memory.size').getValue('M')
         if radl_system.getValue("cpu.count"):
-            service["cpu"] = radl_system.getValue("cpu.count")
+            service["cpu"] = "%.2f" % radl_system.getValue("cpu.count")
         if radl_system.getValue("script"):
             service["script"] = radl_system.getValue("script")
 
@@ -101,14 +104,14 @@ class OSCARCloudConnector(CloudConnector):
 
         for elem in ["input", "output"]:
             if radl_system.getValue("%s.provider" % elem):
-                service[elem] = {
+                service[elem] = [{
                     "storage_provider": radl_system.getValue("%s.provider" % elem),
                     "path": radl_system.getValue("%s.path" % elem)
-                }
+                }]
                 if radl_system.getValue("%s.suffix" % elem):
-                    service[elem]["suffix"] = radl_system.getValue("%s.suffix" % elem)
+                    service[elem][0]["suffix"] = radl_system.getValue("%s.suffix" % elem)
                 if radl_system.getValue("%s.prefix" % elem):
-                    service[elem]["prefix"] = radl_system.getValue("%s.prefix" % elem)
+                    service[elem][0]["prefix"] = radl_system.getValue("%s.prefix" % elem)
 
         storage_providers = {}
         i = 0
@@ -226,7 +229,7 @@ class OSCARCloudConnector(CloudConnector):
 
     def update_system_info_from_service_info(self, system, service_info):
         if "cpu" in service_info and service_info["cpu"]:
-            system.addFeature(Feature("cpu.count", "=", service_info["cpu"]),
+            system.addFeature(Feature("cpu.count", "=", float(service_info["cpu"])),
                               conflict="other", missing="other")
         if "memory" in service_info and service_info["memory"]:
             memory = self._convert_memory_unit(service_info["memory"])
