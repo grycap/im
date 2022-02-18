@@ -83,6 +83,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                     "cpu": "1.0", "script": "plants.sh",
                     "image": "grycap/oscar-theano-plants",
                     "environment": {"Variables": {"a": "b"}},
+                    "token": "service_token",
                     "input": [{"storage_provider": "minio_id",
                                 "path": "/input", "suffix": ["*.txt"]}],
                     "output": [{"storage_provider": "minio_id",
@@ -184,6 +185,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.assertEqual(requests.call_args_list[0][0][0], "GET")
         self.assertEqual(requests.call_args_list[0][0][1], "http://oscar.com:80/system/services/fname")
+        self.assertEqual(vm.info.systems[0].getValue("token"), "service_token")
 
     @patch('requests.request')
     def test_55_alter(self, requests):
