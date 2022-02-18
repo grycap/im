@@ -243,6 +243,9 @@ class OSCARCloudConnector(CloudConnector):
             image = "oscar://%s/%s" % (self.cloud.server, service_info["image"])
             system.addFeature(Feature("disk.0.image.url", "=", image),
                               conflict="other", missing="other")
+        if "token" in service_info and service_info["token"]:
+            system.addFeature(Feature("token", "=", service_info["token"]),
+                              conflict="other", missing="other")
         # TODO: Complete with all fields
 
     def updateVMInfo(self, vm, auth_data):
