@@ -17,6 +17,7 @@
 import base64
 import json
 import requests
+import re
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
@@ -81,7 +82,7 @@ class OSCARCloudConnector(CloudConnector):
         if radl_system.getValue("name"):
             service["name"] = radl_system.getValue("name")
         if radl_system.getValue("memory.size"):
-            service["memory"] = "%dMi" % radl_system.getFeature('memory.size').getValue('M')
+            service["memory"] = "%dM" % radl_system.getFeature('memory.size').getValue('M')
         if radl_system.getValue("cpu.count"):
             service["cpu"] = radl_system.getValue("cpu.count")
         if radl_system.getValue("script"):
@@ -210,9 +211,35 @@ class OSCARCloudConnector(CloudConnector):
 
         return True, ""
 
+    @staticmethod
+    def _convert_memory_unit(memory, unit="M"):
+        unit_dict = {'B': 1, 'K': 1000, 'Ki': 1024,
+                     'M': 1000000, 'Mi': 1048576,
+                     'G': 1000000000, 'Gi': 1073741824,
+                     'T': 1000000000000, 'Ti': 1099511627776}
+        regex = re.compile(r'([0-9.]+)\s*([a-zA-Z]+)')
+        result = regex.match(str(memory)).groups()
+        converted = (float(result[0]) * unit_dict[result[1]] / unit_dict[unit])
+        if converted - int(converted) < 0.0000000000001:
+            converted = int(converted)
+        return converted
+
     def update_system_info_from_service_info(self, system, service_info):
-        system.addFeature(Feature("cpu.count", "=", service_info["cpu"]),
-                          conflict="other", missing="other")
+        if "cpu" in service_info and service_info["cpu"]:
+            system.addFeature(Feature("cpu.count", "=", service_info["cpu"]),
+                              conflict="other", missing="other")
+        if "memory" in service_info and service_info["memory"]:
+            memory = self._convert_memory_unit(service_info["memory"])
+            system.addFeature(Feature("memory.size", "=", memory, "M"),
+                              conflict="other", missing="other")
+        if "script" in service_info and service_info["script"]:
+            system.addFeature(Feature("script", "=", service_info["script"]),
+                              conflict="other", missing="other")
+        if "image" in service_info and service_info["image"]:
+            image = "oscar://%s/%s" % (self.cloud.server, service_info["image"])
+            system.addFeature(Feature("disk.0.image.url", "=", image),
+                              conflict="other", missing="other")
+        # TODO: Complete with all fields
 
     def updateVMInfo(self, vm, auth_data):
         try:
