@@ -206,7 +206,10 @@ class OSCARCloudConnector(CloudConnector):
             url = "%s/system/services/%s" % (self._get_oscar_url(), vm.id)
             headers = {"Authorization": self._get_auth_header(auth_data)}
             response = requests.request("DELETE", url, headers=headers, verify=self.verify_ssl)
-            if response.status_code != 204:
+            if response.status_code == 404:
+                self.log_warn("OSCAR function '%s' does not exist. Ignore." % vm.id)
+                return True, ""
+            elif response.status_code != 204:
                 msg = "Error code %d: %s" % (response.status_code, response.text)
                 return False, msg
         except Exception as ex:
@@ -253,7 +256,11 @@ class OSCARCloudConnector(CloudConnector):
             url = "%s/system/services/%s" % (self._get_oscar_url(), vm.id)
             headers = {"Authorization": self._get_auth_header(auth_data)}
             response = requests.request("GET", url, headers=headers, verify=self.verify_ssl)
-            if response.status_code != 200:
+            if response.status_code == 404:
+                vm.state = VirtualMachine.OFF
+                self.log_warn("OSCAR function '%s' does not exist. Set as OFF." % vm.id)
+                return True, vm
+            elif response.status_code != 200:
                 msg = "Error code %d: %s" % (response.status_code, response.text)
                 return False, msg
             else:
