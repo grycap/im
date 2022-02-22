@@ -595,6 +595,7 @@ class InfrastructureManager:
 
         # Launch every group in the same cloud provider
         deployed_vm = {}
+        deploy_items = []
         for deploy_group in deploy_groups:
             if not deploy_group:
                 InfrastructureManager.logger.warning("Inf ID: %s: No VMs to deploy!" % sel_inf.id)
@@ -605,19 +606,24 @@ class InfrastructureManager:
 
             cloud_id = deploys_group_cloud[id(deploy_group)]
             cloud = cloud_list[cloud_id]
-            if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
-                pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
-                pool.map(
-                    lambda deploy: InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
-                                                                        cloud, concrete_systems, radl, auth,
-                                                                        deployed_vm),
-                    deploy_group)
-                pool.close()
-            else:
-                for deploy in deploy_group:
-                    InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
-                                                         cloud, concrete_systems, radl,
-                                                         auth, deployed_vm)
+
+            for d in deploy_group:
+                deploy_items.append((d, cloud_id, cloud))
+
+        # Now launch all the deployments
+        if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+            pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+            pool.map(
+                lambda depitem: InfrastructureManager._launch_deploy(sel_inf, depitem[0], depitem[1],
+                                                                    depitem[2], concrete_systems, radl, auth,
+                                                                    deployed_vm),
+                deploy_items)
+            pool.close()
+        else:
+            for deploy, cloud_id, cloud in deploy_items:
+                InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
+                                                        cloud, concrete_systems, radl,
+                                                        auth, deployed_vm)
 
         # We make this to maintain the order of the VMs in the sel_inf.vm_list
         # according to the deploys shown in the RADL
