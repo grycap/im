@@ -64,21 +64,6 @@ class OSCARCloudConnector(CloudConnector):
             self.log_error("No correct auth data has been specified to OSCAR: username and password or token")
             raise Exception("No correct auth data has been specified to OSCAR: username and password or token")
 
-    def _get_oscar_url(self):
-        protocol = self.cloud.protocol
-        if not protocol:
-            protocol = "http"
-        port = self.cloud.port
-        if port == -1:
-            if protocol == "http":
-                port = 80
-            elif protocol == "https":
-                port = 443
-            else:
-                raise Exception("Invalid port/protocol specified for OpenStack site: %s" % self.cloud.server)
-
-        return protocol + "://" + self.cloud.server + ":" + str(port) + self.cloud.path
-
     def _get_service_json(self, radl_system):
         service = {}
 
@@ -181,7 +166,7 @@ class OSCARCloudConnector(CloudConnector):
             inf.add_vm(vm)
 
             try:
-                url = "%s/system/services" % self._get_oscar_url()
+                url = "%s/system/services" % self.cloud.get_url()
                 service = self._get_service_json(radl.systems[0])
                 headers = {"Authorization": self._get_auth_header(auth_data)}
                 response = requests.request("POST", url, data=json.dumps(service),
@@ -203,7 +188,7 @@ class OSCARCloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         try:
-            url = "%s/system/services/%s" % (self._get_oscar_url(), vm.id)
+            url = "%s/system/services/%s" % (self.cloud.get_url(), vm.id)
             headers = {"Authorization": self._get_auth_header(auth_data)}
             response = requests.request("DELETE", url, headers=headers, verify=self.verify_ssl)
             if response.status_code == 404:
@@ -253,7 +238,7 @@ class OSCARCloudConnector(CloudConnector):
 
     def updateVMInfo(self, vm, auth_data):
         try:
-            url = "%s/system/services/%s" % (self._get_oscar_url(), vm.id)
+            url = "%s/system/services/%s" % (self.cloud.get_url(), vm.id)
             headers = {"Authorization": self._get_auth_header(auth_data)}
             response = requests.request("GET", url, headers=headers, verify=self.verify_ssl)
             if response.status_code == 404:
@@ -273,7 +258,7 @@ class OSCARCloudConnector(CloudConnector):
     def alterVM(self, vm, radl, auth_data):
         try:
             service = self._get_service_json(radl.systems[0])
-            url = "%s/system/services/%s" % (self._get_oscar_url(), vm.id)
+            url = "%s/system/services/%s" % (self.cloud.get_url(), vm.id)
             headers = {"Authorization": self._get_auth_header(auth_data)}
             response = requests.request("PUT", url, data=json.dumps(service), headers=headers, verify=self.verify_ssl)
             if response.status_code != 204:
