@@ -56,6 +56,9 @@ class TestOSCARConnector(TestCloudConnectorBase):
         radl_data = """
             network net ()
             system test (
+            name = 'plants' and
+            script = '#!/bin/bash
+                      echo "HOLA"' and
             cpu.count>=1 and
             memory.size>=512m and
             disk.0.image.url = 'oscar://oscar.com/some/image:tag'
@@ -66,6 +69,14 @@ class TestOSCARConnector(TestCloudConnectorBase):
         auth = Authentication([{'id': 'osc', 'type': 'OSCAR', 'host': 'http://oscar.com', 'token': 'token'}])
         oscar_cloud = self.get_oscar_cloud()
 
+        concrete = oscar_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+
+        radl_system.setValue('disk.0.image.url', 'docker:///some/image:tag')
+        concrete = oscar_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+
+        radl_system.setValue('disk.0.image.url', 'some/image:tag')
         concrete = oscar_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -85,7 +96,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                     "environment": {"Variables": {"a": "b"}},
                     "token": "service_token",
                     "input": [{"storage_provider": "minio_id",
-                                "path": "/input", "suffix": ["*.txt"]}],
+                               "path": "/input", "suffix": ["*.txt"]}],
                     "output": [{"storage_provider": "minio_id",
                                "path": "/output"}],
                     "storage_providers": {"minio": {"minio_id": {"access_key": "AK",

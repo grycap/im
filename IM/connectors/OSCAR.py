@@ -40,7 +40,11 @@ class OSCARCloudConnector(CloudConnector):
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
-        if protocol == "oscar" and self.cloud.server == src_host:
+        # protocol should be oscar, docker, or empty in case of using a single image string
+        # but the system must have the name and script properties
+        if ((radl_system.getValue('name') and radl_system.getValue('script')) and
+                (not radl_system.getValue('provider.type') or radl_system.getValue('provider.type') == "oscar") and
+                ((protocol == "oscar" and self.cloud.server == src_host) or protocol in ["docker", ""])):
             res_system = radl_system.clone()
             res_system.setValue('disk.0.os.credentials.username', 'oscar')
             return res_system
@@ -75,10 +79,21 @@ class OSCARCloudConnector(CloudConnector):
             service["cpu"] = "%g" % radl_system.getValue("cpu.count")
         if radl_system.getValue("script"):
             service["script"] = radl_system.getValue("script")
+        if radl_system.getValue("alpine"):
+            service["alpine"] = True
 
-        url_image = urlparse(radl_system.getValue("disk.0.image.url"))
-        if url_image.path:
-            service["image"] = url_image.path[1:]
+        if radl_system.getValue("disk.0.image.url"):
+            url_image = urlparse(radl_system.getValue("disk.0.image.url"))
+            image = ""
+            if url_image.scheme == "docker":
+                image = "%s%s" % (url_image[1], url_image[2])
+            elif url_image.scheme == "":
+                image = url_image[2]
+            elif url_image.scheme == "oscar":
+                image = url_image[2][1:]
+            else:
+                raise Exception("Invalid image protocol: oscar, docker or empty are supported.")
+            service["image"] = image
 
         vars = {}
         for elem in radl_system.getValue("environment.variables", []):
@@ -138,10 +153,10 @@ class OSCARCloudConnector(CloudConnector):
             oneprovider = radl_system.getValue("onedata." + str(i) + ".oneprovider")
             token = radl_system.getValue("onedata." + str(i) + ".token")
             space = radl_system.getValue("onedata." + str(i) + ".space")
-            if "s3" not in storage_providers:
-                storage_providers["s3"] = {}
-            storage_providers["s3"][sid] = {
-                "oneprovider": oneprovider,
+            if "onedata" not in storage_providers:
+                storage_providers["onedata"] = {}
+            storage_providers["onedata"][sid] = {
+                "oneprovider_host": oneprovider,
                 "token": token,
                 "space": space
             }
