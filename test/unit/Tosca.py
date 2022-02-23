@@ -284,6 +284,8 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("disk.0.image.url"), "oscar://oscar.com/grycap/image")
         self.assertEqual(node.getValue("script"), '#!/bin/bash\necho "Hola"\n')
         self.assertEqual(node.getValue("alpine"), 0)
+        conf = radl.get_configure_by_name('plants')
+        self.assertEqual(conf.recipes, None)
 
 
 if __name__ == "__main__":
