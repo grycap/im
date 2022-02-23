@@ -145,12 +145,13 @@ class Tosca:
                     service_endpoint = self._get_default_attribute(oscar_host, "url")
                     service_creds = self._get_default_attribute(oscar_host, "credential")
 
-                    recipe = '  - include_tasks: utils/tasks/oscar_function.yml\n'
-                    recipe += '    vars:\n'
-                    recipe += '      oscar_endpoint: "%s"\n' % service_endpoint
-                    recipe += '      oscar_username: "%s"\n' % service_creds.get("user")
-                    recipe += '      oscar_password: "%s"\n' % service_creds.get("token")
-                    recipe += "      oscar_service_json: '%s'\n" % service_json
+                    recipe = '  - tasks:\n'
+                    recipe += '    - include_tasks: utils/tasks/oscar_function.yml\n'
+                    recipe += '      vars:\n'
+                    recipe += '        oscar_endpoint: "%s"\n' % service_endpoint
+                    recipe += '        oscar_username: "%s"\n' % service_creds.get("user")
+                    recipe += '        oscar_password: "%s"\n' % service_creds.get("token")
+                    recipe += "        oscar_service_json: '%s'\n" % service_json
 
                     conf = configure("oscar_%s" % node.name, recipe)
                     radl.configures.append(conf)
@@ -1785,11 +1786,13 @@ class Tosca:
         for prop in node.get_properties_objects():
             value = self._final_function_result(prop.value, node)
             if value not in [None, [], {}]:
-                if prop.name in ['name', 'cpu', 'script', 'alpine', 'input', 'output']:
+                if prop.name in ['name', 'script', 'alpine', 'input', 'output']:
                     res[prop.name] = value
+                elif prop.name == 'cpu':
+                    res['cpu'] = "%g" % value
                 elif prop.name == 'memory':
-                    value, unit = Tosca._get_size_and_unit(value)
-                    res[prop.name] = "%s%s" % (value, unit)
+                    value, _ = Tosca._get_size_and_unit(value)
+                    res[prop.name] = "%s" % value
                 elif prop.name == 'image':
                     if value.startswith('oscar://'):
                         url_image = urlparse(value)
