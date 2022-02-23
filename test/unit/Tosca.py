@@ -286,6 +286,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("alpine"), 0)
         conf = radl.get_configure_by_name('plants')
         self.assertEqual(conf.recipes, None)
+        self.assertEqual(radl.deploys[0].id, "plants")
 
 
 if __name__ == "__main__":

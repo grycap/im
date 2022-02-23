@@ -164,6 +164,9 @@ class Tosca:
                     radl.configures.append(conf)
                     level = Tosca._get_dependency_level(node)
                     cont_items.append(contextualize_item(node.name, conf.name, level))
+                    cloud_id = self._get_placement_property(oscar_sys.name, "cloud_id")
+                    dep = deploy(oscar_sys.name, 1, cloud_id)
+                    radl.deploys.append(dep)
             else:
                 if root_type == "tosca.nodes.Compute":
                     # Add the system RADL element
