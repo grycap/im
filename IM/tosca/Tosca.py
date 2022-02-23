@@ -160,6 +160,10 @@ class Tosca:
                     # if not create a system
                     oscar_sys = self._gen_oscar_system(node)
                     radl.systems.append(oscar_sys)
+                    conf = configure(node.name, None)
+                    radl.configures.append(conf)
+                    level = Tosca._get_dependency_level(node)
+                    cont_items.append(contextualize_item(node.name, conf.name, level))
             else:
                 if root_type == "tosca.nodes.Compute":
                     # Add the system RADL element
