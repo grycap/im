@@ -247,7 +247,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual('password', node.getValue("disk.0.os.credentials.password"))
         self.assertEqual('username', node.getValue("disk.0.os.credentials.username"))
 
-    def test_tosca_oscar(self):
+    def test_0_tosca_oscar(self):
         """Test TOSCA RADL translation with OSCAR functions"""
         tosca_data = read_file_as_string('../files/tosca_oscar_host.yml')
         tosca = Tosca(tosca_data)
@@ -255,20 +255,21 @@ class TestTosca(unittest.TestCase):
         radl = parse_radl(str(radl))
         node = radl.get_configure_by_name('oscar_plants')
         epected_res = """
-  - include_tasks: utils/tasks/oscar_function.yml
-    vars:
-      oscar_endpoint: "https://cluster.oscar.com/"
-      oscar_username: "oscar"
-      oscar_password: "oscar_password"
+  - tasks:
+    - include_tasks: utils/tasks/oscar_function.yml
+      vars:
+        oscar_endpoint: "https://cluster.oscar.com"
+        oscar_username: "oscar"
+        oscar_password: "oscar_password"
 """
         self.assertIn(epected_res, node.recipes)
         conf = yaml.safe_load(node.recipes)
-        service_json = json.loads(conf[0]["vars"]["oscar_service_json"])
+        service_json = json.loads(conf[0]["tasks"][0]["vars"]["oscar_service_json"])
         expected_json = {'alpine': False,
-                         'cpu': 0.5,
+                         'cpu': "0.5",
                          'image': 'grycap/image',
                          'input': [{'path': '/input', 'storage_provider': 'minio.default'}],
-                         'memory': '512000000B',
+                         'memory': '512000000',
                          'name': 'plants',
                          'output': [{'path': '/output', 'storage_provider': 'minio.default'}],
                          'script': '#!/bin/bash\necho "Hola"\n'}
