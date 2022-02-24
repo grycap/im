@@ -143,7 +143,7 @@ class Tosca:
                 if oscar_compute and oscar_host:
                     service_json = self._get_oscar_service_json(node)
                     dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
-                    if dns_host:
+                    if dns_host.strip("'\""):
                         service_endpoint = "https://%s" % dns_host
                     else:
                         service_endpoint = "http://{{ IM_NODE_PUBLIC_IP }}"
