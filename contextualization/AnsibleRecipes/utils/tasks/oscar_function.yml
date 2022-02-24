@@ -15,36 +15,39 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Task to create an OSCAR function
-- block:
-
-  - name: Create OSCAR service at {{ oscar_endpoint }}
-    uri:
-      url: "{{ oscar_endpoint }}/system/services"
-      user: "{{ oscar_username }}"
-      password: "{{ oscar_password }}"
-      method: POST
-      body: "{{ oscar_service_json }}"
-      force_basic_auth: yes
-      status_code: 201
-      body_format: json
-      validate_certs: false
-      timeout: 60
-    register: endpoint_result
-
-  - name: Create OSCAR service at localhost
-    uri:
-      url: "http://localhost/system/services"
-      user: "{{ oscar_username }}"
-      password: "{{ oscar_password }}"
-      method: POST
-      body: "{{ oscar_service_json }}"
-      force_basic_auth: yes
-      status_code: 201
-      body_format: json
-      validate_certs: false
-      timeout: 60
-    register: endpoint_result
-
-  until: endpoint_result.status == 201 or localhost_result.status == 201
+- name: Create OSCAR service at {{ oscar_endpoint }}
+  uri:
+    url: "{{ oscar_endpoint }}/system/services"
+    user: "{{ oscar_username }}"
+    password: "{{ oscar_password }}"
+    method: POST
+    body: "{{ oscar_service_json }}"
+    force_basic_auth: yes
+    status_code: [201, 409]
+    body_format: json
+    validate_certs: false
+    timeout: 60
+  register: endpoint_result
+  changed_when: "endpoint_result.status == 201"
+  until: endpoint_result.status == 201 or endpoint_result.status == 409
   retries: 10
   delay: 5
+
+- name: Create OSCAR service at localhost
+  uri:
+    url: "http://localhost/system/services"
+    user: "{{ oscar_username }}"
+    password: "{{ oscar_password }}"
+    method: POST
+    body: "{{ oscar_service_json }}"
+    force_basic_auth: yes
+    status_code: [201, 409]
+    body_format: json
+    validate_certs: false
+    timeout: 60
+  register: _result
+  changed_when: "_result.status == 201"
+  until: _result.status == 201 or _result.status == 409
+  retries: 10
+  delay: 5
+  when: endpoint_result != 201
