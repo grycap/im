@@ -1743,7 +1743,7 @@ class Tosca:
                     res.setValue('alpine', 1 if value else 0)
                 elif prop.name == 'memory':
                     value, unit = Tosca._get_size_and_unit(value)
-                    res.setValue("memory.size", "%s%s" % (value, unit))
+                    res.setValue("memory.size", value, unit)
                 elif prop.name == 'env_variables':
                     variables = ["%s:%s" % (k, v) for k, v in value.items()]
                     res.setValue("environment.variables", variables)
