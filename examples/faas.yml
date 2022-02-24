@@ -1,0 +1,34 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+description: TOSCA test for the IM
+
+imports:
+  - ec3_custom_types: https://raw.githubusercontent.com/grycap/ec3/tosca/tosca/custom_types.yaml
+
+topology_template:
+
+  node_templates:
+
+    plants:
+      type: tosca.nodes.aisprint.FaaS.Function
+      properties:
+        name: plants
+        memory: 512 MB
+        script: |
+          #!/bin/bash
+          echo "SCRIPT: Invoked Image Grayifier. File available in $INPUT_FILE_PATH"
+          FILE_NAME=`basename "$INPUT_FILE_PATH"`
+          OUTPUT_FILE="$TMP_OUTPUT_DIR/$FILE_NAME"
+          echo "SCRIPT: Converting input image file $INPUT_FILE_PATH to grayscale to output file $OUTPUT_FILE"
+          convert "$INPUT_FILE_PATH" -type Grayscale "$OUTPUT_FILE"
+        cpu: 0.5
+        image: docker://grycap/imagemagick
+        input:
+          - storage_provider: minio.default
+            path: /input
+        output:
+          - storage_provider: minio.default
+            path: /output
+# It can be also deployed in top of an tosca.nodes.indigo.OSCAR node
+#      requirements:
+#        - host: oscar
