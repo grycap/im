@@ -142,15 +142,19 @@ class Tosca:
                 # If the function has a host create a recipe
                 if oscar_compute and oscar_host:
                     service_json = self._get_oscar_service_json(node)
-                    service_endpoint = self._get_default_attribute(oscar_host, "url")
-                    service_creds = self._get_default_attribute(oscar_host, "credential")
+                    dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
+                    if dns_host:
+                        service_endpoint = "https://%s" % dns_host
+                    else:
+                        service_endpoint = "http://{{ IM_NODE_PUBLIC_IP }}"
+                    service_password = self._final_function_result(oscar_host.get_property_value('password'), oscar_host)
 
                     recipe = '  - tasks:\n'
                     recipe += '    - include_tasks: utils/tasks/oscar_function.yml\n'
                     recipe += '      vars:\n'
                     recipe += '        oscar_endpoint: "%s"\n' % service_endpoint
-                    recipe += '        oscar_username: "%s"\n' % service_creds.get("user")
-                    recipe += '        oscar_password: "%s"\n' % service_creds.get("token")
+                    recipe += '        oscar_username: "oscar"\n'
+                    recipe += '        oscar_password: "%s"\n' % service_password
                     recipe += "        oscar_service_json: '%s'\n" % service_json
 
                     conf = configure("oscar_%s" % node.name, recipe)
