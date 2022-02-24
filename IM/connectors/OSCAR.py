@@ -103,15 +103,23 @@ class OSCARCloudConnector(CloudConnector):
             service["environment"] = {"Variables": vars}
 
         for elem in ["input", "output"]:
-            if radl_system.getValue("%s.provider" % elem):
-                service[elem] = [{
-                    "storage_provider": radl_system.getValue("%s.provider" % elem),
-                    "path": radl_system.getValue("%s.path" % elem)
-                }]
-                if radl_system.getValue("%s.suffix" % elem):
-                    service[elem][0]["suffix"] = radl_system.getValue("%s.suffix" % elem)
-                if radl_system.getValue("%s.prefix" % elem):
-                    service[elem][0]["prefix"] = radl_system.getValue("%s.prefix" % elem)
+            ioelems = []
+            i = 0
+            print("AAA %s" % radl_system.getValue("%s.%d.provider" % (elem, i)))
+            while radl_system.getValue("%s.%d.provider" % (elem, i)):
+                ioelem = {
+                    "storage_provider": radl_system.getValue("%s.%d.provider" % (elem, i)),
+                    "path": radl_system.getValue("%s.%d.path" % (elem, i))
+                }
+                if radl_system.getValue("%s.%d.suffix" % (elem, i)):
+                    ioelem['suffix'] = radl_system.getValue("%s.%d.suffix" % (elem, i))
+                if radl_system.getValue("%s.%d.prefix" % (elem, i)):
+                    ioelem['prefix'] = radl_system.getValue("%s.%d.prefix" % (elem, i))
+                ioelems.append(ioelem)
+                i += 1
+            
+            if ioelems:
+                service[elem] = ioelems
 
         storage_providers = {}
         i = 0
