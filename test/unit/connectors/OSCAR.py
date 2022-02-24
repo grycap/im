@@ -128,11 +128,11 @@ class TestOSCARConnector(TestCloudConnectorBase):
                 disk.0.image.url = 'oscar://oscar.com/grycap/oscar-theano-plants' and
                 script = 'plants.sh' and
                 environment.variables = ['a:b'] and
-                input.provider = 'minio_id' and
-                input.path = '/input' and
-                input.suffix = ['*.txt'] and
-                output.provider = 'minio_id' and
-                output.path = '/output' and
+                input.0.provider = 'minio_id' and
+                input.0.path = '/input' and
+                input.0.suffix = ['*.txt'] and
+                output.0.provider = 'minio_id' and
+                output.0.path = '/output' and
                 minio.0.id = 'minio_id' and
                 minio.0.endpoint = 'https://minio.com' and
                 minio.0.region = 'mregion' and
