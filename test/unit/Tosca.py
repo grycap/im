@@ -247,7 +247,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual('password', node.getValue("disk.0.os.credentials.password"))
         self.assertEqual('username', node.getValue("disk.0.os.credentials.username"))
 
-    def test_0_tosca_oscar(self):
+    def test_tosca_oscar(self):
         """Test TOSCA RADL translation with OSCAR functions"""
         tosca_data = read_file_as_string('../files/tosca_oscar_host.yml')
         tosca = Tosca(tosca_data)
