@@ -1,6 +1,5 @@
 import os
 import logging
-from sys import prefix
 import yaml
 import copy
 import operator
