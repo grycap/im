@@ -125,7 +125,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                 name = 'plants' and
                 memory.size = 2G and
                 cpu.count = 1.0 and
-                disk.0.image.url = 'oscar://oscar.com/grycap/oscar-theano-plants' and
+                disk.0.image.url = 'grycap/oscar-theano-plants' and
                 script = 'plants.sh' and
                 environment.variables = ['a:b'] and
                 input.0.provider = 'minio_id' and

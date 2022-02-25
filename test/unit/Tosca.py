@@ -283,7 +283,7 @@ class TestTosca(unittest.TestCase):
         _, radl = tosca.to_radl()
         radl = parse_radl(str(radl))
         node = radl.get_system_by_name('plants')
-        self.assertEqual(node.getValue("disk.0.image.url"), "oscar://oscar.com/grycap/image")
+        self.assertEqual(node.getValue("disk.0.image.url"), "grycap/image")
         self.assertEqual(node.getValue("script"), '#!/bin/bash\necho "Hola"\n')
         self.assertEqual(node.getValue("memory.size"), 512000000)
         self.assertEqual(node.getValue("alpine"), 0)
