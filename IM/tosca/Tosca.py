@@ -1748,12 +1748,13 @@ class Tosca:
                     variables = ["%s:%s" % (k, v) for k, v in value.items()]
                     res.setValue("environment.variables", variables)
                 elif prop.name in ['input', 'output']:
-                    res.setValue("%s.provider" % prop.name, value[0].get("storage_provider"))
-                    res.setValue("%s.path" % prop.name, value[0].get("path"))
-                    if value[0].get("suffix"):
-                        res.setValue("%s.suffix" % prop.name, value[0].get("suffix"))
-                    if value[0].get("prefix"):
-                        res.setValue("%s.prefix" % prop.name, value[0].get("prefix"))
+                    for num, elem in enumerate(value):
+                        res.setValue("%s.%d.provider" % (prop.name, num), elem.get("storage_provider"))
+                        res.setValue("%s.%d.path" % (prop.name, num), elem.get("path"))
+                        if elem.get("suffix"):
+                            res.setValue("%s.%d.suffix" % (prop.name, num), elem.get("suffix"))
+                        if elem.get("prefix"):
+                            res.setValue("%s.%d.prefix" % (prop.name, num), elem.get("prefix"))
                 elif prop.name == 'storage_providers':
                     minio = 0
                     s3 = 0

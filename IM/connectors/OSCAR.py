@@ -105,7 +105,6 @@ class OSCARCloudConnector(CloudConnector):
         for elem in ["input", "output"]:
             ioelems = []
             i = 0
-            print("AAA %s" % radl_system.getValue("%s.%d.provider" % (elem, i)))
             while radl_system.getValue("%s.%d.provider" % (elem, i)):
                 ioelem = {
                     "storage_provider": radl_system.getValue("%s.%d.provider" % (elem, i)),
