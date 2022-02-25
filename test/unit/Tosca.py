@@ -273,8 +273,6 @@ class TestTosca(unittest.TestCase):
                          'name': 'plants',
                          'output': [{'path': '/output', 'storage_provider': 'minio.default'}],
                          'script': '#!/bin/bash\necho "Hola"\n'}
-
-        self.maxDiff = None
         self.assertEqual(service_json, expected_json)
 
         tosca_data = read_file_as_string('../files/tosca_oscar.yml')
@@ -286,6 +284,8 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("script"), '#!/bin/bash\necho "Hola"\n')
         self.assertEqual(node.getValue("memory.size"), 512000000)
         self.assertEqual(node.getValue("alpine"), 0)
+        self.assertEqual(node.getValue("input.0.path"), '/input')
+        self.assertEqual(node.getValue("output.0.path"), '/output')
         conf = radl.get_configure_by_name('plants')
         self.assertEqual(conf.recipes, None)
         self.assertEqual(radl.deploys[0].id, "plants")
