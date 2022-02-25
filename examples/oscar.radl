@@ -6,11 +6,11 @@ system plants (
     script = '#!/bin/bash
               echo "HOLA"' and
     environment.variables = ['a:b'] and
-    input.provider = 'minio.default' and
-    input.path = '/input' and
-    input.suffix = ['*'] and
-    output.provider = 'minio.default' and
-    output.path = '/output'
+    input.0.provider = 'minio.default' and
+    input.0.path = '/input' and
+    input.0.suffix = ['*'] and
+    output.0.provider = 'minio.default' and
+    output.0.path = '/output'
     #minio.0.id = 'minio_id' and
     #minio.0.endpoint = 'https://minio.com' and
     #minio.0.region = 'mregion' and
