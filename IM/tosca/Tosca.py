@@ -147,7 +147,8 @@ class Tosca:
                         service_endpoint = "https://%s" % dns_host
                     else:
                         service_endpoint = "http://{{ IM_NODE_PUBLIC_IP }}"
-                    service_password = self._final_function_result(oscar_host.get_property_value('password'), oscar_host)
+                    service_password = self._final_function_result(oscar_host.get_property_value('password'),
+                                                                   oscar_host)
 
                     recipe = '  - tasks:\n'
                     recipe += '    - include_tasks: utils/tasks/oscar_function.yml\n'
@@ -1756,28 +1757,19 @@ class Tosca:
                         if elem.get("prefix"):
                             res.setValue("%s.%d.prefix" % (prop.name, num), elem.get("prefix"))
                 elif prop.name == 'storage_providers':
-                    minio = 0
-                    s3 = 0
-                    onedata = 0
-                    for provider in value:
-                        provider_pref = None
-                        if node.type.endswith("StorageMinIOProvider"):
-                            provider_pref = "minio.%d." % minio
-                            minio += 1
-                        elif node.type.endswith("StorageOnedataProvider"):
-                            provider_pref = "onedata.%d." % onedata
-                            onedata += 1
-                        elif node.type.endswith("StorageS3Provider"):
-                            provider_pref = "s3.%d." % s3
-                            s3 += 1
-                        else:
-                            Tosca.logger.warn("Storage providers %s not supported. Ignoring." % node.type)
+                    cont = {"minio": 0, "s3": 0, "onedata": 0}
 
-                        if provider_pref:
-                            for elem in ['id', 'access_key', 'secret_key', 'region', 'endpoint',
-                                         'verify', 'oneprovider', 'token', 'space']:
-                                if provider.get(elem):
-                                    res.setValue("%s.%s" % (prefix, elem), provider.get(elem))
+                    for provider_type in ["minio", "s3", "onedata"]:
+                        if provider_type in value:
+                            for prov_id, provider in value[provider_type].items():
+                                provider_pref = "%s.%d" % (provider_type, cont[provider_type])
+                                cont[provider_type] += 1
+                                res.setValue("%s.id" % provider_pref, prov_id)
+
+                                for elem in ['access_key', 'secret_key', 'region', 'endpoint',
+                                            'verify', 'oneprovider_host', 'token', 'space']:
+                                    if provider.get(elem):
+                                        res.setValue("%s.%s" % (provider_pref, elem), provider.get(elem))
                 else:
                     # this should never happen
                     Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
@@ -1811,37 +1803,19 @@ class Tosca:
                     res['environment'] = {'Variables': value}
                 elif prop.name == 'storage_providers':
                     storage_providers = {}
-                    for provider in value:
-                        if node.type.endswith("StorageMinIOProvider"):
-                            if "minio" not in storage_providers:
-                                storage_providers["minio"] = {}
-                            storage_providers["minio"][provider['id']] = {
-                                "access_key": provider.get('access_key'),
-                                "secret_key": provider.get('secret_key'),
-                                "endpoint": provider.get('endpoint'),
-                            }
-                            if provider.get('region'):
-                                storage_providers["minio"][provider['id']]['region'] = provider.get('region')
-                            if provider.get('verify'):
-                                storage_providers["minio"][provider['id']]['verify'] = provider.get('verify')
-                        elif node.type.endswith("StorageOnedataProvider"):
-                            if "onedata" not in storage_providers:
-                                storage_providers["onedata"] = {}
-                            storage_providers["onedata"][[provider['id']]] = {
-                                "oneprovider_host": provider.get('oneprovider'),
-                                "token": provider.get('token'),
-                                "space": provider.get('space')
-                            }
-                        elif node.type.endswith("StorageS3Provider"):
-                            if "s3" not in storage_providers:
-                                storage_providers["s3"] = {}
-                            storage_providers["s3"][provider['id']] = {
-                                "access_key": provider.get('access_key'),
-                                "secret_key": provider.get('secret_key'),
-                                "region": provider.get('region')
-                            }
-                        else:
-                            Tosca.logger.warn("Storage providers %s not supported. Ignoring." % node.type)
+                    for provider_type in ["minio", "s3", "onedata"]:
+                        if provider_type in value:
+                            for prov_id, provider in value[provider_type].items():
+                                if provider_type not in storage_providers:
+                                    storage_providers[provider_type] = {prov_id: {}}
+
+                                for elem in ['access_key', 'secret_key', 'region', 'endpoint',
+                                            'verify', 'oneprovider_host', 'token', 'space']:
+                                    if provider.get(elem):
+                                        storage_providers[provider_type][prov_id][elem] = provider.get(elem)
+
+                    if storage_providers:
+                        res['storage_providers'] = storage_providers
                 else:
                     # this should never happen
                     Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)

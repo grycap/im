@@ -272,7 +272,10 @@ class TestTosca(unittest.TestCase):
                          'memory': '512000000',
                          'name': 'plants',
                          'output': [{'path': '/output', 'storage_provider': 'minio.default'}],
-                         'script': '#!/bin/bash\necho "Hola"\n'}
+                         'script': '#!/bin/bash\necho "Hola"\n',
+                         'storage_providers': {'onedata': {'my_onedata': {'oneprovider_host': 'my_provider.com',
+                                                                          'token': 'my_very_secret_token',
+                                                                          'space': 'my_onedata_space'}}}}
         self.assertEqual(service_json, expected_json)
 
         tosca_data = read_file_as_string('../files/tosca_oscar.yml')
@@ -286,6 +289,8 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("alpine"), 0)
         self.assertEqual(node.getValue("input.0.path"), '/input')
         self.assertEqual(node.getValue("output.0.path"), '/output')
+        self.assertEqual(node.getValue("onedata.0.id"), 'my_onedata')
+        self.assertEqual(node.getValue("onedata.0.oneprovider_host"), 'my_provider.com')
         conf = radl.get_configure_by_name('plants')
         self.assertEqual(conf.recipes, None)
         self.assertEqual(radl.deploys[0].id, "plants")

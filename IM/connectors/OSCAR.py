@@ -16,6 +16,7 @@
 
 import base64
 import json
+from sys import prefix
 import requests
 import re
 from IM.VirtualMachine import VirtualMachine
@@ -121,53 +122,21 @@ class OSCARCloudConnector(CloudConnector):
                 service[elem] = ioelems
 
         storage_providers = {}
-        i = 0
-        while radl_system.getValue("minio." + str(i) + ".id"):
-            sid = radl_system.getValue("minio." + str(i) + ".id")
-            endpoint = radl_system.getValue("minio." + str(i) + ".endpoint")
-            region = radl_system.getValue("minio." + str(i) + ".region")
-            secret_key = radl_system.getValue("minio." + str(i) + ".secret_key")
-            access_key = radl_system.getValue("minio." + str(i) + ".access_key")
-            if "minio" not in storage_providers:
-                storage_providers["minio"] = {}
-            storage_providers["minio"][sid] = {
-                "access_key": access_key,
-                "secret_key": secret_key,
-                "endpoint": endpoint,
-                "region": region,
-                "verify": False
-            }
-            i += 1
+        cont = {"minio": 0, "s3": 0, "onedata": 0}
+        for provider_type in ["minio", "s3", "onedata"]:
+            provider_pref = "%s.0" % provider_type
+            while radl_system.getValue("%s.id" % provider_pref):
+                sid = radl_system.getValue("%s.id" % provider_pref)
+                if provider_type not in storage_providers:
+                    storage_providers[provider_type] = {sid: {}}
+                for elem in ['access_key', 'secret_key', 'region', 'endpoint',
+                             'verify', 'oneprovider_host', 'token', 'space']:
+                    value = radl_system.getValue("%s.%s" % (provider_pref, elem))
+                    if value:
+                        storage_providers[provider_type][sid][elem] = value
 
-        i = 0
-        while radl_system.getValue("s3." + str(i) + ".id"):
-            sid = radl_system.getValue("s3." + str(i) + ".id")
-            region = radl_system.getValue("s3." + str(i) + ".region")
-            secret_key = radl_system.getValue("s3." + str(i) + ".secret_key")
-            access_key = radl_system.getValue("s3." + str(i) + ".access_key")
-            if "s3" not in storage_providers:
-                storage_providers["s3"] = {}
-            storage_providers["s3"][sid] = {
-                "access_key": access_key,
-                "secret_key": secret_key,
-                "region": region
-            }
-            i += 1
-
-        i = 0
-        while radl_system.getValue("onedata." + str(i) + ".id"):
-            sid = radl_system.getValue("onedata." + str(i) + ".id")
-            oneprovider = radl_system.getValue("onedata." + str(i) + ".oneprovider")
-            token = radl_system.getValue("onedata." + str(i) + ".token")
-            space = radl_system.getValue("onedata." + str(i) + ".space")
-            if "onedata" not in storage_providers:
-                storage_providers["onedata"] = {}
-            storage_providers["onedata"][sid] = {
-                "oneprovider_host": oneprovider,
-                "token": token,
-                "space": space
-            }
-            i += 1
+                cont[provider_type] += 1
+                provider_pref = "%s.%d" % (provider_type, cont[provider_type])
 
         if storage_providers:
             service["storage_providers"] = storage_providers
