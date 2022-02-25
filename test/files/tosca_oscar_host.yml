@@ -21,10 +21,10 @@ topology_template:
         image: grycap/image
         input:
           - storage_provider: minio.default
-            path: /input
+            path: input
         output:
           - storage_provider: minio.default
-            path: /output
+            path: output
         storage_providers:
           onedata:
             my_onedata:
