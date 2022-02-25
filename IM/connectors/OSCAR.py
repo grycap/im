@@ -117,7 +117,7 @@ class OSCARCloudConnector(CloudConnector):
                     ioelem['prefix'] = radl_system.getValue("%s.%d.prefix" % (elem, i))
                 ioelems.append(ioelem)
                 i += 1
-            
+
             if ioelems:
                 service[elem] = ioelems
 

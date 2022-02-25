@@ -615,15 +615,15 @@ class InfrastructureManager:
             pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
             pool.map(
                 lambda depitem: InfrastructureManager._launch_deploy(sel_inf, depitem[0], depitem[1],
-                                                                    depitem[2], concrete_systems, radl, auth,
-                                                                    deployed_vm),
+                                                                     depitem[2], concrete_systems, radl, auth,
+                                                                     deployed_vm),
                 deploy_items)
             pool.close()
         else:
             for deploy, cloud_id, cloud in deploy_items:
                 InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
-                                                        cloud, concrete_systems, radl,
-                                                        auth, deployed_vm)
+                                                     cloud, concrete_systems, radl,
+                                                     auth, deployed_vm)
 
         # We make this to maintain the order of the VMs in the sel_inf.vm_list
         # according to the deploys shown in the RADL

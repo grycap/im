@@ -1767,7 +1767,7 @@ class Tosca:
                                 res.setValue("%s.id" % provider_pref, prov_id)
 
                                 for elem in ['access_key', 'secret_key', 'region', 'endpoint',
-                                            'verify', 'oneprovider_host', 'token', 'space']:
+                                             'verify', 'oneprovider_host', 'token', 'space']:
                                     if provider.get(elem):
                                         res.setValue("%s.%s" % (provider_pref, elem), provider.get(elem))
                 else:
@@ -1810,7 +1810,7 @@ class Tosca:
                                     storage_providers[provider_type] = {prov_id: {}}
 
                                 for elem in ['access_key', 'secret_key', 'region', 'endpoint',
-                                            'verify', 'oneprovider_host', 'token', 'space']:
+                                             'verify', 'oneprovider_host', 'token', 'space']:
                                     if provider.get(elem):
                                         storage_providers[provider_type][prov_id][elem] = provider.get(elem)
 
