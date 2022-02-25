@@ -16,7 +16,6 @@
 
 import base64
 import json
-from sys import prefix
 import requests
 import re
 from IM.VirtualMachine import VirtualMachine
@@ -96,12 +95,12 @@ class OSCARCloudConnector(CloudConnector):
                 raise Exception("Invalid image protocol: oscar, docker or empty are supported.")
             service["image"] = image
 
-        vars = {}
+        env_vars = {}
         for elem in radl_system.getValue("environment.variables", []):
             parts = elem.split(":")
-            vars[parts[0]] = parts[1]
-        if vars:
-            service["environment"] = {"Variables": vars}
+            env_vars[parts[0]] = parts[1]
+        if env_vars:
+            service["environment"] = {"Variables": env_vars}
 
         for elem in ["input", "output"]:
             ioelems = []
