@@ -167,8 +167,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                         "storage_providers": {"minio": {"minio_id": {"access_key": "AK",
                                                                      "secret_key": "SK",
                                                                      "endpoint": "https://minio.com",
-                                                                     "region": "mregion",
-                                                                     "verify": False}}}}
+                                                                     "region": "mregion"}}}}
         self.assertEqual(json.loads(requests.call_args_list[0][1]['data']), expected_res)
         self.assertEqual(requests.call_args_list[0][1]['headers']['Authorization'], "Basic dXNlcjpwYXNz")
 
