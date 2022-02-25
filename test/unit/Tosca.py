@@ -268,10 +268,10 @@ class TestTosca(unittest.TestCase):
         expected_json = {'alpine': False,
                          'cpu': "0.5",
                          'image': 'grycap/image',
-                         'input': [{'path': '/input', 'storage_provider': 'minio.default'}],
+                         'input': [{'path': 'input', 'storage_provider': 'minio.default'}],
                          'memory': '512000000',
                          'name': 'plants',
-                         'output': [{'path': '/output', 'storage_provider': 'minio.default'}],
+                         'output': [{'path': 'output', 'storage_provider': 'minio.default'}],
                          'script': '#!/bin/bash\necho "Hola"\n',
                          'storage_providers': {'onedata': {'my_onedata': {'oneprovider_host': 'my_provider.com',
                                                                           'token': 'my_very_secret_token',
@@ -287,8 +287,8 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("script"), '#!/bin/bash\necho "Hola"\n')
         self.assertEqual(node.getValue("memory.size"), 512000000)
         self.assertEqual(node.getValue("alpine"), 0)
-        self.assertEqual(node.getValue("input.0.path"), '/input')
-        self.assertEqual(node.getValue("output.0.path"), '/output')
+        self.assertEqual(node.getValue("input.0.path"), 'input')
+        self.assertEqual(node.getValue("output.0.path"), 'output')
         self.assertEqual(node.getValue("onedata.0.id"), 'my_onedata')
         self.assertEqual(node.getValue("onedata.0.oneprovider_host"), 'my_provider.com')
         conf = radl.get_configure_by_name('plants')
