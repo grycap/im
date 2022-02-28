@@ -1,0 +1,33 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+description: TOSCA test for the IM
+
+imports:
+  - ec3_custom_types: https://raw.githubusercontent.com/grycap/ec3/tosca/tosca/custom_types.yaml
+
+topology_template:
+
+  node_templates:
+
+    plants:
+      type: tosca.nodes.aisprint.FaaS.Function
+      properties:
+        name: plants
+        memory: 512MB
+        script: |
+          #!/bin/bash
+          echo "Hola"
+        cpu: 0.5
+        image: grycap/image
+        input:
+          - storage_provider: minio.default
+            path: input
+        output:
+          - storage_provider: minio.default
+            path: output
+        storage_providers:
+          onedata:
+            my_onedata:
+              oneprovider_host: my_provider.com
+              token: my_very_secret_token
+              space: my_onedata_space

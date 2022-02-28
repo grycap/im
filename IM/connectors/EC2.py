@@ -304,10 +304,10 @@ class EC2CloudConnector(CloudConnector):
                     continue
 
                 if gpu and gpu_model and (not instace_type.gpu_model or
-                                  gpu_model.lower() not in instace_type.gpu_model.lower()):
+                                          gpu_model.lower() not in instace_type.gpu_model.lower()):
                     continue
                 if gpu and gpu_vendor and (not instace_type.gpu_model or
-                                   gpu_vendor.lower() not in instace_type.gpu_model.lower()):
+                                           gpu_vendor.lower() not in instace_type.gpu_model.lower()):
                     continue
 
                 if comparison:

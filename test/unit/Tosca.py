@@ -20,6 +20,7 @@ import os
 import unittest
 import sys
 import yaml
+import json
 
 from mock import MagicMock
 
@@ -245,6 +246,55 @@ class TestTosca(unittest.TestCase):
         self.assertEqual('deployed_node_ip', node.getValue("net_interface.0.ip"))
         self.assertEqual('password', node.getValue("disk.0.os.credentials.password"))
         self.assertEqual('username', node.getValue("disk.0.os.credentials.username"))
+
+    def test_tosca_oscar(self):
+        """Test TOSCA RADL translation with OSCAR functions"""
+        tosca_data = read_file_as_string('../files/tosca_oscar_host.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        node = radl.get_configure_by_name('oscar_plants')
+        epected_res = """
+  - tasks:
+    - include_tasks: utils/tasks/oscar_function.yml
+      vars:
+        oscar_endpoint: "https://cluster.oscar.com"
+        oscar_username: "oscar"
+        oscar_password: "oscar_password"
+"""
+        self.assertIn(epected_res, node.recipes)
+        conf = yaml.safe_load(node.recipes)
+        service_json = json.loads(conf[0]["tasks"][0]["vars"]["oscar_service_json"])
+        expected_json = {'alpine': False,
+                         'cpu': "0.5",
+                         'image': 'grycap/image',
+                         'input': [{'path': 'input', 'storage_provider': 'minio.default'}],
+                         'memory': '488.281MiB',
+                         'name': 'plants',
+                         'output': [{'path': 'output', 'storage_provider': 'minio.default'}],
+                         'script': '#!/bin/bash\necho "Hola"\n',
+                         'storage_providers': {'onedata': {'my_onedata': {'oneprovider_host': 'my_provider.com',
+                                                                          'token': 'my_very_secret_token',
+                                                                          'space': 'my_onedata_space'}}}}
+        self.assertEqual(service_json, expected_json)
+
+        tosca_data = read_file_as_string('../files/tosca_oscar.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        node = radl.get_system_by_name('plants')
+        self.assertEqual(node.getValue("disk.0.image.url"), "grycap/image")
+        self.assertEqual(node.getValue("script"), '#!/bin/bash\necho "Hola"\n')
+        self.assertEqual(node.getValue("memory.size"), 512000000)
+        self.assertEqual(node.getFeature("memory.size").getValue("M"), 488.28125)
+        self.assertEqual(node.getValue("alpine"), 0)
+        self.assertEqual(node.getValue("input.0.path"), 'input')
+        self.assertEqual(node.getValue("output.0.path"), 'output')
+        self.assertEqual(node.getValue("onedata.0.id"), 'my_onedata')
+        self.assertEqual(node.getValue("onedata.0.oneprovider_host"), 'my_provider.com')
+        conf = radl.get_configure_by_name('plants')
+        self.assertEqual(conf.recipes, None)
+        self.assertEqual(radl.deploys[0].id, "plants")
 
 
 if __name__ == "__main__":
