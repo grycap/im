@@ -142,3 +142,19 @@ class CloudInfo:
         nwecloud = CloudInfo()
         nwecloud.__dict__.update(dic)
         return nwecloud
+
+    def get_port(self):
+        protocol = self.protocol or "http"
+        port = self.port
+        if port == -1:
+            if protocol == "http":
+                port = 80
+            elif protocol == "https":
+                port = 443
+        return port
+
+    def get_url(self):
+        protocol = self.protocol or "http"
+        if not protocol:
+            protocol = "http"
+        return protocol + "://" + self.server + ":" + str(self.get_port()) + self.path

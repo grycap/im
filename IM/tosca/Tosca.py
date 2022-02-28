@@ -4,6 +4,7 @@ import yaml
 import copy
 import operator
 import requests
+import json
 from toscaparser.nodetemplate import NodeTemplate
 
 try:
@@ -133,6 +134,44 @@ class Tosca:
                         else:
                             Tosca.logger.warn("Unknown tyoe of token %s. Ignoring." % token_type)
                 radl.ansible_hosts = [ansible_host]
+            elif root_type == "tosca.nodes.aisprint.FaaS.Function":
+                oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
+                                                     "tosca.nodes.SoftwareComponent")
+                oscar_compute = self._find_host_compute(node, self.tosca.nodetemplates)
+                # If the function has a host create a recipe
+                if oscar_compute and oscar_host:
+                    service_json = self._get_oscar_service_json(node)
+                    dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
+                    if dns_host.strip("'\""):
+                        service_endpoint = "https://%s" % dns_host
+                    else:
+                        service_endpoint = "http://{{ IM_NODE_PUBLIC_IP }}"
+                    service_password = self._final_function_result(oscar_host.get_property_value('password'),
+                                                                   oscar_host)
+
+                    recipe = '  - tasks:\n'
+                    recipe += '    - include_tasks: utils/tasks/oscar_function.yml\n'
+                    recipe += '      vars:\n'
+                    recipe += '        oscar_endpoint: "%s"\n' % service_endpoint
+                    recipe += '        oscar_username: "oscar"\n'
+                    recipe += '        oscar_password: "%s"\n' % service_password
+                    recipe += "        oscar_service_json: '%s'\n" % service_json
+
+                    conf = configure("oscar_%s" % node.name, recipe)
+                    radl.configures.append(conf)
+                    level = Tosca._get_dependency_level(node)
+                    cont_items.append(contextualize_item(oscar_compute.name, conf.name, level))
+                else:
+                    # if not create a system
+                    oscar_sys = self._gen_oscar_system(node)
+                    radl.systems.append(oscar_sys)
+                    conf = configure(node.name, None)
+                    radl.configures.append(conf)
+                    level = Tosca._get_dependency_level(node)
+                    cont_items.append(contextualize_item(node.name, conf.name, level))
+                    cloud_id = self._get_placement_property(oscar_sys.name, "cloud_id")
+                    dep = deploy(oscar_sys.name, 1, cloud_id)
+                    radl.deploys.append(dep)
             else:
                 if root_type == "tosca.nodes.Compute":
                     # Add the system RADL element
@@ -204,6 +243,9 @@ class Tosca:
         Check private networks to assure to create different nets
         for different cloud providers
         """
+        if not radl.networks:
+            return
+
         priv_net_cloud_map = {}
 
         # in case of an AddResource
@@ -893,7 +935,7 @@ class Tosca:
                     "Intrinsic function %s not supported." % func_name)
                 return None
 
-    def _get_default_attribute(self, node, attribute_name, inf_info):
+    def _get_default_attribute(self, node, attribute_name, inf_info=None):
         """Get the default value set to an attribute."""
         try:
             node_type = node.type_definition
@@ -1142,7 +1184,7 @@ class Tosca:
         # TODO: resolve function values related with run-time values as IM
         # or ansible variables
 
-    def _find_host_compute(self, node, nodetemplates):
+    def _find_host_compute(self, node, nodetemplates, base_root_type="tosca.nodes.Compute"):
         """
         Select the node to host each node, using the node requirements
         In most of the cases the are directly specified, otherwise "node_filter" is used
@@ -1150,21 +1192,21 @@ class Tosca:
 
         # check for a HosteOn relation
         root_type = Tosca._get_root_parent_type(node).type
-        if root_type == "tosca.nodes.Compute":
+        if root_type == base_root_type:
             return node
 
         if node.requirements:
             for r, n in node.relationships.items():
                 if Tosca._is_derived_from(r, r.HOSTEDON) or Tosca._is_derived_from(r, r.BINDSTO):
                     root_type = Tosca._get_root_parent_type(n).type
-                    if root_type == "tosca.nodes.Compute":
+                    if root_type == base_root_type:
                         return n
                     else:
                         return self._find_host_compute(n, nodetemplates)
 
         # There are no direct HostedOn node
         # check node_filter requirements
-        if node.requirements:
+        if node.requirements and base_root_type == "tosca.nodes.Compute":
             for requires in node.requirements:
                 if 'host' in requires:
                     value = requires.get('host')
@@ -1680,3 +1722,100 @@ class Tosca:
             yaml1 = yaml2
 
         return yaml1
+
+    def _gen_oscar_system(self, node):
+        """Generate the system for an OSCAR function."""
+        res = system(node.name)
+
+        property_map = {
+            'name': 'name',
+            'cpu': 'cpu.count',
+            'image': 'disk.0.image.url',
+            'script': 'script'
+        }
+
+        for prop in node.get_properties_objects():
+            value = self._final_function_result(prop.value, node)
+            if value not in [None, [], {}]:
+                if prop.name in property_map:
+                    res.setValue(property_map[prop.name], value)
+                elif prop.name == 'alpine':
+                    res.setValue('alpine', 1 if value else 0)
+                elif prop.name == 'memory':
+                    value = ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
+                    res.setValue("memory.size", value, 'M')
+                elif prop.name == 'env_variables':
+                    variables = ["%s:%s" % (k, v) for k, v in value.items()]
+                    res.setValue("environment.variables", variables)
+                elif prop.name in ['input', 'output']:
+                    for num, elem in enumerate(value):
+                        res.setValue("%s.%d.provider" % (prop.name, num), elem.get("storage_provider"))
+                        res.setValue("%s.%d.path" % (prop.name, num), elem.get("path"))
+                        if elem.get("suffix"):
+                            res.setValue("%s.%d.suffix" % (prop.name, num), elem.get("suffix"))
+                        if elem.get("prefix"):
+                            res.setValue("%s.%d.prefix" % (prop.name, num), elem.get("prefix"))
+                elif prop.name == 'storage_providers':
+                    cont = {"minio": 0, "s3": 0, "onedata": 0}
+
+                    for provider_type in ["minio", "s3", "onedata"]:
+                        if provider_type in value:
+                            for prov_id, provider in value[provider_type].items():
+                                provider_pref = "%s.%d" % (provider_type, cont[provider_type])
+                                cont[provider_type] += 1
+                                res.setValue("%s.id" % provider_pref, prov_id)
+
+                                for elem in ['access_key', 'secret_key', 'region', 'endpoint',
+                                             'verify', 'oneprovider_host', 'token', 'space']:
+                                    if provider.get(elem):
+                                        res.setValue("%s.%s" % (provider_pref, elem), provider.get(elem))
+                else:
+                    # this should never happen
+                    Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
+
+        return res
+
+    def _get_oscar_service_json(self, node):
+        """Get the OSCAR service json"""
+        res = {}
+
+        for prop in node.get_properties_objects():
+            value = self._final_function_result(prop.value, node)
+            if value not in [None, [], {}]:
+                if prop.name in ['name', 'script', 'alpine', 'input', 'output']:
+                    res[prop.name] = value
+                elif prop.name == 'cpu':
+                    res['cpu'] = "%g" % value
+                elif prop.name == 'memory':
+                    res[prop.name] = "%gMiB" % ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
+                elif prop.name == 'image':
+                    if value.startswith('oscar://'):
+                        url_image = urlparse(value)
+                        if url_image.path:
+                            res["image"] = url_image.path[1:]
+                    elif value.startswith('docker://'):
+                        res["image"] = value[9:]
+                    else:
+                        res["image"] = value
+                elif prop.name == 'env_variables':
+                    res['environment'] = {'Variables': value}
+                elif prop.name == 'storage_providers':
+                    storage_providers = {}
+                    for provider_type in ["minio", "s3", "onedata"]:
+                        if provider_type in value:
+                            for prov_id, provider in value[provider_type].items():
+                                if provider_type not in storage_providers:
+                                    storage_providers[provider_type] = {prov_id: {}}
+
+                                for elem in ['access_key', 'secret_key', 'region', 'endpoint',
+                                             'verify', 'oneprovider_host', 'token', 'space']:
+                                    if provider.get(elem):
+                                        storage_providers[provider_type][prov_id][elem] = provider.get(elem)
+
+                    if storage_providers:
+                        res['storage_providers'] = storage_providers
+                else:
+                    # this should never happen
+                    Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
+
+        return json.dumps(res)

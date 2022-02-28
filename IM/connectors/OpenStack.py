@@ -134,17 +134,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         else:
             self.auth = auth_data
 
-            protocol = self.cloud.protocol
-            if not protocol:
-                protocol = "http"
-            port = self.cloud.port
-            if port == -1:
-                if protocol == "http":
-                    port = 80
-                elif protocol == "https":
-                    port = 443
-                else:
-                    raise Exception("Invalid port/protocol specified for OpenStack site: %s" % self.cloud.server)
+            protocol = self.cloud.protocol or "http"
+            port = self.cloud.get_port()
 
             parameters = {"auth_version": self.DEFAULT_AUTH_VERSION,
                           "auth_url": protocol + "://" + self.cloud.server + ":" + str(port),
