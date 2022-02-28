@@ -269,7 +269,7 @@ class TestTosca(unittest.TestCase):
                          'cpu': "0.5",
                          'image': 'grycap/image',
                          'input': [{'path': 'input', 'storage_provider': 'minio.default'}],
-                         'memory': '512000000',
+                         'memory': '488.281MiB',
                          'name': 'plants',
                          'output': [{'path': 'output', 'storage_provider': 'minio.default'}],
                          'script': '#!/bin/bash\necho "Hola"\n',
@@ -286,6 +286,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("disk.0.image.url"), "grycap/image")
         self.assertEqual(node.getValue("script"), '#!/bin/bash\necho "Hola"\n')
         self.assertEqual(node.getValue("memory.size"), 512000000)
+        self.assertEqual(node.getFeature("memory.size").getValue("M"), 488.28125)
         self.assertEqual(node.getValue("alpine"), 0)
         self.assertEqual(node.getValue("input.0.path"), 'input')
         self.assertEqual(node.getValue("output.0.path"), 'output')
