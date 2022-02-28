@@ -1782,7 +1782,7 @@ class Tosca:
         for prop in node.get_properties_objects():
             value = self._final_function_result(prop.value, node)
             if value not in [None, [], {}]:
-                if prop.name in ['name', 'script', 'alpine', 'input', 'output']:
+                if prop.name in ['name', 'script', 'alpine', 'input', 'output', 'storage_providers']:
                     res[prop.name] = value
                 elif prop.name == 'cpu':
                     res['cpu'] = "%g" % value
@@ -1799,21 +1799,6 @@ class Tosca:
                         res["image"] = value
                 elif prop.name == 'env_variables':
                     res['environment'] = {'Variables': value}
-                elif prop.name == 'storage_providers':
-                    storage_providers = {}
-                    for provider_type in ["minio", "s3", "onedata"]:
-                        if provider_type in value:
-                            for prov_id, provider in value[provider_type].items():
-                                if provider_type not in storage_providers:
-                                    storage_providers[provider_type] = {prov_id: {}}
-
-                                for elem in ['access_key', 'secret_key', 'region', 'endpoint',
-                                             'verify', 'oneprovider_host', 'token', 'space']:
-                                    if provider.get(elem):
-                                        storage_providers[provider_type][prov_id][elem] = provider.get(elem)
-
-                    if storage_providers:
-                        res['storage_providers'] = storage_providers
                 else:
                     # this should never happen
                     Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
