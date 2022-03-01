@@ -1742,6 +1742,8 @@ class Tosca:
                 elif prop.name == 'alpine':
                     res.setValue('alpine', 1 if value else 0)
                 elif prop.name == 'memory':
+                    if not value.endswith("B"):
+                        value += "B"
                     value = ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
                     res.setValue("memory.size", value, 'M')
                 elif prop.name == 'env_variables':
@@ -1787,7 +1789,9 @@ class Tosca:
                 elif prop.name == 'cpu':
                     res['cpu'] = "%g" % value
                 elif prop.name == 'memory':
-                    res[prop.name] = "%gMiB" % ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
+                    if not value.endswith("B"):
+                        value += "B"
+                    res[prop.name] = "%gMi" % ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
                 elif prop.name == 'image':
                     if value.startswith('oscar://'):
                         url_image = urlparse(value)
