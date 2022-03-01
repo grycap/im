@@ -50,4 +50,4 @@
   until: _result.status == 201 or _result.status == 409
   retries: 10
   delay: 5
-  when: endpoint_result != 201
+  when: endpoint_result != 201 and endpoint_result.status != 409
