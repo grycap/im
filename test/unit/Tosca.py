@@ -269,7 +269,7 @@ class TestTosca(unittest.TestCase):
                          'cpu': "0.5",
                          'image': 'grycap/image',
                          'input': [{'path': 'input', 'storage_provider': 'minio.default'}],
-                         'memory': '488.281MiB',
+                         'memory': '488.281Mi',
                          'name': 'plants',
                          'output': [{'path': 'output', 'storage_provider': 'minio.default'}],
                          'script': '#!/bin/bash\necho "Hola"\n',

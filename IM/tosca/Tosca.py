@@ -1742,6 +1742,8 @@ class Tosca:
                 elif prop.name == 'alpine':
                     res.setValue('alpine', 1 if value else 0)
                 elif prop.name == 'memory':
+                    if not value.endswith("B"):
+                        value += "B"
                     value = ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
                     res.setValue("memory.size", value, 'M')
                 elif prop.name == 'env_variables':
@@ -1782,12 +1784,14 @@ class Tosca:
         for prop in node.get_properties_objects():
             value = self._final_function_result(prop.value, node)
             if value not in [None, [], {}]:
-                if prop.name in ['name', 'script', 'alpine', 'input', 'output']:
+                if prop.name in ['name', 'script', 'alpine', 'input', 'output', 'storage_providers']:
                     res[prop.name] = value
                 elif prop.name == 'cpu':
                     res['cpu'] = "%g" % value
                 elif prop.name == 'memory':
-                    res[prop.name] = "%gMiB" % ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
+                    if not value.endswith("B"):
+                        value += "B"
+                    res[prop.name] = "%gMi" % ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
                 elif prop.name == 'image':
                     if value.startswith('oscar://'):
                         url_image = urlparse(value)
@@ -1799,21 +1803,6 @@ class Tosca:
                         res["image"] = value
                 elif prop.name == 'env_variables':
                     res['environment'] = {'Variables': value}
-                elif prop.name == 'storage_providers':
-                    storage_providers = {}
-                    for provider_type in ["minio", "s3", "onedata"]:
-                        if provider_type in value:
-                            for prov_id, provider in value[provider_type].items():
-                                if provider_type not in storage_providers:
-                                    storage_providers[provider_type] = {prov_id: {}}
-
-                                for elem in ['access_key', 'secret_key', 'region', 'endpoint',
-                                             'verify', 'oneprovider_host', 'token', 'space']:
-                                    if provider.get(elem):
-                                        storage_providers[provider_type][prov_id][elem] = provider.get(elem)
-
-                    if storage_providers:
-                        res['storage_providers'] = storage_providers
                 else:
                     # this should never happen
                     Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)

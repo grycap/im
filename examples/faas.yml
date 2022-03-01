@@ -25,10 +25,10 @@ topology_template:
         image: docker://grycap/imagemagick
         input:
           - storage_provider: minio.default
-            path: /input
+            path: input
         output:
           - storage_provider: minio.default
-            path: /output
+            path: output
 # It can be also deployed in top of an tosca.nodes.indigo.OSCAR node
 #      requirements:
 #        - host: oscar

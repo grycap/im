@@ -81,7 +81,8 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    def get_response(self, method, url, verify=False, headers=None, data=None):
+    @staticmethod
+    def get_response(method, url, verify=False, headers=None, data=None):
         resp = MagicMock()
         parts = urlparse(url)
         url = parts[2]
