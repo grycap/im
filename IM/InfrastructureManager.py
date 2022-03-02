@@ -1726,3 +1726,4 @@ class InfrastructureManager:
         except InvaliddUserException as ex:
             raise InvaliddUserException("Invalid new infrastructure data provided: %s" % ex)
         sel_inf.change_auth(new_auth, overwrite)
+        return ""
