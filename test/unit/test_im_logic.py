@@ -1361,6 +1361,34 @@ configure step2 (
         self.assertIn({'id': 'cloud1', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass'}, res.auth_list)
         self.assertIn({'type': 'InfrastructureManager', 'token': 'atoken'}, res.auth_list)
 
+    def test_change_inf_auth(self):
+        """Try to access not owned Infs."""
+        auth0, auth1, auth2 = self.getAuth([0]), self.getAuth([1]), self.getAuth([2])
+        infId0 = IM.CreateInfrastructure("", auth0)
+        # Test append auth
+        IM.ChangeInfrastructureAuth(infId0, auth1, False, auth0)
+        IM.GetInfrastructureInfo(infId0, auth1)
+        IM.GetInfrastructureInfo(infId0, auth0)
+        with self.assertRaises(Exception) as ex:
+            IM.GetInfrastructureInfo(infId0, auth2)
+        self.assertEqual(str(ex.exception), "Access to this infrastructure not granted.")
+        # Test overwrite auth
+        IM.ChangeInfrastructureAuth(infId0, auth1, True, auth0)
+        IM.GetInfrastructureInfo(infId0, auth1)
+        with self.assertRaises(Exception) as ex:
+            IM.GetInfrastructureInfo(infId0, auth0)
+        self.assertEqual(str(ex.exception), "Access to this infrastructure not granted.")
+        # Test with invalid auth
+        with self.assertRaises(Exception) as ex:
+            IM.ChangeInfrastructureAuth(infId0, auth2, True, auth0)
+        self.assertEqual(str(ex.exception), "Access to this infrastructure not granted.")
+        # Test with invalid new auth
+        auth3 = self.getAuth([], [0])
+        with self.assertRaises(Exception) as ex:
+            IM.ChangeInfrastructureAuth(infId0, auth3, True, auth1)
+        self.assertEqual(str(ex.exception), ("Invalid new infrastructure data provided: No credentials"
+                                             " provided for the InfrastructureManager."))
+
 
 if __name__ == "__main__":
     unittest.main()

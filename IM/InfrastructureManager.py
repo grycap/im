@@ -1285,7 +1285,7 @@ class InfrastructureManager:
                     found = False
                     user_db = json.load(open(Config.USER_DB, "r"))
                     for user in user_db['users']:
-                        if user['username'] == auth[0]['username'] and user['password'] == auth[0]['password']:
+                        if user['username'] == auth['username'] and user['password'] == auth['password']:
                             found = True
                             break
                     return found
@@ -1415,22 +1415,23 @@ class InfrastructureManager:
         if not im_auth:
             raise InvaliddUserException("No credentials provided for the InfrastructureManager.")
 
-        if Config.FORCE_OIDC_AUTH and "token" not in im_auth[0]:
-            raise InvaliddUserException("No token provided for the InfrastructureManager.")
+        for im_auth_item in im_auth:
+            if Config.FORCE_OIDC_AUTH and "token" not in im_auth_item:
+                raise InvaliddUserException("No token provided for the InfrastructureManager.")
 
-        # First check if an OIDC token is included
-        if "token" in im_auth[0]:
-            InfrastructureManager.check_oidc_token(im_auth[0])
-        elif "username" in im_auth[0]:
-            if im_auth[0]['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
-                # This is a OpenID user do not enable to get data using user/pass creds
-                raise InvaliddUserException("Invalid username used for the InfrastructureManager.")
-        else:
-            raise InvaliddUserException("No username nor token for the InfrastructureManager.")
+            # First check if an OIDC token is included
+            if "token" in im_auth_item:
+                InfrastructureManager.check_oidc_token(im_auth_item)
+            elif "username" in im_auth_item:
+                if im_auth_item['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
+                    # This is a OpenID user do not enable to get data using user/pass creds
+                    raise InvaliddUserException("Invalid username used for the InfrastructureManager.")
+            else:
+                raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
-        # Now check if the user is in authorized
-        if not InfrastructureManager.check_im_user(im_auth):
-            raise InvaliddUserException()
+            # Now check if the user is in authorized
+            if not InfrastructureManager.check_im_user(im_auth_item):
+                raise InvaliddUserException()
 
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
@@ -1649,7 +1650,7 @@ class InfrastructureManager:
 
         Arguments:
           - cloud_id(string): ID of the cloud provider specified in the Authentication data
-          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - auth(Authentication): parsed authentication tokens to access cloud provider.
 
         Returns: a CloudConnection object.
         """
@@ -1671,7 +1672,7 @@ class InfrastructureManager:
 
         Arguments:
           - cloud_id(string): ID of the cloud provider specified in the Authentication data
-          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - auth(Authentication): parsed authentication tokens to access cloud provider.
           - filters(:py:class:`dict` of str objects): Pair key value to filter the list of images.
                                                      It is cloud provider specific.
 
@@ -1688,7 +1689,7 @@ class InfrastructureManager:
 
         Arguments:
           - cloud_id(string): ID of the cloud provider specified in the Authentication data
-          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - auth(Authentication): parsed authentication tokens to access cloud provider.
 
         Returns: dict with the following structure (if there are no limit in some metric, value is set to 1):
                     {
@@ -1703,3 +1704,26 @@ class InfrastructureManager:
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
         return InfrastructureManager._get_cloud_conn(cloud_id, auth).get_quotas(auth)
+
+    @staticmethod
+    def ChangeInfrastructureAuth(inf_id, new_auth, overwrite, auth):
+        """
+        Get the number of used and available resources in the cloud provider
+
+        Arguments:
+          - inf_id(str): infrastructure id.
+          - auth(Authentication): parsed authentication tokens.
+          - new_auth(Authentication): New parsed authentication tokens.
+          - overwrite(bool): Flag to set if the new auth data will overwrite the currrent one or it wil
+                             be appended.
+        """
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
+        sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+        try:
+            # Check also the new auth data
+            new_auth = InfrastructureManager.check_auth_data(new_auth)
+        except InvaliddUserException as ex:
+            raise InvaliddUserException("Invalid new infrastructure data provided: %s" % ex)
+        sel_inf.change_auth(new_auth, overwrite)
+        return ""
