@@ -5,7 +5,7 @@ Optionally, IM Service can be accessed through a REST(ful) API. The port number
 and the security settings are controlled by the options listed in
 :ref:`options-rest`.
 
-In the following link you can follow the IM REST API in Swaggerhub: 
+In the following link you can follow the **IM REST API in Swaggerhub**: 
 `Swagger API <https://app.swaggerhub.com/apis-docs/grycap/InfrastructureManager/>`_.
 
 Every HTTP request must be accompanied by the header ``AUTHORIZATION`` with
@@ -40,14 +40,19 @@ Next tables summaries the resources and the HTTP methods available.
 | **PUT**     | | **Stop** the infrastructure. | | **Start** the infrastructure. | | **Reconfigure** the infrastructure. |
 +-------------+--------------------------------+---------------------------------+---------------------------------------+
 
-+-------------+-----------------------------------------------------+----------------------------------------------------+
-| HTTP method | /infrastructures/<infId>/vms/<vmId>/<property_name> | /infrastructures/<infId>/<property_name>           |
-+=============+=====================================================+====================================================+
-| **GET**     | | **Get** the specified property ``property_name``  | | **Get** the specified property ``property_name`` |
-|             | | associated to the machine ``vmId`` in ``infId``.  | | associated to the infrastructure ``infId``.      |
-|             | | It has one special property: ``contmsg``.         | | It has six properties: ``contmsg``, ``radl``,    |
-|             |                                                     | | ``state``, ``outputs``, ``tosca`` and ``data``.  |
-+-------------+-----------------------------------------------------+----------------------------------------------------+
++-------------+------------------------------------------------------+------------------------------------------------------+
+| HTTP method | /infrastructures/<infId>/vms/<vmId>/<property_name>  | /infrastructures/<infId>/<property_name>             |
++=============+======================================================+======================================================+
+| **GET**     | | **Get** the specified property ``property_name``   | | **Get** the specified property ``property_name``   |
+|             | | associated to the machine ``vmId`` in ``infId``.   | | associated to the infrastructure ``infId``.        |
+|             | | It has one special property: ``contmsg``.          | | It has six properties: ``contmsg``, ``radl``,      |
+|             | |                                                    | | ``state``, ``outputs``, ``tosca`` and ``data``.    |
++-------------+------------------------------------------------------+------------------------------------------------------+
+| **POST**    |                                                      | | **Modify** the specified property ``property_name``|
+|             |                                                      | | associated to the infrastructure ``infId``.        |
+|             |                                                      | | only ``authentication`` property is valid.         |
++-------------+------------------------------------------------------+------------------------------------------------------+
+
 
 +-------------+-----------------------------------------------+------------------------------------------------+------------------------------------------------+
 | HTTP method | /infrastructures/<infId>/vms/<vmId>/stop      | /infrastructures/<infId>/vms/<vmId>/start      | /infrastructures/<infId>/vms/<vmId>/reboot     |
@@ -178,6 +183,33 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
     {
       ["radl"|"tosca"|"state"|"contmsg"|"outputs"|"data"]: <property_value>
     }
+
+POST ``http://imserver.com/infrastructures/<infId>/authentication``
+   :Response Content-type: text/plain or application/json
+   :body Content-type: application/json
+   :input fields: ``overwrite`` (optional)
+   :ok response: 200 OK
+   :fail response: 401, 404, 400, 403
+
+   Change the authentication data of the infrastructure with ID ``infId``. using
+   the authentication data provided in the body call. The ``overwrite`` parameter is
+   optional and is a flag to specify if the authentication data will be overwrited or
+   will be appended. Acceptable values: yes, no, true, false, 1 or 0. If not specified
+   the flag is set to True.
+
+   The body JSON format has the following format::
+
+      {
+         "username": "new_username",
+         "password": "new_password"
+      }
+
+   or::
+
+      {
+         "token": "valid_oidc_access_token"
+      }
+
 
 POST ``http://imserver.com/infrastructures/<infId>``
    :body: ``RADL or TOSCA document``

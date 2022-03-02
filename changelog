@@ -682,7 +682,12 @@ IM 1.10.8:
     * Fix error in EGI connector using ost:// images.
     * Fix error setting a tag with "." in OpenNebula and GCE conns.
 
-IM 1.10.9:
+IM 1.11.0:
     * Fix error accessing the same OpenStack site using different project id.
     * Fix error cloud id is set in deploys of the infrastructure RADL.
     * Enable to define appdb images without setting site name.
+    * Enable to use default values in attributes.
+    * Add disable contextualize option in VMs.
+    * Fix error setting gpu specs in EC2 conn.
+    * Add suport to OSCAR services.
+    * Enable to share or change the owner of an infrastructure.
