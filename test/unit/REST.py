@@ -57,6 +57,7 @@ from IM.REST import (RESTDestroyInfrastructure,
                      RESTCreateDiskSnapshot,
                      RESTImportInfrastructure,
                      RESTGetCloudInfo,
+                     RESTChangeInfrastructureAuth,
                      return_error,
                      format_output)
 
@@ -1055,6 +1056,23 @@ class TestREST(unittest.TestCase):
         res = RESTGetCloudInfo("cloud1", "images")
         self.assertEqual(json.loads(res), {"images": []})
         self.assertEqual(GetCloudImageList.call_args_list[0][0][2], {'region': 'region_name'})
+
+    @patch("bottle.request")
+    @patch("IM.InfrastructureManager.InfrastructureManager.ChangeInfrastructureAuth")
+    def test_ChangeInfrastructureAuth(self, ChangeInfrastructureAuth, bottle_request):
+        """Test REST ChangeInfrastructureAuth."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": "type = InfrastructureManager; username = user; password = pass"}
+        ChangeInfrastructureAuth.return_value = None
+
+        bottle_request.body = BytesIO(b'{"username": "new_user", "password": "new_pass"}')
+        bottle_request.params = {'overwrite': 'yes'}
+        RESTChangeInfrastructureAuth("infid")
+        self.assertEqual(ChangeInfrastructureAuth.call_args_list[0][0][0], "infid")
+        self.assertEqual(ChangeInfrastructureAuth.call_args_list[0][0][1].auth_list, [{"type": "InfrastructureManager",
+                                                                                       "username": "new_user",
+                                                                                       "password": "new_pass"}])
+        self.assertEqual(ChangeInfrastructureAuth.call_args_list[0][0][2], True)
 
 
 if __name__ == "__main__":
