@@ -128,27 +128,38 @@ paths:
           application/json:
             schema:
               type: string
-              example: |
-                network net (outbound = 'yes')
-                system node (
-                   cpu.count >= 2 and
-                   memory.size >= 2G and
-                   net_interface.0.connection = 'net' and
-                   disk.0.image.url = 'one://someserver.com/123'
-                )
-                deploy node 1
+              example:
+                - class: network
+                  id: net
+                  outbound: "yes"
+                - class: system
+                  id: node
+                  cpu.count_min: 2
+                  memory.size_min: 2147483648
+                  net_interface.0.connection: net
+                  disk.0.image.url: "one://someserver.com/123"
+                - class: deploy
+                  system: wn
+                  vm_number: 1
           text/yaml:
             schema:
               type: string
-              example: |
-                network net (outbound = 'yes')
-                system node (
-                   cpu.count >= 2 and
-                   memory.size >= 2G and
-                   net_interface.0.connection = 'net' and
-                   disk.0.image.url = 'one://someserver.com/123'
-                )
-                deploy node 1
+              example:
+                tosca_definitions_version: tosca_simple_yaml_1_0
+                topology_template:
+                  node_templates:
+                    web_server:
+                      type: tosca.nodes.Compute
+                      capabilities:
+                        host:
+                          properties:
+                            num_cpus: 1
+                            mem_size: 1 GB
+                        os:
+                          properties:
+                            type: linux 
+                            distribution: CentOS
+                            version: 8
         description: RADL (in plain RADL or in JSON formats) or TOSCA document (YAML).
         required: true
       responses:
@@ -328,17 +339,35 @@ paths:
           application/json:
             schema:
               type: string
-              example: |
-                network net
-                system node
-                deploy node 1
+              example:
+                - class: network
+                  id: net
+                  reference: true
+                - class: system
+                  id: node
+                  reference: true
+                - class: deploy
+                  system: wn
+                  vm_number: 1
           text/yaml:
             schema:
               type: string
-              example: |
-                network net
-                system node
-                deploy node 1
+              example:
+                tosca_definitions_version: tosca_simple_yaml_1_0
+                topology_template:
+                  node_templates:
+                    web_server:
+                      type: tosca.nodes.Compute
+                      capabilities:
+                        host:
+                          properties:
+                            num_cpus: 1
+                            mem_size: 1 GB
+                        os:
+                          properties:
+                            type: linux 
+                            distribution: CentOS
+                            version: 8              
         description: RADL (in plain RADL or in JSON formats) or TOSCA document (YAML).
         required: true
       responses:
@@ -555,10 +584,11 @@ paths:
             application/json:
               examples:
                 response:
-                  value: |
-                    {
-                      "contmsg": "              2019-12-11 11:08:14.574891: Select master VM\n              2019-12-11 11:08:14.576685: Wait master VM to boot\n              2019-12-11 11:08:14.577905: Wait master VM to have the SSH active."
-                    }
+                  value:
+                      contmsg: |
+                        2019-12-11 11:08:14.574891: Select master VM
+                        2019-12-11 11:08:14.576685: Wait master VM to boot
+                        2019-12-11 11:08:14.577905: Wait master VM to have the SSH active.
         '400':
           description: Invalid status value
         '401':
@@ -614,11 +644,8 @@ paths:
             application/json:
               examples:
                 response:
-                  value: |
-                    {
-                      "vm_list": [],
-                      ...
-                    }
+                  value:
+                    vm_list: []
         '400':
           description: Invalid status value
         '401':
@@ -661,10 +688,8 @@ paths:
             application/json:
               examples:
                 response:
-                  value: |
-                    {
-                      "radl": "network net (outbound = 'yes')\nsystem node ( ... )"
-                    }
+                  value:
+                    radl: "network net (outbound = 'yes')\nsystem node ( ... )"
         '400':
           description: Invalid status value
         '401':
@@ -699,10 +724,11 @@ paths:
             application/json:
               examples:
                 response:
-                  value: |
-                    {
-                      "tosca": "tosca_definitions_version: tosca_simple_yaml_1_0\ndescription: Some TOSCA template\n..."
-                    }
+                  value:
+                    tosca: |
+                      tosca_definitions_version: tosca_simple_yaml_1_0
+                      description: Some TOSCA template
+                      ...
         '400':
           description: Invalid status value
         '401':
@@ -750,11 +776,9 @@ paths:
           application/json:
             schema:
               type: string
-              example: |
-                {
-                  "username": "new_username",
-                  "password": "new_password"
-                }
+              example:
+                username: new_user
+                password: new_password
       responses:
         '200':
           description: successful operation
@@ -868,14 +892,12 @@ paths:
           application/json:
             schema:
               type: string
-              example: |
-                configure node (
-                @begin
-                ---
-                  - tasks:
-                      - debug: msg="Some message"
-                @end
-                )
+              example:
+                - class: configure
+                  id: node
+                  recipes: |
+                    - tasks:
+                        - debug: msg="Some message"
         description: >-
           Optional RADL (in plain RADL or in JSON formats) with new
           configuration recipes. If not specified the current configuration
@@ -937,15 +959,17 @@ paths:
             application/json:
               schema:
                 type: string
-                example: |
-                  network net (outbound = 'yes')
-                  system node (
-                     cpu.count >= 2 and
-                     memory.size >= 2G and
-                     net_interface.0.ip = '8.8.8.8' and
-                     net_interface.0.connection = 'net' and
-                     disk.0.image.url = 'one://someserver.com/123'
-                  )
+              example:
+                - class: network
+                  id: net
+                  outbound: "yes"
+                - class: system
+                  id: node
+                  cpu.count_min: 2
+                  memory.size_min: 2147483648
+                  net_interface.0.ip: 8.8.8.8
+                  net_interface.0.connection: net
+                  disk.0.image.url: "one://someserver.com/123"
         '400':
           description: Invalid status value
         '401':
@@ -989,10 +1013,10 @@ paths:
           application/json:
             schema:
               type: string
-              example: |
-                system node (
-                   memory.size >= 4G
-                )
+              example:
+                - class: system
+                  id: node
+                  memory.size_min: 4294967296
         description: RADL (in plain RADL or in JSON formats).
         required: true
       responses:
@@ -1014,15 +1038,17 @@ paths:
             application/json:
               schema:
                 type: string
-                example: |
-                  network net (outbound = 'yes')
-                  system node (
-                     cpu.count >= 2 and
-                     memory.size >= 4G and
-                     net_interface.0.ip = '8.8.8.8' and
-                     net_interface.0.connection = 'net' and
-                     disk.0.image.url = 'one://someserver.com/123'
-                  )
+                example:
+                - class: network
+                  id: net
+                  outbound: "yes"
+                - class: system
+                  id: node
+                  cpu.count_min: 2
+                  memory.size_min: 4294967296
+                  net_interface.0.ip: 8.8.8.8
+                  net_interface.0.connection: net
+                  disk.0.image.url: "one://someserver.com/123"
         '400':
           description: Invalid status value
         '401':
@@ -1105,10 +1131,10 @@ paths:
             application/json:
               examples:
                 response:
-                  value: |
-                    {
-                      "contmsg": "Launch task: basic\n..."
-                    }
+                  value:
+                    contmsg: |
+                      Launch task: basic
+                      ...
         '400':
           description: Invalid status value
         '401':
@@ -1159,10 +1185,8 @@ paths:
             application/json:
               examples:
                 response:
-                  value: |
-                    {
-                      "property_name": "property_value"
-                    }
+                  value:
+                    property_name: property_value
         '400':
           description: Invalid status value
         '401':
@@ -1390,20 +1414,12 @@ paths:
             application/json:
               examples:
                 response:
-                  value: |
-                    {
-                        "images":
-                          [
-                              {
-                                "uri" : "ost://hostname/image-id1",
-                                "name" : "Image Name1"
-                              },
-                              {
-                                "uri" : "ost://hostname/image-id2",
-                                "name" : "Image Name2"
-                              }
-                          ]
-                    }
+                  value:
+                    images:
+                      - uri: ost://hostname/image-id1
+                        name: Image Name1
+                      - uri: ost://hostname/image-id2
+                        name: Image Name2
         '400':
           description: Invalid status value
         '401':
@@ -1437,16 +1453,23 @@ paths:
             application/json:
               examples:
                 response:
-                  value: |
-                    {
-                      "quotas": {
-                        "cores": {"used": 1, "limit": 10},
-                        "ram": {"used": 1, "limit": 10},
-                        "instances": {"used": 1, "limit": 10},
-                        "floating_ips": {"used": 1, "limit": 10},
-                        "security_groups": {"used": 1, "limit": 10}
-                      }
-                    }
+                  value:
+                    quotas:
+                      cores:
+                        used: 1
+                        limit: 10
+                      ram:
+                        used: 1
+                        limit: 10
+                      instances:
+                        used: 1
+                        limit: 10
+                      floating_ips:
+                        used: 1
+                        limit: 10
+                      security_groups:
+                        used: 1
+                        limit: 10
         '400':
           description: Invalid status value
         '401':
