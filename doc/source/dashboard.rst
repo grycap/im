@@ -364,6 +364,10 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
 * Reconfigure: Starts the reconfiguration of the infrastructure.
 
+* Change User: Add or change the ownership of the infrastructure at IM level. Setting an valid access token of other
+  user, the infrastructure can be shared or transfered to another user. If overwrite check is set the new user will be
+  the unique new owner of the infrastructure, otherwise it will be added to the list of current users.
+
 **VM Info page**:
 
 The VM Info page will show all the information about the selected VM and will enable to manage the lifecycle of it.
