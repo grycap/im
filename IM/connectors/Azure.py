@@ -41,6 +41,14 @@ except Exception as ex:
     print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
     print(ex)
 
+try:
+    from azure.identity import ClientSecretCredential
+    from azure.identity import UsernamePasswordCredential
+    AZURE_IDENTITY_AVAILABLE = True
+except Exception as ex:
+    AZURE_IDENTITY_AVAILABLE = False
+    print("WARN: Python Azure-Identity not correctly installed. AzureCloudConnector may not work properly!.")
+
 
 class AzureInstanceTypeInfo:
     """
@@ -175,7 +183,12 @@ class AzureCloudConnector(CloudConnector):
                 return self.credentials, subscription_id
             else:
                 self.auth = auth_data
-                self.credentials = UserPassCredentials(auth['username'], auth['password'])
+                if AZURE_IDENTITY_AVAILABLE and 'client_id' in auth:
+                    self.credentials = UsernamePasswordCredential(client_id=auth['client_id'],
+                                                                  username=auth['username'],
+                                                                  password=auth['password'])
+                else:
+                    self.credentials = UserPassCredentials(auth['username'], auth['password'])
         elif 'subscription_id' in auth and 'client_id' in auth and 'secret' in auth and 'tenant' in auth:
             subscription_id = auth['subscription_id']
 
@@ -183,9 +196,14 @@ class AzureCloudConnector(CloudConnector):
                 return self.credentials, subscription_id
             else:
                 self.auth = auth_data
-                self.credentials = ServicePrincipalCredentials(client_id=auth['client_id'],
-                                                               secret=auth['secret'],
-                                                               tenant=auth['tenant'])
+                if AZURE_IDENTITY_AVAILABLE:
+                    self.credentials = ClientSecretCredential(tenant_id=auth['tenant'],
+                                                              client_id=auth['client_id'],
+                                                              client_secret=auth['secret'])
+                else:
+                    self.credentials = ServicePrincipalCredentials(client_id=auth['client_id'],
+                                                                secret=auth['secret'],
+                                                                tenant=auth['tenant'])
         else:
             raise Exception("No correct auth data has been specified to Azure: "
                             "subscription_id, username and password or"
