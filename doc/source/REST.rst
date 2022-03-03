@@ -50,7 +50,7 @@ Next tables summaries the resources and the HTTP methods available.
 +-------------+------------------------------------------------------+------------------------------------------------------+
 | **POST**    |                                                      | | **Modify** the specified property ``property_name``|
 |             |                                                      | | associated to the infrastructure ``infId``.        |
-|             |                                                      | | only ``authentication`` property is valid.         |
+|             |                                                      | | only ``authorization`` property is valid.         |
 +-------------+------------------------------------------------------+------------------------------------------------------+
 
 
@@ -184,16 +184,16 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
       ["radl"|"tosca"|"state"|"contmsg"|"outputs"|"data"]: <property_value>
     }
 
-POST ``http://imserver.com/infrastructures/<infId>/authentication``
+POST ``http://imserver.com/infrastructures/<infId>/authorization``
    :Response Content-type: text/plain or application/json
    :body Content-type: application/json
    :input fields: ``overwrite`` (optional)
    :ok response: 200 OK
    :fail response: 401, 404, 400, 403
 
-   Change the authentication data of the infrastructure with ID ``infId``. using
-   the authentication data provided in the body call. The ``overwrite`` parameter is
-   optional and is a flag to specify if the authentication data will be overwrited or
+   Change the authorization data of the infrastructure with ID ``infId``. using
+   the authorization data provided in the body call. The ``overwrite`` parameter is
+   optional and is a flag to specify if the authorization data will be overwrited or
    will be appended. Acceptable values: yes, no, true, false, 1 or 0. If not specified
    the flag is set to True.
 
