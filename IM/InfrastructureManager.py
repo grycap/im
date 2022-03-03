@@ -1726,7 +1726,8 @@ class InfrastructureManager:
             new_auth = InfrastructureManager.check_auth_data(new_auth)
         except InvaliddUserException as ex:
             raise InvaliddUserException("Invalid new infrastructure data provided: %s" % ex)
-        InfrastructureManager.logger.debug("Changing user of the Inf ID: " + str(inf_id))
-        sel_inf.change_auth(new_auth, overwrite)
+        # Only add new user if it is not already authorized or we are overwriting
+        if not sel_inf.is_authorized(new_auth) or overwrite:
+            sel_inf.change_auth(new_auth, overwrite)
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         return ""
