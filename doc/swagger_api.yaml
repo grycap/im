@@ -738,15 +738,15 @@ paths:
         '404':
           description: Not Found
 
-  /infrastructures/{InfId}/authentication:
+  /infrastructures/{InfId}/authorization:
     post:
       tags:
         - infrastructures
-      summary: Change the authentication data of the infrastructure.
+      summary: Change the authorization data of the infrastructure.
       security:
         - IMAuth: []
       description: >-
-        Change the authentication data of the infrastructure with ID InfId.
+        Change the authorization data of the infrastructure with ID InfId.
       operationId: ChangeInfrastructureAuth
       parameters:
         - name: InfId
@@ -759,7 +759,7 @@ paths:
           in: query
           description: >-
             The overwrite parameter is optional and is a flag to specify if the
-            authentication data will be overwrited or will be appended.
+            authorization data will be overwrited or will be appended.
           required: false
           schema:
             type: string

@@ -1140,7 +1140,7 @@ def RESTGetCloudInfo(cloudid=None, param=None):
         return return_error(400, "Error getting cloud info: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid/authentication', method='POST')
+@app.route('/infrastructures/:infid/authorization', method='POST')
 def RESTChangeInfrastructureAuth(infid=None):
     try:
         auth = get_auth_header()
