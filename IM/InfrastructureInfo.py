@@ -788,7 +788,10 @@ class InfrastructureInfo:
         """Changes the auth data of the infrastructure."""
         if new_auth is not None:
             im_auth = new_auth.getAuthInfo("InfrastructureManager")
-            if overwrite:
-                self.auth = Authentication(im_auth)
-            else:
-                self.auth.auth_list.extend(im_auth)
+            if im_auth:
+                if 'username' in im_auth[0]:
+                    InfrastructureInfo.logger.debug("Changing user to: %s" % im_auth[0]['username'])
+                if overwrite:
+                    self.auth = Authentication(im_auth)
+                else:
+                    self.auth.auth_list.extend(im_auth)
