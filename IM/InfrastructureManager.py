@@ -1718,6 +1718,7 @@ class InfrastructureManager:
                              be appended.
         """
         # First check the auth data
+        InfrastructureManager.logger.info("Changing user of the Inf ID: " + str(inf_id))
         auth = InfrastructureManager.check_auth_data(auth)
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
         try:
@@ -1725,6 +1726,7 @@ class InfrastructureManager:
             new_auth = InfrastructureManager.check_auth_data(new_auth)
         except InvaliddUserException as ex:
             raise InvaliddUserException("Invalid new infrastructure data provided: %s" % ex)
+        InfrastructureManager.logger.debug("Changing user of the Inf ID: " + str(inf_id))
         sel_inf.change_auth(new_auth, overwrite)
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         return ""
