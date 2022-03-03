@@ -202,8 +202,8 @@ class AzureCloudConnector(CloudConnector):
                                                               client_secret=auth['secret'])
                 else:
                     self.credentials = ServicePrincipalCredentials(client_id=auth['client_id'],
-                                                                secret=auth['secret'],
-                                                                tenant=auth['tenant'])
+                                                                   secret=auth['secret'],
+                                                                   tenant=auth['tenant'])
         else:
             raise Exception("No correct auth data has been specified to Azure: "
                             "subscription_id, username and password or"
