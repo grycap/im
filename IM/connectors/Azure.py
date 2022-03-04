@@ -25,7 +25,6 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
-from IM.config import Config
 
 try:
     from azure.mgmt.resource import ResourceManagementClient
@@ -33,12 +32,17 @@ try:
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient
-    from azure.common.credentials import UserPassCredentials
-    from azure.common.credentials import ServicePrincipalCredentials
     from msrestazure.azure_exceptions import CloudError
     from azure.mgmt.compute.models import DiskCreateOption, CachingTypes
 except Exception as ex:
-    print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
+    print("WARN: Python Azure SDK not installed. AzureCloudConnector will not work!.")
+    print(ex)
+
+try:
+    from azure.common.credentials import UserPassCredentials
+    from azure.common.credentials import ServicePrincipalCredentials
+except Exception as ex:
+    print("WARN: Python azure.common.credentials not installed. AzureCloudConnector may not work properly!.")
     print(ex)
 
 try:
@@ -47,7 +51,7 @@ try:
     AZURE_IDENTITY_AVAILABLE = True
 except Exception as ex:
     AZURE_IDENTITY_AVAILABLE = False
-    print("WARN: Python Azure-Identity not correctly installed. AzureCloudConnector may not work properly!.")
+    print("WARN: Python azure-identity not installed. AzureCloudConnector may not work properly!.")
 
 
 class AzureInstanceTypeInfo:

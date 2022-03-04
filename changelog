@@ -691,3 +691,5 @@ IM 1.11.0:
     * Fix error setting gpu specs in EC2 conn.
     * Add suport to OSCAR services.
     * Enable to share or change the owner of an infrastructure.
+    * Remove AzureClassic connector.
+
