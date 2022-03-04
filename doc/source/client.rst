@@ -216,7 +216,7 @@ The available keys are:
 
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
-  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic``,
+  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``,
   ``Kubernetes``, ``vSphere``, ``Linode``, ``Orange``, ``EGI`` and ``Vault``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
@@ -230,11 +230,11 @@ The available keys are:
   In CloudStack refers to Secret Key value.
 
 * ``tenant`` indicates the tenant associated to the credential.
-  This field is only used in the OpenStack and Orange plugins.
+  This field is only used in the OpenStack, Orange and Azure plugins.
 
 * ``host`` indicates the address of the access point to the cloud provider.
   In case of EGI connector it indicates the site name.
-  This field is not used in IM, GCE, Azure, and EC2 credentials.
+  This field is not used in IM, GCE, Azure, Orange, Linode, and EC2 credentials.
   
 * ``proxy`` indicates the content of the proxy file associated to the credential.
   To refer to a file you must use the function "file(/tmp/proxyfile.pem)" as shown in the example.
@@ -245,19 +245,27 @@ The available keys are:
   
 * ``public_key`` indicates the content of the public key file associated to the credential.
   To refer to a file you must use the function "file(cert.pem)" as shown in the example.
-  This field is used in the Azure Classic and Docker plugins. For Azure Classic see how to get it
-  `here <https://msdn.microsoft.com/en-us/library/azure/gg551722.aspx>`_
+  This field is used in the Docker plugin. 
 
 * ``private_key`` indicates the content of the private key file associated to the credential.
   To refer to a file you must use the function "file(key.pem)" as shown in the example.
-  This field is used in the Azure Classic and Docker plugins. For Azure Classic see how to get it
-  `here <https://msdn.microsoft.com/en-us/library/azure/gg551722.aspx>`_
+  This field is used in the Docker plugin.
 
 * ``id`` associates an identifier to the credential. The identifier should be
   used as the label in the *deploy* section in the RADL. **The id field MUST start by a letter (not a number).**
 
-* ``subscription_id`` indicates the subscription_id name associated to the credential.
-  This field is only used in the Azure and Azure Classic plugins. To create a user to use the Azure (ARM)
+* ``subscription_id`` indicates the subscription_id associated to the credential.
+  This field is only used in the Azure plugin. To create a user to use the Azure
+  plugin check the documentation of the Azure python SDK:
+  `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
+
+* ``client_id`` indicates the client ID associated to the credential.
+  This field is only used in the Azure plugin. To create a user to use the Azure
+  plugin check the documentation of the Azure python SDK:
+  `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
+
+* ``secret`` indicates the client secret associated to the credential.
+  This field is only used in the Azure plugin. To create a user to use the Azure
   plugin check the documentation of the Azure python SDK:
   `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
 
@@ -306,7 +314,7 @@ OpenStack has a set of additional fields to access a cloud site:
   server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
   The value is: http://cloud_server.com:9292.
   
-  * ``volume_url`` base URL to the OpenStack API cinder endpoint. By default, the connector obtains API endpoint URL from the 
+* ``volume_url`` base URL to the OpenStack API cinder endpoint. By default, the connector obtains API endpoint URL from the 
   server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
   The value is: http://cloud_server.com:8776/v2/<tenant_id>.
 
@@ -427,14 +435,16 @@ An example of the auth file::
    id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://server.com:11443
    # OCCI OIDC site auth data
    id = occi; type = OCCI; token = token; host = https://server.com:11443
-   # Azure (RM) site auth data
-   id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
+   # Azure site userpass auth data (old method)
+   id = azure_upo; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
+   # Azure site userpass auth data
+   id = azure_up; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass; client_id=clientid
+   # Azure site site credential auth data
+   id = azure_sc; type = Azure; subscription_id = subscription-id; client_id=clientid; secret=client_secret; tenant=tenant_id
    # Kubernetes site auth data
    id = kub; type = Kubernetes; host = http://server:8080; token = auth_token
    # FogBow auth data
    id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
-   # Azure Classic auth data
-   id = azurecla; type = AzureClassic; subscription_id = subscription_id; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    # vSphere site auth data
    id = vsphere; type = vSphere; host = http://server; username = user; password = pass
    # CloudStack site auth data
