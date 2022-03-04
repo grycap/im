@@ -25,7 +25,6 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
-from IM.config import Config
 
 try:
     from azure.mgmt.resource import ResourceManagementClient
