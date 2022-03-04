@@ -142,7 +142,7 @@ class Tosca:
                 if oscar_compute and oscar_host:
                     service_json = self._get_oscar_service_json(node)
                     dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
-                    if dns_host.strip("'\""):
+                    if dns_host and dns_host.strip("'\""):
                         service_endpoint = "https://%s" % dns_host
                     else:
                         service_endpoint = "http://{{ IM_NODE_PUBLIC_IP }}"
@@ -1099,11 +1099,11 @@ class Tosca:
             elif attribute_name == "endpoint":
                 if root_type == "tosca.nodes.aisprint.FaaS.Function":
                     oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
-                                                        "tosca.nodes.SoftwareComponent")
+                                                         "tosca.nodes.SoftwareComponent")
                     if host_node and oscar_host:
                         # OSCAR function deployed in a deployed VM
                         dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
-                        if dns_host.strip("'\""):
+                        if dns_host and dns_host.strip("'\""):
                             return "https://%s" % dns_host
 
                     # OSCAR function deployed in a pre-deployed cluster or not dns_host set
@@ -1166,7 +1166,7 @@ class Tosca:
             elif attribute_name == "endpoint":
                 if root_type == "tosca.nodes.aisprint.FaaS.Function":
                     oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
-                                                        "tosca.nodes.SoftwareComponent")
+                                                         "tosca.nodes.SoftwareComponent")
                     if host_node and oscar_host:
                         # OSCAR function deployed in a deployed VM
                         dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)

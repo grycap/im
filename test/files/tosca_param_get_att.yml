@@ -3,43 +3,19 @@ tosca_definitions_version: tosca_simple_yaml_1_0
 description: TOSCA test for the IM
 
 repositories:
-  ec3_custom_types:
-    description: EC3 Custom types repository
-    url: https://raw.githubusercontent.com/grycap/ec3/tosca/
+  indigo_repository:
+    description: INDIGO Custom types repository
+    url: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/
 
 imports:
-  - ec3_custom_types:
+  - indigo_custom_types:
       file: custom_types.yaml
-      repository: ec3_repository
+      repository: indigo_repository
 
 topology_template:
 
   node_templates:
 
-    oscar_function:
-      type: tosca.nodes.aisprint.FaaS.Function
-      properties:
-        name: plants
-        memory: 512MB
-        script: |
-          #!/bin/bash
-          echo "Hola"
-        cpu: 0.5
-        image: grycap/image
-        input:
-          - storage_provider: minio.default
-            path: input
-        output:
-          - storage_provider: minio.default
-            path: output
-        storage_providers:
-          onedata:
-            my_onedata:
-              oneprovider_host: my_provider.com
-              token: my_very_secret_token
-              space: my_onedata_space
-      requirements:
-        - host: server
 
     test:
       type: tosca.nodes.indigo.LRMS.FrontEnd.Slurm
@@ -66,7 +42,3 @@ topology_template:
            architecture: x86_64
            type: linux
            distribution: ubuntu
-
-  outputs:
-    oscar_function_url:
-      value: { get_attribute: [ oscar_function, endpoint ] }
