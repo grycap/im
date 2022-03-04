@@ -364,6 +364,15 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
 * Reconfigure: Starts the reconfiguration of the infrastructure.
 
+* Change User: Add or change the ownership of the infrastructure at IM level. Setting an valid access token of other
+  user, the infrastructure can be shared or transfered to another user. If overwrite check is set the new user will be
+  the unique new owner of the infrastructure, otherwise it will be added to the list of current users.
+
+.. _figure_dash_change_user:
+.. figure:: images/dash_change_user.png
+
+   Fig 11. Change/Add User modal form.
+
 **VM Info page**:
 
 The VM Info page will show all the information about the selected VM and will enable to manage the lifecycle of it.
@@ -376,12 +385,12 @@ the SSH credentials needed to access it. Second table will show other additional
 .. _figure_dash_vm_info:
 .. figure:: images/dash_vm_info.png
 
-   Fig 11. VM Info page.
+   Fig 12. VM Info page.
 
 In case of Resizing the VM the user must provide the new size of the VM in terms of number of CPUs and ammount of memory as
-show in :ref:`Fig. 11 <figure_dash_vm_resize>`.
+show in :ref:`Fig. 12 <figure_dash_vm_resize>`.
 
 .. _figure_dash_vm_resize:
 .. figure:: images/dash_vm_resize.png
 
-   Fig 11. VM Resize modal form.
+   Fig 12. VM Resize modal form.
