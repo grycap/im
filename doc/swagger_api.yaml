@@ -747,6 +747,9 @@ paths:
         - IMAuth: []
       description: >-
         Change the authorization data of the infrastructure with ID InfId.
+        The body of the request contains the new authorization data in json
+        format. It can be a pair username-password or a token. In case of using
+        a token it must be a valid access token.
       operationId: ChangeInfrastructureAuth
       parameters:
         - name: InfId
@@ -775,10 +778,18 @@ paths:
         content:
           application/json:
             schema:
-              type: string
+              type: object
+              properties:
+               username:
+                 type: string
+               password:
+                 type: string
+               token:
+                 type: string
               example:
                 username: new_user
                 password: new_password
+                
       responses:
         '200':
           description: successful operation
