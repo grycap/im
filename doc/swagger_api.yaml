@@ -778,17 +778,20 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-               username:
-                 type: string
-               password:
-                 type: string
-               token:
-                 type: string
-              example:
-                username: new_user
-                password: new_password
+              oneOf:
+                - type: object
+                  properties:
+                    username:
+                      type: string
+                      example: new_user
+                    password:
+                      type: string
+                      example: new_password
+                - type: object
+                  properties:
+                    token:
+                      type: string
+                      example: acces_token_new_user
                 
       responses:
         '200':
