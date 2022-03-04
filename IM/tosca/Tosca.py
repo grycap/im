@@ -1096,6 +1096,24 @@ class Tosca:
                         return vm.getPublicIP()
                     else:
                         return vm.getPrivateIP()
+            elif attribute_name == "endpoint":
+                if root_type == "tosca.nodes.aisprint.FaaS.Function":
+                    oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
+                                                        "tosca.nodes.SoftwareComponent")
+                    if host_node and oscar_host:
+                        # OSCAR function deployed in a deployed VM
+                        dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
+                        if dns_host.strip("'\""):
+                            return "https://%s" % dns_host
+
+                    # OSCAR function deployed in a pre-deployed cluster or not dns_host set
+                    if vm.getPublicIP():
+                        return "http://%s" % vm.getPublicIP()
+                    else:
+                        return "http://%s" % vm.getPrivateIP()
+
+                Tosca.logger.warn("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
+                return None
             else:
                 Tosca.logger.warn("Attribute %s not supported." % attribute_name)
                 return None
@@ -1145,6 +1163,18 @@ class Tosca:
                                 "hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP']}}" % (host_node.name,
                                                                                        host_node.name,
                                                                                        host_node.name))
+            elif attribute_name == "endpoint":
+                if root_type == "tosca.nodes.aisprint.FaaS.Function":
+                    oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
+                                                        "tosca.nodes.SoftwareComponent")
+                    if host_node and oscar_host:
+                        # OSCAR function deployed in a deployed VM
+                        dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
+                        if dns_host.strip("'\""):
+                            return "https://%s" % dns_host
+
+                Tosca.logger.warn("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
+                return None
             else:
                 Tosca.logger.warn("Attribute %s not supported." % attribute_name)
                 return None
