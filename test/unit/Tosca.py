@@ -253,6 +253,7 @@ class TestTosca(unittest.TestCase):
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
         radl = parse_radl(str(radl))
+        radl.check()
         node = radl.get_configure_by_name('oscar_plants')
         epected_res = """
   - tasks:
@@ -282,11 +283,11 @@ class TestTosca(unittest.TestCase):
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
         radl = parse_radl(str(radl))
+        radl.check()
         node = radl.get_system_by_name('plants')
         self.assertEqual(node.getValue("disk.0.image.url"), "grycap/image")
         self.assertEqual(node.getValue("script"), '#!/bin/bash\necho "Hola"\n')
         self.assertEqual(node.getValue("memory.size"), 512000000)
-        self.assertEqual(node.getFeature("memory.size").getValue("M"), 488.28125)
         self.assertEqual(node.getValue("alpine"), 0)
         self.assertEqual(node.getValue("input.0.path"), 'input')
         self.assertEqual(node.getValue("output.0.path"), 'output')
