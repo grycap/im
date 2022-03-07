@@ -366,7 +366,9 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
 * Change User: Add or change the ownership of the infrastructure at IM level. Setting an valid access token of other
   user, the infrastructure can be shared or transfered to another user. If overwrite check is set the new user will be
-  the unique new owner of the infrastructure, otherwise it will be added to the list of current users.
+  the unique new owner of the infrastructure, otherwise it will be added to the list of current users. If the new user
+  does not have the correct credentials to access the cloud provider where the resources were deployed the user will
+  not be able to manage the cloud resources.
 
 .. _figure_dash_change_user:
 .. figure:: images/dash_change_user.png

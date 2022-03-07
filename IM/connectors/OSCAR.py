@@ -35,6 +35,10 @@ class OSCARCloudConnector(CloudConnector):
     type = "OSCAR"
     """str with the name of the provider."""
 
+    def __init__(self, cloud_info, inf):
+        self.auth = None
+        CloudConnector.__init__(self, cloud_info, inf)
+
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
         protocol = url[0]
@@ -57,6 +61,10 @@ class OSCARCloudConnector(CloudConnector):
             raise Exception("No auth data has been specified to OSCAR.")
         else:
             auth = auths[0]
+
+        # Store auth to get it from TOSCA get_attribute
+        if self.auth is None:
+            self.auth = auth
 
         if 'username' in auth and 'password' in auth:
             user_pass = "%s:%s" % (auth['username'], auth['password'])
@@ -144,35 +152,36 @@ class OSCARCloudConnector(CloudConnector):
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         res = []
-        for func_num in range(num_vm):
-            vm_id = radl.systems[0].getValue("name")
-            if func_num > 0:
-                vm_id += "%d" % func_num
-            vm = VirtualMachine(inf, vm_id, self.cloud,
-                                requested_radl, requested_radl)
-            vm.destroy = True
-            vm.info.systems[0].setValue('provider.type', self.type)
-            vm.info.systems[0].setValue('instance_id', str(vm_id))
-            inf.add_vm(vm)
 
-            try:
-                url = "%s/system/services" % self.cloud.get_url()
-                service = self._get_service_json(radl.systems[0])
-                headers = {"Authorization": self._get_auth_header(auth_data)}
-                response = requests.request("POST", url, data=json.dumps(service),
-                                            headers=headers, verify=self.verify_ssl)
-                if response.status_code == 201:
-                    vm.destroy = False
-                    vm.state = VirtualMachine.RUNNING
-                    res.append((True, vm))
-                else:
-                    msg = "Error code %d: %s" % (response.status_code, response.text)
-                    res.append((False, msg))
-            except Exception as ex:
-                self.log_exception("Error creating OSCAR function: %s." % ex)
-                res.append((False, "%s" % ex))
+        if num_vm != 1:
+            self.log_warn("Num VM is not 1. Ignoring.")
 
-            res.append((True, vm))
+        vm_id = radl.systems[0].getValue("name")
+        vm = VirtualMachine(inf, vm_id, self.cloud,
+                            requested_radl, requested_radl)
+        vm.destroy = True
+        vm.info.systems[0].setValue('provider.type', self.type)
+        vm.info.systems[0].setValue('instance_id', str(vm_id))
+        inf.add_vm(vm)
+
+        try:
+            url = "%s/system/services" % self.cloud.get_url()
+            service = self._get_service_json(radl.systems[0])
+            headers = {"Authorization": self._get_auth_header(auth_data)}
+            response = requests.request("POST", url, data=json.dumps(service),
+                                        headers=headers, verify=self.verify_ssl)
+            if response.status_code == 201:
+                vm.destroy = False
+                vm.state = VirtualMachine.RUNNING
+                res.append((True, vm))
+            else:
+                msg = "Error code %d: %s" % (response.status_code, response.text)
+                res.append((False, msg))
+        except Exception as ex:
+            self.log_exception("Error creating OSCAR function: %s." % ex)
+            res.append((False, "%s" % ex))
+
+        res.append((True, vm))
 
         return res
 

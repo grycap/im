@@ -72,3 +72,8 @@ topology_template:
            distribution: ubuntu
            version: 18.04
 
+  outputs:
+    oscar_service_url:
+      value: { get_attribute: [ plants, endpoint ] }
+    oscar_service_cred:
+      value: { get_attribute: [ plants, credential] }
