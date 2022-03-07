@@ -296,6 +296,39 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(conf.recipes, None)
         self.assertEqual(radl.deploys[0].id, "plants")
 
+    def test_tosca_oscar_get_attribute(self):
+        """Test TOSCA OSCAR get_attributes function"""
+        tosca_data = read_file_as_string('../files/tosca_oscar.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl1 = radl.clone()
+        radl1.systems = [radl.get_system_by_name('plants')]
+        inf = InfrastructureInfo()
+
+        cloud_info = MagicMock(["getCloudConnector", "get_url"])
+        cloud_con = MagicMock(["cloud"])
+        cloud_con.cloud = cloud_info
+        cloud_info.getCloudConnector.return_value = cloud_con
+        cloud_info.get_url.return_value = "http://oscar.endpoint.com"
+
+        vm = VirtualMachine(inf, "1", cloud_info, radl1, radl1, None)
+        vm.requested_radl = radl1
+        inf.vm_list = [vm]
+        outputs = tosca.get_outputs(inf)
+        self.assertEqual(outputs, {'oscar_service_url': 'http://oscar.endpoint.com'})
+
+        tosca_data = read_file_as_string('../files/tosca_oscar_host.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl1 = radl.clone()
+        inf = InfrastructureInfo()
+
+        vm = VirtualMachine(inf, "1", cloud_info, radl1, radl1, None)
+        vm.requested_radl = radl1
+        inf.vm_list = [vm]
+        outputs = tosca.get_outputs(inf)
+        self.assertEqual(outputs, {'oscar_service_url': 'https://cluster.oscar.com'})
+
 
 if __name__ == "__main__":
     unittest.main()

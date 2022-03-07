@@ -1024,9 +1024,12 @@ class Tosca:
         if attribute_default:
             return attribute_default
 
-        host_node = self._find_host_compute(node, self.tosca.nodetemplates)
-
         root_type = Tosca._get_root_parent_type(node).type
+
+        host_node = self._find_host_compute(node, self.tosca.nodetemplates)
+        if root_type == "tosca.nodes.aisprint.FaaS.Function" and host_node is None:
+            # in case of FaaS functions without host, the node is the host
+            host_node = node
 
         if inf_info:
             vm_list = inf_info.get_vm_list_by_system_name()
@@ -1100,17 +1103,19 @@ class Tosca:
                 if root_type == "tosca.nodes.aisprint.FaaS.Function":
                     oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
                                                          "tosca.nodes.SoftwareComponent")
-                    if host_node and oscar_host:
+                    if host_node != node and oscar_host:
                         # OSCAR function deployed in a deployed VM
                         dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
                         if dns_host and dns_host.strip("'\""):
                             return "https://%s" % dns_host
 
-                    # OSCAR function deployed in a pre-deployed cluster or not dns_host set
-                    if vm.getPublicIP():
-                        return "http://%s" % vm.getPublicIP()
+                        if vm.getPublicIP():
+                            return "http://%s" % vm.getPublicIP()
+                        else:
+                            return "http://%s" % vm.getPrivateIP()
                     else:
-                        return "http://%s" % vm.getPrivateIP()
+                        # OSCAR function deployed in a pre-deployed cluster or not dns_host set
+                        return vm.getCloudConnector().cloud.get_url()
 
                 Tosca.logger.warn("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
                 return None
@@ -1167,7 +1172,7 @@ class Tosca:
                 if root_type == "tosca.nodes.aisprint.FaaS.Function":
                     oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
                                                          "tosca.nodes.SoftwareComponent")
-                    if host_node and oscar_host:
+                    if host_node != node and oscar_host:
                         # OSCAR function deployed in a deployed VM
                         dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
                         if dns_host.strip("'\""):
