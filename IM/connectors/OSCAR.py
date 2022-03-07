@@ -37,6 +37,8 @@ class OSCARCloudConnector(CloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.auth = None
+        if cloud_info.path and cloud_info.path.endswith("/"):
+            cloud_info.path = cloud_info.path[:-1]
         CloudConnector.__init__(self, cloud_info, inf)
 
     def concrete_system(self, radl_system, str_url, auth_data):
