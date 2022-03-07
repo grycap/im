@@ -1119,6 +1119,35 @@ class Tosca:
 
                 Tosca.logger.warn("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
                 return None
+            elif attribute_name == "credential":
+                if root_type == "tosca.nodes.aisprint.FaaS.Function":
+                    oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
+                                                         "tosca.nodes.SoftwareComponent")
+                    if host_node != node and oscar_host:
+                        # OSCAR function deployed in a deployed VM
+                        oscar_pass = self._final_function_result(oscar_host.get_property_value('password'), oscar_host)
+                        if oscar_pass and oscar_pass.strip("'\""):
+                            return {"user": "oscar", "token_type": "password", "token": oscar_pass}
+
+                        Tosca.logger.warn("No password defined in tosca.nodes.indigo.OSCAR host node")
+                        return None
+                    else:
+                        # OSCAR function deployed in a pre-deployed cluster or not dns_host set
+                        if vm.getCloudConnector().auth:
+                            auth = vm.getCloudConnector().auth
+                            if 'username' in auth and 'password' in auth:
+                                return {"user": auth["username"], "token_type": "password", "token": auth["username"]}
+                            elif 'token' in auth:
+                                return {"user": "", "token_type": "bearer", "token": auth["token"]}
+                            else:
+                                Tosca.logger.warn("No valid auth data in OSCAR connector")
+                                return None
+
+                        Tosca.logger.warn("No auth data in OSCAR connector")
+                        return None
+
+                Tosca.logger.warn("Attribute credential only supported in tosca.nodes.aisprint.FaaS.Function")
+                return None
             else:
                 Tosca.logger.warn("Attribute %s not supported." % attribute_name)
                 return None
