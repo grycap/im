@@ -306,8 +306,9 @@ class TestTosca(unittest.TestCase):
         inf = InfrastructureInfo()
 
         cloud_info = MagicMock(["getCloudConnector", "get_url"])
-        cloud_con = MagicMock(["cloud"])
+        cloud_con = MagicMock(["cloud", "auth"])
         cloud_con.cloud = cloud_info
+        cloud_con.auth = {"username": "oscar_pass", "password": "oscar_pass"}
         cloud_info.getCloudConnector.return_value = cloud_con
         cloud_info.get_url.return_value = "http://oscar.endpoint.com"
 
@@ -315,7 +316,10 @@ class TestTosca(unittest.TestCase):
         vm.requested_radl = radl1
         inf.vm_list = [vm]
         outputs = tosca.get_outputs(inf)
-        self.assertEqual(outputs, {'oscar_service_url': 'http://oscar.endpoint.com'})
+        self.assertEqual(outputs, {'oscar_service_url': 'http://oscar.endpoint.com',
+                                   'oscar_service_cred': {'token': 'oscar_pass',
+                                                          'token_type': 'password',
+                                                          'user': 'oscar_pass'}})
 
         tosca_data = read_file_as_string('../files/tosca_oscar_host.yml')
         tosca = Tosca(tosca_data)
@@ -327,7 +331,10 @@ class TestTosca(unittest.TestCase):
         vm.requested_radl = radl1
         inf.vm_list = [vm]
         outputs = tosca.get_outputs(inf)
-        self.assertEqual(outputs, {'oscar_service_url': 'https://cluster.oscar.com'})
+        self.assertEqual(outputs, {'oscar_service_url': 'https://cluster.oscar.com',
+                                   'oscar_service_cred': {'token': 'oscar_password',
+                                                          'token_type': 'password',
+                                                          'user': 'oscar'}})
 
 
 if __name__ == "__main__":

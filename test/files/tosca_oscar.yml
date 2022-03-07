@@ -35,3 +35,5 @@ topology_template:
   outputs:
     oscar_service_url:
       value: { get_attribute: [ plants, endpoint ] }
+    oscar_service_cred:
+      value: { get_attribute: [ plants, credential] }
