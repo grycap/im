@@ -31,3 +31,9 @@ topology_template:
               oneprovider_host: my_provider.com
               token: my_very_secret_token
               space: my_onedata_space
+
+  outputs:
+    oscar_service_url:
+      value: { get_attribute: [ plants, endpoint ] }
+    oscar_service_cred:
+      value: { get_attribute: [ plants, credential] }
