@@ -1808,8 +1808,8 @@ class Tosca:
                 elif prop.name == 'memory':
                     if not value.endswith("B"):
                         value += "B"
-                    value = ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
-                    res.setValue("memory.size", value, 'M')
+                    value = int(ScalarUnit_Size(value).get_num_from_scalar_unit('B'))
+                    res.setValue("memory.size", value, 'B')
                 elif prop.name == 'env_variables':
                     variables = ["%s:%s" % (k, v) for k, v in value.items()]
                     res.setValue("environment.variables", variables)
