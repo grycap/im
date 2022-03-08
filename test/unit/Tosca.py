@@ -320,7 +320,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(outputs, {'oscar_service_url': 'http://oscar.endpoint.com',
                                    'oscar_service_cred': {'token': 'oscar_pass',
                                                           'token_type': 'password',
-                                                          'user': 'oscar_pass'}})
+                                                          'user': 'oscar_user'}})
 
         tosca_data = read_file_as_string('../files/tosca_oscar_host.yml')
         tosca = Tosca(tosca_data)
