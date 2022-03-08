@@ -309,7 +309,7 @@ class TestTosca(unittest.TestCase):
         cloud_info = MagicMock(["getCloudConnector", "get_url"])
         cloud_con = MagicMock(["cloud", "auth"])
         cloud_con.cloud = cloud_info
-        cloud_con.auth = {"username": "oscar_pass", "password": "oscar_pass"}
+        cloud_con.auth = {"username": "oscar_user", "password": "oscar_pass"}
         cloud_info.getCloudConnector.return_value = cloud_con
         cloud_info.get_url.return_value = "http://oscar.endpoint.com"
 
