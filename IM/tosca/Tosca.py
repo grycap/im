@@ -1136,7 +1136,7 @@ class Tosca:
                         if vm.getCloudConnector().auth:
                             auth = vm.getCloudConnector().auth
                             if 'username' in auth and 'password' in auth:
-                                return {"user": auth["username"], "token_type": "password", "token": auth["username"]}
+                                return {"user": auth["username"], "token_type": "password", "token": auth["password"]}
                             elif 'token' in auth:
                                 return {"user": "", "token_type": "bearer", "token": auth["token"]}
                             else:
