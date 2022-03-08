@@ -392,3 +392,17 @@ This is the list of method names:
          "floating_ips": {"used": 1, "limit": 10},
          "security_groups": {"used": 1, "limit": 10}
       }
+
+.. _ChangeInfrastructureAuth-xmlrpc:
+
+``ChangeInfrastructureAuth``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``newAuth``: array of structs
+   :parameter 2: ``overwrite``: boolean
+   :parameter 3: ``auth``: array of structs
+   :ok response: [true, string of length zero]
+   :fail response: [false, ``error``: string]
+
+   Change the authentication data of the infrastructure with ID ``infId``. using
+   the ``newAuth`` provider. If ``overwrite`` is true, the authentication data will
+   be overwrited otherwise it will be appended.

@@ -66,6 +66,11 @@ class TestAuth(unittest.TestCase):
             auth = Authentication(Authentication.read_auth_data(auth_lines))
         self.assertEqual("Incorrect value in auth item id: 1a", str(ex.exception))
 
+        auth_lines = ["""id = c&h; type = InfrastructureManager; username = someuser; password = somepass """]
+        with self.assertRaises(Exception) as ex:
+            auth = Authentication(Authentication.read_auth_data(auth_lines))
+        self.assertEqual("Incorrect value in auth item id: c&h", str(ex.exception))
+
 
 if __name__ == '__main__':
     unittest.main()

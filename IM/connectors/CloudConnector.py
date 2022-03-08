@@ -469,12 +469,18 @@ class CloudConnector(LoggerMixin):
                 key = parts[0].strip()
                 value = parts[1].strip()
                 tags[key] = value
-        # If available try to set the IM username as a tag
-        if auth_data and auth_data.getAuthInfo('InfrastructureManager'):
+        # If available try to set the IM information as tags
+        if (Config.VM_TAG_USERNAME and Config.VM_TAG_USERNAME not in tags and
+                auth_data and auth_data.getAuthInfo('InfrastructureManager')):
             im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
-            tags["IM-USER"] = im_username
-        if inf:
-            tags["IM_INFRA_ID"] = inf.id
+            tags[Config.VM_TAG_USERNAME] = im_username
+        if Config.VM_TAG_INF_ID and Config.VM_TAG_INF_ID not in tags and inf:
+            tags[Config.VM_TAG_INF_ID] = inf.id
+        from IM.REST import REST_URL
+        if Config.VM_TAG_IM_URL and Config.VM_TAG_IM_URL not in tags and REST_URL:
+            tags[Config.VM_TAG_IM_URL] = REST_URL
+        if Config.VM_TAG_IM and Config.VM_TAG_IM not in tags:
+            tags[Config.VM_TAG_IM] = "es.upv.grycap.im"
         return tags
 
     @staticmethod
@@ -594,9 +600,64 @@ class CloudConnector(LoggerMixin):
         if not name:
             name = system.getValue("disk.0.image.name")
         if not name:
+            name = system.name
+        if not name:
             name = default
         name = name.lower().replace("_", "-")
         if unique:
             return "%s-%s" % (name, str(uuid.uuid1()))
         else:
             return name
+
+    @staticmethod
+    def get_dns_entries(vm):
+        """
+        Get the required entries in the to add in the Cloud provider DNS service
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+        Returns: List of triplets (record, domain, ip)
+        """
+        res = []
+        system = vm.info.systems[0]
+        for net_name in system.getNetworkIDs():
+            num_conn = system.getNumNetworkWithConnection(net_name)
+            ip = system.getIfaceIP(num_conn)
+            (hostname, domain) = vm.getRequestedNameIface(num_conn,
+                                                          default_hostname=Config.DEFAULT_VM_NAME,
+                                                          default_domain=Config.DEFAULT_DOMAIN)
+            if domain != "localdomain" and ip and hostname:
+                if not domain.endswith("."):
+                    domain += "."
+                res.append((hostname, domain, ip))
+
+        return res
+
+    def resize_vm_radl(self, vm, radl):
+        """
+        Update the current VM RADL with the new RADL
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - radl(RADL): RADL document.
+        Returns: an RADL system or None if no changes are made
+        """
+        orig_system = vm.info.systems[0].clone()
+        new_cpu = radl.systems[0].getValue('cpu.count')
+        if new_cpu:
+            orig_system.setValue('cpu.count', new_cpu)
+        new_memory = radl.systems[0].getValue('memory.size')
+        if new_memory:
+            orig_system.setValue('memory.size', new_memory)
+        instance_type = radl.systems[0].getValue('instance_type')
+        if instance_type:
+            orig_system.setValue('instance_type', instance_type)
+        new_gpu = radl.systems[0].getValue('gpu.count')
+        if new_gpu:
+            orig_system.setValue('gpu.count', new_gpu)
+
+        if any([new_cpu, new_memory, instance_type, new_gpu]):
+            return orig_system
+        else:
+            self.log_debug("No memory nor cpu nor instance_type nor gpu specified. VM not resized.")
+            return None

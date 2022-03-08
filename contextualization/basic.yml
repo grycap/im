@@ -1,6 +1,20 @@
 ---
 - gather_facts: False
   tasks: 
+  ############## To avoid some issues with cloud-init and unattended upgrades ###############
+    - name: Avoid unattended upgrades
+      raw: |
+        sudo touch /var/lib/apt/periodic/upgrade-stamp; \
+        sudo touch /var/lib/apt/periodic/update-stamp; \
+        sudo touch /var/lib/apt/periodic/download-upgradeable-stamp;
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Wait the VM to boot
+      raw: systemctl is-system-running --wait
+      ignore_errors: yes
+      changed_when: false
+
     # Some OSs does not have python by default
     - name: Check Python2 is installed
       raw: python2 -c 'import sys; print(sys.version_info[1])'

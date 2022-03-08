@@ -100,14 +100,11 @@ class OrangeCloudConnector(OpenStackCloudConnector):
                 raise Exception(
                     "No correct auth data has been specified to Orange: username, password, domain, tenant and region")
 
-    def guess_instance_type_gpu(self, size):
+    @staticmethod
+    def guess_instance_type_gpu(size, num_gpus, vendor=None, model=None):
         """Try to guess if this NodeSize has GPU support"""
-        try:
-            extra_specs = size.driver.ex_get_size_extra_specs(size.id)
-            if 'ecs:performancetype' in extra_specs and extra_specs['ecs:performancetype'] == 'gpu':
-                return True
-        except Exception:
-            self.log_exception("Error trying to get flavor extra_specs.")
+        if 'ecs:performancetype' in size.extra and size.extra['ecs:performancetype'] == 'gpu':
+            return True
         return False
 
     def concrete_system(self, radl_system, str_url, auth_data):
@@ -118,7 +115,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
             driver = self.get_driver(auth_data)
 
             res_system = radl_system.clone()
-            instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+            instance_type = self.get_instance_type(driver, res_system)
             self.update_system_info_from_instance(res_system, instance_type)
 
             username = res_system.getValue('disk.0.os.credentials.username')
@@ -130,7 +127,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
             return None
 
     @staticmethod
-    def get_volumes(driver, image, radl):
+    def get_volumes(driver, image, volume, radl):
         """
         Create the required volumes (in the RADL) for the VM.
 

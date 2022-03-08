@@ -110,6 +110,13 @@ class Config:
     BOOT_MODE = 0  # It can be 0-Normal, 1-ReadOnly, 2-ReadDelete
     ENABLE_CORS = False
     CORS_ORIGIN = '*'
+    VAULT_URL = None
+    VAULT_PATH = None
+    VAULT_ROLE = None
+    VM_TAG_USERNAME = None
+    VM_TAG_INF_ID = None
+    VM_TAG_IM_URL = None
+    VM_TAG_IM = None
 
 
 config = ConfigParser()

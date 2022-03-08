@@ -1,0 +1,79 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+description: TOSCA test for the IM
+
+imports:
+  - ec3_custom_types: https://raw.githubusercontent.com/grycap/ec3/tosca/tosca/custom_types.yaml
+
+topology_template:
+
+  node_templates:
+
+    plants:
+      type: tosca.nodes.aisprint.FaaS.Function
+      properties:
+        name: plants
+        memory: 512MB
+        script: |
+          #!/bin/bash
+          echo "Hola"
+        cpu: 0.5
+        image: grycap/image
+        input:
+          - storage_provider: minio.default
+            path: input
+        output:
+          - storage_provider: minio.default
+            path: output
+        storage_providers:
+          onedata:
+            my_onedata:
+              oneprovider_host: my_provider.com
+              token: my_very_secret_token
+              space: my_onedata_space
+      requirements:
+        - host: oscar
+
+    oscar:
+      type: tosca.nodes.indigo.OSCAR
+      properties:
+        minio_secretkey:  minio_password
+        password: oscar_password
+        dns_host: cluster.oscar.com
+        minio_dns_host: minio.cluster.oscar.com
+        minio_dns_host_console: console.minio.cluster.oscar.com
+      capabilities:
+        endpoint:
+          properties:
+            ports:
+              http_port:
+                protocol: tcp
+                source: 80
+              https_port:
+                protocol: tcp
+                source: 443
+              minio_port:
+                protocol: tcp
+                source: 30300
+      requirements:
+        - host: server
+
+    server:
+      type: tosca.nodes.Compute
+      capabilities:
+        # Host container properties
+        host:
+         properties:
+           num_cpus: 1
+           mem_size: 4 GB
+        os:
+         properties:
+           type: linux
+           distribution: ubuntu
+           version: 18.04
+
+  outputs:
+    oscar_service_url:
+      value: { get_attribute: [ plants, endpoint ] }
+    oscar_service_cred:
+      value: { get_attribute: [ plants, credential] }

@@ -72,15 +72,25 @@ class TestAzureConnector(TestCloudConnectorBase):
                                 'username': 'user', 'password': 'password'}])
         azure_cloud = self.get_azure_cloud()
 
-        instace_type = MagicMock()
-        instace_type.name = "instance_type1"
-        instace_type.number_of_cores = 1
-        instace_type.memory_in_mb = 1024
-        instace_type.resource_disk_size_in_mb = 102400
-        instace_types = [instace_type]
+        sku = MagicMock()
+        sku.resource_type = "virtualMachines"
+        sku.name = "Standard_A1"
+        cpu_cap = MagicMock()
+        cpu_cap.name = "vCPUs"
+        cpu_cap.value = "1"
+        mem_cap = MagicMock()
+        mem_cap.name = "MemoryGB"
+        mem_cap.value = "1"
+        res_cap = MagicMock()
+        res_cap.name = "MaxResourceVolumeMB"
+        res_cap.value = "102400"
+        os_cap = MagicMock()
+        os_cap.name = "OSVhdSizeMB"
+        os_cap.value = "102400"
+        sku.capabilities = [cpu_cap, mem_cap, res_cap, os_cap]
         client = MagicMock()
         compute_client.return_value = client
-        client.virtual_machine_sizes.list.return_value = instace_types
+        client.resource_skus.list.return_value = [sku]
 
         concrete = azure_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
@@ -164,13 +174,23 @@ class TestAzureConnector(TestCloudConnectorBase):
         public_ip_create.result.return_value = public_ip_create_res
         nclient.public_ip_addresses.create_or_update.return_value = public_ip_create
 
-        instace_type = MagicMock()
-        instace_type.name = "instance_type1"
-        instace_type.number_of_cores = 1
-        instace_type.memory_in_mb = 1024
-        instace_type.resource_disk_size_in_mb = 102400
-        instace_types = [instace_type]
-        cclient.virtual_machine_sizes.list.return_value = instace_types
+        sku = MagicMock()
+        sku.resource_type = "virtualMachines"
+        sku.name = "Standard_A1"
+        cpu_cap = MagicMock()
+        cpu_cap.name = "vCPUs"
+        cpu_cap.value = "1"
+        mem_cap = MagicMock()
+        mem_cap.name = "MemoryGB"
+        mem_cap.value = "1"
+        res_cap = MagicMock()
+        res_cap.name = "MaxResourceVolumeMB"
+        res_cap.value = "102400"
+        os_cap = MagicMock()
+        os_cap.name = "OSVhdSizeMB"
+        os_cap.value = "102400"
+        sku.capabilities = [cpu_cap, mem_cap, res_cap, os_cap]
+        cclient.resource_skus.list.return_value = [sku]
 
         cclient.virtual_machines.create_or_update.side_effect = self.create_vm
 
@@ -188,15 +208,15 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertTrue(res[1][0])
         self.assertTrue(res[2][0])
         self.assertEquals(rclient.resource_groups.delete.call_count, 2)
-        self.assertIn("rg-im-userimage-", rclient.resource_groups.delete.call_args_list[0][0][0])
-        self.assertIn("rg-im-userimage-", rclient.resource_groups.delete.call_args_list[1][0][0])
+        self.assertIn("rg-test-", rclient.resource_groups.delete.call_args_list[0][0][0])
+        self.assertIn("rg-test-", rclient.resource_groups.delete.call_args_list[1][0][0])
 
         json_vm_req = cclient.virtual_machines.create_or_update.call_args_list[0][0][2]
         self.assertEquals(json_vm_req['storage_profile']['data_disks'][0]['disk_size_gb'], 1)
         self.assertEquals(json_vm_req['storage_profile']['data_disks'][1]['managed_disk']['id'], "did")
         image_res = {'sku': '16.04.0-LTS', 'publisher': 'Canonical', 'version': 'latest', 'offer': 'UbuntuServer'}
         self.assertEquals(json_vm_req['storage_profile']['image_reference'], image_res)
-        self.assertEquals(json_vm_req['hardware_profile']['vm_size'], 'instance_type1')
+        self.assertEquals(json_vm_req['hardware_profile']['vm_size'], 'Standard_A1')
         self.assertEquals(json_vm_req['os_profile']['admin_username'], 'user')
         self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
         self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
@@ -277,19 +297,29 @@ class TestAzureConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "rg0/im0", azure_cloud.cloud, radl, radl, azure_cloud, 1)
 
-        instace_type = MagicMock()
-        instace_type.name = "instance_type1"
-        instace_type.number_of_cores = 1
-        instace_type.memory_in_mb = 1024
-        instace_type.resource_disk_size_in_mb = 102400
-        instace_types = [instace_type]
+        sku = MagicMock()
+        sku.resource_type = "virtualMachines"
+        sku.name = "Standard_A1"
+        cpu_cap = MagicMock()
+        cpu_cap.name = "vCPUs"
+        cpu_cap.value = "1"
+        mem_cap = MagicMock()
+        mem_cap.name = "MemoryGB"
+        mem_cap.value = "1"
+        res_cap = MagicMock()
+        res_cap.name = "MaxResourceVolumeMB"
+        res_cap.value = "102400"
+        os_cap = MagicMock()
+        os_cap.name = "OSVhdSizeMB"
+        os_cap.value = "102400"
+        sku.capabilities = [cpu_cap, mem_cap, res_cap, os_cap]
         cclient = MagicMock()
         compute_client.return_value = cclient
-        cclient.virtual_machine_sizes.list.return_value = instace_types
+        cclient.resource_skus.list.return_value = [sku]
 
         avm = MagicMock()
         avm.provisioning_state = "Succeeded"
-        avm.hardware_profile.vm_size = "instance_type1"
+        avm.hardware_profile.vm_size = "Standard_A1"
         avm.location = "northeurope"
         status1 = MagicMock()
         status1.code = "ProvisioningState/succeeded"
@@ -407,19 +437,29 @@ class TestAzureConnector(TestCloudConnectorBase):
                                 'username': 'user', 'password': 'password'}])
         azure_cloud = self.get_azure_cloud()
 
-        instace_type = MagicMock()
-        instace_type.name = "instance_type2"
-        instace_type.number_of_cores = 2
-        instace_type.memory_in_mb = 2048
-        instace_type.resource_disk_size_in_mb = 102400
-        instace_types = [instace_type]
+        sku = MagicMock()
+        sku.resource_type = "virtualMachines"
+        sku.name = "Standard_A2"
+        cpu_cap = MagicMock()
+        cpu_cap.name = "vCPUs"
+        cpu_cap.value = "2"
+        mem_cap = MagicMock()
+        mem_cap.name = "MemoryGB"
+        mem_cap.value = "2"
+        res_cap = MagicMock()
+        res_cap.name = "MaxResourceVolumeMB"
+        res_cap.value = "102400"
+        os_cap = MagicMock()
+        os_cap.name = "OSVhdSizeMB"
+        os_cap.value = "102400"
+        sku.capabilities = [cpu_cap, mem_cap, res_cap, os_cap]
         cclient = MagicMock()
         compute_client.return_value = cclient
-        cclient.virtual_machine_sizes.list.return_value = instace_types
+        cclient.resource_skus.list.return_value = [sku]
 
         vm = MagicMock()
         vm.provisioning_state = "Succeeded"
-        vm.hardware_profile.vm_size = "instance_type2"
+        vm.hardware_profile.vm_size = "Standard_A2"
         vm.location = "northeurope"
         ni = MagicMock()
         ni.id = "/subscriptions/subscription-id/resourceGroups/rg0/providers/Microsoft.Network/networkInterfaces/ni-0"

@@ -32,6 +32,7 @@ Miguel Caballer, Ignacio Blanquer, German Molto, and Carlos de Alfonso. "[Dynami
 The recommended option to use the Infrastructure Manager service is using the available docker image.
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
 default configuration. Information about this image can be found here: https://hub.docker.com/r/grycap/im/.
+It is also available in Github Container registry `ghcr.io/grycap/im`: https://github.com/grycap/im/pkgs/container/im.
 
 How to launch the IM service using docker::
 
@@ -78,8 +79,7 @@ helm install --namespace=im --name=im  grycap/IM
 Then install the IM chart (with Helm v3):
 
 ```sh
-kubectl create namespace im
-helm install --namespace=im im  grycap/IM
+helm install --namespace=im --create-namespace im  grycap/IM
 ```
 
 All the information about this chart is available at the [IM chart README](https://github.com/grycap/helm-charts/blob/master/IM/README.md).
@@ -181,40 +181,34 @@ connector. It is available as the package ``pyvmomi`` at the pip repository.
 
 ### 3.3 INSTALLING
 
-#### 3.3.1 Using installer (Recommended option)
-
-The IM provides a script to install the IM in one single step (using pip).
-You only need to execute the following command:
-
-```sh
-$ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
-```
-
-It works for the most recent version of the main Linux distributions (RHEL, CentOS, Fedora, Ubuntu, Debian).
-In case that you O.S. does not work with this install script see next sections.
-
-#### 3.3.2 From PIP
+#### 3.3.1 From PIP
 
 First you need to install pip tool and some packages needed to compile some of the IM requirements.
 To install them in Debian and Ubuntu based distributions, do::
 
 ```sh
 $ apt update
-$ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-pysqlite2
+$ apt install -y gcc python3-dev libffi-dev libssl-dev python3-pip sshpass default-libmysqlclient-dev
 ```
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do:
 
 ```sh
-$ yum install epel-release
-$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass python-sqlite3dbm
+$ yum install -y epel-release
+$ yum install -y which gcc python3-devel libffi-devel openssl-devel python3-pip sshpass
 ```
 
 Then you only have to call the install command of the pip tool with the IM package:
 
 ```sh
-$ pip install IM
+$ pip3 install IM
+```
+
+You can also install an specific branch of the Github repository:
+
+```sh
+$ pip install git+https://github.com/grycap/im.git@master
 ```
 
 Pip will also install the, non installed, pre-requisites needed. So Ansible  2.4 or later will 
@@ -223,86 +217,6 @@ of IM features that you need requires to install some of the packages of section
 
 You must also remember to modify the ansible.cfg file setting as specified in the 
 REQUISITES section.
-
-#### 3.3.3 From System packages
-
-This option is not recommended as in most of the cases some packages will not have the last version,
-so part of the IM functionality may not be available.
-
-##### 3.3.3.1 From RPM packages (RH7)
-
-Download the RPM package from [GitHub](https://github.com/grycap/im/releases/latest).
-Also remember to download the RPMs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
-
-
-You must have the epel repository enabled:
-
-```sh
-$ yum install epel-release
-```
-
-Then install the downloaded RPMs:
-
-```sh
-$ yum localinstall IM-*.rpm RADL-*.rpm
-```
-
-Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip as
-shown in the OPTIONAL PACKAGES section.
-
-
-##### 3.3.3.2 From Deb package (Tested with Ubuntu 14.04, 16.04 and 18.04)
-
-Download the Deb package from [GitHub](https://github.com/grycap/im/releases/latest).
-Also remember to download the Debs of the RADL and TOSCA parser packages from its corresponding GitHub repositories: [RADL](https://github.com/grycap/radl/releases/latest) and [TOSCA parser](https://github.com/indigo-dc/tosca-parser/releases/latest).
-
-
-In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
-You can download it from their corresponding PPAs. But here you have some links:
- 
- * python-backports.ssl-match-hostname: [download](http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb)
- * python-scp: [download](http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb)
- * python-libcloud: [download](http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_2.2.1-1_all.deb)
- * python-xmltodict: [download](http://archive.ubuntu.com/ubuntu/pool/universe/p/python-xmltodict/python-xmltodict_0.11.0-1_all.deb)
-
-Also Azure python SDK is not available in Ubuntu 16.04. So if you need the Azure plugin you have to manually install them.
-You can download it from their corresponding PPAs. But here you have some links:
-
- * python-msrestazure: [download](https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.3-1_all.deb)
- * python-msrest: [download](https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.4-1_all.deb)
- * python-azure: [download](https://launchpad.net/ubuntu/+archive/primary/+files/python-azure_2.0.0~rc6+dfsg-2_all.deb)
-
-It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see [Ansible installation](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu)):
-
-```sh
-$ sudo apt-get install software-properties-common
-$ sudo apt-add-repository ppa:ansible/ansible
-$ sudo apt-get update
-```
-
-Put all the .deb files in the same directory and do::
-
-```sh
-$ sudo dpkg -i *.deb
-$ sudo apt install -f -y
-```
-
-#### 3.3.4 FROM SOURCE
-
-Select a proper path where the IM service will be installed (i.e. /usr/local/im,
-/opt/im or other). This path will be called IM_PATH
-
-```sh
-$ tar xvzf IM-X.XX.tar.gz
-$ chown -R root:root IM-X.XX
-$ mv IM-X.XX /usr/local
-```
-
-Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory.
-
-```sh
-$ ln -s /usr/local/im/scripts/im /etc/init.d/im
-```
 
 ### 3.4 START IM ON BOOT
 
