@@ -108,30 +108,7 @@
 
     - name: Install python-setuptools
       package: name=python-setuptools
-      when: ansible_os_family != "Alpine" and ansible_python_version is version('3', '<')
-
-  ##################################################### Alpine support #######################################################
-
-    - name: Apk install requirements Alpine
-      package: name=py3-pip,py3-setuptools,sshpass,openssh-client,unzip,gcc,libffi-dev,openssl-dev,musl-dev,make,wget,python3-dev
-      when: ansible_os_family == "Alpine"
-
-    - name: Move original ps in Alpine
-      command: mv /bin/ps /sbin/ps creates=/sbin/ps
-      when: ansible_os_family == "Alpine"
-
-    - name: Install ps with -p support in Alpine
-      get_url:
-        url: https://gist.githubusercontent.com/micafer/f74de4dc21a636df30d51202cbeee475/raw/388945406b9e9d225a0c7e95b97fc2515f1a17ef/ps_opt_p_enabled_for_alpine.sh
-        dest: /bin/ps
-        mode: 0755
-        owner: root
-        group: root
-      when: ansible_os_family == "Alpine"
-
-    - name: Pip install wheel Alpine
-      pip: name=wheel
-      when: ansible_os_family == "Alpine"
+      when: ansible_python_version is version('3', '<')
 
   ######################################### Use pip to enable to set the version #############################################
 
@@ -151,20 +128,15 @@
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest executable=pip3
 
-    - name: Install cryptography
+    - name: Install pyOpenSSL & cryptography & pyyaml & wheel
       pip:
-        name: cryptography
+        name:
+          - pyOpenSSL>20.0
+          - cryptography
+          - wheel
+          - pyyaml
         executable: pip3
         extra_args: --prefer-binary
-
-    - name: Install pyOpenSSL
-      pip:
-        name: pyOpenSSL>20.0
-        executable: pip3
-        extra_args: --prefer-binary
-
-    - name: Install pyyaml
-      pip: name=pyyaml executable=pip3 extra_args=--prefer-binary
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip3
@@ -176,11 +148,13 @@
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
 
-    - name: Install jmespath with Pip
-      pip: name=jmespath executable=pip3 extra_args=--prefer-binary
-
-    - name: Install scp with Pip
-      pip: name=scp executable=pip3 extra_args=--prefer-binary
+    - name: Install jmespath & scp with Pip
+      pip:
+        name:
+          - jmespath
+          - scp
+        executable: pip3
+        extra_args: --prefer-binary
 
     - name: Install pywinrm with Pip
       pip: name=pywinrm executable=pip3 extra_args=--prefer-binary 
