@@ -20,7 +20,7 @@ import paramiko
 try:
     import scp
 except Exception:
-    print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
+    print("WARN: SCP library not correctly installed. Some sftp functions will not work!.")
 import os
 try:
     from StringIO import StringIO
@@ -51,6 +51,9 @@ class ThreadSSH(Thread):
         self.command_return = None
         self.client = None
         self.proxy = None
+
+    def __del__(self):
+        self.close()
 
     def close(self):
         """
@@ -120,6 +123,9 @@ class SSH:
             private_key_obj.seek(0)
             self.private_key_obj = paramiko.RSAKey.from_private_key(
                 private_key_obj)
+
+    def __del__(self):
+        self.close()
 
     def close(self):
         """

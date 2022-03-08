@@ -20,6 +20,7 @@ import os
 import unittest
 import sys
 import yaml
+import json
 
 from mock import MagicMock
 
@@ -76,6 +77,17 @@ class TestTosca(unittest.TestCase):
         lrms_server = radl.get_system_by_name('lrms_server')
         self.assertEqual(lrms_server.getValue('memory.size'), 1000000000)
         self.assertEqual(lrms_server.getValue('net_interface.0.dns_name'), 'slurmserver')
+        if lrms_server.getValue("disk.1.size") == 10000000000:
+            self.assertEqual(lrms_server.getValue("disk.1.mount_path"), "/mnt/disk2")
+        else:
+            self.assertEqual(lrms_server.getValue("disk.1.size"), 20000000000)
+            self.assertEqual(lrms_server.getValue("disk.1.mount_path"), "/mnt/disk3")
+        if lrms_server.getValue("disk.2.size") == 10000000000:
+            self.assertEqual(lrms_server.getValue("disk.2.mount_path"), "/mnt/disk2")
+        else:
+            self.assertEqual(lrms_server.getValue("disk.2.size"), 20000000000)
+            self.assertEqual(lrms_server.getValue("disk.2.mount_path"), "/mnt/disk3")
+
         self.assertEqual("cloudid", radl.deploys[0].cloud_id)
         self.assertEqual("cloudid", radl.deploys[1].cloud_id)
         self.assertEqual("cloudid", radl.deploys[2].cloud_id)
@@ -94,6 +106,8 @@ class TestTosca(unittest.TestCase):
                          "{{ groups['lrms_wn']|map('extract', hostvars,'IM_NODE_PRIVATE_IP')|list"
                          " if 'lrms_wn' in groups else []}}")
         self.assertEqual([d.id for d in radl.deploys][2], 'lrms_wn')
+        att_conf = radl.get_configure_by_name('lrms_server_tosca.relationships.indigo.onedatastorage.attachesto_conf')
+        conf = yaml.safe_load(att_conf.recipes)[0]
 
     def test_tosca_get_outputs(self):
         """Test TOSCA get_outputs function"""
@@ -127,6 +141,9 @@ class TestTosca(unittest.TestCase):
         self.assertEqual('192.168.0.0/16,vr1_compute', net1.getValue("router"))
         self.assertEqual('yes', net1.getValue("create"))
         self.assertEqual('192.168.10.0/24', net1.getValue("cidr"))
+        self.assertEqual('username@proxy.host.com', net1.getValue("proxy_host"))
+        proxy_key = """-----BEGIN RSA PRIVATE KEY-----\naaa\n-----END RSA PRIVATE KEY-----\n"""
+        self.assertEqual(proxy_key, net1.getValue("proxy_key"))
         lrms_wn = radl.get_system_by_name("lrms_wn")
         self.assertEqual("network1", lrms_wn.getValue("net_interface.0.connection"))
         lrms_server = radl.get_system_by_name("lrms_server")
@@ -214,6 +231,111 @@ class TestTosca(unittest.TestCase):
         node = radl.get_system_by_name('node')
         self.assertIn('tag1=value1', node.getValue("instance_tags"))
         self.assertIn('tag2=value2', node.getValue("instance_tags"))
+
+    def test_tosca_ansible_host(self):
+        """Test TOSCA RADL translation with an Ansible host"""
+        tosca_data = read_file_as_string('../files/tosca_ansible_host.yaml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        ansible = radl.ansible_hosts[0]
+        self.assertEqual('ansible_host_ip_or_name', ansible.getValue("host"))
+        self.assertEqual('username', ansible.getValue("credentials.username"))
+        self.assertEqual('password', ansible.getValue("credentials.password"))
+        node = radl.get_system_by_name('simple_node')
+        self.assertEqual('deployed_node_ip', node.getValue("net_interface.0.ip"))
+        self.assertEqual('password', node.getValue("disk.0.os.credentials.password"))
+        self.assertEqual('username', node.getValue("disk.0.os.credentials.username"))
+
+    def test_tosca_oscar(self):
+        """Test TOSCA RADL translation with OSCAR functions"""
+        tosca_data = read_file_as_string('../files/tosca_oscar_host.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        radl.check()
+        node = radl.get_configure_by_name('oscar_plants')
+        epected_res = """
+  - tasks:
+    - include_tasks: utils/tasks/oscar_function.yml
+      vars:
+        oscar_endpoint: "https://cluster.oscar.com"
+        oscar_username: "oscar"
+        oscar_password: "oscar_password"
+"""
+        self.assertIn(epected_res, node.recipes)
+        conf = yaml.safe_load(node.recipes)
+        service_json = json.loads(conf[0]["tasks"][0]["vars"]["oscar_service_json"])
+        expected_json = {'alpine': False,
+                         'cpu': "0.5",
+                         'image': 'grycap/image',
+                         'input': [{'path': 'input', 'storage_provider': 'minio.default'}],
+                         'memory': '488.281Mi',
+                         'name': 'plants',
+                         'output': [{'path': 'output', 'storage_provider': 'minio.default'}],
+                         'script': '#!/bin/bash\necho "Hola"\n',
+                         'storage_providers': {'onedata': {'my_onedata': {'oneprovider_host': 'my_provider.com',
+                                                                          'token': 'my_very_secret_token',
+                                                                          'space': 'my_onedata_space'}}}}
+        self.assertEqual(service_json, expected_json)
+
+        tosca_data = read_file_as_string('../files/tosca_oscar.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        radl.check()
+        node = radl.get_system_by_name('plants')
+        self.assertEqual(node.getValue("disk.0.image.url"), "grycap/image")
+        self.assertEqual(node.getValue("script"), '#!/bin/bash\necho "Hola"\n')
+        self.assertEqual(node.getValue("memory.size"), 512000000)
+        self.assertEqual(node.getValue("alpine"), 0)
+        self.assertEqual(node.getValue("input.0.path"), 'input')
+        self.assertEqual(node.getValue("output.0.path"), 'output')
+        self.assertEqual(node.getValue("onedata.0.id"), 'my_onedata')
+        self.assertEqual(node.getValue("onedata.0.oneprovider_host"), 'my_provider.com')
+        conf = radl.get_configure_by_name('plants')
+        self.assertEqual(conf.recipes, None)
+        self.assertEqual(radl.deploys[0].id, "plants")
+
+    def test_tosca_oscar_get_attribute(self):
+        """Test TOSCA OSCAR get_attributes function"""
+        tosca_data = read_file_as_string('../files/tosca_oscar.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl1 = radl.clone()
+        radl1.systems = [radl.get_system_by_name('plants')]
+        inf = InfrastructureInfo()
+
+        cloud_info = MagicMock(["getCloudConnector", "get_url"])
+        cloud_con = MagicMock(["cloud", "auth"])
+        cloud_con.cloud = cloud_info
+        cloud_con.auth = {"username": "oscar_pass", "password": "oscar_pass"}
+        cloud_info.getCloudConnector.return_value = cloud_con
+        cloud_info.get_url.return_value = "http://oscar.endpoint.com"
+
+        vm = VirtualMachine(inf, "1", cloud_info, radl1, radl1, None)
+        vm.requested_radl = radl1
+        inf.vm_list = [vm]
+        outputs = tosca.get_outputs(inf)
+        self.assertEqual(outputs, {'oscar_service_url': 'http://oscar.endpoint.com',
+                                   'oscar_service_cred': {'token': 'oscar_pass',
+                                                          'token_type': 'password',
+                                                          'user': 'oscar_pass'}})
+
+        tosca_data = read_file_as_string('../files/tosca_oscar_host.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl1 = radl.clone()
+        inf = InfrastructureInfo()
+
+        vm = VirtualMachine(inf, "1", cloud_info, radl1, radl1, None)
+        vm.requested_radl = radl1
+        inf.vm_list = [vm]
+        outputs = tosca.get_outputs(inf)
+        self.assertEqual(outputs, {'oscar_service_url': 'https://cluster.oscar.com',
+                                   'oscar_service_cred': {'token': 'oscar_password',
+                                                          'token_type': 'password',
+                                                          'user': 'oscar'}})
 
 
 if __name__ == "__main__":

@@ -139,7 +139,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         while not success and wait < timeout and not self._stop_thread:
             success = True
             for vm in self.inf.get_vm_list():
-
+                if not vm.contextualize():
+                    continue
                 # If the VM is not in a "running" state, ignore it
                 if vm.state in VirtualMachine.NOT_RUNNING_STATES:
                     self.log_warn("The VM ID: " + str(vm.id) +
@@ -181,6 +182,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         while not success and wait < timeout and not self._stop_thread:
             success = True
             for vm in self.inf.get_vm_list():
+                if not vm.contextualize():
+                    continue
                 if vm.hasPublicNet():
                     ip = vm.getPublicIP()
                     if not ip:
@@ -237,7 +240,6 @@ class ConfManager(LoggerMixin, threading.Thread):
                 vm.kill_check_ctxt_process()
             except Exception:
                 self.log_exception("Error killing ctxt processes in VM: %s" % vm.id)
-            vm.configured = None
 
     def run(self):
         self.log_info("Starting the ConfManager Thread")
@@ -256,6 +258,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 if self.ansible_process and self.ansible_process.is_alive():
                     self.log_info("Stopping pending Ansible process.")
                     self.ansible_process.terminate()
+                    self._stop_thread = True
 
                 # Set as unconfigured all non finished ctxt VMs
                 for vm in self.inf.get_vm_list():
@@ -461,6 +464,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                 str(len(vm_group[group])) + '\n'
 
             for vm in vm_group[group]:
+                if not vm.contextualize():
+                    continue
                 # first try to use the public IP
                 ip = vm.getPublicIP()
                 if not ip:
@@ -539,6 +544,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                 node_line += ' IM_NODE_NUM=' + str(vm.im_id)
                 node_line += ' IM_NODE_VMID=' + str(vm.id)
                 node_line += ' IM_NODE_CLOUD_TYPE=' + vm.cloud.type
+                if vm.cloud.server:
+                    node_line += ' IM_NODE_CLOUD_SERVER=' + vm.cloud.server
                 node_line += ifaces_im_vars
 
                 for app in vm.getInstalledApplications():
@@ -562,8 +569,9 @@ class ConfManager(LoggerMixin, threading.Thread):
         out.write('IM_MASTER_HOSTNAME=' + master_name + '\n')
         out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
         out.write('IM_MASTER_DOMAIN=' + masterdom + '\n')
-        out.write('IM_INFRASTRUCTURE_ID=' + self.inf.id + '\n\n')
-        out.write('IM_INFRASTRUCTURE_RADL=' + self.inf.get_json_radl() + '\n\n')
+        out.write('IM_INFRASTRUCTURE_ID=' + self.inf.id + '\n')
+        out.write('IM_INFRASTRUCTURE_RADL=' + self.inf.get_json_radl() + '\n')
+        out.write('IM_INFRASTRUCTURE_AUTH=' + self.inf.get_auth() + '\n\n')
 
         if windows:
             out.write('[windows]\n' + windows + "\n")
@@ -590,6 +598,8 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             for vm in vm_group[group]:
                 # first try to use the public IP
+                if not vm.contextualize():
+                    continue
                 ip = vm.getPublicIP()
                 if not ip:
                     ip = vm.getPrivateIP()
@@ -769,14 +779,14 @@ class ConfManager(LoggerMixin, threading.Thread):
             vault_password = vm.info.systems[0].getValue("vault.password")
             if vault_password:
                 vault_edit = self.get_vault_editor(vault_password)
-                if configure.recipes.strip().startswith("$ANSIBLE_VAULT"):
+                if configure.recipes and configure.recipes.strip().startswith("$ANSIBLE_VAULT"):
                     recipes = vault_edit.vault.decrypt(configure.recipes.strip()).decode()
                 else:
-                    recipes = configure.recipes
+                    recipes = configure.recipes or ""
                 conf_content = merge_recipes(conf_content, recipes)
                 conf_content = vault_edit.vault.encrypt(conf_content).decode()
             else:
-                conf_content = merge_recipes(conf_content, configure.recipes)
+                conf_content = merge_recipes(conf_content, configure.recipes or "")
 
             conf_out = open(conf_filename, 'w')
             conf_out.write(str(conf_content))
@@ -803,6 +813,21 @@ class ConfManager(LoggerMixin, threading.Thread):
         """
         success = True
         tmp_dir = None
+
+        if self.inf.ansible_configured:
+            # Check that remote_dir exists
+            try:
+                remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
+                ssh = self.inf.vm_master.get_ssh(retry=True)
+                files = ssh.sftp_list(remote_dir)
+            except Exception:
+                self.log_exception("Error listing remote dir %s." % remote_dir)
+                files = []
+            # if there are no files, reconfigure ansible
+            if len(files) < 4:
+                self.log_warn("Remote dir %s not found. Reinstall ansible on master node." % remote_dir)
+                self.inf.ansible_configured = False
+
         if not self.inf.ansible_configured:
             success = False
             cont = 0
@@ -1004,7 +1029,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             filenames = []
             if self.inf.radl.configures:
                 for elem in self.inf.radl.configures:
-                    if elem is not None and not os.path.isfile(tmp_dir + "/" + elem.name + ".yml"):
+                    if elem is not None and elem.recipes and not os.path.isfile(tmp_dir + "/" + elem.name + ".yml"):
                         conf_out = open(tmp_dir + "/" + elem.name + ".yml", 'w')
                         conf_out.write(elem.recipes)
                         conf_out.write("\n\n")

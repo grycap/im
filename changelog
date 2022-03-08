@@ -621,3 +621,75 @@ IM 1.10.0:
     * Add new API functions to get Cloud providers info.
     * Move contextualization to python3 as default.
     * Enable to set instance_tags using TOSCA.
+
+IM 1.10.1:
+    * Fix error destroying OpenStack infrastructure when dettaching SGs.
+    * Only show active images in OpenStack and OpenNebula conn.
+    * Enable to request GPUs in TOSCA.
+    * Improve OpenStack flavor selection.
+
+IM 1.10.2:
+    * Fix error mapping OpenNebula nets.
+    * Fix error getting IPv4 IP in OpenStack conn.
+    * Create EGI connector.
+    * Implement disk_size TOSCA compute property.
+    * Add IM_NODE_CLOUD_SERVER variable in ansible variables.
+
+IM 1.10.3:
+    * Fix In TOSCA If volume id is set, mount_path is ignored.
+    * Add suppport for ansible host in TOSCA.
+    * Fix OpenNebula memory quota is returned in MB and should be in GB.
+    * Fix error in ctxt in case of ansible uses python2 but not setuptools is installed.
+    * Fix error in context if IM remote dir is deleted.
+    * Fix error in OpenStack getting sda as the device of an attached volume.
+    * Use ansible parted to create partitions in ctxt.
+
+IM 1.10.4:
+    * Enable to create ephemeral disks in OpenStack conn.
+    * Fix error setting boot disk size in OpenStack conn.
+    * Use default installed ssh key to connect with proxy hosts if creds are not provided.
+    * Add support to proxy_host in TOSCA
+    * Openstack: deploy OS image in a volume.
+
+IM 1.10.5:
+    * Fix error in AppDB not enabling using archived images.
+    * Raise error in case of proxy_host is set but no proxy_credential is specified in TOSCA.
+    * Show error message in VM log in case of exception adding port to SG in OpenStack conn.
+    * Fix error installing Ansible in CentOS 7.
+
+IM 1.10.6:
+    * Fix SSH connection with proxy hosts not closed.
+    * Fix Infrastructure context raises Max context time but it remains in state running.
+    * Add net_interface.0.additional_ip support in OST.
+    * Enable to filter disabled OpenStack flavors.
+    * Fix TOSCA Configure interface.
+
+IM 1.10.7:
+    * Fix TOSCA endpoint ports not correctly processed.
+    * Enable to access infrastructure using multiple IM credentials.
+    * Fix Flavor extra specs are not get on OST conn.
+    * Initial integration EGI Dynamic DNS service. 
+    * Fix symbol & is not supported in cloud ids.
+    * Add vault credentials support.
+    * Fix error in case of declaring multiple local_storage in TOSCA node.
+    * Improve resize VM functions.
+    * Fix errors in contextualization in case of unnatended apt process running.
+
+IM 1.10.8:
+    * Open SSH port on networks with proxy host.
+    * Add OIDC Access Token inside the VM.
+    * Enable to set OpenStack microversion.
+    * Fix error in EGI connector using ost:// images.
+    * Fix error setting a tag with "." in OpenNebula and GCE conns.
+
+IM 1.11.0:
+    * Fix error accessing the same OpenStack site using different project id.
+    * Fix error cloud id is set in deploys of the infrastructure RADL.
+    * Enable to define appdb images without setting site name.
+    * Enable to use default values in attributes.
+    * Add disable contextualize option in VMs.
+    * Fix error setting gpu specs in EC2 conn.
+    * Add suport to OSCAR services.
+    * Enable to share or change the owner of an infrastructure.
+    * Remove AzureClassic connector.
+

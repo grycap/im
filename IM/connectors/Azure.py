@@ -25,7 +25,6 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
-from IM.config import Config
 
 try:
     from azure.mgmt.resource import ResourceManagementClient
@@ -33,13 +32,100 @@ try:
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient
-    from azure.common.credentials import UserPassCredentials
-    from azure.common.credentials import ServicePrincipalCredentials
     from msrestazure.azure_exceptions import CloudError
     from azure.mgmt.compute.models import DiskCreateOption, CachingTypes
 except Exception as ex:
-    print("WARN: Python Azure SDK not correctly installed. AzureCloudConnector will not work!.")
+    print("WARN: Python Azure SDK not installed. AzureCloudConnector will not work!.")
     print(ex)
+
+try:
+    from azure.common.credentials import UserPassCredentials
+    from azure.common.credentials import ServicePrincipalCredentials
+except Exception as ex:
+    print("WARN: Python azure.common.credentials not installed. AzureCloudConnector may not work properly!.")
+    print(ex)
+
+try:
+    from azure.identity import ClientSecretCredential
+    from azure.identity import UsernamePasswordCredential
+    AZURE_IDENTITY_AVAILABLE = True
+except Exception as ex:
+    AZURE_IDENTITY_AVAILABLE = False
+    print("WARN: Python azure-identity not installed. AzureCloudConnector may not work properly!.")
+
+
+class AzureInstanceTypeInfo:
+    """
+    Information about the instance type
+
+    Args:
+            - name(str, optional): name of the type of the instance
+            - cpu(int, optional): number of cpus
+            - mem(int, optional): amount of memory
+            - disk_space(int, optional): size of the disks
+            - gpu(int, optional): the number of gpus of this instance
+            - gpu_model(str, optional): the model of the gpus of this instance
+            - gpu_vendor(str, optional): the model of the gpus of this instance
+    """
+
+    def __init__(self, name="", cpu=1, mem=0, os_disk_space=0, res_disk_space=0,
+                 gpu=0, gpu_model=None, gpu_vendor=None):
+        self.name = name
+        self.cpu = cpu
+        self.mem = mem
+        self.os_disk_space = os_disk_space
+        self.res_disk_space = res_disk_space
+        self.gpu = gpu
+        self.gpu_model = gpu_model
+        self.gpu_vendor = gpu_vendor
+
+    def set_gpu_models(self):
+        """Guess GPU models from instance name"""
+        if self.name.startswith('Standard_NC'):
+            self.gpu_vendor = "NVIDIA"
+            if self.name.endswith('v2'):
+                self.gpu_model = "Tesla P100"
+            elif self.name.endswith('v3'):
+                self.gpu_model = "Tesla V100"
+            else:
+                self.gpu_model = "Tesla K80"
+        elif self.name.startswith('Standard_NCasT4'):
+            self.gpu_vendor = "NVIDIA"
+            self.gpu_model = "Tesla T4"
+        elif self.name.startswith('Standard_ND'):
+            self.gpu_vendor = "NVIDIA"
+            if self.name.endswith('v2'):
+                self.gpu_model = "Tesla V100"
+            else:
+                self.gpu_model = "Tesla P40"
+        elif self.name.startswith('Standard_NV'):
+            self.gpu_vendor = "NVIDIA"
+            if self.name.endswith('v3'):
+                self.gpu_model = "Tesla M60"
+            elif self.name.endswith('v4'):
+                self.gpu_vendor = "AMD"
+                self.gpu_model = "Radeon instinto MI25"
+            else:
+                self.gpu_model = "Tesla M60"
+
+    @staticmethod
+    def fromSKU(sku):
+        """Get an instance type object from SKU Json data"""
+        gpu = os_disk_space = res_disk_space = mem = cpu = 0
+        for elem in sku.capabilities:
+            if elem.name == "vCPUs":
+                cpu = int(elem.value)
+            elif elem.name == "MemoryGB":
+                mem = float(elem.value) * 1024
+            elif elem.name == "MaxResourceVolumeMB":
+                res_disk_space = int(elem.value)
+            elif elem.name == "OSVhdSizeMB":
+                os_disk_space = int(elem.value)
+            elif elem.name == "GPUs":
+                gpu = int(elem.value)
+        instance_type = AzureInstanceTypeInfo(sku.name, cpu, mem, os_disk_space, res_disk_space, gpu)
+        instance_type.set_gpu_models()
+        return instance_type
 
 
 class AzureCloudConnector(CloudConnector):
@@ -101,7 +187,12 @@ class AzureCloudConnector(CloudConnector):
                 return self.credentials, subscription_id
             else:
                 self.auth = auth_data
-                self.credentials = UserPassCredentials(auth['username'], auth['password'])
+                if AZURE_IDENTITY_AVAILABLE and 'client_id' in auth:
+                    self.credentials = UsernamePasswordCredential(client_id=auth['client_id'],
+                                                                  username=auth['username'],
+                                                                  password=auth['password'])
+                else:
+                    self.credentials = UserPassCredentials(auth['username'], auth['password'])
         elif 'subscription_id' in auth and 'client_id' in auth and 'secret' in auth and 'tenant' in auth:
             subscription_id = auth['subscription_id']
 
@@ -109,9 +200,14 @@ class AzureCloudConnector(CloudConnector):
                 return self.credentials, subscription_id
             else:
                 self.auth = auth_data
-                self.credentials = ServicePrincipalCredentials(client_id=auth['client_id'],
-                                                               secret=auth['secret'],
-                                                               tenant=auth['tenant'])
+                if AZURE_IDENTITY_AVAILABLE:
+                    self.credentials = ClientSecretCredential(tenant_id=auth['tenant'],
+                                                              client_id=auth['client_id'],
+                                                              client_secret=auth['secret'])
+                else:
+                    self.credentials = ServicePrincipalCredentials(client_id=auth['client_id'],
+                                                                   secret=auth['secret'],
+                                                                   tenant=auth['tenant'])
         else:
             raise Exception("No correct auth data has been specified to Azure: "
                             "subscription_id, username and password or"
@@ -119,16 +215,25 @@ class AzureCloudConnector(CloudConnector):
 
         return self.credentials, subscription_id
 
-    @staticmethod
-    def get_instance_type_by_name(instance_name, location, credentials, subscription_id):
-        compute_client = ComputeManagementClient(credentials, subscription_id)
-        instace_types = compute_client.virtual_machine_sizes.list(location)
+    def get_instance_type_by_name(self, instance_name, location, credentials, subscription_id):
+        instace_types = self.get_instance_type_list(credentials, subscription_id, location)
 
         for instace_type in list(instace_types):
             if instace_type.name == instance_name:
                 return instace_type
 
         return None
+
+    @staticmethod
+    def get_instance_type_list(credentials, subscription_id, location):
+        compute_client = ComputeManagementClient(credentials, subscription_id)
+
+        skus = list(compute_client.resource_skus.list(filter="location eq '%s'" % location))
+        instance_types = [AzureInstanceTypeInfo.fromSKU(sku) for sku in skus if sku.resource_type == "virtualMachines"]
+
+        instance_types.sort(key=lambda x: (x.cpu, x.mem, x.gpu, x.res_disk_space))
+
+        return instance_types
 
     def get_instance_type(self, system, credentials, subscription_id):
         """
@@ -145,19 +250,28 @@ class AzureCloudConnector(CloudConnector):
             location = system.getValue('availability_zone')
 
         (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(system)
+        num_gpus = system.getValue('gpu.count')
+        gpu_model = system.getValue('gpu.model')
+        gpu_vendor = system.getValue('gpu.vendor')
 
-        compute_client = ComputeManagementClient(credentials, subscription_id)
-        instace_types = list(compute_client.virtual_machine_sizes.list(location))
-        instace_types.sort(key=lambda x: (x.number_of_cores, x.memory_in_mb, x.resource_disk_size_in_mb))
+        instace_types = self.get_instance_type_list(credentials, subscription_id, location)
 
         default = None
         for instace_type in instace_types:
             if instace_type.name == self.INSTANCE_TYPE:
                 default = instace_type
 
-            comparison = cpu_op(instace_type.number_of_cores, cpu)
-            comparison = comparison and memory_op(instace_type.memory_in_mb, memory)
-            comparison = comparison and disk_free_op(instace_type.resource_disk_size_in_mb, disk_free)
+            comparison = cpu_op(instace_type.cpu, cpu)
+            comparison = comparison and memory_op(instace_type.mem, memory)
+            comparison = comparison and disk_free_op(instace_type.res_disk_space, disk_free)
+
+            if num_gpus:
+                if num_gpus > instace_type.gpu:
+                    continue
+                if gpu_vendor and gpu_vendor.lower() != instace_type.gpu_vendor.lower():
+                    return False
+                if gpu_model and gpu_model.lower() != instace_type.gpu_model.lower():
+                    return False
 
             if comparison:
                 if not instance_type_name or instace_type.name == instance_type_name:
@@ -170,14 +284,23 @@ class AzureCloudConnector(CloudConnector):
         """
         Update the features of the system with the information of the instance_type
         """
-        system.addFeature(Feature("cpu.count", "=", instance_type.number_of_cores),
+        system.addFeature(Feature("cpu.count", "=", instance_type.cpu),
                           conflict="other", missing="other")
-        system.addFeature(Feature("memory.size", "=", instance_type.memory_in_mb, 'M'),
+        system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'),
                           conflict="other", missing="other")
-        system.addFeature(Feature("disks.free_size", "=", instance_type.resource_disk_size_in_mb, 'M'),
+        system.addFeature(Feature("disks.free_size", "=", instance_type.res_disk_space, 'M'),
                           conflict="other", missing="other")
         system.addFeature(Feature("instance_type", "=", instance_type.name),
                           conflict="other", missing="other")
+        if instance_type.gpu:
+            system.addFeature(Feature("gpu.count", "=", instance_type.gpu),
+                              conflict="other", missing="other")
+        if instance_type.gpu_model:
+            system.addFeature(Feature("gpu.model", "=", instance_type.gpu_model),
+                              conflict="other", missing="other")
+        if instance_type.gpu_vendor:
+            system.addFeature(Feature("gpu.vendor", "=", instance_type.gpu_vendor),
+                              conflict="other", missing="other")
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
@@ -752,16 +875,12 @@ class AzureCloudConnector(CloudConnector):
            - credentials, subscription_id: Authentication data to access cloud provider.
         """
         try:
-            group_name = vm.id.split('/')[0]
-            dns_client = DnsManagementClient(credentials, subscription_id)
-            system = vm.info.systems[0]
-            for net_name in system.getNetworkIDs():
-                num_conn = system.getNumNetworkWithConnection(net_name)
-                ip = system.getIfaceIP(num_conn)
-                (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                              default_hostname=Config.DEFAULT_VM_NAME,
-                                                              default_domain=Config.DEFAULT_DOMAIN)
-                if domain != "localdomain" and ip:
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                group_name = vm.id.split('/')[0]
+                dns_client = DnsManagementClient(credentials, subscription_id)
+                for hostname, domain, ip in dns_entries:
+                    domain = domain[:-1]
                     zone = None
                     try:
                         zone = dns_client.zones.get(group_name, domain)
@@ -893,7 +1012,11 @@ class AzureCloudConnector(CloudConnector):
             async_vm_deallocate = compute_client.virtual_machines.deallocate(group_name, vm_name)
             async_vm_deallocate.wait()
 
-            instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
+            new_system = self.resize_vm_radl(vm, radl)
+            if not new_system:
+                return (True, "")
+
+            instance_type = self.get_instance_type(new_system, credentials, subscription_id)
             vm_parameters = " { 'hardware_profile': { 'vm_size': %s } } " % instance_type.name
 
             async_vm_update = compute_client.virtual_machines.create_or_update(group_name,

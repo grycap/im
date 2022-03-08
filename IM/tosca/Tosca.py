@@ -4,6 +4,7 @@ import yaml
 import copy
 import operator
 import requests
+import json
 from toscaparser.nodetemplate import NodeTemplate
 
 try:
@@ -18,8 +19,10 @@ except ImportError:
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
+from toscaparser.elements.scalarunit import ScalarUnit_Size
 from IM.ansible_utils import merge_recipes
-from radl.radl import system, deploy, network, Feature, Features, configure, contextualize_item, RADL, contextualize
+from radl.radl import (system, deploy, network, Feature, Features, configure,
+                       contextualize_item, RADL, contextualize, ansible)
 
 
 class Tosca:
@@ -30,15 +33,18 @@ class Tosca:
 
     """
 
-    ARTIFACTS_PATH = os.path.dirname(
-        os.path.realpath(__file__)) + "/tosca-types/artifacts"
+    ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/artifacts"
     ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/"
 
     logger = logging.getLogger('InfrastructureManager')
 
-    def __init__(self, yaml_str):
+    def __init__(self, yaml_str, verify=True):
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
         self.yaml = yaml.safe_load(yaml_str)
+        if not verify:
+            def verify_fake(tpl):
+                return True
+            ToscaTemplate.verify_template = verify_fake
         self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
 
     def serialize(self):
@@ -46,7 +52,8 @@ class Tosca:
 
     @staticmethod
     def deserialize(str_data):
-        return Tosca(str_data)
+        # avoid validation in this case
+        return Tosca(str_data, False)
 
     def _get_placement_property(self, sys_name, prop):
         """
@@ -106,6 +113,65 @@ class Tosca:
             if root_type in ["tosca.nodes.BlockStorage", "tosca.nodes.network.Port", "tosca.nodes.network.Network"]:
                 # These elements are processed in other parts
                 pass
+            elif root_type == "tosca.nodes.im.AnsibleHost":
+                # Only allow 1 ansible_host per document
+                ansible_host = ansible("ansible_host", None)
+                node_props = node.get_properties()
+                if node_props and "host" in node_props:
+                    host = self._final_function_result(node_props["host"].value, node)
+                    if host:
+                        ansible_host.setValue("host", host)
+                if node_props and "credential" in node_props:
+                    credentials = self._final_function_result(node_props["credential"].value, node)
+                    if 'user' in credentials:
+                        ansible_host.setValue("credentials.username", credentials['user'])
+                    token_type, token = self._get_credential_values(credentials)
+                    if token:
+                        if token_type == "password":
+                            ansible_host.setValue("credentials.password", token)
+                        elif token_type == "private_key":
+                            ansible_host.setValue("credentials.private_key", token)
+                        else:
+                            Tosca.logger.warn("Unknown tyoe of token %s. Ignoring." % token_type)
+                radl.ansible_hosts = [ansible_host]
+            elif root_type == "tosca.nodes.aisprint.FaaS.Function":
+                oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
+                                                     "tosca.nodes.SoftwareComponent")
+                oscar_compute = self._find_host_compute(node, self.tosca.nodetemplates)
+                # If the function has a host create a recipe
+                if oscar_compute and oscar_host:
+                    service_json = self._get_oscar_service_json(node)
+                    dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
+                    if dns_host and dns_host.strip("'\""):
+                        service_endpoint = "https://%s" % dns_host
+                    else:
+                        service_endpoint = "http://{{ IM_NODE_PUBLIC_IP }}"
+                    service_password = self._final_function_result(oscar_host.get_property_value('password'),
+                                                                   oscar_host)
+
+                    recipe = '  - tasks:\n'
+                    recipe += '    - include_tasks: utils/tasks/oscar_function.yml\n'
+                    recipe += '      vars:\n'
+                    recipe += '        oscar_endpoint: "%s"\n' % service_endpoint
+                    recipe += '        oscar_username: "oscar"\n'
+                    recipe += '        oscar_password: "%s"\n' % service_password
+                    recipe += "        oscar_service_json: '%s'\n" % service_json
+
+                    conf = configure("oscar_%s" % node.name, recipe)
+                    radl.configures.append(conf)
+                    level = Tosca._get_dependency_level(node)
+                    cont_items.append(contextualize_item(oscar_compute.name, conf.name, level))
+                else:
+                    # if not create a system
+                    oscar_sys = self._gen_oscar_system(node)
+                    radl.systems.append(oscar_sys)
+                    conf = configure(node.name, None)
+                    radl.configures.append(conf)
+                    level = Tosca._get_dependency_level(node)
+                    cont_items.append(contextualize_item(node.name, conf.name, level))
+                    cloud_id = self._get_placement_property(oscar_sys.name, "cloud_id")
+                    dep = deploy(oscar_sys.name, 1, cloud_id)
+                    radl.deploys.append(dep)
             else:
                 if root_type == "tosca.nodes.Compute":
                     # Add the system RADL element
@@ -177,6 +243,9 @@ class Tosca:
         Check private networks to assure to create different nets
         for different cloud providers
         """
+        if not radl.networks:
+            return
+
         priv_net_cloud_map = {}
 
         # in case of an AddResource
@@ -342,6 +411,7 @@ class Tosca:
         # This is the solution using endpoints
         net_provider_id = None
         dns_name = None
+        additional_ip = None
         ports = {}
         endpoints = self._get_node_endpoints(node, nodetemplates)
 
@@ -374,16 +444,23 @@ class Tosca:
             if cap_props and "private_ip" in cap_props:
                 private_ip = self._final_function_result(cap_props["private_ip"].value, node)
             if cap_props and "ports" in cap_props:
-                ports = self._final_function_result(cap_props["ports"].value, node)
+                node_ports = self._final_function_result(cap_props["ports"].value, node)
+                if node_ports:
+                    for p in node_ports.values():
+                        ports[id(p)] = p
             if cap_props and "port" in cap_props:
                 port = self._final_function_result(cap_props["port"].value, node)
                 protocol = "tcp"
                 if "protocol" in cap_props:
                     protocol = self._final_function_result(cap_props["protocol"].value, node)
                 ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}
+            if cap_props and "additional_ip" in cap_props:
+                additional_ip = self._final_function_result(cap_props["additional_ip"].value, node)
 
         if dns_name:
             system.setValue('net_interface.0.dns_name', dns_name)
+        if additional_ip:
+            system.setValue('net_interface.0.additional_ip', additional_ip)
 
         # Find associated Networks
         nets = self._get_bind_networks(node, nodetemplates)
@@ -391,18 +468,20 @@ class Tosca:
             # If there are network nodes, use it to define system network
             # properties
             port_net = None
-            for net_name, ip, dns_name, num in nets:
+            for net_name, ip, dns_name, num, additional_ip in nets:
                 net = radl.get_network_by_id(net_name)
                 if not net:
                     raise Exception("Node %s with a port binded to a non existing network: %s." % (node.name,
                                                                                                    net_name))
 
                 system.setValue('net_interface.%d.connection' % num, net_name)
-                # This is not a normative property
-                if dns_name:
-                    system.setValue('net_interface.%d.dns_name' % num, dns_name)
                 if ip:
                     system.setValue('net_interface.%d.ip' % num, ip)
+                # These are not normative properties
+                if dns_name:
+                    system.setValue('net_interface.%d.dns_name' % num, dns_name)
+                if additional_ip:
+                    system.setValue('net_interface.%d.additional_ip' % num, additional_ip)
 
                 if net.isPublic():
                     port_net = net
@@ -513,12 +592,13 @@ class Tosca:
         rel_tpls = src.get_relationship_template()
         rel_tpls.extend(trgt.get_relationship_template())
         for rel_tpl in rel_tpls:
-            if rel.type == rel_tpl.type:
-                return rel_tpl
-            else:
-                root_type = Tosca._get_root_parent_type(rel_tpl).type
-                if root_type == rel.type:
+            if rel_tpl.source.name == src.name and rel_tpl.target.name == trgt.name:
+                if rel.type == rel_tpl.type:
                     return rel_tpl
+                else:
+                    root_type = Tosca._get_root_parent_type(rel_tpl).type
+                    if root_type == rel.type:
+                        return rel_tpl
         return None
 
     @staticmethod
@@ -528,12 +608,13 @@ class Tosca:
             rel_tpl = Tosca._get_relationship_template(rel, src, trgt)
 
             rel_tlp_def_interfaces = {}
-            if rel_tpl.type_definition.interfaces and 'Standard' in rel_tpl.type_definition.interfaces:
-                rel_tlp_def_interfaces = rel_tpl.type_definition.interfaces['Standard']
+            for inteface_name in ['Standard', 'Configure']:
+                if rel_tpl.type_definition.interfaces and inteface_name in rel_tpl.type_definition.interfaces:
+                    rel_tlp_def_interfaces = rel_tpl.type_definition.interfaces[inteface_name]
 
             if src.name == node.name:
                 # Also add the configure of the target node of the relation
-                trgt_interfaces = Tosca._get_interfaces(trgt, ['pre_configure_source', 'post_configure_source'])
+                trgt_interfaces = Tosca._get_interfaces(trgt, steps=['pre_configure_source', 'post_configure_source'])
                 for name in ['pre_configure_source', 'post_configure_source', 'add_source']:
                     if trgt_interfaces and name in trgt_interfaces:
                         res[name] = trgt_interfaces[name]
@@ -547,7 +628,7 @@ class Tosca:
                                                   node_template=rel_tpl)
 
             elif trgt.name == node.name:
-                src_interfaces = Tosca._get_interfaces(src, ['pre_configure_target', 'post_configure_target'])
+                src_interfaces = Tosca._get_interfaces(src, steps=['pre_configure_target', 'post_configure_target'])
                 for name in ['pre_configure_target', 'post_configure_target', 'add_target',
                              'target_changed', 'remove_target']:
                     if src_interfaces and name in src_interfaces:
@@ -854,6 +935,21 @@ class Tosca:
                     "Intrinsic function %s not supported." % func_name)
                 return None
 
+    def _get_default_attribute(self, node, attribute_name, inf_info=None):
+        """Get the default value set to an attribute."""
+        try:
+            node_type = node.type_definition
+        except AttributeError:
+            node_type = node.definition
+
+        attributes_def = node_type.get_attributes_def()
+        if attribute_name in attributes_def:
+            attr_schema = attributes_def[attribute_name].schema
+            if 'default' in attr_schema:
+                return self._final_function_result(attr_schema['default'], node, inf_info)
+
+        return None
+
     def _get_attribute_result(self, func, node, inf_info):
         """Get an attribute value of an entity defined in the service template
 
@@ -924,9 +1020,16 @@ class Tosca:
                     if req == capability_name:
                         node = func._find_node_template(name)
 
-        host_node = self._find_host_compute(node, self.tosca.nodetemplates)
+        attribute_default = self._get_default_attribute(node, attribute_name, inf_info)
+        if attribute_default:
+            return attribute_default
 
         root_type = Tosca._get_root_parent_type(node).type
+
+        host_node = self._find_host_compute(node, self.tosca.nodetemplates)
+        if root_type == "tosca.nodes.aisprint.FaaS.Function" and host_node is None:
+            # in case of FaaS functions without host, the node is the host
+            host_node = node
 
         if inf_info:
             vm_list = inf_info.get_vm_list_by_system_name()
@@ -996,6 +1099,55 @@ class Tosca:
                         return vm.getPublicIP()
                     else:
                         return vm.getPrivateIP()
+            elif attribute_name == "endpoint":
+                if root_type == "tosca.nodes.aisprint.FaaS.Function":
+                    oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
+                                                         "tosca.nodes.SoftwareComponent")
+                    if host_node != node and oscar_host:
+                        # OSCAR function deployed in a deployed VM
+                        dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
+                        if dns_host and dns_host.strip("'\""):
+                            return "https://%s" % dns_host
+
+                        if vm.getPublicIP():
+                            return "http://%s" % vm.getPublicIP()
+                        else:
+                            return "http://%s" % vm.getPrivateIP()
+                    else:
+                        # OSCAR function deployed in a pre-deployed cluster or not dns_host set
+                        return vm.getCloudConnector().cloud.get_url()
+
+                Tosca.logger.warn("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
+                return None
+            elif attribute_name == "credential":
+                if root_type == "tosca.nodes.aisprint.FaaS.Function":
+                    oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
+                                                         "tosca.nodes.SoftwareComponent")
+                    if host_node != node and oscar_host:
+                        # OSCAR function deployed in a deployed VM
+                        oscar_pass = self._final_function_result(oscar_host.get_property_value('password'), oscar_host)
+                        if oscar_pass and oscar_pass.strip("'\""):
+                            return {"user": "oscar", "token_type": "password", "token": oscar_pass}
+
+                        Tosca.logger.warn("No password defined in tosca.nodes.indigo.OSCAR host node")
+                        return None
+                    else:
+                        # OSCAR function deployed in a pre-deployed cluster or not dns_host set
+                        if vm.getCloudConnector().auth:
+                            auth = vm.getCloudConnector().auth
+                            if 'username' in auth and 'password' in auth:
+                                return {"user": auth["username"], "token_type": "password", "token": auth["username"]}
+                            elif 'token' in auth:
+                                return {"user": "", "token_type": "bearer", "token": auth["token"]}
+                            else:
+                                Tosca.logger.warn("No valid auth data in OSCAR connector")
+                                return None
+
+                        Tosca.logger.warn("No auth data in OSCAR connector")
+                        return None
+
+                Tosca.logger.warn("Attribute credential only supported in tosca.nodes.aisprint.FaaS.Function")
+                return None
             else:
                 Tosca.logger.warn("Attribute %s not supported." % attribute_name)
                 return None
@@ -1045,6 +1197,18 @@ class Tosca:
                                 "hostvars[groups['%s'][0]]['IM_NODE_PRIVATE_IP']}}" % (host_node.name,
                                                                                        host_node.name,
                                                                                        host_node.name))
+            elif attribute_name == "endpoint":
+                if root_type == "tosca.nodes.aisprint.FaaS.Function":
+                    oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
+                                                         "tosca.nodes.SoftwareComponent")
+                    if host_node != node and oscar_host:
+                        # OSCAR function deployed in a deployed VM
+                        dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
+                        if dns_host.strip("'\""):
+                            return "https://%s" % dns_host
+
+                Tosca.logger.warn("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
+                return None
             else:
                 Tosca.logger.warn("Attribute %s not supported." % attribute_name)
                 return None
@@ -1084,7 +1248,7 @@ class Tosca:
         # TODO: resolve function values related with run-time values as IM
         # or ansible variables
 
-    def _find_host_compute(self, node, nodetemplates):
+    def _find_host_compute(self, node, nodetemplates, base_root_type="tosca.nodes.Compute"):
         """
         Select the node to host each node, using the node requirements
         In most of the cases the are directly specified, otherwise "node_filter" is used
@@ -1092,21 +1256,21 @@ class Tosca:
 
         # check for a HosteOn relation
         root_type = Tosca._get_root_parent_type(node).type
-        if root_type == "tosca.nodes.Compute":
+        if root_type == base_root_type:
             return node
 
         if node.requirements:
             for r, n in node.relationships.items():
                 if Tosca._is_derived_from(r, r.HOSTEDON) or Tosca._is_derived_from(r, r.BINDSTO):
                     root_type = Tosca._get_root_parent_type(n).type
-                    if root_type == "tosca.nodes.Compute":
+                    if root_type == base_root_type:
                         return n
                     else:
                         return self._find_host_compute(n, nodetemplates)
 
         # There are no direct HostedOn node
         # check node_filter requirements
-        if node.requirements:
+        if node.requirements and base_root_type == "tosca.nodes.Compute":
             for requires in node.requirements:
                 if 'host' in requires:
                     value = requires.get('host')
@@ -1219,45 +1383,11 @@ class Tosca:
             return 1
 
     @staticmethod
-    def _unit_to_bytes(unit):
-        """Return the value of an unit."""
-        if not unit:
-            return 1
-        unit = unit.upper()
-
-        if unit.startswith("KI"):
-            return 1024
-        elif unit.startswith("K"):
-            return 1000
-        elif unit.startswith("MI"):
-            return 1048576
-        elif unit.startswith("M"):
-            return 1000000
-        elif unit.startswith("GI"):
-            return 1073741824
-        elif unit.startswith("G"):
-            return 1000000000
-        elif unit.startswith("TI"):
-            return 1099511627776
-        elif unit.startswith("T"):
-            return 1000000000000
-        else:
-            return 1
-
-    @staticmethod
     def _get_size_and_unit(str_value):
         """
         Normalize the size and units to bytes
         """
-        parts = str_value.split(" ")
-        value = float(parts[0])
-        unit = 'M'
-        if len(parts) > 1:
-            unit = parts[1]
-
-        value = int(value * Tosca._unit_to_bytes(unit))
-
-        return value, 'B'
+        return ScalarUnit_Size(str_value).get_num_from_scalar_unit('B'), 'B'
 
     def _gen_network(self, node):
         """
@@ -1269,6 +1399,8 @@ class Tosca:
         network_name = self._final_function_result(node.get_property_value('network_name'), node)
         network_cidr = self._final_function_result(node.get_property_value('cidr'), node)
         network_router = self._final_function_result(node.get_property_value('gateway_ip'), node)
+        proxy_host = self._final_function_result(node.get_property_value('proxy_host'), node)
+        proxy_credential = self._final_function_result(node.get_property_value('proxy_credential'), node)
 
         # TODO: get more properties -> must be implemented in the RADL
         if nework_type and nework_type.lower() == "public":
@@ -1285,7 +1417,36 @@ class Tosca:
         if network_router:
             res.setValue("router", network_router)
 
+        if proxy_host:
+            host = proxy_host
+            if proxy_credential:
+                user = ""
+                if "user" in proxy_credential:
+                    user = proxy_credential["user"]
+                else:
+                    raise Exception("Property 'user' must bet set in proxy_credential.")
+                token_type, token = self._get_credential_values(proxy_credential)
+                if token_type == "password" and token:
+                    host = "%s:%s@%s" % (user, token, host)
+                else:
+                    host = "%s@%s" % (user, host)
+                res.setValue("proxy_host", host)
+                if token_type == "private_key" and token:
+                    res.setValue("proxy_key", token)
+            else:
+                raise Exception("Property 'proxy_credential' must bet set if proxy_host is set.")
+
         return res
+
+    @staticmethod
+    def _get_credential_values(credential):
+        token_type = "password"
+        if 'token_type' in credential and credential['token_type']:
+            token_type = credential['token_type']
+        token = None
+        if 'token' in credential and credential['token']:
+            token = credential['token']
+        return token_type, token
 
     @staticmethod
     def _get_node_artifacts(node):
@@ -1369,11 +1530,16 @@ class Tosca:
             'image': 'disk.0.image.url',
             'credential': 'disk.0.os.credentials',
             'num_cpus': 'cpu.count',
-            'disk_size': 'disks.free_size',
+            'disk_size': 'disk.0.size',
             'mem_size': 'memory.size',
             'cpu_frequency': 'cpu.performance',
             'instance_type': 'instance_type',
             'preemtible_instance': 'spot',
+            'num_gpus': 'gpu.count',
+            'gpu_vendor': 'gpu.vendor',
+            'gpu_model': 'gpu.model',
+            'sgx': 'cpu.sgx',
+            'sgx_epc_size': 'cpu.sgx.epc_size'
         }
 
         for cap_type in ['os', 'host']:
@@ -1391,14 +1557,7 @@ class Tosca:
                             if value.find("://") == -1:
                                 value = "docker://%s" % value
                         elif prop.name == "credential":
-                            token_type = "password"
-                            if 'token_type' in value and value['token_type']:
-                                token_type = value['token_type']
-
-                            token = None
-                            if 'token' in value and value['token']:
-                                token = value['token']
-
+                            token_type, token = self._get_credential_values(value)
                             if token:
                                 if token_type == "password":
                                     feature = Feature("disk.0.os.credentials.password", "=", token)
@@ -1415,7 +1574,7 @@ class Tosca:
                                 raise Exception("User must be specified in the image credentials.")
                             name = "disk.0.os.credentials.username"
                             value = value['user']
-                        elif prop.name == "preemtible_instance":
+                        elif prop.name in ["preemtible_instance", "sgx"]:
                             value = 'yes' if value else 'no'
 
                         if isinstance(value, float) or isinstance(value, int):
@@ -1437,11 +1596,11 @@ class Tosca:
                     res.setValue('disk.%d.type' % num, vol_type)
                 if size:
                     res.setValue('disk.%d.size' % num, size, unit)
-                if device:
-                    res.setValue('disk.%d.device' % num, device)
-                if location:
-                    res.setValue('disk.%d.mount_path' % num, location)
-                    res.setValue('disk.%d.fstype' % num, fstype)
+            if device:
+                res.setValue('disk.%d.device' % num, device)
+            if location:
+                res.setValue('disk.%d.mount_path' % num, location)
+                res.setValue('disk.%d.fstype' % num, fstype)
 
         self._add_ansible_roles(node, nodetemplates, res)
 
@@ -1477,7 +1636,8 @@ class Tosca:
                     ip = self._final_function_result(port.get_property_value('ip_address'), port)
                     order = self._final_function_result(port.get_property_value('order'), port)
                     dns_name = self._final_function_result(port.get_property_value('dns_name'), port)
-                    nets.append((link, ip, dns_name, order))
+                    additional_ip = self._final_function_result(port.get_property_value('additional_ip'), port)
+                    nets.append((link, ip, dns_name, order, additional_ip))
 
         return nets
 
@@ -1562,7 +1722,8 @@ class Tosca:
                 return node_type
 
     @staticmethod
-    def _get_interfaces(node, steps=['create', 'configure', 'start', 'stop', 'delete']):
+    def _get_interfaces(node, interface_names=['Standard', 'Configure'],
+                        steps=['create', 'configure', 'start', 'stop', 'delete']):
         """
         Get a dict of InterfacesDef of the specified node
         """
@@ -1573,12 +1734,13 @@ class Tosca:
         node_type = node.type_definition
 
         while True:
-            if node_type.interfaces and 'Standard' in node_type.interfaces:
-                for name, elems in node_type.interfaces['Standard'].items():
-                    if name in steps:
-                        if name not in interfaces:
-                            interfaces[name] = InterfacesDef(node_type, 'Standard', name=name,
-                                                             value=elems, node_template=node)
+            for interface_name in interface_names:
+                if node_type.interfaces and interface_name in node_type.interfaces:
+                    for name, elems in node_type.interfaces[interface_name].items():
+                        if name in steps:
+                            if name not in interfaces:
+                                interfaces[name] = InterfacesDef(node_type, interface_name, name=name,
+                                                                 value=elems, node_template=node)
 
             if node_type.parent_type is not None:
                 node_type = node_type.parent_type
@@ -1624,3 +1786,89 @@ class Tosca:
             yaml1 = yaml2
 
         return yaml1
+
+    def _gen_oscar_system(self, node):
+        """Generate the system for an OSCAR function."""
+        res = system(node.name)
+
+        property_map = {
+            'name': 'name',
+            'cpu': 'cpu.count',
+            'image': 'disk.0.image.url',
+            'script': 'script'
+        }
+
+        for prop in node.get_properties_objects():
+            value = self._final_function_result(prop.value, node)
+            if value not in [None, [], {}]:
+                if prop.name in property_map:
+                    res.setValue(property_map[prop.name], value)
+                elif prop.name == 'alpine':
+                    res.setValue('alpine', 1 if value else 0)
+                elif prop.name == 'memory':
+                    if not value.endswith("B"):
+                        value += "B"
+                    value = int(ScalarUnit_Size(value).get_num_from_scalar_unit('B'))
+                    res.setValue("memory.size", value, 'B')
+                elif prop.name == 'env_variables':
+                    variables = ["%s:%s" % (k, v) for k, v in value.items()]
+                    res.setValue("environment.variables", variables)
+                elif prop.name in ['input', 'output']:
+                    for num, elem in enumerate(value):
+                        res.setValue("%s.%d.provider" % (prop.name, num), elem.get("storage_provider"))
+                        res.setValue("%s.%d.path" % (prop.name, num), elem.get("path"))
+                        if elem.get("suffix"):
+                            res.setValue("%s.%d.suffix" % (prop.name, num), elem.get("suffix"))
+                        if elem.get("prefix"):
+                            res.setValue("%s.%d.prefix" % (prop.name, num), elem.get("prefix"))
+                elif prop.name == 'storage_providers':
+                    cont = {"minio": 0, "s3": 0, "onedata": 0}
+
+                    for provider_type in ["minio", "s3", "onedata"]:
+                        if provider_type in value:
+                            for prov_id, provider in value[provider_type].items():
+                                provider_pref = "%s.%d" % (provider_type, cont[provider_type])
+                                cont[provider_type] += 1
+                                res.setValue("%s.id" % provider_pref, prov_id)
+
+                                for elem in ['access_key', 'secret_key', 'region', 'endpoint',
+                                             'verify', 'oneprovider_host', 'token', 'space']:
+                                    if provider.get(elem):
+                                        res.setValue("%s.%s" % (provider_pref, elem), provider.get(elem))
+                else:
+                    # this should never happen
+                    Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
+
+        return res
+
+    def _get_oscar_service_json(self, node):
+        """Get the OSCAR service json"""
+        res = {}
+
+        for prop in node.get_properties_objects():
+            value = self._final_function_result(prop.value, node)
+            if value not in [None, [], {}]:
+                if prop.name in ['name', 'script', 'alpine', 'input', 'output', 'storage_providers']:
+                    res[prop.name] = value
+                elif prop.name == 'cpu':
+                    res['cpu'] = "%g" % value
+                elif prop.name == 'memory':
+                    if not value.endswith("B"):
+                        value += "B"
+                    res[prop.name] = "%gMi" % ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
+                elif prop.name == 'image':
+                    if value.startswith('oscar://'):
+                        url_image = urlparse(value)
+                        if url_image.path:
+                            res["image"] = url_image.path[1:]
+                    elif value.startswith('docker://'):
+                        res["image"] = value[9:]
+                    else:
+                        res["image"] = value
+                elif prop.name == 'env_variables':
+                    res['environment'] = {'Variables': value}
+                else:
+                    # this should never happen
+                    Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
+
+        return json.dumps(res)

@@ -56,11 +56,19 @@ topology_template:
         - link: pub_network
 
     network1:
-      type: tosca.nodes.network.Network
+      type: tosca.nodes.indigo.network.Network
       properties:
         cidr: '192.168.10.0/24'
         gateway_ip: '192.168.0.0/16,vr1_compute'
         network_type: private
+        proxy_host: proxy.host.com
+        proxy_credential:
+          user: username
+          token_type: private_key
+          token: |
+            -----BEGIN RSA PRIVATE KEY-----
+            aaa
+            -----END RSA PRIVATE KEY-----
 
     server_port:
       type: tosca.nodes.network.Port
@@ -161,11 +169,11 @@ topology_template:
 
   policies:
     - deploy_on_ifca:
-        type: tosca.policies.Placement
+        type: tosca.policies.indigo.SlaPlacement
         properties: { sla_id: 5cf12da6cb0e8f527dfb3c97 }
         targets: [ lrms_wn ]
 
     - deploy_on_recas:
-        type: tosca.policies.Placement
+        type: tosca.policies.indigo.SlaPlacement
         properties: { sla_id: 5bfbc091a9a88f528bf5114b }
         targets: [ lrms_server ]

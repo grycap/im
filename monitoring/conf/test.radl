@@ -1,8 +1,0 @@
-network net (outbound = 'no')
-system small_node (
-  cpu.arch = 'x86_64' and
-  cpu.count = 1 and
-  memory.size >= 512M and
-  net_interface.0.connection = 'net' and 
-  disk.0.os.name = 'linux'
-)
