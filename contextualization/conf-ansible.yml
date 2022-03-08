@@ -129,10 +129,6 @@
         group: root
       when: ansible_os_family == "Alpine"
 
-    - name: Pip install wheel Alpine
-      pip: name=wheel
-      when: ansible_os_family == "Alpine"
-
   ######################################### Use pip to enable to set the version #############################################
 
     # Version over 21 does not work with python 3.5 or older
