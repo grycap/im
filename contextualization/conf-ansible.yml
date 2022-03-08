@@ -151,20 +151,15 @@
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest executable=pip3
 
-    - name: Install cryptography
+    - name: Install pyOpenSSL & cryptography & pyyaml & wheel
       pip:
-        name: cryptography
+        name:
+          - pyOpenSSL>20.0
+          - cryptography
+          - pyyaml
+          - wheel
         executable: pip3
         extra_args: --prefer-binary
-
-    - name: Install pyOpenSSL
-      pip:
-        name: pyOpenSSL>20.0
-        executable: pip3
-        extra_args: --prefer-binary
-
-    - name: Install pyyaml
-      pip: name=pyyaml executable=pip3 extra_args=--prefer-binary
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip3
@@ -176,11 +171,13 @@
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
 
-    - name: Install jmespath with Pip
-      pip: name=jmespath executable=pip3 extra_args=--prefer-binary
-
-    - name: Install scp with Pip
-      pip: name=scp executable=pip3 extra_args=--prefer-binary
+    - name: Install jmespath & scp with Pip
+      pip:
+        name:
+          - jmespath
+          - scp
+        executable: pip3
+        extra_args: --prefer-binary
 
     - name: Install pywinrm with Pip
       pip: name=pywinrm executable=pip3 extra_args=--prefer-binary 
