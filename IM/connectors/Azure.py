@@ -1058,33 +1058,36 @@ class AzureCloudConnector(CloudConnector):
             if 'InfID' in rg.tags:
                 rg_delete = True
         except ResourceNotFoundError:
-            self.log_info("RG %s does not exist. Ignore." % group_name)
+            self.log_warn("RG %s does not exist. Ignore." % group_name)
             return True, ""
 
         cont = 0
         msg = ""
-        resource_list = resource_client.resources.list_by_resource_group(group_name)
         if not rg_delete:
             # Delete all the resources in a RG without deleting the RG
-            resource_list = resource_client.resources.list_by_resource_group(group_name)
-            while cont < max_retries and resource_list:
+            deleted = False
+            while cont < max_retries and not deleted:
                 cont += 1
-                async_deletes = []
+
                 try:
-                    for resource in list(resource_list):
+                    async_deletes = []
+                    for resource in list(resource_client.resources.list_by_resource_group(group_name)):
+                        rnamespace = resource.type.split('/')[0]
+                        rtype = resource.type.split('/')[1]
                         async_deletes.append(resource_client.resources.begin_delete(group_name,
+                                                                                    rnamespace,
+                                                                                    "",
+                                                                                    rtype,
                                                                                     resource.name,
-                                                                                    resource.type))
+                                                                                    "2018-05-01"))
                     for async_delete in async_deletes:
                         async_delete.wait()
+                    deleted = True
                 except Exception as ex:
                     msg = str(ex)
                     self.log_exception("Error deleting Resource from RG %s (%d/%d)." % (group_name,
                                                                                         cont,
                                                                                         max_retries))
-
-                resource_list = resource_client.resources.list_by_resource_group(group_name)
-                deleted = not resource_list
         else:
             deleted = False
 
@@ -1103,7 +1106,7 @@ class AzureCloudConnector(CloudConnector):
             else:
                 self.log_info("Resource group %s successfully deleted." % group_name)
 
-            return deleted, msg
+        return deleted, msg
 
     def list_images(self, auth_data, filters=None):
         location = self.DEFAULT_LOCATION
