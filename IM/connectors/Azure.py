@@ -340,7 +340,7 @@ class AzureCloudConnector(CloudConnector):
         try:
             resource_client = ResourceManagementClient(credentials, subscription_id)
             return resource_client.resource_groups.get(group_name)
-        except ResourceNotFoundError as ex:
+        except ResourceNotFoundError:
             return None
 
     def create_nsgs(self, radl, location, group_name, credentials, subscription_id):
