@@ -28,12 +28,11 @@ from radl.radl import Feature
 
 try:
     from azure.mgmt.resource import ResourceManagementClient
-    from azure.mgmt.storage import StorageManagementClient
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient
-    from msrestazure.azure_exceptions import CloudError
-    from azure.mgmt.compute.models import DiskCreateOption, CachingTypes
+    from azure.core.exceptions import ResourceNotFoundError
+    from azure.mgmt.compute.models import DiskCreateOption, CachingTypes, DeleteOptions
 except Exception as ex:
     print("WARN: Python Azure SDK not installed. AzureCloudConnector will not work!.")
     print(ex)
@@ -341,27 +340,30 @@ class AzureCloudConnector(CloudConnector):
         try:
             resource_client = ResourceManagementClient(credentials, subscription_id)
             return resource_client.resource_groups.get(group_name)
-        except CloudError as cex:
-            if cex.status_code == 404:
-                return None
-            else:
-                raise cex
+        except ResourceNotFoundError as ex:
+            return None
 
-    @staticmethod
-    def get_storage_account(group_name, storage_name, credentials, subscription_id):
+    def create_nsgs(self, radl, location, group_name, credentials, subscription_id):
         """
-        Get the Storage Account named storage_name in group_name, if it not exists return None
+        Create all needed Network Security Groups (usually only 1)
         """
-        try:
-            storage_client = StorageManagementClient(credentials, subscription_id)
-            return storage_client.storage_accounts.get_properties(group_name, storage_name)
-        except CloudError as cex:
-            if cex.status_code == 404:
-                return None
-            else:
-                raise cex
+        i = 0
+        res = {}
+        network_client = NetworkManagementClient(credentials, subscription_id)
+        while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+            network_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+            i += 1
+            network = radl.get_network_by_id(network_name)
+            if network.isPublic():
+                outports = network.getOutPorts() or []
+                nsg_name = network.getValue("sg_name")
+                if not nsg_name:
+                    nsg_name = "nsg-%s" % network_name
+                nsg = self.create_nsg(location, group_name, nsg_name, outports, network_client)
+                res[network_name] = nsg
+        return res
 
-    def create_ngs(self, location, group_name, nsg_name, outports, network_client):
+    def create_nsg(self, location, group_name, nsg_name, outports, network_client):
         """
         Create a Network Security Group
         """
@@ -407,15 +409,14 @@ class AzureCloudConnector(CloudConnector):
 
         ngs = None
         try:
-            ngs = network_client.network_security_groups.create_or_update(group_name, nsg_name, params).result()
+            ngs = network_client.network_security_groups.begin_create_or_update(group_name, nsg_name, params).result()
         except Exception:
             self.log_exception("Error creating NGS")
 
         return ngs
 
-    def create_nics(self, radl, credentials, subscription_id, group_name, subnets):
-        """Create a Network Interface for a VM.
-        """
+    def create_nics(self, radl, credentials, subscription_id, group_name, subnets, ngss, vm_id):
+        """Create a Network Interface for a VM."""
         system = radl.systems[0]
         network_client = NetworkManagementClient(credentials, subscription_id)
 
@@ -426,7 +427,7 @@ class AzureCloudConnector(CloudConnector):
         i = 0
         hasPublicIP = False
         hasPrivateIP = False
-        outports = None
+        pub_network_name = None
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             # TODO: check how to do that
@@ -435,7 +436,7 @@ class AzureCloudConnector(CloudConnector):
 
             if network.isPublic():
                 hasPublicIP = True
-                outports = network.getOutPorts()
+                pub_network_name = network_name
             else:
                 hasPrivateIP = True
 
@@ -446,8 +447,7 @@ class AzureCloudConnector(CloudConnector):
         publicAdded = False
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
-            # TODO: check how to do that
-            # fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
+            fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
             network = radl.get_network_by_id(network_name)
 
             if network.isPublic() and hasPrivateIP:
@@ -455,8 +455,8 @@ class AzureCloudConnector(CloudConnector):
                 i += 1
                 continue
 
-            nic_name = "nic-%d" % i
-            ip_config_name = "ip-config-%d" % i
+            nic_name = "nic-%d-%d" % (vm_id, i)
+            ip_config_name = "ip-config-%d-%d" % (vm_id, i)
 
             # Create NIC
             nic_params = {
@@ -472,30 +472,31 @@ class AzureCloudConnector(CloudConnector):
                 # Create PublicIP
                 publicAdded = True
                 primary = True
-                public_ip_name = "public-ip-%d" % i
+                public_ip_name = "public-ip-%d-%d" % (vm_id, i)
                 public_ip_parameters = {
                     'location': location,
                     'public_ip_allocation_method': 'static',
-                    'idle_timeout_in_minutes': 4
+                    'sku': {'name': 'standard'},
+                    'idle_timeout_in_minutes': 4,
+                    'delete_option': DeleteOptions.DELETE
                 }
-                async_publicip_creation = network_client.public_ip_addresses.create_or_update(
+
+                if fixed_ip:
+                    public_ip_parameters['ip_address'] = fixed_ip
+
+                async_publicip_creation = network_client.public_ip_addresses.begin_create_or_update(
                     group_name,
                     public_ip_name,
                     public_ip_parameters
                 )
                 public_ip_info = async_publicip_creation.result()
-                nic_params['ip_configurations'][0]['public_ip_address'] = {'id': public_ip_info.id}
+                nic_params['ip_configurations'][0]['public_ip_address'] = {'id': public_ip_info.id,
+                                                                           'delete_option': DeleteOptions.DELETE}
 
-                # Create a NSG
-                if outports:
-                    nsg_name = network.getValue("sg_name")
-                    if not nsg_name:
-                        nsg_name = "nsg-%d" % i
-                    nsg = self.create_ngs(location, group_name, nsg_name, outports, network_client)
-                    if nsg:
-                        nic_params['network_security_group'] = {'id': nsg.id}
+                if pub_network_name:
+                    nic_params['network_security_group'] = {'id': ngss[pub_network_name].id}
 
-            async_nic_creation = network_client.network_interfaces.create_or_update(
+            async_nic_creation = network_client.network_interfaces.begin_create_or_update(
                 group_name, nic_name, nic_params)
             nic = async_nic_creation.result()
             res.append((nic, primary))
@@ -504,7 +505,7 @@ class AzureCloudConnector(CloudConnector):
 
         return res
 
-    def get_azure_vm_create_json(self, group_name, storage_account, vm_name, nics, radl,
+    def get_azure_vm_create_json(self, group_name, vm_name, nics, radl,
                                  instance_type, custom_data, compute_client, tags):
         """ Create the VM parameters structure. """
         system = radl.systems[0]
@@ -534,9 +535,14 @@ class AzureCloudConnector(CloudConnector):
                 'vm_size': instance_type.name
             },
             'network_profile': {
-                'network_interfaces': [{'id': nic.id, 'primary': primary} for nic, primary in nics]
+                'network_interfaces': [{'id': nic.id,
+                                        'primary': primary,
+                                        'delete_option': DeleteOptions.DELETE} for nic, primary in nics]
             },
         }
+
+        os_type = system.getValue("disk.0.os.name")
+        os_type = os_type if os_type else "Linux"
 
         if len(image_values) == 3:
             os_disk_name = "osdisk-" + str(uuid.uuid1())
@@ -547,20 +553,18 @@ class AzureCloudConnector(CloudConnector):
             else:
                 raise Exception("Incorrect image url: it must be snapshot or disk.")
 
-            async_creation = compute_client.disks.create_or_update(
+            async_creation = compute_client.disks.begin_create_or_update(
                 group_name,
                 os_disk_name,
                 {
                     'location': location,
                     'creation_data': {
-                        'create_option': DiskCreateOption.copy,
+                        'create_option': DiskCreateOption.COPY,
                         'source_resource_id': managed_disk.id
                     }
                 }
             )
 
-            os_type = system.getValue("disk.0.os.name")
-            os_type = os_type if os_type else "Linux"
             self.log_info("Creating OS disk %s of type %s from disk: %s/%s/%s." % (os_disk_name,
                                                                                    os_type,
                                                                                    image_values[0],
@@ -570,12 +574,13 @@ class AzureCloudConnector(CloudConnector):
 
             vm['storage_profile'] = {
                 'os_disk': {
-                    'create_option': DiskCreateOption.attach,
+                    'create_option': DiskCreateOption.ATTACH,
                     'os_type': os_type,
-                    'caching': CachingTypes.read_write,
+                    'caching': CachingTypes.READ_WRITE,
                     'managed_disk': {
                         'id': disk_resource.id
-                    }
+                    },
+                    'delete_option': DeleteOptions.DELETE
                 }
             }
         else:
@@ -585,6 +590,12 @@ class AzureCloudConnector(CloudConnector):
                     'offer': image_values[1],
                     'sku': image_values[2],
                     'version': image_values[3]
+                },
+                'os_disk': {
+                    'create_option': DiskCreateOption.FROM_IMAGE,
+                    'os_type': os_type,
+                    'caching': CachingTypes.READ_WRITE,
+                    'delete_option': DeleteOptions.DELETE
                 }
             }
             vm['os_profile'] = {
@@ -612,7 +623,7 @@ class AzureCloudConnector(CloudConnector):
                     'managed_disk': {
                         'id': managed_disk.id
                     },
-                    'create_option': DiskCreateOption.attach
+                    'create_option': DiskCreateOption.ATTACH
                 })
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
@@ -621,7 +632,8 @@ class AzureCloudConnector(CloudConnector):
                     'name': '%s_disk_%d' % (vm_name, cont),
                     'disk_size_gb': disk_size,
                     'lun': cont - 1,
-                    'create_option': DiskCreateOption.empty
+                    'create_option': DiskCreateOption.EMPTY,
+                    'delete_option': DeleteOptions.DELETE
                 })
             cont += 1
 
@@ -645,7 +657,7 @@ class AzureCloudConnector(CloudConnector):
         if not vnet:
             vnet_cird = self.get_nets_common_cird(radl)
             # Create VNet in the RG of the Inf
-            async_vnet_creation = network_client.virtual_networks.create_or_update(
+            async_vnet_creation = network_client.virtual_networks.begin_create_or_update(
                 group_name,
                 "privates",
                 {
@@ -665,7 +677,7 @@ class AzureCloudConnector(CloudConnector):
                 used_cidrs.append(net_cidr)
 
                 # Create Subnet in the RG of the Inf
-                async_subnet_creation = network_client.subnets.create_or_update(
+                async_subnet_creation = network_client.subnets.begin_create_or_update(
                     group_name,
                     "privates",
                     subnet_name,
@@ -682,17 +694,15 @@ class AzureCloudConnector(CloudConnector):
 
         return subnets
 
-    def create_vms(self, inf, radl, requested_radl, num_vm, location, storage_account_name,
-                   subnets, credentials, subscription_id, tags):
+    def create_vms(self, rg_name, inf, radl, requested_radl, num_vm, location,
+                   ngss, subnets, credentials, subscription_id, tags):
         """
         Creates a set of VMs
         """
-        resource_client = ResourceManagementClient(credentials, subscription_id)
         vms = []
         i = 0
         while i < num_vm:
             vm_name = self.gen_instance_name(radl.systems[0])
-            group_name = "rg-%s" % (vm_name)
 
             try:
                 args = {'location': location}
@@ -700,47 +710,44 @@ class AzureCloudConnector(CloudConnector):
                     args['tags'] = tags
 
                 # Create resource group for the VM
-                resource_client.resource_groups.create_or_update(group_name, args)
                 compute_client = ComputeManagementClient(credentials, subscription_id)
 
-                vm = VirtualMachine(inf, group_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
-                vm.info.systems[0].setValue('instance_id', group_name + '/' + vm_name)
+                vm = VirtualMachine(inf, rg_name + '/' + vm_name, self.cloud, radl, requested_radl, self)
+                vm.destroy = True
+                inf.add_vm(vm)
+                vm.info.systems[0].setValue('instance_id', rg_name + '/' + vm_name)
 
-                nics = self.create_nics(radl, credentials, subscription_id, group_name, subnets)
+                nics = self.create_nics(radl, credentials, subscription_id, rg_name, subnets, ngss, vm.im_id)
 
                 custom_data = self.get_cloud_init_data(radl, vm)
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
-                vm_parameters = self.get_azure_vm_create_json(group_name, storage_account_name, vm_name,
+                vm_parameters = self.get_azure_vm_create_json(rg_name, vm_name,
                                                               nics, radl, instance_type, custom_data,
                                                               compute_client, tags)
 
-                async_vm_creation = compute_client.virtual_machines.create_or_update(group_name,
+                async_vm_creation = compute_client.virtual_machines.begin_create_or_update(rg_name,
                                                                                      vm_name,
                                                                                      vm_parameters)
 
                 self.log_info("VM ID: %s created." % vm.id)
-                inf.add_vm(vm)
+                vm.destroy = False
                 vms.append((True, (vm, async_vm_creation)))
             except Exception as ex:
                 vms.append((False, "Error creating the VM: %s" % str(ex)))
                 self.log_exception("Error creating the VM")
 
-                # Delete Resource group and everything in it
-                if group_name:
-                    self.delete_resource_group(group_name, resource_client)
+                # Delete nics
+                try:
+                    network_client = NetworkManagementClient(credentials, subscription_id)
+                    for nic in nics:
+                        async_nic_delete = network_client.network_interfaces.begin_delete(rg_name, nic[0].name)
+                        async_nic_delete.wait()
+                except Exception as delex:
+                    self.log_exception("Error deleting NICS %s" % str(delex))
 
             i += 1
 
         return vms
-
-    @staticmethod
-    def get_storage_account_name(inf_id):
-        # Storage account name must be between 3 and 24 characters in length and use
-        # numbers and lower-case letters only
-        storage_account_name = "s%s" % inf_id
-        storage_account_name = storage_account_name.replace("-", "")
-        storage_account_name = storage_account_name[:24]
-        return storage_account_name
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         location = self.DEFAULT_LOCATION
@@ -750,6 +757,7 @@ class AzureCloudConnector(CloudConnector):
             radl.systems[0].setValue('availability_zone', location)
 
         credentials, subscription_id = self.get_credentials(auth_data)
+        compute_client = ComputeManagementClient(credentials, subscription_id)
 
         url = urlparse(radl.systems[0].getValue("disk.0.image.url"))
         # the url has to have the format: azr://publisher/offer/sku/version or
@@ -763,41 +771,36 @@ class AzureCloudConnector(CloudConnector):
         if len(image_values) == 3 and image_values[0] not in ["snapshot", "disk"]:
             raise Exception("Incorrect image url: it must be snapshot or disk.")
 
+        if len(image_values) == 4:
+            offers = compute_client.virtual_machine_images.list(location,
+                                                                image_values[0],
+                                                                image_values[1],
+                                                                image_values[2])
+            if not offers:
+                raise Exception("Image url %s: not found" % url)
+
         resource_client = ResourceManagementClient(credentials, subscription_id)
-        storage_account_name = self.get_storage_account_name(inf.id)
 
         tags = self.get_instance_tags(radl.systems[0], auth_data, inf)
 
+        rg_name = radl.systems[0].getValue('azure.rg.name')
+        if not rg_name:
+            rg_name = "rg-%s" % inf.id
+
         with inf._lock:
             # Create resource group for the Infrastructure if it does not exists
-            if not self.get_rg("rg-%s" % inf.id, credentials, subscription_id):
-                self.log_info("Creating Inf RG: %s" % "rg-%s" % inf.id)
-                resource_client.resource_groups.create_or_update("rg-%s" % inf.id, {'location': location})
+            if not self.get_rg(rg_name, credentials, subscription_id):
+                self.log_info("Creating Inf RG: %s" % rg_name)
+                resource_client.resource_groups.create_or_update(rg_name, {'location': location})
 
-            # Create an storage_account per Infrastructure
-            storage_account = self.get_storage_account("rg-%s" % inf.id, storage_account_name,
-                                                       credentials, subscription_id)
-
-            if not storage_account:
-                self.log_info("Creating storage account: %s" % storage_account_name)
-                try:
-                    storage_client = StorageManagementClient(credentials, subscription_id)
-                    storage_client.storage_accounts.create("rg-%s" % inf.id,
-                                                           storage_account_name,
-                                                           {'sku': {'name': 'standard_lrs'},
-                                                            'kind': 'storage',
-                                                            'location': location}
-                                                           ).wait()
-                except Exception:
-                    self.log_exception("Error creating storage account: %s" % storage_account)
-                    self.delete_resource_group("rg-%s" % inf.id, resource_client)
-
-            subnets = self.create_nets(radl, credentials, subscription_id, "rg-%s" % inf.id, inf)
+            subnets = self.create_nets(radl, credentials, subscription_id, rg_name, inf)
+            ngss = self.create_nsgs(radl, location, rg_name, credentials, subscription_id)
 
         res = []
-        vms = self.create_vms(inf, radl, requested_radl, num_vm, location,
-                              storage_account_name, subnets, credentials, subscription_id, tags)
+        vms = self.create_vms(rg_name, inf, radl, requested_radl, num_vm, location,
+                              ngss, subnets, credentials, subscription_id, tags)
 
+        all_failed = True
         remaining_vms = num_vm
         for success, data in vms:
             if success:
@@ -805,6 +808,7 @@ class AzureCloudConnector(CloudConnector):
                 try:
                     self.log_debug("Waiting VM ID %s to be created." % vm.id)
                     async_vm_creation.wait()
+                    all_failed = False
                     res.append((True, vm))
                     remaining_vms -= 1
                 except Exception as ex:
@@ -813,13 +817,25 @@ class AzureCloudConnector(CloudConnector):
                     # Delete created resources for this VM
                     try:
                         group_name = vm.id.split('/')[0]
-                        self.delete_resource_group(group_name, resource_client)
+                        vm_name = vm.id.split('/')[1]
+                        compute_client.virtual_machines.begin_delete(group_name, vm_name).wait()
                     except Exception:
-                        self.log_exception("Error removing resource group: %s." % group_name)
+                        self.log_exception("Error removing errored VM: %s" % vm.id)
 
                     res.append((False, "Error waiting the VM %s: %s" % (vm.id, str(ex))))
             else:
                 res.append((False, data))
+
+        if all_failed:
+            rg_delete = True
+            if vm.info.systems[0].getValue('azure.rg.nodelete'):
+                rg_delete = False
+            try:
+                deleted, msg = self.delete_resource_group(rg_name, resource_client, rg_delete=rg_delete, max_retries=1)
+                if not deleted:
+                    self.log_warn("Error removing errored RG %s: %s" % (rg_name, msg))
+            except Exception as ex:
+                self.log_exception("Error removing errored RG: %s" % rg_name)
 
         if remaining_vms == 0:
             self.log_debug("All VMs created successfully.")
@@ -888,7 +904,7 @@ class AzureCloudConnector(CloudConnector):
                         pass
                     if not zone:
                         self.log_info("Creating DNS zone %s" % domain)
-                        zone = dns_client.zones.create_or_update(group_name, domain,
+                        zone = dns_client.zones.begin_create_or_update(group_name, domain,
                                                                  {'location': 'global'})
                     else:
                         self.log_info("DNS zone %s exists. Do not create." % domain)
@@ -902,7 +918,7 @@ class AzureCloudConnector(CloudConnector):
                         if not record:
                             self.log_info("Creating DNS record %s." % hostname)
                             record_data = {"ttl": 300, "arecords": [{"ipv4_address": ip}]}
-                            dns_client.record_sets.create_or_update(group_name, domain, hostname, 'A', record_data)
+                            dns_client.record_sets.begin_create_or_update(group_name, domain, hostname, 'A', record_data)
                         else:
                             self.log_info("DNS record %s exists. Do not create." % hostname)
 
@@ -943,30 +959,33 @@ class AzureCloudConnector(CloudConnector):
         credentials, subscription_id = self.get_credentials(auth_data)
 
         try:
-            resource_client = ResourceManagementClient(credentials, subscription_id)
+            compute_client = ComputeManagementClient(credentials, subscription_id)
 
             if vm.id:
                 self.log_info("Terminate VM: %s" % vm.id)
                 group_name = vm.id.split('/')[0]
+                vm_name = vm.id.split('/')[1]
 
-                # Delete Resource group and everything in it
-                if self.get_rg(group_name, credentials, subscription_id):
-                    deleted, msg = self.delete_resource_group(group_name, resource_client)
-                    if not deleted:
-                        return False, "Error terminating the VM: %s" % msg
-                else:
-                    self.log_info("RG: %s does not exist. Do not remove." % group_name)
+                # Delete VM
+                try:
+                    compute_client.virtual_machines.begin_delete(group_name, vm_name).wait()
+                except ResourceNotFoundError:
+                    self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
             else:
                 self.log_warn("No VM ID. Ignoring")
 
             # if it is the last VM delete the RG of the Inf
             if last:
-                if self.get_rg("rg-%s" % vm.inf.id, credentials, subscription_id):
-                    deleted, msg = self.delete_resource_group("rg-%s" % vm.inf.id, resource_client)
+                rg_delete = True
+                if vm.info.systems[0].getValue('azure.rg.nodelete'):
+                    rg_delete = False
+                resource_client = ResourceManagementClient(credentials, subscription_id)
+                if self.get_rg(group_name, credentials, subscription_id):
+                    deleted, msg = self.delete_resource_group(group_name, resource_client, rg_delete=rg_delete)
                     if not deleted:
                         return False, "Error terminating the VM: %s" % msg
                 else:
-                    self.log_info("RG: %s does not exist. Do not remove." % "rg-%s" % vm.inf.id)
+                    self.log_info("RG: %s does not exist. Do not remove." % group_name)
 
         except Exception as ex:
             self.log_exception("Error terminating the VM")
@@ -1019,7 +1038,7 @@ class AzureCloudConnector(CloudConnector):
             instance_type = self.get_instance_type(new_system, credentials, subscription_id)
             vm_parameters = " { 'hardware_profile': { 'vm_size': %s } } " % instance_type.name
 
-            async_vm_update = compute_client.virtual_machines.create_or_update(group_name,
+            async_vm_update = compute_client.virtual_machines.begin_create_or_update(group_name,
                                                                                vm_name,
                                                                                vm_parameters)
             async_vm_update.wait()
@@ -1033,32 +1052,53 @@ class AzureCloudConnector(CloudConnector):
             self.log_exception("Error altering the VM")
             return False, "Error altering the VM: " + str(ex)
 
-        return (True, "")
-
-    def delete_resource_group(self, group_name, resource_client, max_retries=3):
+    def delete_resource_group(self, group_name, resource_client, max_retries=3, rg_delete=True):
         """
         Delete a RG with retries
         """
         cont = 0
         msg = ""
-        deleted = False
+        resource_list = resource_client.resources.list_by_resource_group(group_name)
+        if not rg_delete:
+            # Delete all the resources in a RG without deleting the RG
+            resource_list = resource_client.resources.list_by_resource_group(group_name)
+            while cont < max_retries and resource_list:
+                cont += 1
+                async_deletes = []
+                try:
+                    for resource in list(resource_list):
+                        async_deletes.append(resource_client.resources.begin_delete(group_name,
+                                                                              resource.name,
+                                                                              resource.type))
+                    for async_delete in async_deletes:
+                        async_delete.wait()
+                except Exception as ex:
+                    msg = str(ex)
+                    self.log_exception("Error deleting Resource from RG %s (%d/%d)." % (group_name,
+                                                                                        cont,
+                                                                                        max_retries))
 
-        self.log_info("Delete RG %s." % group_name)
-        while cont < max_retries and not deleted:
-            cont += 1
-            try:
-                resource_client.resource_groups.delete(group_name).wait()
-                deleted = True
-            except Exception as ex:
-                msg = str(ex)
-                self.log_exception("Error deleting Resource group %s (%d/%d)." % (group_name, cont, max_retries))
-
-        if not deleted:
-            self.log_error("Resource group %s cannot be deleted!!!" % group_name)
+                resource_list = resource_client.resources.list_by_resource_group(group_name)
+                deleted = not resource_list
         else:
-            self.log_info("Resource group %s successfully deleted." % group_name)
+            deleted = False
 
-        return deleted, msg
+            self.log_info("Delete RG %s." % group_name)
+            while cont < max_retries and not deleted:
+                cont += 1
+                try:
+                    resource_client.resource_groups.begin_delete(group_name).wait()
+                    deleted = True
+                except Exception as ex:
+                    msg = str(ex)
+                    self.log_exception("Error deleting Resource group %s (%d/%d)." % (group_name, cont, max_retries))
+
+            if not deleted:
+                self.log_error("Resource group %s cannot be deleted!!!" % group_name)
+            else:
+                self.log_info("Resource group %s successfully deleted." % group_name)
+
+            return deleted, msg
 
     def list_images(self, auth_data, filters=None):
         location = self.DEFAULT_LOCATION
