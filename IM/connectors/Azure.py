@@ -726,8 +726,8 @@ class AzureCloudConnector(CloudConnector):
                                                               compute_client, tags)
 
                 async_vm_creation = compute_client.virtual_machines.begin_create_or_update(rg_name,
-                                                                                     vm_name,
-                                                                                     vm_parameters)
+                                                                                           vm_name,
+                                                                                           vm_parameters)
 
                 self.log_info("VM ID: %s created." % vm.id)
                 vm.destroy = False
@@ -791,7 +791,8 @@ class AzureCloudConnector(CloudConnector):
             # Create resource group for the Infrastructure if it does not exists
             if not self.get_rg(rg_name, credentials, subscription_id):
                 self.log_info("Creating Inf RG: %s" % rg_name)
-                resource_client.resource_groups.create_or_update(rg_name, {'location': location})
+                resource_client.resource_groups.create_or_update(rg_name, {'location': location,
+                                                                           'tags': {'InfID': inf.id}})
 
             subnets = self.create_nets(radl, credentials, subscription_id, rg_name, inf)
             ngss = self.create_nsgs(radl, location, rg_name, credentials, subscription_id)
@@ -827,11 +828,8 @@ class AzureCloudConnector(CloudConnector):
                 res.append((False, data))
 
         if all_failed:
-            rg_delete = True
-            if vm.info.systems[0].getValue('azure.rg.nodelete'):
-                rg_delete = False
             try:
-                deleted, msg = self.delete_resource_group(rg_name, resource_client, rg_delete=rg_delete, max_retries=1)
+                deleted, msg = self.delete_resource_group(rg_name, resource_client, max_retries=1)
                 if not deleted:
                     self.log_warn("Error removing errored RG %s: %s" % (rg_name, msg))
             except Exception as ex:
@@ -904,7 +902,7 @@ class AzureCloudConnector(CloudConnector):
                         pass
                     if not zone:
                         self.log_info("Creating DNS zone %s" % domain)
-                        zone = dns_client.zones.begin_create_or_update(group_name, domain,
+                        zone = dns_client.zones.create_or_update(group_name, domain,
                                                                  {'location': 'global'})
                     else:
                         self.log_info("DNS zone %s exists. Do not create." % domain)
@@ -918,7 +916,7 @@ class AzureCloudConnector(CloudConnector):
                         if not record:
                             self.log_info("Creating DNS record %s." % hostname)
                             record_data = {"ttl": 300, "arecords": [{"ipv4_address": ip}]}
-                            dns_client.record_sets.begin_create_or_update(group_name, domain, hostname, 'A', record_data)
+                            dns_client.record_sets.create_or_update(group_name, domain, hostname, 'A', record_data)
                         else:
                             self.log_info("DNS record %s exists. Do not create." % hostname)
 
@@ -976,12 +974,9 @@ class AzureCloudConnector(CloudConnector):
 
             # if it is the last VM delete the RG of the Inf
             if last:
-                rg_delete = True
-                if vm.info.systems[0].getValue('azure.rg.nodelete'):
-                    rg_delete = False
                 resource_client = ResourceManagementClient(credentials, subscription_id)
                 if self.get_rg(group_name, credentials, subscription_id):
-                    deleted, msg = self.delete_resource_group(group_name, resource_client, rg_delete=rg_delete)
+                    deleted, msg = self.delete_resource_group(group_name, resource_client)
                     if not deleted:
                         return False, "Error terminating the VM: %s" % msg
                 else:
@@ -1039,8 +1034,8 @@ class AzureCloudConnector(CloudConnector):
             vm_parameters = " { 'hardware_profile': { 'vm_size': %s } } " % instance_type.name
 
             async_vm_update = compute_client.virtual_machines.begin_create_or_update(group_name,
-                                                                               vm_name,
-                                                                               vm_parameters)
+                                                                                     vm_name,
+                                                                                     vm_parameters)
             async_vm_update.wait()
 
             # Start the VM
@@ -1052,10 +1047,20 @@ class AzureCloudConnector(CloudConnector):
             self.log_exception("Error altering the VM")
             return False, "Error altering the VM: " + str(ex)
 
-    def delete_resource_group(self, group_name, resource_client, max_retries=3, rg_delete=True):
+    def delete_resource_group(self, group_name, resource_client, max_retries=3):
         """
         Delete a RG with retries
         """
+        rg = None
+        try:
+            rg = resource_client.resource_groups.get(group_name)
+            rg_delete = False
+            if 'InfID' in rg.tags:
+                rg_delete = True
+        except ResourceNotFoundError:
+            self.log_info("RG %s does not exist. Ignore." % group_name)
+            return True, ""
+
         cont = 0
         msg = ""
         resource_list = resource_client.resources.list_by_resource_group(group_name)
@@ -1068,8 +1073,8 @@ class AzureCloudConnector(CloudConnector):
                 try:
                     for resource in list(resource_list):
                         async_deletes.append(resource_client.resources.begin_delete(group_name,
-                                                                              resource.name,
-                                                                              resource.type))
+                                                                                    resource.name,
+                                                                                    resource.type))
                     for async_delete in async_deletes:
                         async_delete.wait()
                 except Exception as ex:
