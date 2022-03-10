@@ -51,7 +51,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         return cloud
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_10_concrete(self, credentials, compute_client):
         radl_data = """
             network net ()
@@ -69,7 +69,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         radl_system = radl.systems[0]
 
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         sku = MagicMock()
@@ -117,12 +117,11 @@ class TestAzureConnector(TestCloudConnectorBase):
             return async_vm_creation
 
     @patch('IM.connectors.Azure.ResourceManagementClient')
-    @patch('IM.connectors.Azure.StorageManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.NetworkManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    def test_20_launch(self, save_data, credentials, network_client, compute_client, storage_client, resource_client):
+    def test_20_launch(self, save_data, credentials, network_client, compute_client, resource_client):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080,9000:9100' and sg_name = 'nsgname')
             network net2 ()
@@ -149,7 +148,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         radl.check()
 
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'},
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'},
                                {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         azure_cloud = self.get_azure_cloud()
 
@@ -166,13 +165,20 @@ class TestAzureConnector(TestCloudConnectorBase):
         subnet_create_res = MagicMock()
         subnet_create_res.id = "subnet-0"
         subnet_create.result.return_value = subnet_create_res
-        nclient.subnets.create_or_update.return_value = subnet_create
+        nclient.subnets.begin_create_or_update.return_value = subnet_create
+
+        nic_create = MagicMock()
+        nic_create_res = MagicMock()
+        nic_create_res.id = "nic-0"
+        nic_create_res.name = "nic_name"
+        nic_create.result.return_value = nic_create_res
+        nclient.network_interfaces.begin_create_or_update.return_value = nic_create
 
         public_ip_create = MagicMock()
         public_ip_create_res = MagicMock()
         public_ip_create_res.id = "ip-0"
         public_ip_create.result.return_value = public_ip_create_res
-        nclient.public_ip_addresses.create_or_update.return_value = public_ip_create
+        nclient.public_ip_addresses.begin_create_or_update.return_value = public_ip_create
 
         sku = MagicMock()
         sku.resource_type = "virtualMachines"
@@ -192,7 +198,9 @@ class TestAzureConnector(TestCloudConnectorBase):
         sku.capabilities = [cpu_cap, mem_cap, res_cap, os_cap]
         cclient.resource_skus.list.return_value = [sku]
 
-        cclient.virtual_machines.create_or_update.side_effect = self.create_vm
+        cclient.virtual_machines.begin_create_or_update.side_effect = self.create_vm
+
+        cclient.virtual_machine_images.list.return_value = ["image"]
 
         disk = MagicMock()
         disk.name = "dname"
@@ -207,11 +215,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertTrue(res[0][0])
         self.assertTrue(res[1][0])
         self.assertTrue(res[2][0])
-        self.assertEquals(rclient.resource_groups.delete.call_count, 2)
-        self.assertIn("rg-test-", rclient.resource_groups.delete.call_args_list[0][0][0])
-        self.assertIn("rg-test-", rclient.resource_groups.delete.call_args_list[1][0][0])
+        self.assertEquals(nclient.network_interfaces.begin_delete.call_count, 1)
+        self.assertIn("nic_name", nclient.network_interfaces.begin_delete.call_args_list[0][0][1])
 
-        json_vm_req = cclient.virtual_machines.create_or_update.call_args_list[0][0][2]
+        json_vm_req = cclient.virtual_machines.begin_create_or_update.call_args_list[0][0][2]
         self.assertEquals(json_vm_req['storage_profile']['data_disks'][0]['disk_size_gb'], 1)
         self.assertEquals(json_vm_req['storage_profile']['data_disks'][1]['managed_disk']['id'], "did")
         image_res = {'sku': '16.04.0-LTS', 'publisher': 'Canonical', 'version': 'latest', 'offer': 'UbuntuServer'}
@@ -220,8 +227,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertEquals(json_vm_req['os_profile']['admin_username'], 'user')
         self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
         self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
-        self.assertEquals(nclient.subnets.create_or_update.call_args_list[0][0][3], {'address_prefix': '10.0.1.0/24'})
-        self.assertEquals(nclient.subnets.create_or_update.call_args_list[1][0][3], {'address_prefix': '10.0.2.0/24'})
+        self.assertEquals(nclient.subnets.begin_create_or_update.call_args_list[0][0][3],
+                          {'address_prefix': '10.0.1.0/24'})
+        self.assertEquals(nclient.subnets.begin_create_or_update.call_args_list[1][0][3],
+                          {'address_prefix': '10.0.2.0/24'})
 
         radl_data = """
             network net1 (outbound = 'yes')
@@ -264,15 +273,15 @@ class TestAzureConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
         res = azure_cloud.launch(inf, radl, radl, 1, auth)
-        json_vm_req = cclient.virtual_machines.create_or_update.call_args_list[5][0][2]
+        json_vm_req = cclient.virtual_machines.begin_create_or_update.call_args_list[5][0][2]
         self.assertEquals(json_vm_req['storage_profile']['os_disk']['os_type'], 'linux')
-        self.assertEquals(nclient.subnets.create_or_update.call_args_list[5][0][3],
+        self.assertEquals(nclient.subnets.begin_create_or_update.call_args_list[5][0][3],
                           {'address_prefix': '192.168.1.0/24'})
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.DnsManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_30_updateVMInfo(self, credentials, dns_client, compute_client, network_client):
         radl_data = """
             network net (outbound = 'yes')
@@ -291,7 +300,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         radl.check()
 
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
@@ -361,10 +370,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_40_stop(self, credentials, compute_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
@@ -376,10 +385,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_50_start(self, credentials, compute_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
@@ -391,10 +400,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_52_reboot(self, credentials, compute_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
@@ -406,11 +415,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ResourceManagementClient')
-    @patch('IM.connectors.Azure.StorageManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.NetworkManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
-    def test_55_alter(self, credentials, network_client, compute_client, storage_client, resource_client):
+    @patch('IM.connectors.Azure.ClientSecretCredential')
+    def test_55_alter(self, credentials, network_client, compute_client, resource_client):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -434,7 +442,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         new_radl = radl_parse.parse_radl(new_radl_data)
 
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         sku = MagicMock()
@@ -488,12 +496,12 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.connectors.Azure.StorageManagementClient')
+    @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.ResourceManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
-    def test_60_finalize(self, credentials, resource_client, storage_client):
+    @patch('IM.connectors.Azure.ClientSecretCredential')
+    def test_60_finalize(self, credentials, resource_client, compute_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
         radl_data = """
             network net (outbound = 'yes')
@@ -506,15 +514,17 @@ class TestAzureConnector(TestCloudConnectorBase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
 
-        key = MagicMock()
-        key.keys = [MagicMock()]
-        sclient = MagicMock()
-        storage_client.return_value = sclient
-        sclient.storage_accounts.list_keys.return_value = key
-
         inf = MagicMock()
         vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, radl, radl, azure_cloud, 1)
         vm.disks = ["disk1"]
+
+        cclient = MagicMock()
+        compute_client.return_value = cclient
+        rclient = MagicMock()
+        resource_client.return_value = rclient
+        rg = MagicMock()
+        rg.tags = {'InfID': "1"}
+        rclient.resource_groups.get.return_value = rg
 
         success, _ = azure_cloud.finalize(vm, False, auth)
         success, _ = azure_cloud.finalize(vm, True, auth)
@@ -522,11 +532,17 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        self.assertEquals(cclient.virtual_machines.begin_delete.call_count, 2)
+        self.assertEqual(cclient.virtual_machines.begin_delete.call_args_list[0][0], ('rg0', 'vm0'))
+        self.assertEqual(cclient.virtual_machines.begin_delete.call_args_list[1][0], ('rg0', 'vm0'))
+        self.assertEqual(rclient.resource_groups.begin_delete.call_count, 1)
+        self.assertEqual(rclient.resource_groups.begin_delete.call_args_list[0][0], ('rg0',))
+
     @patch('IM.connectors.Azure.ComputeManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_list_images(self, credentials, compute_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         cclient = MagicMock()
