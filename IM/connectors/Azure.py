@@ -468,6 +468,7 @@ class AzureCloudConnector(CloudConnector):
             }
 
             primary = False
+            public_ip_name = None
             if hasPublicIP and not publicAdded:
                 # Create PublicIP
                 publicAdded = True
@@ -499,7 +500,7 @@ class AzureCloudConnector(CloudConnector):
             async_nic_creation = network_client.network_interfaces.begin_create_or_update(
                 group_name, nic_name, nic_params)
             nic = async_nic_creation.result()
-            res.append((nic, primary))
+            res.append((nic, primary, public_ip_name))
 
             i += 1
 
@@ -537,7 +538,7 @@ class AzureCloudConnector(CloudConnector):
             'network_profile': {
                 'network_interfaces': [{'id': nic.id,
                                         'primary': primary,
-                                        'delete_option': DeleteOptions.DELETE} for nic, primary in nics]
+                                        'delete_option': DeleteOptions.DELETE} for nic, primary, _ in nics]
             },
         }
 
@@ -736,12 +737,14 @@ class AzureCloudConnector(CloudConnector):
                 vms.append((False, "Error creating the VM: %s" % str(ex)))
                 self.log_exception("Error creating the VM")
 
-                # Delete nics
+                # Delete nics & pub ips
                 try:
                     network_client = NetworkManagementClient(credentials, subscription_id)
-                    for nic in nics:
-                        async_nic_delete = network_client.network_interfaces.begin_delete(rg_name, nic[0].name)
-                        async_nic_delete.wait()
+                    for nic, _, public_ip in nics:
+                        network_client.network_interfaces.begin_delete(rg_name, nic.name).wait()
+                        if public_ip:
+                            network_client.public_ip_addresses.begin_delete(rg_name, public_ip).wait()
+
                 except Exception as delex:
                     self.log_exception("Error deleting NICS %s" % str(delex))
 
@@ -979,7 +982,7 @@ class AzureCloudConnector(CloudConnector):
                 self.log_warn("No VM ID. Ignoring")
 
             # if it is the last VM delete the RG of the Inf
-            if last:
+            if vm.id and last:
                 resource_client = ResourceManagementClient(credentials, subscription_id)
                 if self.get_rg(group_name, credentials, subscription_id):
                     deleted, msg = self.delete_resource_group(group_name, resource_client)
