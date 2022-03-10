@@ -613,5 +613,6 @@ class TestAzureConnector(TestCloudConnectorBase):
         res = azure_cloud.launch_with_retry(inf, radl, radl, 1, auth, 1, 0)
         self.assertEqual(res, [(False, 'Attempt 1: Error: Invalid rg_name. It must be unique per infrastructure.\n')])
 
+
 if __name__ == '__main__':
     unittest.main()
