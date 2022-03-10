@@ -428,6 +428,8 @@ machine.  The supported features are:
 ``gpu.model = <string>``
    Constrain the model name of the GPU in the virtual machine like ``Tesla-v100`` or ``Radeon RX 5000``
 
+``rg_name = <string>``
+   The name of the Resource Group associated with the system. It only applies in a subset of connectors.
 
 Disk Management
 ^^^^^^^^^^^^^^^

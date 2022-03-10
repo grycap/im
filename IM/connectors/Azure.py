@@ -783,7 +783,7 @@ class AzureCloudConnector(CloudConnector):
 
         tags = self.get_instance_tags(radl.systems[0], auth_data, inf)
 
-        rg_name = radl.systems[0].getValue('azure.rg.name')
+        rg_name = radl.systems[0].getValue('rg_name')
         if not rg_name:
             rg_name = "rg-%s" % inf.id
 
