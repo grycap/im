@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 python3
 
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
-     pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity && \
+     pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.7.1 && \
      pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.21&& \
      cd /tmp && git clone https://github.com/apache/libcloud && pip3 install /tmp/libcloud && \
      pip3 install IM==1.11.0 && \
