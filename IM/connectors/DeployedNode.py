@@ -31,10 +31,12 @@ class DeployedNodeCloudConnector(CloudConnector):
     def concreteSystem(self, radl_system, auth_data):
         # we must check that the RADL has this information:
         # At least one IP, username, password or private_key
-
         ip = radl_system.getValue("net_interface.0.ip")
+        user = radl_system.getValue("disk.0.os.credentials.username")
+        passwd = radl_system.getValue("disk.0.os.credentials.password")
+        priv_key = radl_system.getValue("disk.0.os.credentials.private_key")
 
-        if self.cloud.server == ip:
+        if ip and user and (passwd or priv_key):
             res_system = radl_system.clone()
             return [res_system]
         else:
@@ -51,23 +53,6 @@ class DeployedNodeCloudConnector(CloudConnector):
                                 requested_radl, requested_radl)
             inf.add_vm(vm)
             vm.info.systems[0].setValue('provider.type', self.type)
-
-            auths = auth_data.getAuthInfo(self.type, self.cloud.server)
-            if not auths:
-               raise Exception("No auth data has been specified to %s." % self.type)
-            else:
-                auth = auths[0]
-
-            if 'username' in auth and ('password' in auth or 'private_key' in auth):
-                vm.info.systems[0].setValue("disk.0.os.credentials.username", auth['username'])
-                if 'password' in auth:
-                    vm.info.systems[0].setValue("disk.0.os.credentials.password", auth["password"])
-                else:
-                    vm.info.systems[0].setValue("disk.0.os.credentials.private_key", auth["private_key"])
-            else:
-                raise Exception("No correct auth data has been specified to %s:"
-                                " username and password or private_key" % self.type)
-
             vm.state = VirtualMachine.RUNNING
             res.append((True, vm))
 
