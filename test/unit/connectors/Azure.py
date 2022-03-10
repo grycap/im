@@ -565,6 +565,54 @@ class TestAzureConnector(TestCloudConnectorBase):
         images = azure_cloud.list_images(auth, filters={"publisher": "*"})
         self.assertEqual(images, [{'uri': 'azr://pub1/offer1/sku1/latest', 'name': 'pub1 offer1 sku1'}])
 
+    @patch('IM.connectors.Azure.ResourceManagementClient')
+    @patch('IM.connectors.Azure.ComputeManagementClient')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_invalid_rg_name_launch(self, save_data, credentials, compute_client, resource_client):
+        radl_data = """
+            network net1 (outbound = 'yes')
+            network net2 ()
+            system test (
+            rg_name='rg1' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'net1' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'azr://Canonical/UbuntuServer/16.04.0-LTS/latest'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+
+        auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
+        azure_cloud = self.get_azure_cloud()
+
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        inf.radl = radl
+        res = azure_cloud.launch_with_retry(inf, radl, radl, 1, auth, 1, 0)
+
+        radl_data = """
+            network net1 (outbound = 'yes')
+            network net2 ()
+            system test2 (
+            rg_name='rg2' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'net1' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'azr://Canonical/UbuntuServer/16.04.0-LTS/latest'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+
+        res = azure_cloud.launch_with_retry(inf, radl, radl, 1, auth, 1, 0)
+        self.assertEqual(res, [(False, 'Attempt 1: Error: Invalid rg_name. It must be unique per infrastructure.\n')])
+
 
 if __name__ == '__main__':
     unittest.main()
