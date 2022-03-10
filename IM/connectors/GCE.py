@@ -83,13 +83,8 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             if 'username' in auth and 'password' in auth and 'project' in auth:
                 cls = libcloud_get_driver(Provider.GCE)
-                # Patch to solve some client problems with \\n
+                # Patch to solve some client problems with \\n with certificates
                 auth['password'] = auth['password'].replace('\\n', '\n')
-                lines = len(auth['password'].replace(" ", "").split())
-                if lines < 2:
-                    raise Exception("The certificate provided to the GCE plugin has an incorrect format."
-                                    " Check that it has more than one line.")
-
                 driver = cls(auth['username'], auth['password'], project=auth['project'], datacenter=datacenter)
 
                 self.driver = driver
