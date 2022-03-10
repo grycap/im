@@ -51,7 +51,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         return cloud
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_10_concrete(self, credentials, compute_client):
         radl_data = """
             network net ()
@@ -69,7 +69,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         radl_system = radl.systems[0]
 
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         sku = MagicMock()
@@ -119,7 +119,7 @@ class TestAzureConnector(TestCloudConnectorBase):
     @patch('IM.connectors.Azure.ResourceManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.NetworkManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, credentials, network_client, compute_client, resource_client):
         radl_data = """
@@ -148,7 +148,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         radl.check()
 
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'},
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'},
                                {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         azure_cloud = self.get_azure_cloud()
 
@@ -281,7 +281,7 @@ class TestAzureConnector(TestCloudConnectorBase):
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.DnsManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_30_updateVMInfo(self, credentials, dns_client, compute_client, network_client):
         radl_data = """
             network net (outbound = 'yes')
@@ -300,7 +300,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         radl.check()
 
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
@@ -370,10 +370,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_40_stop(self, credentials, compute_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
@@ -385,10 +385,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_50_start(self, credentials, compute_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
@@ -400,10 +400,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_52_reboot(self, credentials, compute_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         inf = MagicMock()
@@ -417,7 +417,7 @@ class TestAzureConnector(TestCloudConnectorBase):
     @patch('IM.connectors.Azure.ResourceManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.NetworkManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_55_alter(self, credentials, network_client, compute_client, resource_client):
         radl_data = """
             network net (outbound = 'yes')
@@ -442,7 +442,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         new_radl = radl_parse.parse_radl(new_radl_data)
 
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         sku = MagicMock()
@@ -498,10 +498,10 @@ class TestAzureConnector(TestCloudConnectorBase):
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.ResourceManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_60_finalize(self, credentials, resource_client, compute_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
         radl_data = """
             network net (outbound = 'yes')
@@ -539,10 +539,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertEqual(rclient.resource_groups.begin_delete.call_args_list[0][0], ('rg0',))
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
-    @patch('IM.connectors.Azure.UserPassCredentials')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_list_images(self, credentials, compute_client):
         auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
-                                'username': 'user', 'password': 'password'}])
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
         azure_cloud = self.get_azure_cloud()
 
         cclient = MagicMock()
