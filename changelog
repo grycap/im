@@ -692,4 +692,4 @@ IM 1.11.0:
     * Add suport to OSCAR services.
     * Enable to share or change the owner of an infrastructure.
     * Remove AzureClassic connector.
-
+    * Improve Azure connector using one single RG.

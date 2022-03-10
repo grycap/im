@@ -783,11 +783,17 @@ class AzureCloudConnector(CloudConnector):
 
         tags = self.get_instance_tags(radl.systems[0], auth_data, inf)
 
-        rg_name = radl.systems[0].getValue('rg_name')
-        if not rg_name:
-            rg_name = "rg-%s" % inf.id
-
         with inf._lock:
+            rg_name = radl.systems[0].getValue('rg_name')
+            if not rg_name:
+                rg_name = "rg-%s" % inf.id
+            else:
+                if 'rg_name' in inf.extra_info:
+                    if rg_name != inf.extra_info['rg_name']:
+                        raise Exception("Invalid rg_name. It must be unique per infrastructure.")
+                else:
+                    inf.extra_info['rg_name'] = rg_name
+
             # Create resource group for the Infrastructure if it does not exists
             if not self.get_rg(rg_name, credentials, subscription_id):
                 self.log_info("Creating Inf RG: %s" % rg_name)
