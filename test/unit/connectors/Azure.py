@@ -532,9 +532,8 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        self.assertEquals(cclient.virtual_machines.begin_delete.call_count, 2)
+        self.assertEquals(cclient.virtual_machines.begin_delete.call_count, 1)
         self.assertEqual(cclient.virtual_machines.begin_delete.call_args_list[0][0], ('rg0', 'vm0'))
-        self.assertEqual(cclient.virtual_machines.begin_delete.call_args_list[1][0], ('rg0', 'vm0'))
         self.assertEqual(rclient.resource_groups.begin_delete.call_count, 1)
         self.assertEqual(rclient.resource_groups.begin_delete.call_args_list[0][0], ('rg0',))
 

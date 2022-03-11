@@ -31,7 +31,7 @@ try:
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient
-    from azure.core.exceptions import ResourceNotFoundError
+    from azure.core.exceptions import ResourceNotFoundError, ClientAuthenticationError
     from azure.mgmt.compute.models import DiskCreateOption, CachingTypes, DeleteOptions
 except Exception as ex:
     print("WARN: Python Azure SDK not installed. AzureCloudConnector will not work!.")
@@ -860,14 +860,15 @@ class AzureCloudConnector(CloudConnector):
             compute_client = ComputeManagementClient(credentials, subscription_id)
             # Get one the virtual machine by name
             virtual_machine = compute_client.virtual_machines.get(group_name, vm_name, expand='instanceView')
+        except ResourceNotFoundError:
+            self.log_warn("The VM does not exists")
+            vm.state = VirtualMachine.OFF
+            return (True, vm)
+        except ClientAuthenticationError:
+            self.credentials = None
+            self.log_exception("Error getting the VM info: " + vm.id)
+            return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
         except Exception as ex:
-            self.log_warn("The VM does not exists: %s" % str(ex))
-            # check if the RG still exists
-            if self.get_rg(group_name, credentials, subscription_id):
-                self.log_info("But the RG %s does exits. Return OFF." % group_name)
-                vm.state = VirtualMachine.OFF
-                return (True, vm)
-
             self.log_exception("Error getting the VM info: " + vm.id)
             return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
 
@@ -970,6 +971,7 @@ class AzureCloudConnector(CloudConnector):
 
             # if it is the last VM delete the RG of the Inf
             if vm.id and last:
+                group_name = vm.id.split('/')[0]
                 resource_client = ResourceManagementClient(credentials, subscription_id)
                 if self.get_rg(group_name, credentials, subscription_id):
                     deleted, msg = self.delete_resource_group(group_name, resource_client)
@@ -987,6 +989,10 @@ class AzureCloudConnector(CloudConnector):
                     compute_client.virtual_machines.begin_delete(group_name, vm_name).wait()
                 except ResourceNotFoundError:
                     self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
+                except ClientAuthenticationError:
+                    self.credentials = None
+                    self.log_exception("Error terminating the VM: " + vm.id)
+                    return (False, "Error terminating the VM: " + vm.id + ". " + str(ex))
             else:
                 self.log_warn("No VM ID. Ignoring")
 
@@ -1017,9 +1023,16 @@ class AzureCloudConnector(CloudConnector):
                 compute_client.virtual_machines.start(group_name, vm_name)
             elif action == 'reboot':
                 compute_client.virtual_machines.restart(group_name, vm_name)
+        except ResourceNotFoundError:
+            self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
+            return False, "VM does not exist."
+        except ClientAuthenticationError:
+            self.credentials = None
+            self.log_exception("Error performing action '%s' in the VM" % action)
+            return False, "Error performing action '%s' in the VM: %s" % (action, ex)
         except Exception as ex:
-            self.log_exception("Error restarting the VM")
-            return False, "Error restarting the VM: " + str(ex)
+            self.log_exception("Error performing action '%s' in the VM" % action)
+            return False, "Error performing action '%s' in the VM: %s" % (action, ex)
 
         return True, ""
 
@@ -1051,6 +1064,13 @@ class AzureCloudConnector(CloudConnector):
             async_vm_start.wait()
 
             return self.updateVMInfo(vm, auth_data)
+        except ResourceNotFoundError:
+            self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
+            return False, "VM does not exist."
+        except ClientAuthenticationError:
+            self.credentials = None
+            self.log_exception("Error altering the VM")
+            return False, "Error altering the VM: " + str(ex)
         except Exception as ex:
             self.log_exception("Error altering the VM")
             return False, "Error altering the VM: " + str(ex)
