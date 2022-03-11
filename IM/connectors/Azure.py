@@ -31,7 +31,7 @@ try:
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient
-    from azure.core.exceptions import ResourceNotFoundError, ClientAuthenticationError
+    from azure.core.exceptions import ResourceNotFoundError
     from azure.mgmt.compute.models import DiskCreateOption, CachingTypes, DeleteOptions
 except Exception as ex:
     print("WARN: Python Azure SDK not installed. AzureCloudConnector will not work!.")
@@ -179,20 +179,7 @@ class AzureCloudConnector(CloudConnector):
         else:
             auth = auths[0]
 
-        if 'subscription_id' in auth and 'username' in auth and 'password' in auth:
-            subscription_id = auth['subscription_id']
-
-            if self.credentials and self.auth.compare(auth_data, self.type):
-                return self.credentials, subscription_id
-            else:
-                self.auth = auth_data
-                if AZURE_IDENTITY_AVAILABLE and 'client_id' in auth:
-                    self.credentials = UsernamePasswordCredential(client_id=auth['client_id'],
-                                                                  username=auth['username'],
-                                                                  password=auth['password'])
-                else:
-                    self.credentials = UserPassCredentials(auth['username'], auth['password'])
-        elif 'subscription_id' in auth and 'client_id' in auth and 'secret' in auth and 'tenant' in auth:
+        if 'subscription_id' in auth and 'client_id' in auth and 'secret' in auth and 'tenant' in auth:
             subscription_id = auth['subscription_id']
 
             if self.credentials and self.auth.compare(auth_data, self.type):
@@ -207,6 +194,19 @@ class AzureCloudConnector(CloudConnector):
                     self.credentials = ServicePrincipalCredentials(client_id=auth['client_id'],
                                                                    secret=auth['secret'],
                                                                    tenant=auth['tenant'])
+        elif 'subscription_id' in auth and 'username' in auth and 'password' in auth:
+            subscription_id = auth['subscription_id']
+
+            if self.credentials and self.auth.compare(auth_data, self.type):
+                return self.credentials, subscription_id
+            else:
+                self.auth = auth_data
+                if AZURE_IDENTITY_AVAILABLE and 'client_id' in auth:
+                    self.credentials = UsernamePasswordCredential(client_id=auth['client_id'],
+                                                                  username=auth['username'],
+                                                                  password=auth['password'])
+                else:
+                    self.credentials = UserPassCredentials(auth['username'], auth['password'])
         else:
             raise Exception("No correct auth data has been specified to Azure: "
                             "subscription_id, username and password or"
@@ -864,10 +864,6 @@ class AzureCloudConnector(CloudConnector):
             self.log_warn("The VM does not exists")
             vm.state = VirtualMachine.OFF
             return (True, vm)
-        except ClientAuthenticationError as cex:
-            self.credentials = None
-            self.log_exception("Error getting the VM info: " + vm.id)
-            return (False, "Error getting the VM info: " + vm.id + ". " + str(cex))
         except Exception as ex:
             self.log_exception("Error getting the VM info: " + vm.id)
             return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
@@ -989,10 +985,6 @@ class AzureCloudConnector(CloudConnector):
                     compute_client.virtual_machines.begin_delete(group_name, vm_name).wait()
                 except ResourceNotFoundError:
                     self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
-                except ClientAuthenticationError as cex:
-                    self.credentials = None
-                    self.log_exception("Error terminating the VM: " + vm.id)
-                    return (False, "Error terminating the VM: " + vm.id + ". " + str(cex))
             else:
                 self.log_warn("No VM ID. Ignoring")
 
@@ -1026,10 +1018,6 @@ class AzureCloudConnector(CloudConnector):
         except ResourceNotFoundError:
             self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
             return False, "VM does not exist."
-        except ClientAuthenticationError as cex:
-            self.credentials = None
-            self.log_exception("Error performing action '%s' in the VM" % action)
-            return False, "Error performing action '%s' in the VM: %s" % (action, cex)
         except Exception as ex:
             self.log_exception("Error performing action '%s' in the VM" % action)
             return False, "Error performing action '%s' in the VM: %s" % (action, ex)
@@ -1067,10 +1055,6 @@ class AzureCloudConnector(CloudConnector):
         except ResourceNotFoundError:
             self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
             return False, "VM does not exist."
-        except ClientAuthenticationError as cex:
-            self.credentials = None
-            self.log_exception("Error altering the VM")
-            return False, "Error altering the VM: " + str(cex)
         except Exception as ex:
             self.log_exception("Error altering the VM")
             return False, "Error altering the VM: " + str(ex)
