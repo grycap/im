@@ -864,10 +864,10 @@ class AzureCloudConnector(CloudConnector):
             self.log_warn("The VM does not exists")
             vm.state = VirtualMachine.OFF
             return (True, vm)
-        except ClientAuthenticationError:
+        except ClientAuthenticationError as cex:
             self.credentials = None
             self.log_exception("Error getting the VM info: " + vm.id)
-            return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
+            return (False, "Error getting the VM info: " + vm.id + ". " + str(cex))
         except Exception as ex:
             self.log_exception("Error getting the VM info: " + vm.id)
             return (False, "Error getting the VM info: " + vm.id + ". " + str(ex))
@@ -989,10 +989,10 @@ class AzureCloudConnector(CloudConnector):
                     compute_client.virtual_machines.begin_delete(group_name, vm_name).wait()
                 except ResourceNotFoundError:
                     self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
-                except ClientAuthenticationError:
+                except ClientAuthenticationError as cex:
                     self.credentials = None
                     self.log_exception("Error terminating the VM: " + vm.id)
-                    return (False, "Error terminating the VM: " + vm.id + ". " + str(ex))
+                    return (False, "Error terminating the VM: " + vm.id + ". " + str(cex))
             else:
                 self.log_warn("No VM ID. Ignoring")
 
@@ -1026,10 +1026,10 @@ class AzureCloudConnector(CloudConnector):
         except ResourceNotFoundError:
             self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
             return False, "VM does not exist."
-        except ClientAuthenticationError:
+        except ClientAuthenticationError as cex:
             self.credentials = None
             self.log_exception("Error performing action '%s' in the VM" % action)
-            return False, "Error performing action '%s' in the VM: %s" % (action, ex)
+            return False, "Error performing action '%s' in the VM: %s" % (action, cex)
         except Exception as ex:
             self.log_exception("Error performing action '%s' in the VM" % action)
             return False, "Error performing action '%s' in the VM: %s" % (action, ex)
@@ -1067,10 +1067,10 @@ class AzureCloudConnector(CloudConnector):
         except ResourceNotFoundError:
             self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
             return False, "VM does not exist."
-        except ClientAuthenticationError:
+        except ClientAuthenticationError as cex:
             self.credentials = None
             self.log_exception("Error altering the VM")
-            return False, "Error altering the VM: " + str(ex)
+            return False, "Error altering the VM: " + str(cex)
         except Exception as ex:
             self.log_exception("Error altering the VM")
             return False, "Error altering the VM: " + str(ex)

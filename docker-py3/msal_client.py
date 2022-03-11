@@ -50,7 +50,8 @@ class MsalResponse(object):
         if self.status_code < 400:
             return
 
-        if ContentDecodePolicy.CONTEXT_NAME in self._response.context and self._response.context[ContentDecodePolicy.CONTEXT_NAME]:
+        if (ContentDecodePolicy.CONTEXT_NAME in self._response.context and
+                self._response.context[ContentDecodePolicy.CONTEXT_NAME]):
             content = self._response.context[ContentDecodePolicy.CONTEXT_NAME]
             if "error" in content or "error_description" in content:
                 message = "Authentication failed: {}".format(content.get("error_description") or content.get("error"))
