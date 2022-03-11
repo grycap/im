@@ -968,7 +968,16 @@ class AzureCloudConnector(CloudConnector):
         try:
             compute_client = ComputeManagementClient(credentials, subscription_id)
 
-            if vm.id:
+            # if it is the last VM delete the RG of the Inf
+            if vm.id and last:
+                resource_client = ResourceManagementClient(credentials, subscription_id)
+                if self.get_rg(group_name, credentials, subscription_id):
+                    deleted, msg = self.delete_resource_group(group_name, resource_client)
+                    if not deleted:
+                        return False, "Error terminating the RG: %s" % msg
+                else:
+                    self.log_info("RG: %s does not exist. Do not remove." % group_name)
+            elif vm.id:
                 self.log_info("Terminate VM: %s" % vm.id)
                 group_name = vm.id.split('/')[0]
                 vm_name = vm.id.split('/')[1]
@@ -980,16 +989,6 @@ class AzureCloudConnector(CloudConnector):
                     self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
             else:
                 self.log_warn("No VM ID. Ignoring")
-
-            # if it is the last VM delete the RG of the Inf
-            if vm.id and last:
-                resource_client = ResourceManagementClient(credentials, subscription_id)
-                if self.get_rg(group_name, credentials, subscription_id):
-                    deleted, msg = self.delete_resource_group(group_name, resource_client)
-                    if not deleted:
-                        return False, "Error terminating the VM: %s" % msg
-                else:
-                    self.log_info("RG: %s does not exist. Do not remove." % group_name)
 
         except Exception as ex:
             self.log_exception("Error terminating the VM")
