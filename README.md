@@ -88,7 +88,7 @@ All the information about this chart is available at the [IM chart README](https
 
 ### 3.1 REQUISITES
 
-IM is based on Python, so Python 2.7 or higher (Python 3.5 or higher recommended) runtime and
+IM is based on Python, so Python 2.7 or higher (Python 3.6 or higher recommended) runtime and
 standard library must be installed in the system.
 
 If you use pip to install the IM, all the requisites will be installed.
