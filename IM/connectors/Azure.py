@@ -967,27 +967,34 @@ class AzureCloudConnector(CloudConnector):
             compute_client = ComputeManagementClient(credentials, subscription_id)
 
             # if it is the last VM delete the RG of the Inf
-            if vm.id and last:
-                group_name = vm.id.split('/')[0]
-                resource_client = ResourceManagementClient(credentials, subscription_id)
-                if self.get_rg(group_name, credentials, subscription_id):
+            if vm.id:
+                if last:
+                    group_name = vm.id.split('/')[0]
+                    resource_client = ResourceManagementClient(credentials, subscription_id)
                     deleted, msg = self.delete_resource_group(group_name, resource_client)
                     if not deleted:
                         return False, "Error terminating the RG: %s" % msg
                 else:
-                    self.log_info("RG: %s does not exist. Do not remove." % group_name)
-            elif vm.id:
-                self.log_info("Terminate VM: %s" % vm.id)
-                group_name = vm.id.split('/')[0]
-                vm_name = vm.id.split('/')[1]
+                    self.log_info("Terminate VM: %s" % vm.id)
+                    group_name = vm.id.split('/')[0]
+                    vm_name = vm.id.split('/')[1]
 
-                # Delete VM
-                try:
-                    compute_client.virtual_machines.begin_delete(group_name, vm_name).wait()
-                except ResourceNotFoundError:
-                    self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
+                    # Delete VM
+                    try:
+                        compute_client.virtual_machines.begin_delete(group_name, vm_name).wait()
+                    except ResourceNotFoundError:
+                        self.log_warn("VM ID %s does not exist. Ignoring." % vm.id)
             else:
-                self.log_warn("No VM ID. Ignoring")
+                if last:
+                    group_name = vm.info.systems[0].getValue("rg_name")
+                    if not group_name:
+                        group_name = "rg-" % vm.inf.id
+                    self.log_warn("No VM ID. Deleting RG: %s" % group_name)
+                    deleted, msg = self.delete_resource_group(group_name, resource_client)
+                    if not deleted:
+                        return False, "Error terminating the RG: %s" % msg
+                else:
+                    self.log_warn("No VM ID. Ignoring")
 
         except Exception as ex:
             self.log_exception("Error terminating the VM")
