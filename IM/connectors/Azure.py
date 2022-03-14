@@ -988,7 +988,7 @@ class AzureCloudConnector(CloudConnector):
                 if last:
                     group_name = vm.info.systems[0].getValue("rg_name")
                     if not group_name:
-                        group_name = "rg-" % vm.inf.id
+                        group_name = "rg-%s" % vm.inf.id
                     self.log_warn("No VM ID. Deleting RG: %s" % group_name)
                     deleted, msg = self.delete_resource_group(group_name, resource_client)
                     if not deleted:
