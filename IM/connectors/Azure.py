@@ -965,12 +965,12 @@ class AzureCloudConnector(CloudConnector):
 
         try:
             compute_client = ComputeManagementClient(credentials, subscription_id)
+            resource_client = ResourceManagementClient(credentials, subscription_id)
 
             # if it is the last VM delete the RG of the Inf
             if vm.id:
                 if last:
                     group_name = vm.id.split('/')[0]
-                    resource_client = ResourceManagementClient(credentials, subscription_id)
                     deleted, msg = self.delete_resource_group(group_name, resource_client)
                     if not deleted:
                         return False, "Error terminating the RG: %s" % msg
