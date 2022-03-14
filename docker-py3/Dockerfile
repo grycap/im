@@ -22,8 +22,6 @@ COPY ansible.cfg /etc/ansible/ansible.cfg
 
 # Fix boto issue https://github.com/boto/boto/issues/3783
 COPY endpoints.json /usr/local/lib/python3.8/dist-packages/boto/endpoints.json
-# Fix Azure issue https://github.com/Azure/azure-sdk-for-python/issues/23483
-COPY msal_client.py /usr/local/lib/python3.8/dist-packages/azure/identity/_internal/msal_client.py
 
 # Start IM service
 CMD im_service.py
