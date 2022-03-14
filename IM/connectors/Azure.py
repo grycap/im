@@ -965,12 +965,12 @@ class AzureCloudConnector(CloudConnector):
 
         try:
             compute_client = ComputeManagementClient(credentials, subscription_id)
+            resource_client = ResourceManagementClient(credentials, subscription_id)
 
             # if it is the last VM delete the RG of the Inf
             if vm.id:
                 if last:
                     group_name = vm.id.split('/')[0]
-                    resource_client = ResourceManagementClient(credentials, subscription_id)
                     deleted, msg = self.delete_resource_group(group_name, resource_client)
                     if not deleted:
                         return False, "Error terminating the RG: %s" % msg
@@ -1130,12 +1130,15 @@ class AzureCloudConnector(CloudConnector):
 
     def list_images(self, auth_data, filters=None):
         location = self.DEFAULT_LOCATION
+        offers = ["*"]
         publisher = ['Canonical', 'MicrosoftSQLServer', 'MicrosoftWindowsDesktop',
                      'MicrosoftWindowsServer', 'nvidia', 'Oracle', 'RedHat', 'SUSE']
         if filters and 'location' in filters and filters['location']:
             location = filters['location']
         if filters and 'publisher' in filters and filters['publisher']:
             publisher = filters['publisher'].split(",")
+        if filters and 'offer' in filters and filters['offer']:
+            offers = filters['offer'].split(",")
 
         credentials, subscription_id = self.get_credentials(auth_data)
         compute_client = ComputeManagementClient(credentials, subscription_id)
@@ -1147,11 +1150,13 @@ class AzureCloudConnector(CloudConnector):
 
         images = []
         for pub in publisher:
-            offers = compute_client.virtual_machine_images.list_offers(location, pub)
+            if offers == ["*"]:
+                offers = compute_client.virtual_machine_images.list_offers(location, pub)
+                offers = [offer.name for offer in offers]
             for offer in offers:
-                skus = compute_client.virtual_machine_images.list_skus(location, pub, offer.name)
+                skus = compute_client.virtual_machine_images.list_skus(location, pub, offer)
                 for sku in skus:
-                    images.append((pub, offer.name, sku.name))
+                    images.append((pub, offer, sku.name))
 
         res = []
         for pub, offer, sku in images:
