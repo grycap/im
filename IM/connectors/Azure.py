@@ -223,16 +223,17 @@ class AzureCloudConnector(CloudConnector):
 
         return None
 
-    @staticmethod
-    def get_instance_type_list(credentials, subscription_id, location):
+    def get_instance_type_list(self, credentials, subscription_id, location):
         compute_client = ComputeManagementClient(credentials, subscription_id)
 
-        skus = list(compute_client.resource_skus.list(filter="location eq '%s'" % location))
-        instance_types = [AzureInstanceTypeInfo.fromSKU(sku) for sku in skus if sku.resource_type == "virtualMachines"]
-
-        instance_types.sort(key=lambda x: (x.cpu, x.mem, x.gpu, x.res_disk_space))
-
-        return instance_types
+        try:
+            skus = list(compute_client.resource_skus.list(filter="location eq '%s'" % location))
+            instance_types = [AzureInstanceTypeInfo.fromSKU(sku) for sku in skus if sku.resource_type == "virtualMachines"]
+            instance_types.sort(key=lambda x: (x.cpu, x.mem, x.gpu, x.res_disk_space))
+            return instance_types
+        except Exception:
+            self.log_exception("Error getting instance type list.")
+            return []
 
     def get_instance_type(self, system, credentials, subscription_id):
         """
