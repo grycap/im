@@ -228,9 +228,9 @@ class AzureCloudConnector(CloudConnector):
 
         try:
             skus = list(compute_client.resource_skus.list(filter="location eq '%s'" % location))
-            instance_types = [AzureInstanceTypeInfo.fromSKU(sku) for sku in skus if sku.resource_type == "virtualMachines"]
-            instance_types.sort(key=lambda x: (x.cpu, x.mem, x.gpu, x.res_disk_space))
-            return instance_types
+            inst_types = [AzureInstanceTypeInfo.fromSKU(sku) for sku in skus if sku.resource_type == "virtualMachines"]
+            inst_types.sort(key=lambda x: (x.cpu, x.mem, x.gpu, x.res_disk_space))
+            return inst_types
         except Exception:
             self.log_exception("Error getting instance type list.")
             return []
