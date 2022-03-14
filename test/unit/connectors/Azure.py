@@ -548,7 +548,9 @@ class TestAzureConnector(TestCloudConnectorBase):
         compute_client.return_value = cclient
         offer = MagicMock()
         offer.name = "offer1"
-        cclient.virtual_machine_images.list_offers.return_value = [offer]
+        offer2 = MagicMock()
+        offer2.name = "offer2"
+        cclient.virtual_machine_images.list_offers.return_value = [offer, offer2]
         sku = MagicMock()
         sku.name = "sku1"
         cclient.virtual_machine_images.list_skus.return_value = [sku]
@@ -558,11 +560,19 @@ class TestAzureConnector(TestCloudConnectorBase):
 
         images = azure_cloud.list_images(auth)
 
-        self.assertEqual(len(images), 8)
+        self.assertEqual(len(images), 16)
         self.assertEqual(images[0], {'uri': 'azr://Canonical/offer1/sku1/latest', 'name': 'Canonical offer1 sku1'})
 
         images = azure_cloud.list_images(auth, filters={"publisher": "*"})
+        self.assertEqual(images, [{'uri': 'azr://pub1/offer1/sku1/latest', 'name': 'pub1 offer1 sku1'},
+                                  {'uri': 'azr://pub1/offer2/sku1/latest', 'name': 'pub1 offer2 sku1'}])
+
+        images = azure_cloud.list_images(auth, filters={"publisher": "*", "offer": "offer1"})
         self.assertEqual(images, [{'uri': 'azr://pub1/offer1/sku1/latest', 'name': 'pub1 offer1 sku1'}])
+
+        images = azure_cloud.list_images(auth, filters={"publisher": "*", "offer": "*"})
+        self.assertEqual(images, [{'uri': 'azr://pub1/offer1/sku1/latest', 'name': 'pub1 offer1 sku1'},
+                                  {'uri': 'azr://pub1/offer2/sku1/latest', 'name': 'pub1 offer2 sku1'}])
 
     @patch('IM.connectors.Azure.ResourceManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
