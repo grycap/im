@@ -111,3 +111,5 @@ topology_template:
       value: { get_attribute: [ web_server, public_address ] }
     server_creds:
       value: { get_attribute: [ web_server, endpoint, credential, 0 ] }
+    server_creds_password:
+      value: { get_attribute: [ web_server, endpoint, credential, 0, token ] }

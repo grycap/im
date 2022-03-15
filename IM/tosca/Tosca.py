@@ -950,12 +950,31 @@ class Tosca:
 
         return None
 
+    def _get_ansible_output(self, cont_out, attribute_params):
+        """Get values from ansible output."""
+        return cont_out
+
+    def _get_object_values(self, value, attribute_params):
+        """Get values from dict."""
+        res = value
+        for param in attribute_params:
+            if param in res:
+                res = res[param]
+            else:
+                Tosca.logger.error("Invalid map index: %s in value: %s" % (param, value))
+                return None
+        return res
+
     def _get_attribute_result(self, func, node, inf_info):
         """Get an attribute value of an entity defined in the service template
 
         Node template attributes values are set in runtime and therefore its the
         responsibility of the Tosca engine to implement the evaluation of
         get_attribute functions.
+
+        Grammar:
+        get_attribute: [ <modelable_entity_name>, <optional_req_or_cap_name>, <attribute_name>,
+                         <nested_attribute_name_or_index_1>, ..., <nested_attribute_name_or_index_n> ]
 
         Arguments:
 
@@ -975,26 +994,12 @@ class Tosca:
         * { get_attribute: [ HOST, private_address, 0 ] }
         * { get_attribute: [ server, endpoint, credential, 0 ] }
         """
+        if len(func.args) < 2:
+            Tosca.logger.error("Calling get_attribute function. Min 2 parameters.")
+            return None
         node_name = func.args[0]
-        capability_name = None
-        attribute_name = func.args[1]
 
-        index = None
-        # Currently only support 2,3 or 4 parameters
-        if len(func.args) == 3:
-            try:
-                index = int(func.args[2])
-            except Exception:
-                capability_name = func.args[1]
-                attribute_name = func.args[2]
-        elif len(func.args) == 4:
-            capability_name = func.args[1]
-            attribute_name = func.args[2]
-            try:
-                index = int(func.args[3])
-            except Exception:
-                Tosca.logger.exception("Error getting get_attribute index.")
-
+        # Get node
         if node_name == "HOST":
             node = self._find_host_compute(node, self.tosca.nodetemplates)
         elif node_name == "SOURCE":
@@ -1013,12 +1018,38 @@ class Tosca:
             return None
 
         #  if capability_name refers a requirement, try to get the referred node
+        capability_name = func.args[1]
+        args_cont = 1
+        cap_or_req_names = list(node.get_capabilities().keys())
+        cap_or_req_names.extend([name for r in node.requirements for name, _ in r.items()])
+        if capability_name in cap_or_req_names:
+            args_cont += 1
+            if len(func.args) < 3:
+                Tosca.logger.error("Calling get_attribute function. Min 3 parameters with cap or req name.")
+                return None
+        else:
+            capability_name = None
+            Tosca.logger.debug("%s is not a cap or req on node %s. It must be an attribute." % (capability_name,
+                                                                                                node.name))
+
+        # Find capability in node template's requirements
         if capability_name:
-            # Find attribute in node template's requirements
             for r in node.requirements:
                 for req, name in r.items():
                     if req == capability_name:
                         node = func._find_node_template(name)
+
+        attribute_name = func.args[args_cont]
+        attribute_params = func.args[args_cont+1:]
+
+        # Index is the value of the first int parameter
+        index = None
+        if attribute_params:
+            try:
+                index = int(attribute_params[0])
+                attribute_params.pop(0)
+            except Exception:
+                Tosca.logger.debug("First parameter is not an index.")
 
         attribute_default = self._get_default_attribute(node, attribute_name, inf_info)
         if attribute_default:
@@ -1054,6 +1085,13 @@ class Tosca:
                     Tosca.logger.warn("Attribute ctxt_log only supported"
                                       " in tosca.nodes.indigo.Compute nodes.")
                     return None
+            elif attribute_name == "ansible_output":
+                if node.type == "tosca.nodes.indigo.Compute":
+                    return self._get_ansible_output(vm.cont_out, attribute_params)
+                else:
+                    Tosca.logger.warn("Attribute ansible_output only supported"
+                                      " in tosca.nodes.indigo.Compute nodes.")
+                    return None
             elif attribute_name == "credential" and capability_name == "endpoint":
                 if node.type == "tosca.nodes.indigo.Compute":
                     res = []
@@ -1066,7 +1104,7 @@ class Tosca:
                         if private_key:
                             val["token_type"] = "private_key"
                             val["token"] = private_key
-                        res.append(val)
+                        res.append(self._get_object_values(val, attribute_params))
                     if index is not None:
                         res = res[index]
                     return res
@@ -1127,7 +1165,10 @@ class Tosca:
                         # OSCAR function deployed in a deployed VM
                         oscar_pass = self._final_function_result(oscar_host.get_property_value('password'), oscar_host)
                         if oscar_pass and oscar_pass.strip("'\""):
-                            return {"user": "oscar", "token_type": "password", "token": oscar_pass}
+                            return self._get_object_values({"user": "oscar",
+                                                            "token_type": "password",
+                                                            "token": oscar_pass},
+                                                           attribute_params)
 
                         Tosca.logger.warn("No password defined in tosca.nodes.indigo.OSCAR host node")
                         return None
@@ -1136,9 +1177,15 @@ class Tosca:
                         if vm.getCloudConnector().auth:
                             auth = vm.getCloudConnector().auth
                             if 'username' in auth and 'password' in auth:
-                                return {"user": auth["username"], "token_type": "password", "token": auth["password"]}
+                                return self._get_object_values({"user": auth["username"],
+                                                                "token_type": "password",
+                                                                "token": auth["password"]},
+                                                               attribute_params)
                             elif 'token' in auth:
-                                return {"user": "", "token_type": "bearer", "token": auth["token"]}
+                                return self._get_object_values({"user": "",
+                                                                "token_type": "bearer",
+                                                                "token": auth["token"]},
+                                                               attribute_params)
                             else:
                                 Tosca.logger.warn("No valid auth data in OSCAR connector")
                                 return None

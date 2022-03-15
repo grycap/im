@@ -127,7 +127,8 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(outputs, {'server_url': ['158.42.1.1'],
                                    'server_creds': {'token_type': 'password',
                                                     'token': 'pass',
-                                                    'user': 'ubuntu'}})
+                                                    'user': 'ubuntu'},
+                                   'server_creds_password': 'pass'})
 
     def test_tosca_nets_to_radl(self):
         """Test TOSCA RADL translation with nets"""
