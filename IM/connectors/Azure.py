@@ -450,7 +450,6 @@ class AzureCloudConnector(CloudConnector):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
             network = radl.get_network_by_id(network_name)
-            provider_id = network.getValue("provider_id")
 
             if network.isPublic() and hasPrivateIP:
                 # Public nets are not added as nics
