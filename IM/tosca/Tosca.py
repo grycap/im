@@ -981,7 +981,7 @@ class Tosca:
                 output_search = re.search("\n[a-z]+: \[.*\] => \{", atask)
                 if output_search:
                     output_endpos = atask.find("}\n", output_search.end(0))
-                    output = atask[output_search.end(0)-1:output_endpos+1]
+                    output = atask[output_search.end(0) - 1:output_endpos + 1]
                     try:
                         json_out = json.loads(output)
                         if "var" in json_out:
@@ -1083,7 +1083,7 @@ class Tosca:
                         node = func._find_node_template(name)
 
         attribute_name = func.args[args_cont]
-        attribute_params = func.args[args_cont+1:]
+        attribute_params = func.args[args_cont + 1:]
 
         # Index is the value of the first int parameter
         index = None
