@@ -694,4 +694,6 @@ IM 1.11.0:
     * Error using ServicePrincipalCredentials in Azure conn.
     * Remove AzureClassic connector.
     * Improve Azure connector using one single RG.
+    * Improve TOSCA get_attribute function.
+    * Enable to get Ansible task output at TOSCA output value.
 
