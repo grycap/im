@@ -1583,7 +1583,9 @@ class EC2CloudConnector(CloudConnector):
             self.log_error("Error getting ec2instances info.")
         else:
             for instance_type in data:
-                price = float(instance_type['pricing'])
+                price = 200
+                if instance_type['pricing']:
+                    price = float(instance_type['pricing'])
                 disks = 0
                 disk_space = 0
                 if instance_type['storage']:
