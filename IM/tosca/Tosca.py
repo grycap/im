@@ -5,6 +5,7 @@ import copy
 import operator
 import requests
 import json
+import re
 from toscaparser.nodetemplate import NodeTemplate
 
 try:
@@ -951,8 +952,49 @@ class Tosca:
         return None
 
     def _get_ansible_output(self, cont_out, attribute_params):
-        """Get values from ansible output."""
-        return cont_out
+        """
+        Get values from ansible output.
+
+        Accepted parameters: ctxt_task_name, ansible_task_name
+        Each ansible task has the following attributes:
+        - state: str with the ansible state returned
+        - output: str only available in some tasks (as debug ones)
+        """
+        if not cont_out:
+            return None
+
+        ctxt_task = {}
+        for task in cont_out.split("Launch task: ")[1:]:
+            task_name = task[:task.find("\n")]
+            ctxt_task[task_name] = {'tasks': {}}
+            ansible_task_name = None
+
+            for num, atask in enumerate(task.split("\nTASK [")[1:]):
+                ansible_task_name = atask[:atask.find("] **")]
+                if ansible_task_name in ctxt_task[task_name]:
+                    ansible_task_name = "%s_%d" % (ansible_task_name, num)
+                ctxt_task[task_name]['tasks'][ansible_task_name] = {'state': None, 'output': None}
+
+                state_search = re.search("\n([a-z]+): \[.*\]", atask)
+                if state_search:
+                    ctxt_task[task_name]['tasks'][ansible_task_name]['state'] = state_search.group(1)
+                output_search = re.search("\n[a-z]+: \[.*\] => \{", atask)
+                if output_search:
+                    output_endpos = atask.find("}\n", output_search.end(0))
+                    output = atask[output_search.end(0)-1:output_endpos+1]
+                    try:
+                        json_out = json.loads(output)
+                        if "var" in json_out:
+                            json_out = json_out["var"]
+                        if len(json_out) == 1:
+                            output = json[list(json_out.keys())[0]]
+                        if "msg" in json_out:
+                            output = json_out["msg"]
+                        ctxt_task[task_name]['tasks'][ansible_task_name]['output'] = output
+                    except:
+                        ctxt_task[task_name]['tasks'][ansible_task_name]['output'] = output
+
+        return self._get_object_values(ctxt_task, attribute_params)
 
     def _get_object_values(self, value, attribute_params):
         """Get values from dict."""
