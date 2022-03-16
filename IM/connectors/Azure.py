@@ -649,39 +649,63 @@ class AzureCloudConnector(CloudConnector):
         location = self.DEFAULT_LOCATION
         if radl.systems[0].getValue('availability_zone'):
             location = radl.systems[0].getValue('availability_zone')
-        # check if the vnet exists
-        vnet = None
-        try:
-            vnet = network_client.virtual_networks.get(group_name, "privates")
-        except Exception:
-            pass
 
-        if not vnet:
-            vnet_cird = self.get_nets_common_cird(radl)
-            # Create VNet in the RG of the Inf
-            async_vnet_creation = network_client.virtual_networks.begin_create_or_update(
-                group_name,
-                "privates",
-                {
-                    'location': location,
-                    'address_space': {
-                        'address_prefixes': [vnet_cird]
+        subnets = {}
+        used_cidrs = []
+        for net in radl.networks:
+            if net.isPublic():
+                continue
+            subnet_name = net.id
+            net_cidr = self.get_free_cidr(net.getValue('cidr'), used_cidrs, inf)
+            used_cidrs.append(net_cidr)
+
+            vnet_name = "privates"
+            if net.getValue("provider_id"):
+                parts = net.getValue("provider_id").split(".")
+                if len(parts) != 2:
+                    raise Exception("Invalid provider_id format: net_name.subnet_name")
+                vnet_name = parts[0]
+                subnet_name = parts[1]
+
+            # check if the vnet exists
+            vnet = None
+            try:
+                vnet = network_client.virtual_networks.get(group_name, vnet_name)
+            except ResourceNotFoundError:
+                pass
+
+            if not vnet:
+                self.log_debug("Creating virtual network %s." % vnet_name)
+                vnet_cird = self.get_nets_common_cird(radl)
+                # Create VNet in the RG of the Inf
+                async_vnet_creation = network_client.virtual_networks.begin_create_or_update(
+                    group_name,
+                    vnet_name,
+                    {
+                        'location': location,
+                        'address_space': {
+                            'address_prefixes': [vnet_cird]
+                        }
                     }
-                }
-            )
-            async_vnet_creation.wait()
+                )
+                async_vnet_creation.wait()
 
-            subnets = {}
-            used_cidrs = []
-            for net in radl.networks:
-                subnet_name = net.id
-                net_cidr = self.get_free_cidr(net.getValue('cidr'), used_cidrs, inf)
-                used_cidrs.append(net_cidr)
+            # check if the subnet exists
+            subnet = None
+            try:
+                subnet = network_client.subnets.get(group_name, vnet_name, subnet_name)
+                subnets[net.id] = subnet
+                net.setValue('cidr', subnet.address_prefix)
+                inf.radl.get_network_by_id(net.id).setValue('cidr', subnet.address_prefix)
+            except ResourceNotFoundError:
+                pass
 
+            if not subnet:
+                self.log_debug("Creating subnet %s." % subnet_name)
                 # Create Subnet in the RG of the Inf
                 async_subnet_creation = network_client.subnets.begin_create_or_update(
                     group_name,
-                    "privates",
+                    vnet_name,
                     subnet_name,
                     {'address_prefix': net_cidr}
                 )
@@ -689,10 +713,6 @@ class AzureCloudConnector(CloudConnector):
                 net.setValue('cidr', net_cidr)
                 # Set also the cidr in the inf RADL
                 inf.radl.get_network_by_id(net.id).setValue('cidr', net_cidr)
-        else:
-            subnets = {}
-            for i, net in enumerate(radl.networks):
-                subnets[net.id] = network_client.subnets.get(group_name, "privates", net.id)
 
         return subnets
 

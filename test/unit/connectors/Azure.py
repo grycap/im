@@ -28,6 +28,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Azure import AzureCloudConnector
+from azure.core.exceptions import ResourceNotFoundError
 from mock import patch, MagicMock, call
 
 
@@ -159,13 +160,14 @@ class TestAzureConnector(TestCloudConnectorBase):
         rclient = MagicMock()
         resource_client.return_value = rclient
 
-        nclient.virtual_networks.get.side_effect = Exception()
+        nclient.virtual_networks.get.side_effect = ResourceNotFoundError()
 
         subnet_create = MagicMock()
         subnet_create_res = MagicMock()
         subnet_create_res.id = "subnet-0"
         subnet_create.result.return_value = subnet_create_res
         nclient.subnets.begin_create_or_update.return_value = subnet_create
+        nclient.subnets.get.side_effect = ResourceNotFoundError()
 
         nic_create = MagicMock()
         nic_create_res = MagicMock()
@@ -229,8 +231,6 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
         self.assertEquals(nclient.subnets.begin_create_or_update.call_args_list[0][0][3],
                           {'address_prefix': '10.0.1.0/24'})
-        self.assertEquals(nclient.subnets.begin_create_or_update.call_args_list[1][0][3],
-                          {'address_prefix': '10.0.2.0/24'})
 
         radl_data = """
             network net1 (outbound = 'yes')
@@ -275,8 +275,39 @@ class TestAzureConnector(TestCloudConnectorBase):
         res = azure_cloud.launch(inf, radl, radl, 1, auth)
         json_vm_req = cclient.virtual_machines.begin_create_or_update.call_args_list[5][0][2]
         self.assertEquals(json_vm_req['storage_profile']['os_disk']['os_type'], 'linux')
-        self.assertEquals(nclient.subnets.begin_create_or_update.call_args_list[5][0][3],
+        self.assertEquals(nclient.subnets.begin_create_or_update.call_args_list[2][0][3],
                           {'address_prefix': '192.168.1.0/24'})
+
+        radl_data = """
+            network net1 (outbound = 'yes')
+            network net2 (provider_id = 'vnet.subnet1')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            instance_tags = 'key=value,key1=value2' and
+            net_interface.0.connection = 'net1' and
+            net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'azr://snapshot/rgname/diskname' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        vnet = MagicMock()
+        vnet.id = "vnetid"
+        nclient.virtual_networks.get.side_effect = None
+        nclient.virtual_networks.get.return_value = vnet
+        nclient.subnets.get.side_effect = None
+        subnet_create.address_prefix = "10.0.1.0/24"
+        nclient.subnets.get.return_value = subnet_create
+        res = azure_cloud.launch(inf, radl, radl, 1, auth)
+        self.assertEquals(nclient.subnets.get.call_args_list[3][0][1], 'vnet')
+        self.assertEquals(nclient.subnets.get.call_args_list[3][0][2], 'subnet1')
+        self.assertEquals(nclient.subnets.begin_create_or_update.call_count, 3)
+        self.assertEquals(nclient.virtual_networks.begin_create_or_update.call_count, 3)
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
