@@ -991,12 +991,13 @@ class Tosca:
                         if "msg" in json_out:
                             output = json_out["msg"]
                         ctxt_task[task_name]['tasks'][ansible_task_name]['output'] = output
-                    except:
+                    except Exception:
                         ctxt_task[task_name]['tasks'][ansible_task_name]['output'] = output
 
         return self._get_object_values(ctxt_task, attribute_params)
 
-    def _get_object_values(self, value, attribute_params):
+    @staticmethod
+    def _get_object_values(value, attribute_params):
         """Get values from dict."""
         res = value
         for param in attribute_params:
