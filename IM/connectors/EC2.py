@@ -1557,6 +1557,8 @@ class EC2CloudConnector(CloudConnector):
         """
         # Get info from http://www.ec2instances.info/
         # https://raw.githubusercontent.com/powdahound/ec2instances.info/master/www/instances.json
+        # It has been removed!!
+        # Copied in the IM Repo!.
 
         if EC2CloudConnector.instance_type_list:
             return EC2CloudConnector.instance_type_list
@@ -1566,7 +1568,7 @@ class EC2CloudConnector(CloudConnector):
         while cont < retries and not data:
             cont += 1
             try:
-                info_url = "https://raw.githubusercontent.com/powdahound/ec2instances.info/master/www/instances.json"
+                info_url = "https://raw.githubusercontent.com/grycap/im/devel/scripts/instances.json"
                 resp = requests.get(info_url)
                 if resp.status_code == 200:
                     data = resp.json()

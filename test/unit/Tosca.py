@@ -122,12 +122,15 @@ class TestTosca(unittest.TestCase):
         inf = InfrastructureInfo()
         vm = VirtualMachine(inf, "1", None, radl1, radl1, None)
         vm.requested_radl = radl1
+        vm.cont_out = read_file_as_string('../files/vm_cont_out.txt')
         inf.vm_list = [vm]
         outputs = tosca.get_outputs(inf)
         self.assertEqual(outputs, {'server_url': ['158.42.1.1'],
                                    'server_creds': {'token_type': 'password',
                                                     'token': 'pass',
-                                                    'user': 'ubuntu'}})
+                                                    'user': 'ubuntu'},
+                                   'server_creds_password': 'pass',
+                                   'ansible_output': 'Install user requested apps'})
 
     def test_tosca_nets_to_radl(self):
         """Test TOSCA RADL translation with nets"""
