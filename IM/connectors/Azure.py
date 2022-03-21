@@ -1116,7 +1116,7 @@ class AzureCloudConnector(CloudConnector):
         try:
             rg = resource_client.resource_groups.get(group_name)
             rg_delete = False
-            if 'InfID' in rg.tags and rg.tags['InfID'] == inf.id:
+            if rg.tags and 'InfID' in rg.tags and rg.tags['InfID'] == inf.id:
                 rg_delete = True
             else:
                 self.log_warn("RG %s was not created by the IM. Only delete resources." % group_name)
