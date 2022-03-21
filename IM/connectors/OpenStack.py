@@ -1539,7 +1539,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         try:
                             driver.ex_create_security_group_rule(sg, outport.get_protocol(),
                                                                  outport.get_port_init(),
-                                                                 outport.get_port_end(), '0.0.0.0/0')
+                                                                 outport.get_port_end(),
+                                                                 outport.get_remote_cidr())
                         except Exception as ex:
                             self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
                     else:
@@ -1547,7 +1548,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             try:
                                 driver.ex_create_security_group_rule(sg, outport.get_protocol(),
                                                                      outport.get_remote_port(),
-                                                                     outport.get_remote_port(), '0.0.0.0/0')
+                                                                     outport.get_remote_port(),
+                                                                     outport.get_remote_cidr())
                             except Exception as ex:
                                 self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
                                 self.error_messages += ("Exception adding port %s to SG rules.\n" %
