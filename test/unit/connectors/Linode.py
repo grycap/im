@@ -210,12 +210,12 @@ class TestLinodeConnector(TestCloudConnectorBase):
         self.assertEqual(driver.create_volume.call_args_list[0][0][1], 10)
         self.assertEqual(driver.create_volume.call_args_list[0][1]['node'], node)
 
-        self.assertEquals(dns_driver.create_zone.call_count, 1)
-        self.assertEquals(dns_driver.create_record.call_count, 1)
-        self.assertEquals(dns_driver.create_zone.call_args_list[0][0][0], 'domain.com')
-        self.assertEquals(dns_driver.create_record.call_args_list[0][0][0], 'test')
-        self.assertEquals(dns_driver.create_record.call_args_list[0][0][2], 'A')
-        self.assertEquals(dns_driver.create_record.call_args_list[0][0][3], '8.8.8.8')
+        self.assertEqual(dns_driver.create_zone.call_count, 1)
+        self.assertEqual(dns_driver.create_record.call_count, 1)
+        self.assertEqual(dns_driver.create_zone.call_args_list[0][0][0], 'domain.com')
+        self.assertEqual(dns_driver.create_record.call_args_list[0][0][0], 'test')
+        self.assertEqual(dns_driver.create_record.call_args_list[0][0][2], 'A')
+        self.assertEqual(dns_driver.create_record.call_args_list[0][0][3], '8.8.8.8')
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
