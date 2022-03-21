@@ -293,12 +293,12 @@ class TestOrangeConnector(TestCloudConnectorBase):
         success, vm = ora_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
-        self.assertEquals(driver.ex_update_subnet.call_args_list[0][0][0].id, "subnet1")
-        self.assertEquals(driver.ex_update_subnet.call_args_list[0][1],
-                          {'host_routes': [{'nexthop': '10.0.0.1', 'destination': '10.0.0.0/16'}]})
-        self.assertEquals(vm.info.systems[0].getValue("disk.1.device"), "vdb")
-        self.assertEquals(vm.info.systems[0].getValue("disk.1.image.url"), "ora://na-east-0/vol1")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEqual(driver.ex_update_subnet.call_args_list[0][0][0].id, "subnet1")
+        self.assertEqual(driver.ex_update_subnet.call_args_list[0][1],
+                         {'host_routes': [{'nexthop': '10.0.0.1', 'destination': '10.0.0.0/16'}]})
+        self.assertEqual(vm.info.systems[0].getValue("disk.1.device"), "vdb")
+        self.assertEqual(vm.info.systems[0].getValue("disk.1.image.url"), "ora://na-east-0/vol1")
 
         # In this case the Node has the float ip assigned
         # node.public_ips = ['8.8.8.8']
@@ -309,14 +309,14 @@ class TestOrangeConnector(TestCloudConnectorBase):
         success, vm = ora_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
 
         # In this case the Node addresses are not available and it uses the old method
         node.extra = {'flavorId': 'small'}
         success, vm = ora_cloud.updateVMInfo(vm, auth)
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
 
@@ -332,8 +332,8 @@ class TestOrangeConnector(TestCloudConnectorBase):
 
         success, vm = ora_cloud.updateVMInfo(vm, auth)
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ipv6"), "2001:630:12:581:f816:3eff:fe92:2146")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ipv6"), "2001:630:12:581:f816:3eff:fe92:2146")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
