@@ -29,7 +29,7 @@ IM Service Installation
 Prerequisites
 -------------
 
-IM needs at least Python 2.7 (Python 3.5 or higher recommended) to run, as well as the next libraries:
+IM needs at least Python 2.7 (Python 3.6 or higher recommended) to run, as well as the next libraries:
 
 * `The RADL parser <https://github.com/grycap/radl>`_.
   (Since IM version 1.5.3, it requires RADL version 1.1.0 or later).
