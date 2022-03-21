@@ -296,14 +296,14 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
 
-        self.assertEquals(dns_driver.create_zone.call_count, 1)
-        self.assertEquals(dns_driver.create_record.call_count, 1)
-        self.assertEquals(dns_driver.create_zone.call_args_list[0], call('domain.com.'))
-        self.assertEquals(dns_driver.create_record.call_args_list[0][0][0], 'test.domain.com.')
-        self.assertEquals(dns_driver.create_record.call_args_list[0][0][2], 'A')
-        self.assertEquals(dns_driver.create_record.call_args_list[0][0][3], {'rrdatas': ['158.42.1.1'], 'ttl': 300})
-        self.assertEquals(vm.info.systems[0].getValue('gpu.count'), 1)
-        self.assertEquals(vm.info.systems[0].getValue('gpu.model'), 'nvidia-tesla-v100')
+        self.assertEqual(dns_driver.create_zone.call_count, 1)
+        self.assertEqual(dns_driver.create_record.call_count, 1)
+        self.assertEqual(dns_driver.create_zone.call_args_list[0], call('domain.com.'))
+        self.assertEqual(dns_driver.create_record.call_args_list[0][0][0], 'test.domain.com.')
+        self.assertEqual(dns_driver.create_record.call_args_list[0][0][2], 'A')
+        self.assertEqual(dns_driver.create_record.call_args_list[0][0][3], {'rrdatas': ['158.42.1.1'], 'ttl': 300})
+        self.assertEqual(vm.info.systems[0].getValue('gpu.count'), 1)
+        self.assertEqual(vm.info.systems[0].getValue('gpu.model'), 'nvidia-tesla-v100')
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
@@ -327,7 +327,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.assertEquals(driver.ex_stop_node.call_args_list, [call(node)])
+        self.assertEqual(driver.ex_stop_node.call_args_list, [call(node)])
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
     def test_50_start(self, get_driver):
@@ -349,7 +349,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.assertEquals(driver.ex_start_node.call_args_list, [call(node)])
+        self.assertEqual(driver.ex_start_node.call_args_list, [call(node)])
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
     def test_52_reboot(self, get_driver):
@@ -371,7 +371,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: stopping VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.assertEquals(driver.reboot_node.call_args_list, [call(node)])
+        self.assertEqual(driver.reboot_node.call_args_list, [call(node)])
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
     @patch('libcloud.dns.drivers.google.GoogleDNSDriver')
@@ -439,12 +439,12 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.assertEquals(dns_driver.delete_record.call_count, 1)
-        self.assertEquals(dns_driver.delete_record.call_args_list[0][0][0].name, 'test.domain.com.')
-        self.assertEquals(node.destroy.call_args_list, [call()])
-        self.assertEquals(net.destroy.call_args_list, [call()])
-        self.assertEquals(fw.destroy.call_args_list, [call()])
-        self.assertEquals(route.destroy.call_args_list, [call()])
+        self.assertEqual(dns_driver.delete_record.call_count, 1)
+        self.assertEqual(dns_driver.delete_record.call_args_list[0][0][0].name, 'test.domain.com.')
+        self.assertEqual(node.destroy.call_args_list, [call()])
+        self.assertEqual(net.destroy.call_args_list, [call()])
+        self.assertEqual(fw.destroy.call_args_list, [call()])
+        self.assertEqual(route.destroy.call_args_list, [call()])
 
     def test_70_get_custom_instance(self):
         radl_data = """
@@ -462,8 +462,8 @@ class TestGCEConnector(TestCloudConnectorBase):
         driver = MagicMock()
         driver.list_sizes.return_value = [size]
         instance = gce_cloud.get_instance_type(driver, radl.systems[0])
-        self.assertEquals(instance.name, "custom-2-2048")
-        self.assertEquals(instance.extra['selfLink'], "/some/path/custom-2-2048")
+        self.assertEqual(instance.name, "custom-2-2048")
+        self.assertEqual(instance.extra['selfLink'], "/some/path/custom-2-2048")
 
         size2 = MagicMock()
         size2.extra = {"selfLink": "/some/path/sizenamne", "guestCpus": 2}
@@ -471,7 +471,7 @@ class TestGCEConnector(TestCloudConnectorBase):
         size2.name = "sizenamne"
         driver.list_sizes.return_value = [size, size2]
         instance = gce_cloud.get_instance_type(driver, radl.systems[0])
-        self.assertEquals(instance.name, "sizenamne")
+        self.assertEqual(instance.name, "sizenamne")
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
     def test_get_cloud_info(self, get_driver):
