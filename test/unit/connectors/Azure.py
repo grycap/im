@@ -217,20 +217,20 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertTrue(res[0][0])
         self.assertTrue(res[1][0])
         self.assertTrue(res[2][0])
-        self.assertEquals(nclient.network_interfaces.begin_delete.call_count, 1)
+        self.assertEqual(nclient.network_interfaces.begin_delete.call_count, 1)
         self.assertIn("nic_name", nclient.network_interfaces.begin_delete.call_args_list[0][0][1])
 
         json_vm_req = cclient.virtual_machines.begin_create_or_update.call_args_list[0][0][2]
-        self.assertEquals(json_vm_req['storage_profile']['data_disks'][0]['disk_size_gb'], 1)
-        self.assertEquals(json_vm_req['storage_profile']['data_disks'][1]['managed_disk']['id'], "did")
+        self.assertEqual(json_vm_req['storage_profile']['data_disks'][0]['disk_size_gb'], 1)
+        self.assertEqual(json_vm_req['storage_profile']['data_disks'][1]['managed_disk']['id'], "did")
         image_res = {'sku': '16.04.0-LTS', 'publisher': 'Canonical', 'version': 'latest', 'offer': 'UbuntuServer'}
-        self.assertEquals(json_vm_req['storage_profile']['image_reference'], image_res)
-        self.assertEquals(json_vm_req['hardware_profile']['vm_size'], 'Standard_A1')
-        self.assertEquals(json_vm_req['os_profile']['admin_username'], 'user')
-        self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
-        self.assertEquals(json_vm_req['os_profile']['admin_password'], 'pass')
-        self.assertEquals(nclient.subnets.begin_create_or_update.call_args_list[0][0][3]['address_prefix'],
-                          '10.0.1.0/24')
+        self.assertEqual(json_vm_req['storage_profile']['image_reference'], image_res)
+        self.assertEqual(json_vm_req['hardware_profile']['vm_size'], 'Standard_A1')
+        self.assertEqual(json_vm_req['os_profile']['admin_username'], 'user')
+        self.assertEqual(json_vm_req['os_profile']['admin_password'], 'pass')
+        self.assertEqual(json_vm_req['os_profile']['admin_password'], 'pass')
+        self.assertEqual(nclient.subnets.begin_create_or_update.call_args_list[0][0][3]['address_prefix'],
+                         '10.0.1.0/24')
 
         radl_data = """
             network net1 (outbound = 'yes')
@@ -252,7 +252,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         radl.check()
         with self.assertRaises(Exception) as ex:
             azure_cloud.launch(inf, radl, radl, 1, auth)
-        self.assertEquals(str(ex.exception), "Incorrect image url: it must be snapshot or disk.")
+        self.assertEqual(str(ex.exception), "Incorrect image url: it must be snapshot or disk.")
 
         radl_data = """
             network net1 (outbound = 'yes')
@@ -274,9 +274,9 @@ class TestAzureConnector(TestCloudConnectorBase):
         radl.check()
         res = azure_cloud.launch(inf, radl, radl, 1, auth)
         json_vm_req = cclient.virtual_machines.begin_create_or_update.call_args_list[5][0][2]
-        self.assertEquals(json_vm_req['storage_profile']['os_disk']['os_type'], 'linux')
-        self.assertEquals(nclient.subnets.begin_create_or_update.call_args_list[2][0][3]['address_prefix'],
-                          '192.168.1.0/24')
+        self.assertEqual(json_vm_req['storage_profile']['os_disk']['os_type'], 'linux')
+        self.assertEqual(nclient.subnets.begin_create_or_update.call_args_list[2][0][3]['address_prefix'],
+                         '192.168.1.0/24')
 
         radl_data = """
             network net1 (outbound = 'yes')
@@ -304,10 +304,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         subnet_create.address_prefix = "10.0.1.0/24"
         nclient.subnets.get.return_value = subnet_create
         res = azure_cloud.launch(inf, radl, radl, 1, auth)
-        self.assertEquals(nclient.subnets.get.call_args_list[3][0][1], 'vnet')
-        self.assertEquals(nclient.subnets.get.call_args_list[3][0][2], 'subnet1')
-        self.assertEquals(nclient.subnets.begin_create_or_update.call_count, 3)
-        self.assertEquals(nclient.virtual_networks.begin_create_or_update.call_count, 3)
+        self.assertEqual(nclient.subnets.get.call_args_list[3][0][1], 'vnet')
+        self.assertEqual(nclient.subnets.get.call_args_list[3][0][2], 'subnet1')
+        self.assertEqual(nclient.subnets.begin_create_or_update.call_count, 3)
+        self.assertEqual(nclient.virtual_networks.begin_create_or_update.call_count, 3)
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
@@ -393,11 +393,11 @@ class TestAzureConnector(TestCloudConnectorBase):
         success, vm = azure_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEquals(dclient.zones.create_or_update.call_args_list,
-                          [call('rg0', 'domain.com', {'location': 'global'})])
-        self.assertEquals(dclient.record_sets.create_or_update.call_args_list,
-                          [call('rg0', 'domain.com', 'test', 'A',
-                                {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300})])
+        self.assertEqual(dclient.zones.create_or_update.call_args_list,
+                         [call('rg0', 'domain.com', {'location': 'global'})])
+        self.assertEqual(dclient.record_sets.create_or_update.call_args_list,
+                         [call('rg0', 'domain.com', 'test', 'A',
+                               {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300})])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ComputeManagementClient')
@@ -564,7 +564,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        self.assertEquals(cclient.virtual_machines.begin_delete.call_count, 2)
+        self.assertEqual(cclient.virtual_machines.begin_delete.call_count, 2)
         self.assertEqual(cclient.virtual_machines.begin_delete.call_args_list[0][0], ('rg0', 'vm0'))
         self.assertEqual(rclient.resource_groups.begin_delete.call_count, 1)
         self.assertEqual(rclient.resource_groups.begin_delete.call_args_list[0][0], ('rg0',))
