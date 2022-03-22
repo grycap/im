@@ -355,6 +355,7 @@ class GCECloudConnector(LibCloudCloudConnector):
             allowed = [{'IPProtocol': 'udp', 'ports': '1-65535'},
                        {'IPProtocol': 'tcp', 'ports': '1-65535'},
                        {'IPProtocol': 'icmp'}]
+            source_ranges = []
 
             try:
                 driver.ex_create_firewall(firewall_name, allowed, network=net_name, source_tags=['imid-%s' % inf.id])
@@ -371,23 +372,27 @@ class GCECloudConnector(LibCloudCloudConnector):
                 else:
                     firewall_name = "im-%s-%s" % (inf.id, net_name)
 
-                outports = public_net.getOutPorts()
-                if outports:
-                    for outport in outports:
-                        if outport.get_protocol() not in ports:
-                            ports[outport.get_protocol()] = []
-                        if outport.is_range():
-                            port_range = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
-                            ports[outport.get_protocol()].append(port_range)
-                        elif outport.get_local_port() != 22:
-                            ports[outport.get_protocol()].append(str(outport.get_remote_port()))
+                outports = public_net.getOutPorts() or []
+                for outport in outports:
+                    if outport.get_remote_cidr() != "0.0.0.0/0":
+                        source_ranges.append(outport.get_remote_cidr())
+                    if outport.get_protocol() not in ports:
+                        ports[outport.get_protocol()] = []
+                    if outport.is_range():
+                        port_range = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
+                        ports[outport.get_protocol()].append(port_range)
+                    elif outport.get_local_port() != 22:
+                        ports[outport.get_protocol()].append(str(outport.get_remote_port()))
 
                 allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
                 if 'udp' in ports:
                     allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
 
+                if not source_ranges:
+                    source_ranges = ['0.0.0.0/0']
+
                 try:
-                    driver.ex_create_firewall(firewall_name, allowed, network=net_name)
+                    driver.ex_create_firewall(firewall_name, allowed, network=net_name, source_ranges=source_ranges)
                     self.log_info("Firewall %s successfully created." % firewall_name)
                 except ResourceExistsError:
                     self.log_debug("FW already exists. Ignore.")

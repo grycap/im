@@ -140,7 +140,7 @@ class TestTosca(unittest.TestCase):
         radl = parse_radl(str(radl))
         net = radl.get_network_by_id('pub_network')
         net1 = radl.get_network_by_id('network1')
-        self.assertEqual('1194/udp-1194/udp', net.getValue("outports"))
+        self.assertEqual('10.0.1.0/24-1194/udp-1194/udp', net.getValue("outports"))
         self.assertEqual('192.168.0.0/16,vr1_compute', net1.getValue("router"))
         self.assertEqual('yes', net1.getValue("create"))
         self.assertEqual('192.168.10.0/24', net1.getValue("cidr"))

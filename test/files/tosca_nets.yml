@@ -122,6 +122,7 @@ topology_template:
               openvpn:
                 protocol: udp
                 source: 1194
+                remote_cidr: 10.0.1.0/24
         host:
           properties:
             num_cpus: { get_input: fe_cpus }
