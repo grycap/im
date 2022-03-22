@@ -98,25 +98,25 @@ should be like that::
     
     node_templates:
     
-        simple_node:
+      simple_node:
         type: tosca.nodes.indigo.Compute
         capabilities:
             endpoint:
-            properties:
+              properties:
                 network_name: PUBLIC
             host:
-            properties:
+              properties:
                 num_cpus: 2
                 mem_size: 2 GB
             os:
-            properties:
+              properties:
                 image: one://someserver.com/123
 
     outputs:
         node_ip:
-        value: { get_attribute: [ simple_node, public_address, 0 ] }
+          value: { get_attribute: [ simple_node, public_address, 0 ] }
         node_creds:
-        value: { get_attribute: [ simple_node, endpoint, credential, 0 ] }
+          value: { get_attribute: [ simple_node, endpoint, credential, 0 ] }
 
 For more information about TOSCA see the 
 `OASIS TOSCA Simple Profile in YAML Version 1.0 <http://docs.oasis-open.org/tosca/TOSCA-Simple-Profile-YAML/v1.0/TOSCA-Simple-Profile-YAML-v1.0.html>`_.
