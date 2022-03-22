@@ -1523,35 +1523,37 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 res.append(sg)
 
             try:
-                # open always SSH port on public nets or private with proxy host
-                if network.isPublic() or network.getValue("proxy_host"):
-                    driver.ex_create_security_group_rule(sg, 'tcp', 22, 22, '0.0.0.0/0')
                 # open all the ports for the VMs in the security group
                 driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
                 driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
             except Exception as addex:
                 self.log_warn("Exception adding SG rules. Probably the rules exists: %s" % get_ex_error(addex))
 
-            outports = network.getOutPorts()
-            if outports:
-                for outport in outports:
-                    if outport.is_range():
+            outports = network.getOutPorts() or []
+            # open always SSH port on public nets or private with proxy host
+            if network.isPublic() or network.getValue("proxy_host"):
+                outports = self.add_ssh_port(outports)
+
+            for outport in outports:
+                if outport.is_range():
+                    try:
+                        driver.ex_create_security_group_rule(sg, outport.get_protocol(),
+                                                             outport.get_port_init(),
+                                                             outport.get_port_end(),
+                                                             outport.get_remote_cidr())
+                    except Exception as ex:
+                        self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
+                else:
+                    if outport.get_remote_port() != 22 or not network.isPublic():
                         try:
                             driver.ex_create_security_group_rule(sg, outport.get_protocol(),
-                                                                 outport.get_port_init(),
-                                                                 outport.get_port_end(), '0.0.0.0/0')
+                                                                 outport.get_remote_port(),
+                                                                 outport.get_remote_port(),
+                                                                 outport.get_remote_cidr())
                         except Exception as ex:
                             self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
-                    else:
-                        if outport.get_remote_port() != 22 or not network.isPublic():
-                            try:
-                                driver.ex_create_security_group_rule(sg, outport.get_protocol(),
-                                                                     outport.get_remote_port(),
-                                                                     outport.get_remote_port(), '0.0.0.0/0')
-                            except Exception as ex:
-                                self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
-                                self.error_messages += ("Exception adding port %s to SG rules.\n" %
-                                                        outport.get_remote_port())
+                            self.error_messages += ("Exception adding port %s to SG rules.\n" %
+                                                    outport.get_remote_port())
 
         return res
 

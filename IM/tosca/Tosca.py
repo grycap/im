@@ -347,8 +347,11 @@ class Tosca:
         for port in ports_dict.values():
             protocol = "tcp"
             source_range = None
+            remote_cidr = None
             if "protocol" in port:
                 protocol = port["protocol"]
+            if "remote_cidr" in port:
+                remote_cidr = port["remote_cidr"]
             if "source_range" in port:
                 source_range = port["source_range"]
             else:
@@ -370,6 +373,9 @@ class Tosca:
                 if res:
                     res += ","
                 res += "%s/%s-%s/%s" % (remote_port, protocol, local_port, protocol)
+
+            if remote_cidr:
+                res = "%s-%s" % (remote_cidr, res)
 
         return res
 
@@ -455,6 +461,10 @@ class Tosca:
                 if "protocol" in cap_props:
                     protocol = self._final_function_result(cap_props["protocol"].value, node)
                 ports["im-%s-%s" % (protocol, port)] = {"protocol": protocol, "source": port}
+                if "remote_cidr" in cap_props:
+                    remote_cidr = self._final_function_result(cap_props["remote_cidr"].value, node)
+                    if remote_cidr:
+                        ports["im-%s-%s" % (protocol, port)]['remote_cidr'] = remote_cidr
             if cap_props and "additional_ip" in cap_props:
                 additional_ip = self._final_function_result(cap_props["additional_ip"].value, node)
 

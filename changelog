@@ -696,4 +696,4 @@ IM 1.11.0:
     * Improve Azure connector using one single RG.
     * Improve TOSCA get_attribute function.
     * Enable to get Ansible task output at TOSCA output value.
-
+    * Support for specifying the remote cidr in the public security group.

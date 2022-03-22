@@ -356,7 +356,7 @@ class AzureCloudConnector(CloudConnector):
             i += 1
             network = radl.get_network_by_id(network_name)
             if network.isPublic():
-                outports = network.getOutPorts() or []
+                outports = self.add_ssh_port(network.getOutPorts())
                 nsg_name = network.getValue("sg_name")
                 if not nsg_name:
                     nsg_name = "nsg-%s" % network_name
@@ -368,23 +368,13 @@ class AzureCloudConnector(CloudConnector):
         """
         Create a Network Security Group
         """
-        # Always add SSH port
-        security_rules = [{'name': 'sr-Tcp-22-22',
-                           'access': 'Allow',
-                           'protocol': 'Tcp',
-                           'destination_address_prefix': '*',
-                           'source_address_prefix': '*',
-                           'direction': 'Inbound',
-                           'destination_port_range': '22',
-                           'source_port_range': '*',
-                           'priority': 100
-                           }]
+        security_rules = []
         cont = 200
         for outport in outports:
             sr = {'access': 'Allow',
                   'protocol': outport.get_protocol(),
                   'destination_address_prefix': '*',
-                  'source_address_prefix': '*',
+                  'source_address_prefix': outport.get_remote_cidr(),
                   'direction': 'Inbound',
                   'source_port_range': '*',
                   'priority': cont
