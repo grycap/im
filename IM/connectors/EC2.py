@@ -394,30 +394,30 @@ class EC2CloudConnector(CloudConnector):
                 res.append(sg.id)
 
                 try:
-                    # open always SSH port
-                    sg.authorize('tcp', 22, 22, '0.0.0.0/0')
                     # open all the ports for the VMs in the security group
                     sg.authorize('tcp', 0, 65535, src_group=sg)
                     sg.authorize('udp', 0, 65535, src_group=sg)
                 except Exception as addex:
                     self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
 
-                outports = network.getOutPorts()
-                if outports:
-                    for outport in outports:
-                        if outport.is_range():
-                            try:
-                                sg.authorize(outport.get_protocol(), outport.get_port_init(),
-                                             outport.get_port_end(), '0.0.0.0/0')
-                            except Exception as addex:
-                                self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
-                        else:
-                            if outport.get_remote_port() != 22 or not network.isPublic():
-                                try:
-                                    sg.authorize(outport.get_protocol(), outport.get_remote_port(),
-                                                 outport.get_remote_port(), '0.0.0.0/0')
-                                except Exception as addex:
-                                    self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+                outports = network.getOutPorts() or []
+                # open always SSH port on public nets or private with proxy host
+                if network.isPublic() or network.getValue("proxy_host"):
+                    outports = self.add_ssh_port(outports)
+
+                for outport in outports:
+                    if outport.is_range():
+                        try:
+                            sg.authorize(outport.get_protocol(), outport.get_port_init(),
+                                         outport.get_port_end(), outport.get_remote_cidr())
+                        except Exception as addex:
+                            self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+                    else:
+                        try:
+                            sg.authorize(outport.get_protocol(), outport.get_remote_port(),
+                                         outport.get_remote_port(), outport.get_remote_cidr())
+                        except Exception as addex:
+                            self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
 
                 i += 1
         except Exception as ex:

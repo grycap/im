@@ -170,17 +170,20 @@ The supported features are:
    Indicate the ports to be open in the VM at the Cloud provider system.
    Valid formats:
 
+   * 0.0.0.0/24-8899/tcp-8899/tcp,22/tcp-22/tcp
 	* 8899/tcp-8899/tcp,22/tcp-22/tcp
 	* 8899/tcp-8899,22/tcp-22
 	* 8899-8899,22-22
 	* 8899/tcp,22/udp
 	* 8899,22
+   * 0.0.0.0/24-8899,0.0.0.0/24-22
 	* 9000:9100/tcp
 	* 9000:9100
 
    The usage of ``-`` means port mapping the first port (remote) will be opened and
    redirected the the second port (local). 
-   The usage of ``:`` means port range.  
+   The usage of ``:`` means port range.
+   It can also be specified the remote CIDR allowed to access the specified port.
    The default value is ``''``.
    
 ``provider_id = <string>``
