@@ -24,7 +24,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
-from radl.radl import Feature
+from radl.radl import Feature, outport
 from IM.config import Config
 from IM.LoggerMixin import LoggerMixin
 from netaddr import IPNetwork, spanning_cidr
@@ -661,3 +661,14 @@ class CloudConnector(LoggerMixin):
         else:
             self.log_debug("No memory nor cpu nor instance_type nor gpu specified. VM not resized.")
             return None
+
+    @staticmethod
+    def add_ssh_port(outports):
+        # always open SSH port
+        if not outports:
+            outports = [outport(22, 22, 'tcp')]
+        else:
+            ports_list = [op.get_remote_port() for op in outports if op.get_protocol() == "tcp"]
+            if 22 not in ports_list:
+                outports.append(outport(22, 22, 'tcp'))
+        return outports

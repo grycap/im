@@ -183,7 +183,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                                                                        protocol=op.get_protocol(),
                                                                        startport=op.get_port_init(),
                                                                        endport=op.get_port_end(),
-                                                                       cidrlist='0.0.0.0/0')
+                                                                       cidrlist=op.get_remote_cidr())
                         except Exception as ex:
                             self.log_warn("Exception adding SG rules: " + str(ex))
                     else:
