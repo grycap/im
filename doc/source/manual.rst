@@ -85,14 +85,14 @@ Optional Packages
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
   distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
   Download the file and copy the boto subdirectory into the IM install path.
-* pyOpenSSL are needed if needed to secure the REST API
+* `pyOpenSSL <https://www.pyopenssl.org/>`_ is needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
 * `The Python interface to MySQL <https://www.mysql.com/>`_, is needed to access MySQL server as IM data 
   backend. It is typically available as the package 'python-mysqldb' or 'MySQL-python' package. In case of
   using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on debian systems or PyMySQL
   package in pip.
-  *`The Python interface to MongoDB <https://www.mongodb.com/>`_, is needed to access MongoDB server as IM data 
+* `The Python interface to MongoDB <https://www.mongodb.com/>`_, is needed to access MongoDB server as IM data 
   backend. It is typically available as the package 'python-pymongo' package in most distributions or pymongo
   package in pip.
 * `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
