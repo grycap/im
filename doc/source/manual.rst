@@ -73,26 +73,26 @@ Finally, check the next values in the Ansible configuration file
 Optional Packages
 -----------------
 
-* `The Bottle framework<http://bottlepy.org/>`_ is used for the REST API. 
-   It is typically available as the 'python-bottle' package.
+* `The Bottle framework <http://bottlepy.org/>`_ is used for the REST API. 
+  It is typically available as the 'python-bottle' package.
 * `The CherryPy Web framework <http://www.cherrypy.org/>`_, is needed for the REST API. 
-   It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
-   In newer versions (9.0 and later) the functionality has been moved `the cheroot
-   library<https://github.com/cherrypy/cheroot>`_ it can be installed using pip.
+  It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
+  In newer versions (9.0 and later) the functionality has been moved `the cheroot
+  library <https://github.com/cherrypy/cheroot>`_ it can be installed using pip.
 * `apache-libcloud <http://libcloud.apache.org/>`_ 3.0 or later is used in the
   LibCloud, OpenStack, EGI and GCE connectors.
 * `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
   distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
   Download the file and copy the boto subdirectory into the IM install path.
-* pyOpenSSL are needed if needed to secure the REST API
+* `pyOpenSSL <https://www.pyopenssl.org/>`_ is needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
 * `The Python interface to MySQL <https://www.mysql.com/>`_, is needed to access MySQL server as IM data 
   backend. It is typically available as the package 'python-mysqldb' or 'MySQL-python' package. In case of
   using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on debian systems or PyMySQL
   package in pip.
-  *`The Python interface to MongoDB <https://www.mongodb.com/>`_, is needed to access MongoDB server as IM data 
+* `The Python interface to MongoDB <https://www.mongodb.com/>`_, is needed to access MongoDB server as IM data 
   backend. It is typically available as the package 'python-pymongo' package in most distributions or pymongo
   package in pip.
 * `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure

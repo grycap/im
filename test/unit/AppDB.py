@@ -34,6 +34,10 @@ class TestAppDB(unittest.TestCase):
                 resp.status_code = 200
                 resp.text = """<appdb:appdb>
                                 <virtualization:provider id="8015G0" in_production="true">
+                                <provider:shares>
+                                  <vo:vo id="1" projectid="projectid1">ops</vo:vo>
+                                  <vo:vo id="2" projectid="projectid2">vo.access.egi.eu</vo:vo>
+                                </provider:shares>
                                 <provider:url>
                                 http://cloud.recas.ba.infn.it:8787/occi/?image=303d8324-69a7-4372-be24-1d68703affd7
                                 </provider:url>
@@ -121,3 +125,15 @@ class TestAppDB(unittest.TestCase):
         site_url, image_id, _ = AppDB.get_image_data(str_url, "openstack", site='cloud.recas.ba.infn.it')
         self.assertEqual(site_url, "https://cloud.recas.ba.infn.it:5000")
         self.assertEqual(image_id, "image_id2")
+
+        str_url = "appdb://egi.ubuntu.16.04"
+        site_url, image_id, _ = AppDB.get_image_data(str_url, "openstack", vo="fedcloud.egi.eu",
+                                                     site='cloud.recas.ba.infn.it')
+        self.assertEqual(site_url, "https://cloud.recas.ba.infn.it:5000")
+        self.assertEqual(image_id, "image_id2")
+
+    @patch('requests.request')
+    def test_get_project_ids(self, requests):
+        requests.side_effect = self.get_response
+        projects = AppDB.get_project_ids('8015G0')
+        self.assertEqual(projects, {'ops': 'projectid1', 'vo.access.egi.eu': 'projectid2'})

@@ -37,7 +37,8 @@ class AppDB:
         resp = requests.request("GET", AppDB.APPDB_URL + path, verify=False)
         if resp.status_code == 200:
             resp.text.replace('\n', '')
-            return xmltodict.parse(resp.text)
+            res = xmltodict.parse(resp.text)
+            return res['appdb:appdb'] if 'appdb:appdb' in res else res
         else:
             return None
 
@@ -48,7 +49,7 @@ class AppDB:
         """
         data = AppDB.appdb_call('/rest/1.0/sites')
         if data:
-            for site in data['appdb:appdb']['appdb:site']:
+            for site in data['appdb:site']:
                 if site_name.lower() == site['@name'].lower() and site['@infrastructure'] == "Production":
                     if isinstance(site['site:service'], list):
                         services = site['site:service']
@@ -71,13 +72,13 @@ class AppDB:
         site_url = None
         if data:
             if stype == "openstack":
-                if 'provider:url' in data['appdb:appdb']['virtualization:provider']:
-                    site_url = data['appdb:appdb']['virtualization:provider']['provider:url']
+                if 'provider:url' in data['virtualization:provider']:
+                    site_url = data['virtualization:provider']['provider:url']
                     url = urlparse(site_url)
                     site_url = "%s://%s" % url[0:2]
             else:
-                if 'provider:endpoint_url' in data['appdb:appdb']['virtualization:provider']:
-                    site_url = data['appdb:appdb']['virtualization:provider']["provider:endpoint_url"]
+                if 'provider:endpoint_url' in data['virtualization:provider']:
+                    site_url = data['virtualization:provider']["provider:endpoint_url"]
 
         return site_url
 
@@ -89,8 +90,8 @@ class AppDB:
         images = []
         data = AppDB.appdb_call('/rest/1.0/va_providers/%s' % site_id)
         if data:
-            if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
-                for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
+            if 'provider:image' in data['virtualization:provider']:
+                for image in data['virtualization:provider']['provider:image']:
                     if (image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name)):
                         image_basename = os.path.basename(image['@va_provider_image_id'])
                         images.append((image_basename, image['@vmiversion']))
@@ -121,7 +122,7 @@ class AppDB:
         """
         data = AppDB.appdb_call('/rest/1.0/sites')
         if data:
-            for site in data['appdb:appdb']['appdb:site']:
+            for site in data['appdb:site']:
                 if site['@infrastructure'] == "Production" and 'site:service' in site:
                     if isinstance(site['site:service'], list):
                         services = site['site:service']
@@ -193,8 +194,8 @@ class AppDB:
 
         data = AppDB.appdb_call('/rest/1.0/va_providers/%s' % site_id)
         if data:
-            if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
-                for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
+            if 'provider:image' in data['virtualization:provider']:
+                for image in data['virtualization:provider']['provider:image']:
                     if image['@mp_uri'] == image_mp_uri:
                         image_basename = os.path.basename(image['@va_provider_image_id'])
                         parts = image_basename.split("#")
