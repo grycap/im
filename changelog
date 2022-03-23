@@ -698,4 +698,6 @@ IM 1.11.0:
     * Enable to get Ansible task output at TOSCA output value.
     * Support for specifying the remote cidr in the public security group.
     * Fix error in EGI connector using appdb image url without setting site name.
+    * Fix error getting project ids from AppDB.
+
 
