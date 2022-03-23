@@ -196,6 +196,11 @@ The :program:`im_client` is called like this::
 Authorization File
 ------------------
 
+To access the IM service an authenticatio file must be created.
+It must have one line per authentication element. **It must have at least
+one line with the authentication data for the IM service** and another
+one for the Cloud/s provider/s the user want to access.
+
 The authorization file stores in plain text the credentials to access the
 cloud providers, the IM service and the VMRC service. Each line of the file
 is composed by pairs of key and value separated by semicolon, and refers to a
