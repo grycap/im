@@ -69,7 +69,7 @@ class AppDBIS:
         Get the list of images of the specified site
         """
         name_filter = 'site.name::eq:"%s"' % site
-        return self.get_image_list(filter=name_filter)
+        return self.get_image_list(image_filter=name_filter)
 
     def get_image_list(self, limit=100, image_filter=None):
         """
