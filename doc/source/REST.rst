@@ -5,13 +5,15 @@ Optionally, IM Service can be accessed through a REST(ful) API. The port number
 and the security settings are controlled by the options listed in
 :ref:`options-rest`.
 
-In the following link you can follow the IM REST API in Swaggerhub: 
+In the following link you can follow the **IM REST API in Swaggerhub**: 
 `Swagger API <https://app.swaggerhub.com/apis-docs/grycap/InfrastructureManager/>`_.
 
 Every HTTP request must be accompanied by the header ``AUTHORIZATION`` with
 the content of the :ref:`auth-file`, but putting all the elements in one line
 using "\\n" as separator. If the content cannot be parsed successfully, or the user and
-password are not valid, it is returned the HTTP error code 401.
+password are not valid, it is returned the HTTP error code 401. In case that Vault
+support has been configured (:ref:`vault-creds`) also a Bearer authorization header
+is supported, using the same access token to authenticate with the Vault server.
 
 Next tables summaries the resources and the HTTP methods available.
 
@@ -21,12 +23,12 @@ Next tables summaries the resources and the HTTP methods available.
 | **GET**     | | **List** the infrastructure IDs. | | **List** the virtual machines    | | **Get** information associated to the   |
 |             |                                    | | in the infrastructure ``infId``  | | virtual machine ``vmId`` in ``infId``.  |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
-| **POST**    | | **Create** a new infrastructure  | | **Add or Remove** virtual        | | **Alter** VM properties based on        |
-|             | | based on the RADL or TOSCA       | | machines based on the RADL       | | then RADL posted.                       |
+| **POST**    | | **Create** a new infrastructure  | | **Add or Remove** virtual        | | **Modify** the virtual machine based on |
+|             | | based on the RADL or TOSCA       | | machines based on the RADL       | | the RADL or TOSCA posted.               |
 |             | | posted.                          | | or TOSCA posted.                 |                                           |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
-| **PUT**     | | **Import** an infrastructure     |                                    | | **Modify** the virtual machine based on |
-|             | | from another IM instance         |                                    | | the RADL or TOSCA posted.               |
+| **PUT**     | | **Import** an infrastructure     |                                    |                                           |
+|             | | from another IM instance         |                                    |                                           |
 +-------------+------------------------------------+------------------------------------+-------------------------------------------+
 | **DELETE**  |                                    | | **Undeploy** all the virtual     | | **Undeploy** the virtual machine.       |
 |             |                                    | | machines in the infrastructure.  |                                           |
@@ -38,14 +40,19 @@ Next tables summaries the resources and the HTTP methods available.
 | **PUT**     | | **Stop** the infrastructure. | | **Start** the infrastructure. | | **Reconfigure** the infrastructure. |
 +-------------+--------------------------------+---------------------------------+---------------------------------------+
 
-+-------------+-----------------------------------------------------+----------------------------------------------------+
-| HTTP method | /infrastructures/<infId>/vms/<vmId>/<property_name> | /infrastructures/<infId>/<property_name>           |
-+=============+=====================================================+====================================================+
-| **GET**     | | **Get** the specified property ``property_name``  | | **Get** the specified property ``property_name`` |
-|             | | associated to the machine ``vmId`` in ``infId``.  | | associated to the infrastructure ``infId``.      |
-|             | | It has one special property: ``contmsg``.         | | It has six properties: ``contmsg``, ``radl``,    |
-|             |                                                     | | ``state``, ``outputs``, ``tosca`` and ``data``.  |
-+-------------+-----------------------------------------------------+----------------------------------------------------+
++-------------+------------------------------------------------------+------------------------------------------------------+
+| HTTP method | /infrastructures/<infId>/vms/<vmId>/<property_name>  | /infrastructures/<infId>/<property_name>             |
++=============+======================================================+======================================================+
+| **GET**     | | **Get** the specified property ``property_name``   | | **Get** the specified property ``property_name``   |
+|             | | associated to the machine ``vmId`` in ``infId``.   | | associated to the infrastructure ``infId``.        |
+|             | | It has one special property: ``contmsg``.          | | It has six properties: ``contmsg``, ``radl``,      |
+|             | |                                                    | | ``state``, ``outputs``, ``tosca`` and ``data``.    |
++-------------+------------------------------------------------------+------------------------------------------------------+
+| **POST**    |                                                      | | **Modify** the specified property ``property_name``|
+|             |                                                      | | associated to the infrastructure ``infId``.        |
+|             |                                                      | | only ``authorization`` property is valid.         |
++-------------+------------------------------------------------------+------------------------------------------------------+
+
 
 +-------------+-----------------------------------------------+------------------------------------------------+------------------------------------------------+
 | HTTP method | /infrastructures/<infId>/vms/<vmId>/stop      | /infrastructures/<infId>/vms/<vmId>/start      | /infrastructures/<infId>/vms/<vmId>/reboot     |
@@ -61,7 +68,7 @@ Next tables summaries the resources and the HTTP methods available.
 +-------------+--------------------------------------------------------------+
 
 +-------------+---------------------------------------+---------------------------------------------+
-| HTTP method | /clouds/<infId>/images                | /clouds/<infId>/quotas                      | 
+| HTTP method | /clouds/<cloudId>/images                | /clouds/<cloudId>/quotas                      | 
 +=============+=======================================+=============================================+
 | **GET**     | | **List** the available images       | | **Get** the used and available resources  |
 |             | | in the ``cloudId`` provider.        | | in the ``cloudId`` provider.              |
@@ -176,6 +183,33 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
     {
       ["radl"|"tosca"|"state"|"contmsg"|"outputs"|"data"]: <property_value>
     }
+
+POST ``http://imserver.com/infrastructures/<infId>/authorization``
+   :Response Content-type: text/plain or application/json
+   :body Content-type: application/json
+   :input fields: ``overwrite`` (optional)
+   :ok response: 200 OK
+   :fail response: 401, 404, 400, 403
+
+   Change the authorization data of the infrastructure with ID ``infId``. using
+   the authorization data provided in the body call. The ``overwrite`` parameter is
+   optional and is a flag to specify if the authorization data will be overwrited or
+   will be appended. Acceptable values: yes, no, true, false, 1 or 0. If not specified
+   the flag is set to True.
+
+   The body JSON format has the following format::
+
+      {
+         "username": "new_username",
+         "password": "new_password"
+      }
+
+   or::
+
+      {
+         "token": "valid_oidc_access_token"
+      }
+
 
 POST ``http://imserver.com/infrastructures/<infId>``
    :body: ``RADL or TOSCA document``

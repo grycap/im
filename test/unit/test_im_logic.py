@@ -102,6 +102,7 @@ class TestIM(unittest.TestCase):
         ssh.sftp_mkdir = Mock(return_value=True)
         ssh.sftp_put_dir = Mock(return_value=True)
         ssh.sftp_put = Mock(return_value=True)
+        ssh.sftp_list = Mock(return_value=["", "", "", "", ""])
         return ssh
 
     def gen_launch_res(self, inf, radl, requested_radl, num_vm, auth_data):
@@ -529,7 +530,7 @@ class TestIM(unittest.TestCase):
         Config.MAX_SIMULTANEOUS_LAUNCHES = 1
         vms = IM.AddResource(infId, str(radl), auth0)
         delay = int(time.time()) - before
-        self.assertLess(delay, 19)
+        self.assertLess(delay, 21)
         self.assertGreater(delay, 14)
 
         self.assertEqual(vms, [0, 1, 2, 3, 4, 5])
@@ -549,7 +550,7 @@ class TestIM(unittest.TestCase):
         delay = int(time.time()) - before
         # self.assertLess(delay, 17)
         # self.assertGreater(delay, 14)
-        self.assertLess(delay, 7)
+        self.assertLess(delay, 12)
         self.assertGreater(delay, 4)
         Config.MAX_SIMULTANEOUS_LAUNCHES = 1
 
@@ -609,7 +610,17 @@ class TestIM(unittest.TestCase):
         inf_ids = IM.GetInfrastructureList(auth0, ".*nonexist.*")
         self.assertEqual(inf_ids, [])
 
-        IM.DestroyInfrastructure(infId, auth0)
+        auth1 = self.getAuth([1], [], [("Dummy", 0)])
+        infId1 = IM.CreateInfrastructure(radl, auth1)
+
+        auth = self.getAuth([0, 1], [], [("Dummy", 0)])
+        inf_ids = IM.GetInfrastructureList(auth)
+        self.assertEqual(len(inf_ids), 2)
+        inf_ids = IM.GetInfrastructureList(auth0)
+        self.assertEqual(len(inf_ids), 1)
+
+        IM.DestroyInfrastructure(infId, auth)
+        IM.DestroyInfrastructure(infId1, auth)
 
     def test_reconfigure(self):
         """Reconfigure."""
@@ -1381,6 +1392,46 @@ configure step2 (
 
         self.assertEqual(res['s0'][1].getValue("disk.0.image.url"), "https://fedcloud.eu")
         self.assertEqual(res['s0'][1].getValue("disk.0.image.vo"), "fedcloud.egi.eu")
+
+    @patch('IM.InfrastructureManager.VaultCredentials')
+    def test_get_auth_from_vault(self, vault):
+        vault_mock = MagicMock()
+        vault_mock.get_creds.return_value = [{'id': 'cloud1', 'type': 'OpenNebula', 'username': 'user',
+                                              'password': 'pass'}]
+        vault.return_value = vault_mock
+        auth = Authentication([{'type': 'Vault', 'host': 'http://vault.com:8200/', 'token': 'atoken'},
+                               {'type': 'InfrastructureManager', 'token': 'atoken'}])
+        res = IM.get_auth_from_vault(auth)
+        self.assertIn({'id': 'cloud1', 'type': 'OpenNebula', 'username': 'user', 'password': 'pass'}, res.auth_list)
+        self.assertIn({'type': 'InfrastructureManager', 'token': 'atoken'}, res.auth_list)
+
+    def test_change_inf_auth(self):
+        """Try to access not owned Infs."""
+        auth0, auth1, auth2 = self.getAuth([0]), self.getAuth([1]), self.getAuth([2])
+        infId0 = IM.CreateInfrastructure("", auth0)
+        # Test append auth
+        IM.ChangeInfrastructureAuth(infId0, auth1, False, auth0)
+        IM.GetInfrastructureInfo(infId0, auth1)
+        IM.GetInfrastructureInfo(infId0, auth0)
+        with self.assertRaises(Exception) as ex:
+            IM.GetInfrastructureInfo(infId0, auth2)
+        self.assertEqual(str(ex.exception), "Access to this infrastructure not granted.")
+        # Test overwrite auth
+        IM.ChangeInfrastructureAuth(infId0, auth1, True, auth0)
+        IM.GetInfrastructureInfo(infId0, auth1)
+        with self.assertRaises(Exception) as ex:
+            IM.GetInfrastructureInfo(infId0, auth0)
+        self.assertEqual(str(ex.exception), "Access to this infrastructure not granted.")
+        # Test with invalid auth
+        with self.assertRaises(Exception) as ex:
+            IM.ChangeInfrastructureAuth(infId0, auth2, True, auth0)
+        self.assertEqual(str(ex.exception), "Access to this infrastructure not granted.")
+        # Test with invalid new auth
+        auth3 = self.getAuth([], [0])
+        with self.assertRaises(Exception) as ex:
+            IM.ChangeInfrastructureAuth(infId0, auth3, True, auth1)
+        self.assertEqual(str(ex.exception), ("Invalid new infrastructure data provided: No credentials"
+                                             " provided for the InfrastructureManager."))
 
 
 if __name__ == "__main__":

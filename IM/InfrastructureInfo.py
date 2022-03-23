@@ -376,7 +376,7 @@ class InfrastructureInfo:
                 self.radl.deploys = radl.deploys
 
             # Associate private networks with cloud providers
-            for d, _, _ in deployed_vms:
+            for d in deployed_vms:
                 for private_net in [net.id for net in radl.networks if not net.isPublic() and
                                     net.id in radl.get_system_by_name(d.id).getNetworkIDs()]:
                     if private_net in self.private_networks:
@@ -479,7 +479,8 @@ class InfrastructureInfo:
         max_vms_connected = -1
         for vm in self.get_vm_list():
             vms_connected = -1
-            if vm.getOS() and vm.getOS().lower() == 'linux' and (vm.hasPublicNet() or vm.getProxyHost()):
+            if (vm.contextualize() and vm.getOS() and vm.getOS().lower() == 'linux' and
+                    (vm.hasPublicNet() or vm.getProxyHost())):
                 # check that is connected with other VMs
                 vms_connected = 0
                 for other_vm in self.get_vm_list():
@@ -577,12 +578,18 @@ class InfrastructureInfo:
             max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
 
         self.configured = None
+        all_configure_disabled = True
         for vm in self.get_vm_list():
             # Assure to update the VM status before running the ctxt process
             vm.update_status(auth)
             vm.cont_out = ""
             vm.cloud_connector = None
             vm.configured = None
+            if vm.contextualize():
+                all_configure_disabled = False
+
+        if all_configure_disabled:
+            ctxt = False
 
         if not ctxt:
             InfrastructureInfo.logger.info("Inf ID: " + str(self.id) + ": Contextualization disabled by the RADL. " +
@@ -612,6 +619,10 @@ class InfrastructureInfo:
 
             use_dist = len(self.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST
             for cont, vm in enumerate(self.get_vm_list()):
+                if not vm.contextualize():
+                    vm.configured = True
+                    vm.cont_out = "Contextualization disabled"
+                    continue
                 tasks = {}
 
                 # Add basic tasks for all VMs
@@ -668,31 +679,33 @@ class InfrastructureInfo:
             # restart the failed step
             self.cm.failed_step = []
 
-    def is_authorized(self, auth):
+    def _is_authorized(self, self_im_auth, auth):
         """
         Checks if the auth data provided is authorized to access this infrastructure
         """
-        if self.auth is not None:
-            self_im_auth = self.auth.getAuthInfo("InfrastructureManager")[0]
-            other_im_auth = auth.getAuthInfo("InfrastructureManager")[0]
-
+        res = False
+        for other_im_auth in auth.getAuthInfo("InfrastructureManager"):
+            res = True
             for elem in ['username', 'password']:
                 if elem not in other_im_auth:
-                    return False
+                    res = False
+                    break
                 if elem not in self_im_auth:
                     InfrastructureInfo.logger.error("Inf ID %s has not elem %s in the auth data" % (self.id, elem))
-                    return True
                 if self_im_auth[elem] != other_im_auth[elem]:
-                    return False
+                    res = False
+                    break
 
             if 'token' in self_im_auth:
                 if 'token' not in other_im_auth:
-                    return False
+                    res = False
+                    break
                 decoded_token = JWT().get_info(other_im_auth['token'])
                 password = str(decoded_token['iss']) + str(decoded_token['sub'])
                 # check that the token provided is associated with the current owner of the inf.
                 if self_im_auth['password'] != password:
-                    return False
+                    res = False
+                    break
 
                 # In case of OIDC token update it in each call to get a fresh version
                 self_im_auth['token'] = other_im_auth['token']
@@ -701,9 +714,22 @@ class InfrastructureInfo:
                     'token' not in other_im_auth):
                 # This is a OpenID user do not enable to get data using user/pass creds
                 InfrastructureInfo.logger.warn("Inf ID %s: A non OpenID user tried to access it." % self.id)
-                return False
+                res = False
+                break
 
-            return True
+            if res:
+                return res
+
+    def is_authorized(self, auth):
+        """
+        Checks if the auth data provided is authorized to access this infrastructure
+        """
+        if self.auth is not None:
+            for self_im_auth in self.auth.getAuthInfo("InfrastructureManager"):
+                if self._is_authorized(self_im_auth, auth):
+                    return True
+
+            return False
         else:
             return False
 
@@ -741,3 +767,31 @@ class InfrastructureInfo:
                 self.add_cont_msg("Infrastructure deleted. Do not add resources.")
                 raise Exception("Infrastructure deleted. Do not add resources.")
             self.adding = value
+
+    def get_auth(self):
+        """
+        Return IM auth in a simple way
+        """
+        if self.auth is not None:
+            self_im_auth = self.auth.getAuthInfo("InfrastructureManager")[0]
+            if 'token' in self_im_auth:
+                return self_im_auth['token']
+            elif 'username' in self_im_auth and 'password' in self_im_auth:
+                return "%s:%s" % (self_im_auth['username'], self_im_auth['password'])
+            else:
+                # This should never happen
+                return None
+        else:
+            return None
+
+    def change_auth(self, new_auth, overwrite):
+        """Changes the auth data of the infrastructure."""
+        if new_auth is not None:
+            im_auth = new_auth.getAuthInfo("InfrastructureManager")
+            if im_auth:
+                if 'username' in im_auth[0]:
+                    InfrastructureInfo.logger.debug("Changing user to: %s" % im_auth[0]['username'])
+                if overwrite:
+                    self.auth = Authentication(im_auth)
+                else:
+                    self.auth.auth_list.extend(im_auth)

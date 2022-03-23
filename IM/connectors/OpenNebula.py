@@ -18,7 +18,7 @@ import defusedxml.xmlrpc
 defusedxml.xmlrpc.monkey_patch()
 
 try:
-    from xmlrpclib import ServerProxy
+    from xmlrpclib import ServerProxy  # nosec
 except ImportError:
     from xmlrpc.client import ServerProxy
 
@@ -131,6 +131,7 @@ class VNET_POOL(XMLObject):
 
 class IMAGE(XMLObject):
     STATE_READY = 1
+    STATE_USED = 2
     STATE_ERROR = 5
     values = ['ID', 'UID', 'GID', 'UNAME', 'GNAME', 'NAME', 'SOURCE', 'PATH'
               'FSTYPE', 'TYPE', 'DISK_TYPE', 'PERSISTENT', 'SIZE', 'STATE']
@@ -450,8 +451,8 @@ class OpenNebulaCloudConnector(CloudConnector):
                     sg_id = self._get_security_group(sg_name, auth_data)
                     if not sg_id:
                         sg_template = ""
-                        # open always SSH port on public nets
-                        if network.isPublic():
+                        # open always SSH port on public nets or with proxy_host
+                        if network.isPublic() or network.getValue("proxy_host"):
                             sg_template += "RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 22:22 ]\n"
 
                         outports = network.getOutPorts()
@@ -678,8 +679,8 @@ class OpenNebulaCloudConnector(CloudConnector):
         user_template = ""
         tags = self.get_instance_tags(system, auth_data, vm.inf)
         for key, value in tags.items():
-            key = key.replace("-", "_")
-            user_template += '%s = "%s", ' % (key, value)
+            key = key.replace("-", "_").replace(".", "_")
+            user_template += '"%s" = "%s", ' % (key, value)
 
         if user_template:
             res += "\nUSER_TEMPLATE = [%s]\n" % user_template[:-2]
@@ -896,7 +897,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         return res
 
     @staticmethod
-    def map_radl_one_networks(radl_nets, one_nets):
+    def map_radl_one_networks(radl, one_nets):
         """
         Generate a mapping between the RADL networks and the ONE networks
 
@@ -909,50 +910,43 @@ class OpenNebulaCloudConnector(CloudConnector):
         """
         res = {}
 
+        system = radl.systems[0]
         used_nets = []
-        last_net = None
-        for radl_net in radl_nets:
-            # First check if the user has specified a provider ID
-            net_provider_id = radl_net.getValue('provider_id')
-            if net_provider_id:
-                for (net_name, net_id, is_public) in one_nets:
-                    # If the name is the same and have the same "publicity" value
-                    if ((net_id == net_provider_id or net_name == net_provider_id) and
-                            radl_net.isPublic() == is_public):
-                        res[radl_net.id] = (net_name, net_id, is_public)
-                        used_nets.append(net_id)
-                        break
-            else:
-                for (net_name, net_id, is_public) in one_nets:
-                    if net_id not in used_nets and radl_net.isPublic() == is_public:
-                        res[radl_net.id] = (net_name, net_id, is_public)
-                        used_nets.append(net_id)
-                        last_net = (net_name, net_id, is_public)
-                        break
-                if radl_net.id not in res:
-                    res[radl_net.id] = last_net
-
-        # In case of there are no private network, use public ones for non
-        # mapped networks
-        used_nets = []
-        for radl_net in radl_nets:
-            if radl_net.id not in res or not res[radl_net.id]:
+        for radl_net in radl.networks:
+            if system.getNumNetworkWithConnection(radl_net.id) is not None:
+                # First check if the user has specified a provider ID
                 net_provider_id = radl_net.getValue('provider_id')
                 if net_provider_id:
                     for (net_name, net_id, is_public) in one_nets:
-                        if net_name == net_provider_id:
+                        # If the name is the same and have the same "publicity" value
+                        if ((net_id == net_provider_id or net_name == net_provider_id) and
+                                radl_net.isPublic() == is_public):
                             res[radl_net.id] = (net_name, net_id, is_public)
                             used_nets.append(net_id)
                             break
                 else:
                     for (net_name, net_id, is_public) in one_nets:
-                        if net_id not in used_nets and is_public:
+                        if net_id not in used_nets and radl_net.isPublic() == is_public:
                             res[radl_net.id] = (net_name, net_id, is_public)
                             used_nets.append(net_id)
-                            last_net = (net_name, net_id, is_public)
                             break
-                    if radl_net.id not in res:
-                        res[radl_net.id] = last_net
+
+        # In case of there are no private network, use public ones for non
+        # mapped networks
+        for radl_net in radl.networks:
+            if system.getNumNetworkWithConnection(radl_net.id) is not None:
+                if radl_net.id not in res or not res[radl_net.id]:
+                    net_provider_id = radl_net.getValue('provider_id')
+                    if net_provider_id:
+                        for (net_name, net_id, is_public) in one_nets:
+                            if net_name == net_provider_id:
+                                res[radl_net.id] = (net_name, net_id, is_public)
+                                break
+                    else:
+                        for (net_name, net_id, is_public) in one_nets:
+                            if is_public:
+                                res[radl_net.id] = (net_name, net_id, is_public)
+                                break
 
         return res
 
@@ -974,7 +968,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         if not one_nets:
             self.log_error("No ONE network found")
             return res
-        nets = self.map_radl_one_networks(radl.networks, one_nets)
+        nets = self.map_radl_one_networks(radl, one_nets)
 
         system = radl.systems[0]
         # First set the public ones (onecloud issues...)
@@ -1292,7 +1286,8 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         images = []
         for image in pool_info.IMAGE:
-            images.append({"uri": "one://%s/%s" % (self.cloud.server, image.ID), "name": image.NAME})
+            if image.STATE in [IMAGE.STATE_READY, IMAGE.STATE_USED]:
+                images.append({"uri": "one://%s/%s" % (self.cloud.server, image.ID), "name": image.NAME})
 
         return images
 
@@ -1336,11 +1331,14 @@ class OpenNebulaCloudConnector(CloudConnector):
                "security_groups": {"used": 0, "limit": -1}}
 
         res["cores"]["used"] = user_info.VM_QUOTA.VM.CPU_USED
-        res["cores"]["limit"] = user_info.VM_QUOTA.VM.CPU
-        res["ram"]["used"] = user_info.VM_QUOTA.VM.MEMORY_USED
-        res["ram"]["limit"] = user_info.VM_QUOTA.VM.MEMORY
+        if user_info.VM_QUOTA.VM.CPU >= 0:
+            res["cores"]["limit"] = user_info.VM_QUOTA.VM.CPU
+        res["ram"]["used"] = user_info.VM_QUOTA.VM.MEMORY_USED / 1024
+        if user_info.VM_QUOTA.VM.MEMORY >= 0:
+            res["ram"]["limit"] = user_info.VM_QUOTA.VM.MEMORY / 1024
         res["instances"]["used"] = user_info.VM_QUOTA.VM.VMS_USED
-        res["instances"]["limit"] = user_info.VM_QUOTA.VM.VMS
+        if user_info.VM_QUOTA.VM.VMS >= 0:
+            res["instances"]["limit"] = user_info.VM_QUOTA.VM.VMS
 
         # Ine ONE map floating IPs to public IP leases
         one_nets = self.getONENetworks(auth_data)

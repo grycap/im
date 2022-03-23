@@ -53,10 +53,12 @@ class InstanceTypeInfo:
             - disk_space(int, optional): size of the disks
             - vpc_only(bool, optional): the instance works only on VPC
             - gpu(int, optional): the number of gpus of this instance
+            - gpu_model(str, optional): the model of the gpus of this instance
     """
 
     def __init__(self, name="", cpu_arch=None, num_cpu=1, cores_per_cpu=1, mem=0,
-                 price=0, cpu_perf=0, disks=0, disk_space=0, vpc_only=None, gpu=0):
+                 price=0, cpu_perf=0, disks=0, disk_space=0, vpc_only=None, gpu=0,
+                 gpu_model=None):
         self.name = name
         self.num_cpu = num_cpu
         self.cores_per_cpu = cores_per_cpu
@@ -70,6 +72,7 @@ class InstanceTypeInfo:
         self.disk_space = disk_space
         self.vpc_only = vpc_only
         self.gpu = gpu
+        self.gpu_model = gpu_model
 
 
 class EC2CloudConnector(CloudConnector):
@@ -136,23 +139,26 @@ class EC2CloudConnector(CloudConnector):
         """
         Update the features of the system with the information of the instance_type
         """
-        system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu *
-                                  instance_type.cores_per_cpu), conflict="other", missing="other")
-        system.addFeature(Feature(
-            "memory.size", "=", instance_type.mem, 'M'), conflict="other", missing="other")
+        system.addFeature(Feature("cpu.count", "=", instance_type.num_cpu * instance_type.cores_per_cpu),
+                          conflict="other", missing="other")
+        system.addFeature(Feature("memory.size", "=", instance_type.mem, 'M'),
+                          conflict="other", missing="other")
         if instance_type.disks > 0:
-            system.addFeature(Feature("disks.free_size", "=", instance_type.disks *
-                                      instance_type.disk_space, 'G'), conflict="other", missing="other")
+            system.addFeature(Feature("disks.free_size", "=", instance_type.disks * instance_type.disk_space, 'G'),
+                              conflict="other", missing="other")
             for i in range(1, instance_type.disks + 1):
-                system.addFeature(Feature("disk.%d.free_size" % i, "=",
-                                          instance_type.disk_space, 'G'), conflict="other", missing="other")
-        system.addFeature(Feature("cpu.performance", "=",
-                                  instance_type.cpu_perf, 'ECU'), conflict="other", missing="other")
-        system.addFeature(
-            Feature("price", "=", instance_type.price), conflict="me", missing="other")
+                system.addFeature(Feature("disk.%d.free_size" % i, "=", instance_type.disk_space, 'G'),
+                                  conflict="other", missing="other")
+        system.addFeature(Feature("cpu.performance", "=", instance_type.cpu_perf, 'ECU'),
+                          conflict="other", missing="other")
+        system.addFeature(Feature("price", "=", instance_type.price), conflict="me", missing="other")
 
-        system.addFeature(Feature("instance_type", "=",
-                                  instance_type.name), conflict="other", missing="other")
+        system.addFeature(Feature("instance_type", "=", instance_type.name), conflict="other", missing="other")
+
+        if instance_type.gpu:
+            system.addFeature(Feature("gpu.count", "=", instance_type.gpu), conflict="other", missing="other")
+        if instance_type.gpu_model:
+            system.addFeature(Feature("gpu.model", "=", instance_type.gpu_model), conflict="other", missing="other")
 
     # Get the EC2 connection object
     def get_connection(self, region_name, auth_data):
@@ -266,6 +272,9 @@ class EC2CloudConnector(CloudConnector):
 
         (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit="G")
         arch = radl.getValue('cpu.arch', 'x86_64')
+        gpu = radl.getValue('gpu.count')
+        gpu_model = radl.getValue('gpu.model')
+        gpu_vendor = radl.getValue('gpu.vendor')
 
         performance = 0
         performance_op_str = ">="
@@ -291,6 +300,15 @@ class EC2CloudConnector(CloudConnector):
                 comparison = comparison and memory_op(instace_type.mem, memory)
                 comparison = comparison and disk_free_op(instace_type.disks * instace_type.disk_space, disk_free)
                 comparison = comparison and performance_op(instace_type.cpu_perf, performance)
+                if gpu and instace_type.gpu < gpu:
+                    continue
+
+                if gpu and gpu_model and (not instace_type.gpu_model or
+                                          gpu_model.lower() not in instace_type.gpu_model.lower()):
+                    continue
+                if gpu and gpu_vendor and (not instace_type.gpu_model or
+                                           gpu_vendor.lower() not in instace_type.gpu_model.lower()):
+                    continue
 
                 if comparison:
                     if not instance_type_name or instace_type.name == instance_type_name:
@@ -376,30 +394,30 @@ class EC2CloudConnector(CloudConnector):
                 res.append(sg.id)
 
                 try:
-                    # open always SSH port
-                    sg.authorize('tcp', 22, 22, '0.0.0.0/0')
                     # open all the ports for the VMs in the security group
                     sg.authorize('tcp', 0, 65535, src_group=sg)
                     sg.authorize('udp', 0, 65535, src_group=sg)
                 except Exception as addex:
                     self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
 
-                outports = network.getOutPorts()
-                if outports:
-                    for outport in outports:
-                        if outport.is_range():
-                            try:
-                                sg.authorize(outport.get_protocol(), outport.get_port_init(),
-                                             outport.get_port_end(), '0.0.0.0/0')
-                            except Exception as addex:
-                                self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
-                        else:
-                            if outport.get_remote_port() != 22 or not network.isPublic():
-                                try:
-                                    sg.authorize(outport.get_protocol(), outport.get_remote_port(),
-                                                 outport.get_remote_port(), '0.0.0.0/0')
-                                except Exception as addex:
-                                    self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+                outports = network.getOutPorts() or []
+                # open always SSH port on public nets or private with proxy host
+                if network.isPublic() or network.getValue("proxy_host"):
+                    outports = self.add_ssh_port(outports)
+
+                for outport in outports:
+                    if outport.is_range():
+                        try:
+                            sg.authorize(outport.get_protocol(), outport.get_port_init(),
+                                         outport.get_port_end(), outport.get_remote_cidr())
+                        except Exception as addex:
+                            self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+                    else:
+                        try:
+                            sg.authorize(outport.get_protocol(), outport.get_remote_port(),
+                                         outport.get_remote_port(), outport.get_remote_cidr())
+                        except Exception as addex:
+                            self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
 
                 i += 1
         except Exception as ex:
@@ -419,7 +437,7 @@ class EC2CloudConnector(CloudConnector):
         subnet_id = None
 
         for vpc in conn.get_all_vpcs():
-            if vpc.is_default or vpc.tags['Name'] == "default":
+            if vpc.is_default or ('Name' in vpc.tags and vpc.tags['Name'] == "default"):
                 vpc_id = vpc.id
                 for subnet in conn.get_all_subnets(filters={"vpcId": vpc_id}):
                     subnet_id = subnet.id
@@ -1214,18 +1232,10 @@ class EC2CloudConnector(CloudConnector):
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
         """
         try:
-            region = vm.id.split(";")[0]
-            conn = self.get_route53_connection(region, auth_data)
-            system = vm.info.systems[0]
-            for net_name in system.getNetworkIDs():
-                num_conn = system.getNumNetworkWithConnection(net_name)
-                ip = system.getIfaceIP(num_conn)
-                (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                              default_hostname=Config.DEFAULT_VM_NAME,
-                                                              default_domain=Config.DEFAULT_DOMAIN)
-                if domain != "localdomain" and ip:
-                    if not domain.endswith("."):
-                        domain += "."
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                conn = self.get_route53_connection('universal', auth_data)
+                for hostname, domain, ip in dns_entries:
                     zone = conn.get_zone(domain)
                     if not zone:
                         self.log_info("Creating DNS zone %s" % domain)
@@ -1258,18 +1268,10 @@ class EC2CloudConnector(CloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
         """
-        region = vm.id.split(";")[0]
-        conn = self.get_route53_connection(region, auth_data)
-        system = vm.info.systems[0]
-        for net_name in system.getNetworkIDs():
-            num_conn = system.getNumNetworkWithConnection(net_name)
-            ip = system.getIfaceIP(num_conn)
-            (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                          default_hostname=Config.DEFAULT_VM_NAME,
-                                                          default_domain=Config.DEFAULT_DOMAIN)
-            if domain != "localdomain" and ip:
-                if not domain.endswith("."):
-                    domain += "."
+        dns_entries = self.get_dns_entries(vm)
+        if dns_entries:
+            conn = self.get_route53_connection('universal', auth_data)
+            for hostname, domain, ip in dns_entries:
                 zone = conn.get_zone(domain)
                 if not zone:
                     self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
@@ -1523,9 +1525,13 @@ class EC2CloudConnector(CloudConnector):
         else:
             return (False, "The instance has not been found")
 
+        new_system = self.resize_vm_radl(vm, radl)
+        if not new_system:
+            return (True, "")
+
         success = True
-        if radl.systems:
-            instance_type = self.get_instance_type(radl.systems[0])
+        if new_system:
+            instance_type = self.get_instance_type(new_system)
 
             if instance_type and instance.instance_type != instance_type.name:
                 stopped = self.waitStop(instance)
@@ -1551,6 +1557,8 @@ class EC2CloudConnector(CloudConnector):
         """
         # Get info from http://www.ec2instances.info/
         # https://raw.githubusercontent.com/powdahound/ec2instances.info/master/www/instances.json
+        # It has been removed!!
+        # Copied in the IM Repo!.
 
         if EC2CloudConnector.instance_type_list:
             return EC2CloudConnector.instance_type_list
@@ -1560,7 +1568,7 @@ class EC2CloudConnector(CloudConnector):
         while cont < retries and not data:
             cont += 1
             try:
-                info_url = "https://raw.githubusercontent.com/powdahound/ec2instances.info/master/www/instances.json"
+                info_url = "https://raw.githubusercontent.com/grycap/im/devel/scripts/instances.json"
                 resp = requests.get(info_url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -1575,9 +1583,9 @@ class EC2CloudConnector(CloudConnector):
             self.log_error("Error getting ec2instances info.")
         else:
             for instance_type in data:
-                price = 50
-                if instance_type['pricing'] and 'us-east-1' in instance_type['pricing']:
-                    price = float(instance_type['pricing']['us-east-1']['linux']['ondemand'])
+                price = 200
+                if instance_type['pricing']:
+                    price = float(instance_type['pricing'])
                 disks = 0
                 disk_space = 0
                 if instance_type['storage']:
@@ -1596,7 +1604,8 @@ class EC2CloudConnector(CloudConnector):
                                                       disks=disks,
                                                       disk_space=disk_space,
                                                       vpc_only=instance_type['vpc_only'],
-                                                      gpu=instance_type['GPU']))
+                                                      gpu=instance_type['GPU'],
+                                                      gpu_model=instance_type['GPU_model']))
             EC2CloudConnector.instance_type_list = instance_list
 
         return instance_list

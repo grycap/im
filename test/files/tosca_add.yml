@@ -70,7 +70,7 @@ topology_template:
         root_password: { get_input: mysql_root_password }
       artifacts:
         db_content:
-          file: http://downloads.mysql.com/docs/world.sql.gz
+          file: http://ftpgrycap.i3m.upv.es/src/world.sql.gz
           type: tosca.artifacts.File
       requirements:
         - host:
@@ -103,7 +103,6 @@ topology_template:
         host:
          properties:
            num_cpus: 1
-           disk_size: 10 GB
            mem_size: 4 GB
         os:
          properties:

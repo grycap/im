@@ -17,6 +17,7 @@
 import uuid
 import os
 import time
+import re
 
 try:
     from libcloud.compute.base import NodeSize, NodeState
@@ -38,7 +39,6 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
-from IM.config import Config
 
 
 class GCECloudConnector(LibCloudCloudConnector):
@@ -83,13 +83,8 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             if 'username' in auth and 'password' in auth and 'project' in auth:
                 cls = libcloud_get_driver(Provider.GCE)
-                # Patch to solve some client problems with \\n
+                # Patch to solve some client problems with \\n with certificates
                 auth['password'] = auth['password'].replace('\\n', '\n')
-                lines = len(auth['password'].replace(" ", "").split())
-                if lines < 2:
-                    raise Exception("The certificate provided to the GCE plugin has an incorrect format."
-                                    " Check that it has more than one line.")
-
                 driver = cls(auth['username'], auth['password'], project=auth['project'], datacenter=datacenter)
 
                 self.driver = driver
@@ -154,7 +149,7 @@ class GCECloudConnector(LibCloudCloudConnector):
             else:
                 region, _ = self.get_image_data(str_url)
 
-            instance_type = self.get_instance_type(driver.list_sizes(region), res_system)
+            instance_type = self.get_instance_type(driver, res_system, region)
             if not instance_type:
                 return None
 
@@ -176,8 +171,14 @@ class GCECloudConnector(LibCloudCloudConnector):
         if isinstance(instance_type, NodeSize):
             LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
             if 'guestCpus' in instance_type.extra:
-                system.addFeature(Feature("cpu.count", "=", instance_type.extra[
-                                  'guestCpus']), conflict="other", missing="other")
+                system.addFeature(Feature("cpu.count", "=", instance_type.extra['guestCpus']),
+                                  conflict="other", missing="other")
+            if 'accelerators' in instance_type.extra and instance_type.extra['accelerators']:
+                gpu_info = instance_type.extra['accelerators'][0]
+                system.addFeature(Feature("gpu.count", "=", gpu_info['guestAcceleratorCount']),
+                                  conflict="other", missing="other")
+                system.addFeature(Feature("gpu.model", "=", gpu_info['guestAcceleratorType']),
+                                  conflict="other", missing="other")
 
     @staticmethod
     def set_net_provider_id(radl, net_name):
@@ -210,18 +211,29 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         return provider_id
 
-    def get_instance_type(self, sizes, radl):
-        """
-        Get the name of the instance type to launch to LibCloud
+    @staticmethod
+    def guess_instance_type_gpu(size, num_gpus, vendor=None, model=None):
+        """Try to guess if this NodeSize has GPU support"""
+        if 'accelerators' in size.extra and size.extra['accelerators']:
+            for accelerator in size.extra['accelerators']:
+                if num_gpus < accelerator['guestAcceleratorCount']:
+                    continue
+                if model and model.lower() not in accelerator['guestAcceleratorType'].lower():
+                    continue
+                if vendor and vendor.lower() not in accelerator['guestAcceleratorType'].lower():
+                    continue
+                return True
 
-        Arguments:
-           - size(list of :py:class: `libcloud.compute.base.NodeSize`): List of sizes on a provider
-           - radl(str): RADL document with the requirements of the VM to get the instance type
-        Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch
-        """
+        return False
+
+    def get_instance_type(self, driver, radl, location=None):
+        sizes = driver.list_sizes(location)
         instance_type_name = radl.getValue('instance_type')
 
         (cpu, cpu_op, memory, memory_op, _, _) = self.get_instance_selectors(radl)
+        num_gpus = radl.getValue('gpu.count')
+        gpu_model = radl.getValue('gpu.model')
+        gpu_vendor = radl.getValue('gpu.vendor')
 
         res = None
         for size in sizes:
@@ -233,6 +245,9 @@ class GCECloudConnector(LibCloudCloudConnector):
                 comparison = memory_op(size.ram, memory)
                 if 'guestCpus' in size.extra and size.extra['guestCpus']:
                     comparison = comparison and cpu_op(size.extra['guestCpus'], cpu)
+
+                if num_gpus and not self.guess_instance_type_gpu(size, num_gpus, gpu_vendor, gpu_model):
+                    continue
 
                 if comparison:
                     if not instance_type_name or size.name == instance_type_name:
@@ -340,6 +355,7 @@ class GCECloudConnector(LibCloudCloudConnector):
             allowed = [{'IPProtocol': 'udp', 'ports': '1-65535'},
                        {'IPProtocol': 'tcp', 'ports': '1-65535'},
                        {'IPProtocol': 'icmp'}]
+            source_ranges = []
 
             try:
                 driver.ex_create_firewall(firewall_name, allowed, network=net_name, source_tags=['imid-%s' % inf.id])
@@ -356,23 +372,27 @@ class GCECloudConnector(LibCloudCloudConnector):
                 else:
                     firewall_name = "im-%s-%s" % (inf.id, net_name)
 
-                outports = public_net.getOutPorts()
-                if outports:
-                    for outport in outports:
-                        if outport.get_protocol() not in ports:
-                            ports[outport.get_protocol()] = []
-                        if outport.is_range():
-                            port_range = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
-                            ports[outport.get_protocol()].append(port_range)
-                        elif outport.get_local_port() != 22:
-                            ports[outport.get_protocol()].append(str(outport.get_remote_port()))
+                outports = public_net.getOutPorts() or []
+                for outport in outports:
+                    if outport.get_remote_cidr() != "0.0.0.0/0":
+                        source_ranges.append(outport.get_remote_cidr())
+                    if outport.get_protocol() not in ports:
+                        ports[outport.get_protocol()] = []
+                    if outport.is_range():
+                        port_range = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
+                        ports[outport.get_protocol()].append(port_range)
+                    elif outport.get_local_port() != 22:
+                        ports[outport.get_protocol()].append(str(outport.get_remote_port()))
 
                 allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
                 if 'udp' in ports:
                     allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
 
+                if not source_ranges:
+                    source_ranges = ['0.0.0.0/0']
+
                 try:
-                    driver.ex_create_firewall(firewall_name, allowed, network=net_name)
+                    driver.ex_create_firewall(firewall_name, allowed, network=net_name, source_ranges=source_ranges)
                     self.log_info("Firewall %s successfully created." % firewall_name)
                 except ResourceExistsError:
                     self.log_debug("FW already exists. Ignore.")
@@ -510,7 +530,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         if not image:
             return [(False, "Incorrect image name") for _ in range(num_vm)]
 
-        instance_type = self.get_instance_type(driver.list_sizes(region), system)
+        instance_type = self.get_instance_type(driver, system, region)
 
         if not instance_type:
             raise Exception("No compatible size found")
@@ -526,7 +546,9 @@ class GCECloudConnector(LibCloudCloudConnector):
         if tags:
             args['ex_labels'] = {}
             for key, value in tags.items():
-                args['ex_labels'][key.replace("-", "_").lower()] = value
+                value = re.sub('[^a-zA-Z0-9\-_]', '', value)
+                key = re.sub('[^a-zA-Z0-9\-_]', '', key)
+                args['ex_labels'][key.lower()] = value.lower()
 
         # include the SSH_KEYS
         username = system.getValue('disk.0.os.credentials.username')
@@ -848,17 +870,10 @@ class GCECloudConnector(LibCloudCloudConnector):
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
         """
         try:
-            driver = self.get_dns_driver(auth_data)
-            system = vm.info.systems[0]
-            for net_name in system.getNetworkIDs():
-                num_conn = system.getNumNetworkWithConnection(net_name)
-                ip = system.getIfaceIP(num_conn)
-                (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                              default_hostname=Config.DEFAULT_VM_NAME,
-                                                              default_domain=Config.DEFAULT_DOMAIN)
-                if domain != "localdomain" and ip:
-                    if not domain.endswith("."):
-                        domain += "."
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                driver = self.get_dns_driver(auth_data)
+                for hostname, domain, ip in dns_entries:
                     zone = [z for z in driver.iterate_zones() if z.domain == domain]
                     if not zone:
                         self.log_info("Creating DNS zone %s" % domain)
@@ -890,17 +905,10 @@ class GCECloudConnector(LibCloudCloudConnector):
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
         """
         try:
-            driver = self.get_dns_driver(auth_data)
-            system = vm.info.systems[0]
-            for net_name in system.getNetworkIDs():
-                num_conn = system.getNumNetworkWithConnection(net_name)
-                ip = system.getIfaceIP(num_conn)
-                (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                              default_hostname=Config.DEFAULT_VM_NAME,
-                                                              default_domain=Config.DEFAULT_DOMAIN)
-                if domain != "localdomain" and ip:
-                    if not domain.endswith("."):
-                        domain += "."
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                driver = self.get_dns_driver(auth_data)
+                for hostname, domain, ip in dns_entries:
                     zone = [z for z in driver.iterate_zones() if z.domain == domain]
                     if not zone:
                         self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
@@ -982,6 +990,6 @@ class GCECloudConnector(LibCloudCloudConnector):
         for location in driver.list_locations():
             if not region or region == location.name:
                 for image in gce_images:
-                    images.append({"uri": "gce://%s/%s" % (location.name, image.id),
+                    images.append({"uri": "gce://%s/%s" % (location.name, image.name),
                                    "name": "%s/%s" % (location.name, image.name)})
         return images

@@ -117,7 +117,7 @@ class XMLObject:
             else:
                 xml_str = input_str
 
-            dom = xml.dom.minidom.parseString(xml_str).documentElement
+            dom = xml.dom.minidom.parseString(xml_str).documentElement  # nosec
 
         for tag, className in self.__class__.tuples.items():
             objs = self.getChildByTagName(dom, tag)

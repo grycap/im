@@ -3,8 +3,8 @@ paramiko >= 1.14
 PyYAML
 cheroot
 boto >= 2.29
-apache-libcloud >= 2.6.0
-RADL >= 1.1.2
+apache-libcloud >= 3.3.1
+RADL >= 1.1.6
 bottle
 netaddr
 requests >= 2.19
@@ -26,4 +26,6 @@ azure-mgmt-compute
 azure-mgmt-network
 azure-mgmt-resource
 azure-mgmt-dns
+azure-identity
 pyVmomi
+hvac

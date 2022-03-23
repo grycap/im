@@ -240,7 +240,7 @@ The main menu bar is located on top of the pages:
 * "External Links" show a set of configurables information links (documentation, video tutorials, etc.)
 * Finally on the right top corner appears the "User" menu item. This item shows the full name of the logged user,
   and an avatar obtained from `Gravatar <https://www.gravatar.com/>`_. In this menu the user can access their 
-  "Service Credentials" with the cloud providers or logout the application.
+  "Cloud Credentials" with the cloud providers or logout the application.
 
 Cloud Crecentials
 ^^^^^^^^^^^^^^^^^^^
@@ -293,8 +293,8 @@ easier the input values selection.
    Fig 5. TOSCA input values.
 
 The final tab will be the "Cloud Provider Selection" (:ref:`Fig. 6 <figure_dash_site>`).
-In this tab the user has to select, first one of the Cloud providers that has been previously added in the
-"Cloud Crecentials" page, then it has to select the base image used to deploy the VMs.
+In this tab the user has to select: first, one of the Cloud providers that has been previously added (and not disabled) 
+in the "Cloud Crecentials" page, then it has to select the base image used to deploy the VMs.
 In case of EGI Cloud Compute sites the user has two options, he can select an image from the list of images provided by the
 `EGI AppDB information system <https://appdb.egi.eu/>`_ or from the list provided directly by the Cloud site.
 Other providers will only show a dropdown list with the available images to use. Only in the case of AWS Cloud provider
@@ -329,10 +329,6 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
 **List of Actions**:
 
-* Delete: Delete this infrastructure and all the asociated resources. It also has the option to "Force" de deletion.
-  In this case the infrastructure will be removed from the IM service even if some cloud resources cannot be deleted.
-  Only use this option if you know what you are doing.
-
 * Add nodes: The Add nodes action enables to add new VMs to the users' deployment. As depicted in
   :ref:`Fig. 9 <figure_dash_add_nodes>` it will show the list of different types of nodes currently deployed in 
   the infrastructure and the user have to set the number of nodes of each type he wants to deploy.
@@ -346,6 +342,10 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
 * Log: Shows the error/contextualization log of the infrastructure.
 
+* Stop: Stops/Suspends all the VMs of the infrastructure.
+
+* Start: Starts/Resume previously stopped infrastructure.
+
 * Outputs: Shows the outputs of the TOSCA template. In case of private key of credentials it enables to download it
   as a file or copy to the clipboard.
 
@@ -354,13 +354,32 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 
    Fig 10. TOSCA outputs.
 
+* Delete: Delete this infrastructure and all the asociated resources. It also has the option to "Force" de deletion.
+  In this case the infrastructure will be removed from the IM service even if some cloud resources cannot be deleted.
+  **Only use this option if you know what you are doing**.
+
+* Delete & Recreate: Delete this infrastructure as the previous option, but once it is deleted it will redirect to the
+  infrastructure creation form, with all the input fields filled with the same set of values used to create the deleted
+  infrastructure.
+
 * Reconfigure: Starts the reconfiguration of the infrastructure.
+
+* Change User: Add or change the ownership of the infrastructure at IM level. Setting an valid access token of other
+  user, the infrastructure can be shared or transfered to another user. If overwrite check is set the new user will be
+  the unique new owner of the infrastructure, otherwise it will be added to the list of current users. If the new user
+  does not have the correct credentials to access the cloud provider where the resources were deployed the user will
+  not be able to manage the cloud resources.
+
+.. _figure_dash_change_user:
+.. figure:: images/dash_change_user.png
+
+   Fig 11. Change/Add User modal form.
 
 **VM Info page**:
 
 The VM Info page will show all the information about the selected VM and will enable to manage the lifecycle of it.
-On the top right corner the "Manage VM" dropdown menu will enable: Stop, Start, Reboot and Terminate the VM. Furthermore
-the user can check the error/contextualization log of this particular VM.
+On the top right corner the "Manage VM" dropdown menu will enable: Stop/Start, Reboot, Resize, Reconfigure and Terminate the VM.
+Furthermore the user can check the error/contextualization log of this particular VM.
 
 The VM infomation is splitted in two dofferent tables, the first one with the main information: State, IPs, HW features and
 the SSH credentials needed to access it. Second table will show other additional fields.
@@ -368,4 +387,12 @@ the SSH credentials needed to access it. Second table will show other additional
 .. _figure_dash_vm_info:
 .. figure:: images/dash_vm_info.png
 
-   Fig 11. VM Info page.
+   Fig 12. VM Info page.
+
+In case of Resizing the VM the user must provide the new size of the VM in terms of number of CPUs and ammount of memory as
+show in :ref:`Fig. 12 <figure_dash_vm_resize>`.
+
+.. _figure_dash_vm_resize:
+.. figure:: images/dash_vm_resize.png
+
+   Fig 12. VM Resize modal form.

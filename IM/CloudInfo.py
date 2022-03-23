@@ -39,6 +39,8 @@ class CloudInfo:
         """Protocol to connect to the cloud provider"""
         self.path = ""
         """Path to connect to the cloud provider"""
+        self.extra = {}
+        """Extra fields needed to represent the cloud provider (e.g. tenant, domain ...)"""
 
     def getCloudConnector(self, inf):
         """
@@ -109,6 +111,24 @@ class CloudInfo:
                 except Exception:
                     pass
 
+                # Add extra fields in case of OpenStack and EGI sites
+                if 'type' in auth and auth['type'] == "OpenStack":
+                    auth_version = auth['auth_version'] if 'auth_version' in auth else ""
+                    cloud_item.extra['auth_version'] = auth_version
+                    if auth_version == "3.x_oidc_access_token":
+                        # in this case username represents the identity provider
+                        if 'username' in auth and auth['username']:
+                            cloud_item.extra['username'] = auth['username']
+                        # and the domain the project/tenant name
+                        if 'domain' in auth and auth['domain']:
+                            cloud_item.extra['domain'] = auth['domain']
+                    elif "password" in auth_version:
+                        if 'tenant' in auth and auth['tenant']:
+                            cloud_item.extra['tenant'] = auth['tenant']
+                elif 'type' in auth and auth['type'] == "EGI":
+                    if 'vo' in auth and auth['vo']:
+                        cloud_item.extra["vo"] = 'vo'
+
                 res.append(cloud_item)
 
         return res
@@ -122,3 +142,19 @@ class CloudInfo:
         nwecloud = CloudInfo()
         nwecloud.__dict__.update(dic)
         return nwecloud
+
+    def get_port(self):
+        protocol = self.protocol or "http"
+        port = self.port
+        if port == -1:
+            if protocol == "http":
+                port = 80
+            elif protocol == "https":
+                port = 443
+        return port
+
+    def get_url(self):
+        protocol = self.protocol or "http"
+        if not protocol:
+            protocol = "http"
+        return protocol + "://" + self.server + ":" + str(self.get_port()) + self.path

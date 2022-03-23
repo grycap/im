@@ -136,7 +136,7 @@ class TestONEConnector(TestCloudConnectorBase):
                        'RULE = [ PROTOCOL = TCP, RULE_TYPE = inbound, RANGE = 9000:9100 ]\n')
         self.assertEqual(one_server.one.secgroup.allocate.call_args_list, [call('user:pass', sg_template)])
         vm_template = """
-            NAME = im-userimage
+            NAME = test
 
             CPU = 1
             VCPU = 1
@@ -404,10 +404,12 @@ class TestONEConnector(TestCloudConnectorBase):
         getONEVersion.return_value = "5.2.1"
         one_server = MagicMock()
         one_server.one.imagepool.info.return_value = (True, "<IMAGE_POOL><IMAGE><ID>1</ID>"
-                                                      "<NAME>imagename</NAME></IMAGE></IMAGE_POOL>", 0)
+                                                      "<NAME>imagename</NAME><STATE>1</STATE></IMAGE></IMAGE_POOL>", 0)
         server_proxy.return_value = one_server
 
         res = one_cloud.list_images(auth)
+
+        self.assertEqual(res, [{'uri': 'one://server.com/1', 'name': 'imagename'}])
 
         one_server.one.vnpool.info.return_value = (True, self.read_file_as_string("files/nets.xml"), 0)
         one_server.one.user.info.return_value = (True, self.read_file_as_string("files/user.xml"), 0)
@@ -417,7 +419,7 @@ class TestONEConnector(TestCloudConnectorBase):
         expected_res = {'cores': {'limit': 100, 'used': 5},
                         'floating_ips': {'limit': 3, 'used': 0},
                         'instances': {'limit': -1, 'used': 3},
-                        'ram': {'limit': 102400, 'used': 10240},
+                        'ram': {'limit': 100, 'used': 10},
                         'security_groups': {'limit': -1, 'used': 0}}
         self.assertEqual(res, expected_res)
 

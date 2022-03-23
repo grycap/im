@@ -313,35 +313,32 @@ class FogBowCloudConnector(CloudConnector):
         if resp.status_code == 200:
             sec_groups = resp.json()
 
-        outports = net.getOutPorts()
+        outports = net.getOutPorts() or []
 
         if path == "publicIps":
-            if outports is None:
-                outports = []
-            outports.append(outport(22, 22, 'tcp'))
+            outports = self.add_ssh_port(net.getOutPorts())
 
-        if outports:
-            for op in outports:
-                body = {"cidr": "0.0.0.0/0",
-                        "direction": "IN",
-                        "etherType": "IPv4",
-                        "protocol": op.get_protocol().upper()
-                        }
+        for op in outports:
+            body = {"cidr": op.get_remote_cidr(),
+                    "direction": "IN",
+                    "etherType": "IPv4",
+                    "protocol": op.get_protocol().upper()
+                    }
 
-                if op.is_range():
-                    body["portTo"] = op.get_port_init()
-                    body["portFrom"] = op.get_port_end()
-                else:
-                    body["portTo"] = op.get_remote_port()
-                    body["portFrom"] = op.get_remote_port()
+            if op.is_range():
+                body["portTo"] = op.get_port_init()
+                body["portFrom"] = op.get_port_end()
+            else:
+                body["portTo"] = op.get_remote_port()
+                body["portFrom"] = op.get_remote_port()
 
-                if body not in sec_groups:
-                    headers = {'Content-Type': 'application/json'}
-                    resp = self.create_request('POST', '/%s/%s/securityRules' % (path, obj_id),
-                                               auth_data, headers, json.dumps(body))
-                    if resp.status_code not in [201, 200]:
-                        self.log_error("Error creating Security Rule in %s. %s. %s." % (resp.reason,
-                                                                                        path, resp.text))
+            if body not in sec_groups:
+                headers = {'Content-Type': 'application/json'}
+                resp = self.create_request('POST', '/%s/%s/securityRules' % (path, obj_id),
+                                           auth_data, headers, json.dumps(body))
+                if resp.status_code not in [201, 200]:
+                    self.log_error("Error creating Security Rule in %s. %s. %s." % (resp.reason,
+                                                                                    path, resp.text))
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]

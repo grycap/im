@@ -55,7 +55,7 @@ class AppDB:
                     else:
                         services = [site['site:service']]
                     for service in services:
-                        if service['@type'] == stype:
+                        if '@type' in service and service['@type'] == stype:
                             return service['@id']
         else:
             return None
@@ -86,25 +86,59 @@ class AppDB:
         """
         Get the image ID from the site id, image and vo names
         """
+        images = []
         data = AppDB.appdb_call('/rest/1.0/va_providers/%s' % site_id)
         if data:
             if 'provider:image' in data['appdb:appdb']['virtualization:provider']:
                 for image in data['appdb:appdb']['virtualization:provider']['provider:image']:
-                    if (image['@archived'] == "false" and image['@appcname'] == image_name and
-                            (not vo_name or image['@voname'] == vo_name)):
+                    if (image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name)):
                         image_basename = os.path.basename(image['@va_provider_image_id'])
-                        parts = image_basename.split("#")
-                        if len(parts) > 1:
-                            return parts[1]
-                        else:
-                            return image_basename
+                        images.append((image_basename, image['@vmiversion']))
+
+        image = None
+        if len(images) == 1:
+            # If there are only one, get it
+            image = images[0][0]
+        elif len(images) > 1:
+            # if there are more than one, try to return last vmiversion
+            images = sorted(images, key=lambda x: x[1], reverse=True)   # sort by version
+            image = images[0][0]
+
+        if image:
+            parts = image.split("#")
+            if len(parts) > 1:
+                return parts[1]
+            else:
+                return image
 
         return None
 
     @staticmethod
-    def get_image_data(str_url, stype="occi"):
+    def _get_site_name(site_host, stype="occi"):
+        """
+        Get the name if site.
+        site may be the name itself or the site_url.
+        """
+        data = AppDB.appdb_call('/rest/1.0/sites')
+        if data:
+            for site in data['appdb:appdb']['appdb:site']:
+                if site['@infrastructure'] == "Production" and 'site:service' in site:
+                    if isinstance(site['site:service'], list):
+                        services = site['site:service']
+                    else:
+                        services = [site['site:service']]
+                    for service in services:
+                        if ('@type' in service and service['@type'] == stype and
+                                '@host' in service and service['@host'] == site_host):
+                            return site['@name']
+        else:
+            return None
+
+    @staticmethod
+    def get_image_data(str_url, stype="occi", vo=None, site=None):
         """
         The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
+        this format: appdb://egi.docker.ubuntu.16.04?fedcloud.egi.eu
         or this one appdb://UPV-GRyCAP/83d5e854-a128-5b1f-9457-d32e10a720a6:8135
         Get the Site url from the AppDB
         """
@@ -112,9 +146,16 @@ class AppDB:
         protocol = url[0]
 
         if protocol == "appdb":
-            site_name = url[1]
-            image_name = url[2][1:]
+            if url[2]:
+                site_name = url[1]
+                image_name = url[2][1:]
+            else:
+                site_name = AppDB._get_site_name(site, stype)
+                image_name = url[1]
             vo_name = url[4]
+
+            if not site_name:
+                return None, None, "No site name returned from EGI AppDB for site host: %s." % site
 
             site_id = AppDB.get_site_id(site_name, stype)
             if not site_id:
@@ -130,6 +171,8 @@ class AppDB:
                     return None, None, "No image ID returned from EGI AppDB for image: %s/%s." % (site_id,
                                                                                                   image_name)
             else:
+                if not vo_name:
+                    vo_name = vo
                 image_id = AppDB.get_image_id(site_id, image_name, vo_name)
                 if not image_id:
                     return None, None, "No image ID returned from EGI AppDB for image: %s/%s/%s." % (site_id,
@@ -161,3 +204,24 @@ class AppDB:
                             return image_basename
 
         return None
+
+    @staticmethod
+    def get_project_ids(site_id):
+        projects = {}
+        # Until it is on the prod instance use the Devel one
+
+        data = AppDB.appdb_call('/rest/1.0/va_providers/%s' % site_id)
+        if (data and 'virtualization:provider' in data and data['virtualization:provider'] and
+                'provider:shares' in data['virtualization:provider'] and
+                data['virtualization:provider']['provider:shares'] and
+                'vo:vo' in data['virtualization:provider']['provider:shares'] and
+                data['virtualization:provider']['provider:shares']['vo:vo']):
+            if isinstance(data['virtualization:provider']['provider:shares']['vo:vo'], list):
+                shares = data['virtualization:provider']['provider:shares']['vo:vo']
+            else:
+                shares = [data['virtualization:provider']['provider:shares']['vo:vo']]
+
+            for vo in shares:
+                projects[vo["#text"]] = vo['@projectid']
+
+        return projects
