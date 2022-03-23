@@ -47,10 +47,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         cloud_info.protocol = "https"
         cloud_info.server = "server.com"
         cloud_info.port = 5000
+        cloud_info.extra['tenant'] = 'tenant'
         inf = MagicMock()
         inf.id = "1"
-        one_cloud = OpenStackCloudConnector(cloud_info, inf)
-        return one_cloud
+        ost_cloud = OpenStackCloudConnector(cloud_info, inf)
+        return ost_cloud
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_10_concrete(self, get_driver):
@@ -77,15 +78,30 @@ class TestOSTConnector(TestCloudConnectorBase):
         get_driver.return_value = driver
 
         node_size = MagicMock()
+        node_size.id = '1'
         node_size.ram = 512
         node_size.price = 1
         node_size.disk = 1
         node_size.vcpus = 1
-        node_size.name = "small"
-        driver.list_sizes.return_value = [node_size]
+        node_size.name = "g.small"
+        node_size.extra = {'pci_passthrough:alias': 'GPU:2,FPGA:1'}
+        node_size2 = MagicMock()
+        node_size.id = '2'
+        node_size2.ram = 512
+        node_size2.price = 1
+        node_size2.disk = 1
+        node_size2.vcpus = 1
+        node_size2.name = "small"
+        node_size2.extra = {}
+        driver.list_sizes.return_value = [node_size, node_size2]
+        driver.ex_get_size_extra_specs.return_value = {}
+
+        sizes = ost_cloud.get_list_sizes_details(driver)
+        self.assertEqual(sizes[0].extra['pci_devices'], 3)
 
         concrete = ost_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
+        self.assertEqual(concrete[0].getValue("instance_type"), "small")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.AppDB.AppDB.get_site_id')
@@ -237,8 +253,7 @@ class TestOSTConnector(TestCloudConnectorBase):
             {'source_type': 'image',
              'uuid': 'imageid',
              'boot_index': 0,
-             'delete_on_termination': False,
-             'device_name': 'vda'},
+             'delete_on_termination': False},
             {'guest_format': 'ext3',
              'boot_index': 1,
              'volume_size': 1,
@@ -308,7 +323,8 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(driver.ex_create_subnet.call_args_list[5][0][2], "10.0.2.0/24")
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
-    def test_30_updateVMInfo(self, get_driver):
+    @patch('requests.get')
+    def test_30_updateVMInfo(self, request, get_driver):
         radl_data = """
             network net (outbound = 'yes' and provider_id = 'pool1')
             network net1 (provider_id = 'os-lan' and router='10.0.0.0/16,vrouter1')
@@ -317,7 +333,7 @@ class TestOSTConnector(TestCloudConnectorBase):
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
-            net_interface.0.dns_name = 'test' and
+            net_interface.0.dns_name = 'dydns:secret@test.domain.com' and
             net_interface.1.connection = 'net1' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'ost://server.com/ami-id' and
@@ -353,7 +369,9 @@ class TestOSTConnector(TestCloudConnectorBase):
         node.id = "1"
         node.state = "running"
         node.extra = {'flavorId': 'small', 'volumes_attached': [{'id': 'vol1'}],
-                      'addresses': {'os-lan': [{'addr': '10.0.0.1', 'OS-EXT-IPS:type': 'fixed'}]}}
+                      'addresses': {'os-lan': [{'addr': '10.0.0.1', 'OS-EXT-IPS:type': 'fixed'}],
+                                    'public': [{'version': '4', 'addr': '8.8.8.8'},
+                                               {'version': '6', 'addr': 'fec0:4801:7808:52:16:3eff:fe6e:b7e2'}]}}
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
         node.driver = driver
@@ -366,6 +384,10 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size.vcpus = 1
         node_size.name = "small"
         driver.ex_get_size.return_value = node_size
+        driver.ex_get_size_extra_specs.return_value = {'Accelerator:Model': 'Tesla V100',
+                                                       'Accelerator:Number': '1.0',
+                                                       'Accelerator:Type': 'GPU',
+                                                       'Accelerator:Vendor': 'NVIDIA'}
 
         volume = MagicMock()
         volume.id = "vol1"
@@ -402,12 +424,17 @@ class TestOSTConnector(TestCloudConnectorBase):
         success, vm = ost_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ipv6"), "fec0:4801:7808:52:16:3eff:fe6e:b7e2")
         self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertEquals(driver.ex_update_subnet.call_args_list[0][0][0].id, "subnet1")
         self.assertEquals(driver.ex_update_subnet.call_args_list[0][1],
                           {'host_routes': [{'nexthop': '10.0.0.1', 'destination': '10.0.0.0/16'}]})
         self.assertEquals(vm.info.systems[0].getValue("disk.1.device"), "vdb")
         self.assertEquals(vm.info.systems[0].getValue("disk.1.image.url"), "ost://server.com/vol1")
+        self.assertEquals(vm.info.systems[0].getValue("gpu.count"), 1)
+        self.assertEquals(vm.info.systems[0].getValue("gpu.model"), 'Tesla V100')
+        self.assertEquals(vm.info.systems[0].getValue("gpu.vendor"), 'NVIDIA')
 
         # In this case the Node has the float ip assigned
         # node.public_ips = ['8.8.8.8']
@@ -443,6 +470,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
         self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ipv6"), "2001:630:12:581:f816:3eff:fe92:2146")
+
+        url = 'https://nsupdate.fedcloud.eu/nic/update?hostname=test.domain.com&myip=8.8.8.8'
+        self.assertEqual(request.call_args_list[0][0][0], url)
+        auth = "Basic dGVzdC5kb21haW4uY29tOnNlY3JldA=="
+        self.assertEqual(request.call_args_list[0][1]['headers']['Authorization'], auth)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
@@ -879,6 +911,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         image = MagicMock(['id', 'name'])
         image.id = "image_id"
         image.name = "image_name"
+        image.extra = {'status': 'active'}
         driver.list_images.return_value = [image]
 
         res = ost_cloud.list_images(auth)
@@ -912,13 +945,69 @@ class TestOSTConnector(TestCloudConnectorBase):
         net_quotas.security_group.limit = 6
         driver.ex_get_network_quotas.return_value = net_quotas
 
+        vol_quotas = MagicMock(['gigabytes', 'volumes'])
+        vol_quotas.gigabytes = MagicMock(['in_use', 'reserved', 'limit'])
+        vol_quotas.gigabytes.in_use = vol_quotas.gigabytes.reserved = 2
+        vol_quotas.gigabytes.limit = 6
+        vol_quotas.volumes = MagicMock(['in_use', 'reserved', 'limit'])
+        vol_quotas.volumes.in_use = vol_quotas.volumes.reserved = 2
+        vol_quotas.volumes.limit = 6
+        driver.ex_get_volume_quotas.return_value = vol_quotas
+
         self.maxDiff = None
         res = ost_cloud.get_quotas(auth)
         self.assertEquals(res, {"cores": {"used": 2, "limit": 4},
                                 "ram": {"used": 2, "limit": 4},
                                 "instances": {"used": 2, "limit": 4},
                                 "floating_ips": {"used": 4, "limit": 6},
-                                "security_groups": {"used": 4, "limit": 6}})
+                                "security_groups": {"used": 4, "limit": 6},
+                                'volume_storage': {'limit': 6, 'used': 4},
+                                'volumes': {'limit': 6, 'used': 4}})
+
+    @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
+    def test_get_driver(self, get_driver):
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'}])
+        ost_cloud = self.get_ost_cloud()
+
+        ost_cloud.get_driver(auth)
+        self.assertEqual(get_driver.call_args_list[0][1]['ex_force_auth_url'], 'https://server.com:5000')
+        self.assertEqual(get_driver.call_args_list[0][1]['ex_force_auth_version'], '2.0_password')
+        self.assertEqual(get_driver.call_args_list[0][1]['ex_tenant_name'], 'tenant')
+
+        ost_cloud.cloud.extra['auth_version'] = '3.x_oidc_access_token'
+        ost_cloud.cloud.extra['username'] = 'idp'
+        ost_cloud.cloud.extra['domain'] = 'project'
+
+        with self.assertRaises(Exception) as ex:
+            ost_cloud.get_driver(auth)
+        self.assertEqual('No compatible OpenStack auth data has been specified.',
+                         str(ex.exception))
+
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'},
+                               {'id': 'ost2', 'type': 'OpenStack', 'username': 'idp', 'domain': 'project',
+                                'password': 'token', 'tenant': 'openid', 'host': 'https://server.com:5000',
+                                'auth_version': '3.x_oidc_access_token'}])
+
+        ost_cloud.driver = None
+        ost_cloud.get_driver(auth)
+        self.assertEqual(get_driver.call_args_list[1][1]['ex_force_auth_url'], 'https://server.com:5000')
+        self.assertEqual(get_driver.call_args_list[1][1]['ex_force_auth_version'], '3.x_oidc_access_token')
+        self.assertEqual(get_driver.call_args_list[1][1]['ex_domain_name'], 'project')
+        self.assertEqual(get_driver.call_count, 2)
+
+        ost_cloud.get_driver(auth)
+        self.assertEqual(get_driver.call_count, 2)
+
+        auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
+                                'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'},
+                               {'id': 'ost2', 'type': 'OpenStack', 'username': 'idp', 'domain': 'project',
+                                'password': 'new_token', 'tenant': 'openid', 'host': 'https://server.com:5000',
+                                'auth_version': '3.x_oidc_access_token'}])
+
+        ost_cloud.get_driver(auth)
+        self.assertEqual(get_driver.call_count, 2)
 
 
 if __name__ == '__main__':

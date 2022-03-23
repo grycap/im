@@ -40,6 +40,7 @@ from radl.radl_json import dump_radl as dump_radl_json
 
 from IM.openid.JWT import JWT
 from IM.openid.OpenIDClient import OpenIDClient
+from IM.vault import VaultCredentials
 
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
@@ -158,9 +159,11 @@ class InfrastructureManager:
         return deploy_groups
 
     @staticmethod
-    def _launch_deploy(sel_inf, deploy, cloud_id, cloud, concrete_systems, radl, auth, deployed_vm):
+    def _launch_deploy(sel_inf, dep, cloud_id, cloud, concrete_systems, radl, auth, deployed_vm):
         """Launch a deploy."""
 
+        # Clone the deploy to avoid changes in the original inf deploys
+        deploy = dep.clone()
         if deploy.vm_number <= 0:
             InfrastructureManager.logger.warning(
                 "Inf ID: %s: deploy %s with 0 num: Ignoring." % (sel_inf.id, deploy.id))
@@ -278,10 +281,11 @@ class InfrastructureManager:
         # Add or update configures
         for s in radl.configures:
             # first check that the YAML is correct
-            try:
-                yaml.safe_load(s.recipes)
-            except Exception as ex:
-                raise Exception("Error parsing YAML: %s" % str(ex))
+            if s.recipes:
+                try:
+                    yaml.safe_load(s.recipes)
+                except Exception as ex:
+                    raise Exception("Error parsing YAML: %s" % str(ex))
             sel_inf.radl.add(s.clone(), "replace")
             InfrastructureManager.logger.info(
                 "Inf ID: " + sel_inf.id + ": " +
@@ -602,6 +606,7 @@ class InfrastructureManager:
 
         # Launch every group in the same cloud provider
         deployed_vm = {}
+        deploy_items = []
         for deploy_group in deploy_groups:
             if not deploy_group:
                 InfrastructureManager.logger.warning("Inf ID: %s: No VMs to deploy!" % sel_inf.id)
@@ -612,19 +617,24 @@ class InfrastructureManager:
 
             cloud_id = deploys_group_cloud[id(deploy_group)]
             cloud = cloud_list[cloud_id]
-            if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
-                pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
-                pool.map(
-                    lambda deploy: InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
-                                                                        cloud, concrete_systems, radl, auth,
-                                                                        deployed_vm),
-                    deploy_group)
-                pool.close()
-            else:
-                for deploy in deploy_group:
-                    InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
-                                                         cloud, concrete_systems, radl,
-                                                         auth, deployed_vm)
+
+            for d in deploy_group:
+                deploy_items.append((d, cloud_id, cloud))
+
+        # Now launch all the deployments
+        if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+            pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+            pool.map(
+                lambda depitem: InfrastructureManager._launch_deploy(sel_inf, depitem[0], depitem[1],
+                                                                     depitem[2], concrete_systems, radl, auth,
+                                                                     deployed_vm),
+                deploy_items)
+            pool.close()
+        else:
+            for deploy, cloud_id, cloud in deploy_items:
+                InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
+                                                     cloud, concrete_systems, radl,
+                                                     auth, deployed_vm)
 
         # We make this to maintain the order of the VMs in the sel_inf.vm_list
         # according to the deploys shown in the RADL
@@ -658,9 +668,7 @@ class InfrastructureManager:
 
         error_msg = ""
         # Add the new virtual machines to the infrastructure
-        sel_inf.update_radl(radl,
-                            [(d, deployed_vm[d], concrete_systems[d.cloud_id][d.id][0]) for d in deployed_vm],
-                            False)
+        sel_inf.update_radl(radl, deployed_vm, False)
         if all_failed:
             InfrastructureManager.logger.error("VMs failed when adding to Inf ID: %s" % sel_inf.id)
             sel_inf.add_cont_msg("All VMs failed. No contextualize.")
@@ -1288,7 +1296,7 @@ class InfrastructureManager:
                     found = False
                     user_db = json.load(open(Config.USER_DB, "r"))
                     for user in user_db['users']:
-                        if user['username'] == auth[0]['username'] and user['password'] == auth[0]['password']:
+                        if user['username'] == auth['username'] and user['password'] == auth['password']:
                             found = True
                             break
                     return found
@@ -1381,29 +1389,60 @@ class InfrastructureManager:
             raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
 
     @staticmethod
+    def get_auth_from_vault(auth):
+        """Get credentials from Vault if required."""
+        vault_auth = auth.getAuthInfo("Vault")
+        if vault_auth:
+            if "token" in vault_auth[0]:
+                vault_host = None
+                vault_path = None
+                vault_role = None
+                if "host" in vault_auth[0]:
+                    vault_host = vault_auth[0]["host"]
+                else:
+                    InfrastructureManager.logger.warning("Vault credentials without host.")
+                    return auth
+                if "path" in vault_auth[0]:
+                    vault_path = vault_auth[0]["path"]
+                if "role" in vault_auth[0]:
+                    vault_role = vault_auth[0]["role"]
+                vault = VaultCredentials(vault_host, vault_path, vault_role, Config.VERIFI_SSL)
+                creds = vault.get_creds(vault_auth[0]["token"])
+                creds.extend(auth.auth_list)
+                creds.remove(vault_auth[0])
+                return Authentication(creds)
+            else:
+                InfrastructureManager.logger.warning("Vault credentials without token.")
+                return auth
+        else:
+            return auth
+
+    @staticmethod
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
+        auth = InfrastructureManager.get_auth_from_vault(auth)
         im_auth = auth.getAuthInfo("InfrastructureManager")
 
         if not im_auth:
             raise InvaliddUserException("No credentials provided for the InfrastructureManager.")
 
-        if Config.FORCE_OIDC_AUTH and "token" not in im_auth[0]:
-            raise InvaliddUserException("No token provided for the InfrastructureManager.")
+        for im_auth_item in im_auth:
+            if Config.FORCE_OIDC_AUTH and "token" not in im_auth_item:
+                raise InvaliddUserException("No token provided for the InfrastructureManager.")
 
-        # First check if an OIDC token is included
-        if "token" in im_auth[0]:
-            InfrastructureManager.check_oidc_token(im_auth[0])
-        elif "username" in im_auth[0]:
-            if im_auth[0]['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
-                # This is a OpenID user do not enable to get data using user/pass creds
-                raise InvaliddUserException("Invalid username used for the InfrastructureManager.")
-        else:
-            raise InvaliddUserException("No username nor token for the InfrastructureManager.")
+            # First check if an OIDC token is included
+            if "token" in im_auth_item:
+                InfrastructureManager.check_oidc_token(im_auth_item)
+            elif "username" in im_auth_item:
+                if im_auth_item['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
+                    # This is a OpenID user do not enable to get data using user/pass creds
+                    raise InvaliddUserException("Invalid username used for the InfrastructureManager.")
+            else:
+                raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
-        # Now check if the user is in authorized
-        if not InfrastructureManager.check_im_user(im_auth):
-            raise InvaliddUserException()
+            # Now check if the user is in authorized
+            if not InfrastructureManager.check_im_user(im_auth_item):
+                raise InvaliddUserException()
 
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
@@ -1622,7 +1661,7 @@ class InfrastructureManager:
 
         Arguments:
           - cloud_id(string): ID of the cloud provider specified in the Authentication data
-          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - auth(Authentication): parsed authentication tokens to access cloud provider.
 
         Returns: a CloudConnection object.
         """
@@ -1644,7 +1683,7 @@ class InfrastructureManager:
 
         Arguments:
           - cloud_id(string): ID of the cloud provider specified in the Authentication data
-          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - auth(Authentication): parsed authentication tokens to access cloud provider.
           - filters(:py:class:`dict` of str objects): Pair key value to filter the list of images.
                                                      It is cloud provider specific.
 
@@ -1661,7 +1700,7 @@ class InfrastructureManager:
 
         Arguments:
           - cloud_id(string): ID of the cloud provider specified in the Authentication data
-          - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - auth(Authentication): parsed authentication tokens to access cloud provider.
 
         Returns: dict with the following structure (if there are no limit in some metric, value is set to 1):
                     {
@@ -1676,3 +1715,30 @@ class InfrastructureManager:
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
         return InfrastructureManager._get_cloud_conn(cloud_id, auth).get_quotas(auth)
+
+    @staticmethod
+    def ChangeInfrastructureAuth(inf_id, new_auth, overwrite, auth):
+        """
+        Get the number of used and available resources in the cloud provider
+
+        Arguments:
+          - inf_id(str): infrastructure id.
+          - auth(Authentication): parsed authentication tokens.
+          - new_auth(Authentication): New parsed authentication tokens.
+          - overwrite(bool): Flag to set if the new auth data will overwrite the currrent one or it wil
+                             be appended.
+        """
+        # First check the auth data
+        InfrastructureManager.logger.info("Changing user of the Inf ID: " + str(inf_id))
+        auth = InfrastructureManager.check_auth_data(auth)
+        sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+        try:
+            # Check also the new auth data
+            new_auth = InfrastructureManager.check_auth_data(new_auth)
+        except InvaliddUserException as ex:
+            raise InvaliddUserException("Invalid new infrastructure data provided: %s" % ex)
+        # Only add new user if it is not already authorized or we are overwriting
+        if not sel_inf.is_authorized(new_auth) or overwrite:
+            sel_inf.change_auth(new_auth, overwrite)
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
+        return ""

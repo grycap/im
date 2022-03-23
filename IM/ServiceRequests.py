@@ -57,6 +57,7 @@ class IMBaseRequest(AsyncRequest):
     CREATE_DISK_SNAPSHOT = "CreateDiskSnapshot"
     GET_CLOUD_IMAGE_LIST = "GetCloudImageList"
     GET_CLOUD_QUOTAS = "GetCloudQuotas"
+    CHANGE_INFRASTRUCTURE_AUTH = "ChangeInfrastructureAuth"
 
     @staticmethod
     def create_request(function, arguments=()):
@@ -110,6 +111,8 @@ class IMBaseRequest(AsyncRequest):
             return Request_GetCloudImageList(arguments)
         elif function == IMBaseRequest.GET_CLOUD_QUOTAS:
             return Request_GetCloudQuotas(arguments)
+        elif function == IMBaseRequest.CHANGE_INFRASTRUCTURE_AUTH:
+            return Request_ChangeInfrastructureAuth(arguments)
         else:
             raise NotImplementedError("Function not Implemented")
 
@@ -428,3 +431,17 @@ class Request_GetCloudQuotas(IMBaseRequest):
         self._error_mesage = "Error getting cloud quotas"
         (cloud_id, auth_data) = self.arguments
         return IM.InfrastructureManager.InfrastructureManager.GetCloudQuotas(cloud_id, Authentication(auth_data))
+
+
+class Request_ChangeInfrastructureAuth(IMBaseRequest):
+    """
+    Request class for the ChangeInfrastructureAuth function
+    """
+
+    def _call_function(self):
+        self._error_mesage = "Error changing infrastructure auth"
+        (inf_id, new_auth, overwrite, auth_data) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.ChangeInfrastructureAuth(inf_id,
+                                                                                       Authentication(new_auth),
+                                                                                       overwrite,
+                                                                                       Authentication(auth_data))

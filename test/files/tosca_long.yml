@@ -101,18 +101,21 @@ topology_template:
         - local_storage:
             node: my_onedata_storage
             relationship:
-              type: AttachesTo
+              type: tosca.relationships.indigo.OneDataStorage.AttachesTo
               properties:
                 location: /mnt/disk
-              interfaces:
-                Configure:
-                  pre_configure_source:
-                    implementation:
-                      file: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/onedata/oneclient_install.yml
-                      type: tosca.artifacts.Implementation.YAML
-                    inputs:
-                      onedata_token: { get_property: [ TARGET, credential, token ] }
-                      onedata_location: { get_property: [ SELF, location ] }
+        - local_storage:
+            node: my_storage2
+            relationship:
+              type: AttachesTo
+              properties:
+                location: /mnt/disk2
+        - local_storage:
+            node: my_storage3
+            relationship:
+              type: AttachesTo
+              properties:
+                location: /mnt/disk3
 
     my_onedata_storage:
       type: tosca.nodes.indigo.OneDataStorage
@@ -123,6 +126,16 @@ topology_template:
         credential:
           token: some_token
           token_type: token
+
+    my_storage2:
+      type: tosca.nodes.BlockStorage
+      properties:
+        size: 10GB
+
+    my_storage3:
+      type: tosca.nodes.BlockStorage
+      properties:
+        size: 20 GB
 
     wn_node:
       type: tosca.nodes.indigo.LRMS.WorkerNode.Slurm
@@ -201,12 +214,12 @@ topology_template:
 
   policies:
     - deploy_on_cloudid:
-       type: tosca.policies.Placement
+       type: tosca.policies.indigo.Placement
        properties: { cloud_id: cloudid, availability_zone: some_zone }
        targets: [ other_server ]
 
     - deploy_group_on_cloudid:
-       type: tosca.policies.Placement
+       type: tosca.policies.indigo.Placement
        properties: { cloud_id: cloudid }
        targets: [ my_placement_group ]
 

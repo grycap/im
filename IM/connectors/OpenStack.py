@@ -19,6 +19,8 @@ import time
 from netaddr import IPNetwork, IPAddress
 import os.path
 import tempfile
+import requests
+import base64
 
 try:
     from libcloud.common.exceptions import BaseHTTPError
@@ -57,6 +59,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     """ Enable config drive """
     CONFIRM_TIMEOUT = 120
     """ Confirm Timeout """
+    DEFAULT_AUTH_VERSION = '2.0_password'
+    """ Default authentication method """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
@@ -76,6 +80,40 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         node = driver.ex_get_node_details(node_id)
         return node
 
+    def get_auth(self, auths):
+        """
+        Get a compatible auth data.
+        The auth must have the same auth_version and other
+        field equal depeding on the auth_version used.
+
+        Arguments:
+                - auth(Authentication): parsed authentication tokens.
+
+        Returns: a :py:class:`IM.auth.Authentication`
+        """
+        if 'auth_version' not in self.cloud.extra or not self.cloud.extra['auth_version']:
+            self.cloud.extra['auth_version'] = self.DEFAULT_AUTH_VERSION
+        for auth in auths:
+            valid = True
+            fields = ['auth_version']
+            if self.cloud.extra['auth_version'] == "3.x_oidc_access_token":
+                fields.extend(['username', 'domain'])
+            elif "password" in self.cloud.extra['auth_version']:
+                fields.append('tenant')
+
+            if 'auth_version' not in auth or not auth['auth_version']:
+                auth['auth_version'] = self.DEFAULT_AUTH_VERSION
+
+            for field in fields:
+                if auth.get(field) != self.cloud.extra.get(field):
+                    valid = False
+                    break
+
+            if valid:
+                return auth
+
+        raise Exception("No compatible OpenStack auth data has been specified.")
+
     def get_driver(self, auth_data):
         """
         Get the driver from the auth data
@@ -89,26 +127,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if not auths:
             raise Exception("No auth data has been specified to OpenStack.")
         else:
-            auth = auths[0]
+            auth = self.get_auth(auths)
 
         if self.driver and self.auth.compare(auth_data, self.type, self.cloud.server):
             return self.driver
         else:
             self.auth = auth_data
 
-            protocol = self.cloud.protocol
-            if not protocol:
-                protocol = "http"
-            port = self.cloud.port
-            if port == -1:
-                if protocol == "http":
-                    port = 80
-                elif protocol == "https":
-                    port = 443
-                else:
-                    raise Exception("Invalid port/protocol specified for OpenStack site: %s" % self.cloud.server)
+            protocol = self.cloud.protocol or "http"
+            port = self.cloud.get_port()
 
-            parameters = {"auth_version": '2.0_password',
+            parameters = {"auth_version": self.DEFAULT_AUTH_VERSION,
                           "auth_url": protocol + "://" + self.cloud.server + ":" + str(port),
                           "auth_token": None,
                           "service_type": None,
@@ -120,7 +149,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                           "volume_url": None,
                           "api_version": "2.0",
                           "domain": None,
-                          "tenant_domain_id": None}
+                          "tenant_domain_id": None,
+                          "microversion": None}
 
             if 'username' in auth and 'password' in auth and 'tenant' in auth:
                 username = auth['username']
@@ -160,7 +190,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             for key, value in parameters.items():
                 if value:
                     if key in ['base_url', 'auth_token', 'service_type', 'image_url', 'volume_url',
-                               'network_url', 'service_region', 'auth_version', 'auth_url']:
+                               'network_url', 'service_region', 'auth_version', 'auth_url', 'microversion']:
                         key = 'ex_force_%s' % key
                     elif key == 'domain':
                         key = 'ex_domain_name'
@@ -193,38 +223,99 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.driver = driver
             return driver
 
-    def guess_instance_type_gpu(self, size):
-        """Try to guess if this NodeSize has GPU support"""
-        try:
-            extra_specs = size.driver.ex_get_size_extra_specs(size.id)
-            for k, v in extra_specs.items():
-                if k.lower().find("gpu") and v.lower() not in ['false', 'no', '0']:
+    @staticmethod
+    def guess_instance_type_sgx(size, epc_size_feature):
+        """Try to guess if this NodeSize has SGX support"""
+        epc_size = None
+        if epc_size_feature:
+            epc_size = epc_size_feature.getValue("m")
+        for k, v in size.extra.items():
+            if epc_size:
+                # If epc size is set only check it
+                if k.lower().find("sgx") != -1 and k.lower().find("epc_size") != 1 and int(v) >= epc_size:
                     return True
-        except Exception:
-            self.log_exception("Error trying to get flavor extra_specs.")
+            else:
+                if k.lower().find("sgx") != -1 and v.lower() not in ['false', 'no', '0']:
+                    return True
         return False
 
-    def get_instance_type(self, sizes, radl):
-        """
-        Get the name of the instance type to launch to LibCloud
+    @staticmethod
+    def guess_instance_type_gpu(size, num_gpus, vendor=None, model=None):
+        """Try to guess if this NodeSize has GPU support"""
+        for k, v in size.extra.items():
+            if k.lower().find("gpu") != -1 and v.lower() not in ['false', 'no', '0']:
+                return True
+        # From EGI FedCloud TF
+        if 'Accelerator:Type' in size.extra and size.extra['Accelerator:Type'] == 'GPU':
+            if 'Accelerator:Number' in size.extra and size.extra['Accelerator:Number']:
+                if float(size.extra['Accelerator:Number']) < num_gpus:
+                    return False
+            else:
+                return False
+            if vendor:
+                if 'Accelerator:Vendor' in size.extra and size.extra['Accelerator:Vendor']:
+                    if size.extra['Accelerator:Vendor'].lower() != vendor.lower():
+                        return False
+                else:
+                    return False
+            if model:
+                if 'Accelerator:Model' in size.extra and size.extra['Accelerator:Model']:
+                    if size.extra['Accelerator:Model'].lower() != model.lower():
+                        return False
+                else:
+                    return False
+            return True
+        else:
+            return False
 
-        Arguments:
-           - size(list of :py:class: `libcloud.compute.base.NodeSize`): List of sizes on a provider
-           - radl(str): RADL document with the requirements of the VM to get the instance type
-        Returns: a :py:class:`libcloud.compute.base.NodeSize` with the instance type to launch
-        """
+    def get_list_sizes_details(self, driver):
+        """Assure to get extra_specs in all the sizes"""
+        res = []
+        for size in driver.list_sizes():
+            # If extra specs are not fetch in the list_sizes function
+            try:
+                size.extra.update(driver.ex_get_size_extra_specs(size.id))
+            except Exception:
+                self.log_exception("Error trying to get flavor '%s' extra_specs." % size.id)
+
+            size.extra['pci_devices'] = 0
+            # Count to pci devices to enable sorting
+            if 'pci_passthrough:alias' in size.extra:
+                pci_devices = size.extra['pci_passthrough:alias'].split(',')
+                for device in pci_devices:
+                    device_info = device.split(':')
+                    if len(device_info) > 1:
+                        if device_info[1] and device_info[1].isnumeric():
+                            size.extra['pci_devices'] += int(device_info[1])
+                    else:
+                        size.extra['pci_devices'] += 1
+
+            # do not add disabled images
+            if 'disabled' not in size.extra or not size.extra['disabled']:
+                res.append(size)
+
+        return res
+
+    def get_instance_type(self, driver, radl, location=None):
+        sizes = self.get_list_sizes_details(driver)
         instance_type_name = radl.getValue('instance_type')
 
         (cpu, cpu_op, memory, memory_op, disk_free, disk_free_op) = self.get_instance_selectors(radl, disk_unit="G")
-        gpu = radl.getValue('gpu.count')
+        num_gpus = radl.getValue('gpu.count')
+        gpu_model = radl.getValue('gpu.model')
+        gpu_vendor = radl.getValue('gpu.vendor')
+        sgx = radl.getValue('cpu.sgx')
+        epc_size = radl.getFeature('cpu.sgx.epc_size')
 
         # get the node size with the lowest price, vcpus, memory and disk
-        sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram, x.disk))
+        sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram, x.disk, x.extra['pci_devices']))
         for size in sizes:
             comparison = cpu_op(size.vcpus, cpu)
             comparison = comparison and memory_op(size.ram, memory)
             comparison = comparison and disk_free_op(size.disk, disk_free)
-            if gpu and not self.guess_instance_type_gpu(size):
+            if num_gpus and not self.guess_instance_type_gpu(size, num_gpus, gpu_vendor, gpu_model):
+                continue
+            if sgx == "yes" and not self.guess_instance_type_sgx(size, epc_size):
                 continue
 
             if comparison:
@@ -240,7 +331,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         src_host = url[1].split(':')[0]
 
         if protocol == "appdb":
-            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack")
+            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack", site=self.cloud.server)
             if not image_id or not site_url:
                 self.log_error(msg)
                 return None
@@ -253,7 +344,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             driver = self.get_driver(auth_data)
 
             res_system = radl_system.clone()
-            instance_type = self.get_instance_type(driver.list_sizes(), res_system)
+            instance_type = self.get_instance_type(driver, res_system)
             self.update_system_info_from_instance(res_system, instance_type)
 
             username = res_system.getValue('disk.0.os.credentials.username')
@@ -378,6 +469,33 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         except Exception as ex:
             self.log_warn("Error getting volume info: %s" % get_ex_error(ex))
 
+    def addAdditionalIP(self, vm, driver):
+        system = vm.info.systems[0]
+
+        # TODO: Manage if there are more that 1 port
+        if system.getValue('net_interface.0.additional_ip'):
+            additional_ip = system.getValue('net_interface.0.additional_ip')
+            # Find the port attached to the VM
+            port_bound = None
+            try:
+                for port in driver.ex_list_ports():
+                    if ("device_id" in port.extra and port.extra["device_id"] and
+                            port.extra["device_id"] == vm.id):
+                        port_bound = port
+            except Exception:
+                self.log_exception("Error getting port list")
+
+            if port_bound:
+                # set the additional IP
+                try:
+                    driver.ex_update_port(port_bound, allowed_address_pairs=[{"ip_address": additional_ip}])
+                    self.log_debug("Additional IP %s added to port %s" % (additional_ip, port_bound.id))
+                    system.delValue('net_interface.0.additional_ip')
+                except Exception:
+                    self.log_exception("Error adding addtional IP")
+            else:
+                self.log_warn("No port found for VM %s" % vm.id)
+
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
@@ -392,18 +510,58 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             try:
                 flavorId = node.extra['flavorId']
                 instance_type = node.driver.ex_get_size(flavorId)
+                if len(instance_type.extra) == 0:
+                    try:
+                        # get it now
+                        instance_type.extra = node.driver.ex_get_size_extra_specs(instance_type.id)
+                    except Exception:
+                        self.log_exception("Error trying to get flavor '%s' extra_specs." % instance_type.id)
                 self.update_system_info_from_instance(vm.info.systems[0], instance_type)
             except Exception as ex:
                 self.log_warn("Error updating VM info from flavor ID: %s" % get_ex_error(ex))
 
+            self.addAdditionalIP(vm, node.driver)
             self.addRouterInstance(vm, node.driver)
             self.setIPsFromInstance(vm, node)
+            self.add_dns_entries(vm, auth_data)
             self.setVolumesInfo(vm, node)
         else:
             self.log_warn("Error updating the instance %s. VM not found." % vm.id)
             return (False, "Error updating the instance %s. VM not found." % vm.id)
 
         return (True, vm)
+
+    def add_dns_entries(self, vm, auth_data):
+        """
+        Add the required entries in the AWS Route53 service
+
+        Arguments:
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+        """
+        try:
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                for hostname, domain, ip in dns_entries:
+                    # Special case for EGI DyDNS
+                    # format of the hostname: dydns:secret@hostname
+                    if hostname.startswith("dydns:") and "@" in hostname:
+                        parts = hostname[6:].split("@")
+                        auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
+                        headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
+                        url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
+                                                                                                  domain[:-1],
+                                                                                                  ip)
+                        resp = requests.get(url, headers=headers)
+                        resp.raise_for_status()
+                    else:
+                        # TODO: https://docs.openstack.org/designate/latest/index.html
+                        return False
+            return True
+        except Exception as ex:
+            self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
+            self.log_exception("Error creating DNS entries")
+            return False
 
     @staticmethod
     def map_radl_ost_networks(vm, ost_nets):
@@ -423,11 +581,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 for radl_net in vm.info.networks:
                     net_provider_id = radl_net.getValue('provider_id')
                     net_cidr = radl_net.getValue('cidr')
+                    if radl_net.id not in res:
+                        res[radl_net.id] = []
 
                     if net_provider_id:
                         if net_name == net_provider_id:
                             if radl_net.isPublic() == is_public:
-                                res[radl_net.id] = ip
+                                if ip not in res[radl_net.id]:
+                                    res[radl_net.id].append(ip)
                                 if ip in res["#UNMAPPED#"]:
                                     res["#UNMAPPED#"].remove(ip)
                                 break
@@ -435,19 +596,26 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                 # the ip not matches the is_public value
                                 if ip not in res["#UNMAPPED#"]:
                                     res["#UNMAPPED#"].append(ip)
+                        else:
+                            # the ip not matches the is_public value
+                            if ip not in res["#UNMAPPED#"]:
+                                res["#UNMAPPED#"].append(ip)
                     elif net_cidr and "*" in net_cidr:
                         # in this case the net is not connected to this VM
                         continue
                     elif net_cidr and IPAddress(ip) in IPNetwork(net_cidr):
-                        res[radl_net.id] = ip
+                        if ip not in res[radl_net.id]:
+                            res[radl_net.id].append(ip)
                         radl_net.setValue('provider_id', net_name)
                         if ip in res["#UNMAPPED#"]:
                             res["#UNMAPPED#"].remove(ip)
                         break
                     else:
-                        if radl_net.id not in res:
-                            if radl_net.isPublic() == is_public and vm.getNumNetworkWithConnection(radl_net.id):
-                                res[radl_net.id] = ip
+                        if not res[radl_net.id]:
+                            if (radl_net.isPublic() == is_public and
+                                    vm.getNumNetworkWithConnection(radl_net.id) is not None):
+                                if ip not in res[radl_net.id]:
+                                    res[radl_net.id].append(ip)
                                 radl_net.setValue('provider_id', net_name)
                                 if ip in res["#UNMAPPED#"]:
                                     res["#UNMAPPED#"].remove(ip)
@@ -461,7 +629,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 added = False
                 for radl_net in vm.info.networks:
                     if radl_net.id not in res and radl_net.isPublic() == is_public:
-                        res[radl_net.id] = ip
+                        if radl_net.id not in res:
+                            res[radl_net.id] = []
+                        if ip not in res[radl_net.id]:
+                            res[radl_net.id].append(ip)
                         added = True
                         break
 
@@ -506,7 +677,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     ip = ipo['addr']
                     is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
 
-                    if ipo['OS-EXT-IPS:type'] == 'floating':
+                    if 'OS-EXT-IPS:type' in ipo and ipo['OS-EXT-IPS:type'] == 'floating':
                         ip_net_map[ip] = (None, not is_private)
                     else:
                         ip_net_map[ip] = (net_name, not is_private)
@@ -530,12 +701,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     system.delValue('net_interface.%d.ip' % i)
                 net_name = system.getValue("net_interface." + str(i) + ".connection")
                 if net_name in map_nets:
-                    ip = map_nets[net_name]
-                    if IPAddress(ip).version == 6:
-                        system.setValue("net_interface." + str(i) + ".ipv6", ip)
-                    else:
-                        system.setValue("net_interface." + str(i) + ".ip", ip)
-                    ips_assigned.append(ip)
+                    for ip in map_nets[net_name]:
+                        if IPAddress(ip).version == 6:
+                            system.setValue("net_interface." + str(i) + ".ipv6", ip)
+                        else:
+                            system.setValue("net_interface." + str(i) + ".ip", ip)
+                        ips_assigned.append(ip)
                 i += 1
 
             # For IPs not correctly mapped
@@ -543,13 +714,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             # not correctly mapped
             for net_name, ip in map_nets.items():
                 if net_name != '#UNMAPPED#':
-                    if ip not in ips_assigned:
-                        num_net = system.getNumNetworkIfaces()
-                        if IPAddress(ip).version == 6:
-                            system.setValue('net_interface.' + str(num_net) + '.ipv6', ip)
-                        else:
-                            system.setValue('net_interface.' + str(num_net) + '.ip', ip)
-                        system.setValue('net_interface.' + str(num_net) + '.connection', net_name)
+                    for ipu in ip:
+                        if ipu not in ips_assigned:
+                            num_net = system.getNumNetworkIfaces()
+                            if IPAddress(ipu).version == 6:
+                                system.setValue('net_interface.' + str(num_net) + '.ipv6', ipu)
+                            else:
+                                system.setValue('net_interface.' + str(num_net) + '.ip', ipu)
+                            system.setValue('net_interface.' + str(num_net) + '.connection', net_name)
                 else:
                     pub_ips = []
                     priv_ips = []
@@ -588,6 +760,20 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             LibCloudCloudConnector.update_system_info_from_instance(system, instance_type)
             if instance_type.vcpus:
                 system.addFeature(Feature("cpu.count", "=", instance_type.vcpus), conflict="other", missing="other")
+            if instance_type.ephemeral_disk:
+                system.addFeature(Feature("disk.0.free_size", "=", instance_type.ephemeral_disk),
+                                  conflict="other", missing="other")
+            # From EGI FedCloud TF
+            if 'Accelerator:Type' in instance_type.extra and instance_type.extra['Accelerator:Type'] == 'GPU':
+                if 'Accelerator:Number' in instance_type.extra:
+                    system.addFeature(Feature("gpu.count", "=", float(instance_type.extra['Accelerator:Number'])),
+                                      conflict="other", missing="other")
+                if 'Accelerator:Vendor' in instance_type.extra:
+                    system.addFeature(Feature("gpu.vendor", "=", instance_type.extra['Accelerator:Vendor']),
+                                      conflict="other", missing="other")
+                if 'Accelerator:Model' in instance_type.extra:
+                    system.addFeature(Feature("gpu.model", "=", instance_type.extra['Accelerator:Model']),
+                                      conflict="other", missing="other")
 
     @staticmethod
     def get_ost_net(driver, name=None, netid=None):
@@ -908,7 +1094,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         return nets
 
     @staticmethod
-    def get_volumes(driver, image, radl):
+    def get_volumes(driver, image, volume, radl):
         """
         Create the required volumes (in the RADL) for the VM.
 
@@ -919,19 +1105,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         boot_disk = {
             'boot_index': 0,
-            'device_name': 'vda',
-            'source_type': "image",
+            'source_type': "image" if image else "volume",
             'delete_on_termination': False,
-            'uuid': image.id
+            'uuid': image.id if image else volume.id
         }
 
+        if volume:
+            boot_disk['destination_type'] = 'volume'
         # if the user sets the size, we create a volume with this size
         # instead of booting directly from the image
-        if system.getValue("disk.0.size"):
+        elif system.getValue("disk.0.size"):
             boot_disk['destination_type'] = 'volume'
             boot_disk['volume_size'] = system.getFeature("disk.0.size").getValue('G')
             boot_disk['delete_on_termination'] = True
-            del boot_disk['device_name']
 
         res = [boot_disk]
 
@@ -949,13 +1135,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             disk_size = None
             if disk_url:
-                volume = driver.ex_get_volume(os.path.basename(disk_url))
+                new_volume = driver.ex_get_volume(os.path.basename(disk_url))
                 disk = {
                     'boot_index': cont,
                     'source_type': "volume",
                     'delete_on_termination': False,
                     'destination_type': "volume",
-                    'uuid': volume.id
+                    'uuid': new_volume.id
                 }
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
@@ -968,7 +1154,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     'delete_on_termination': True,
                     'volume_size': disk_size
                 }
-                if disk_type:
+                if disk_type == "ephemeral":
+                    disk['destination_type'] = 'local'
+                elif disk_type:
                     disk['volume_type'] = disk_type
             if disk_device:
                 disk['device_name'] = disk_device
@@ -977,26 +1165,62 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
+    def get_vo_name(self, auth_data):
+        """Get vo field from auth data if present"""
+        auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+        if auths:
+            auth = auths[0]
+            if 'vo' in auth and auth['vo']:
+                return auth['vo']
+        return None
+
+    @staticmethod
+    def get_image_id(path):
+        url_path = urlparse(path)[2][1:]
+        if url_path.startswith("image"):
+            return url_path[6:]
+        elif not url_path.startswith("volume"):
+            return url_path
+        return None
+
+    @staticmethod
+    def get_volume_id(path):
+        url_path = urlparse(path)[2][1:]
+        if url_path.startswith("volume"):
+            return url_path[7:]
+        return None
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
 
         system = radl.systems[0]
 
+        volume = image = None
         image_url = system.getValue("disk.0.image.url")
         if urlparse(image_url)[0] == "appdb":
-            _, image_id, msg = AppDB.get_image_data(image_url, "openstack")
+            vo = self.get_vo_name(auth_data)
+            _, image_id, msg = AppDB.get_image_data(image_url, "openstack", vo, site=self.cloud.server)
             if not image_id:
                 self.log_error(msg)
                 raise Exception("Error in appdb image: %s" % msg)
         else:
             image_id = self.get_image_id(system.getValue("disk.0.image.url"))
-        image = driver.get_image(image_id)
 
-        instance_type = self.get_instance_type(driver.list_sizes(), system)
+        if image_id:
+            image = driver.get_image(image_id)
+        else:
+            volume_id = self.get_volume_id(system.getValue("disk.0.image.url"))
+            if not volume_id:
+                raise Exception("Incorrect OpenStack image set.")
+            volume = driver.ex_get_volume(volume_id)
+            if not volume:
+                raise Exception("Incorrect OpenStack volume id.")
+
+        instance_type = self.get_instance_type(driver, system)
         if not instance_type:
             raise Exception("No flavor found for the specified VM requirements.")
 
-        blockdevicemappings = self.get_volumes(driver, image, radl)
+        blockdevicemappings = self.get_volumes(driver, image, volume, radl)
 
         with inf._lock:
             self.create_networks(driver, radl, inf)
@@ -1299,33 +1523,37 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 res.append(sg)
 
             try:
-                # open always SSH port on public nets
-                if network.isPublic():
-                    driver.ex_create_security_group_rule(sg, 'tcp', 22, 22, '0.0.0.0/0')
                 # open all the ports for the VMs in the security group
                 driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
                 driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
             except Exception as addex:
                 self.log_warn("Exception adding SG rules. Probably the rules exists: %s" % get_ex_error(addex))
 
-            outports = network.getOutPorts()
-            if outports:
-                for outport in outports:
-                    if outport.is_range():
+            outports = network.getOutPorts() or []
+            # open always SSH port on public nets or private with proxy host
+            if network.isPublic() or network.getValue("proxy_host"):
+                outports = self.add_ssh_port(outports)
+
+            for outport in outports:
+                if outport.is_range():
+                    try:
+                        driver.ex_create_security_group_rule(sg, outport.get_protocol(),
+                                                             outport.get_port_init(),
+                                                             outport.get_port_end(),
+                                                             outport.get_remote_cidr())
+                    except Exception as ex:
+                        self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
+                else:
+                    if outport.get_remote_port() != 22 or not network.isPublic():
                         try:
                             driver.ex_create_security_group_rule(sg, outport.get_protocol(),
-                                                                 outport.get_port_init(),
-                                                                 outport.get_port_end(), '0.0.0.0/0')
+                                                                 outport.get_remote_port(),
+                                                                 outport.get_remote_port(),
+                                                                 outport.get_remote_cidr())
                         except Exception as ex:
                             self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
-                    else:
-                        if outport.get_remote_port() != 22 or not network.isPublic():
-                            try:
-                                driver.ex_create_security_group_rule(sg, outport.get_protocol(),
-                                                                     outport.get_remote_port(),
-                                                                     outport.get_remote_port(), '0.0.0.0/0')
-                            except Exception as ex:
-                                self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
+                            self.error_messages += ("Exception adding port %s to SG rules.\n" %
+                                                    outport.get_remote_port())
 
         return res
 
@@ -1348,13 +1576,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 except Exception as ex:
                     self.log_exception("Error dettaching volume %s." % vol_id)
 
-            try:
-                for sg_name in self._get_security_names(vm.inf):
+            for sg_name in self._get_security_names(vm.inf):
+                try:
                     self.log_debug("Dettaching SG %s." % sg_name)
                     security_group = OpenStackSecurityGroup(None, None, sg_name, "", node.driver)
                     node.driver.ex_remove_security_group_from_node(security_group, node)
-            except Exception as ex:
-                self.log_exception("Error dettaching SGs.")
+                except Exception as ex:
+                    self.log_exception("Error dettaching SG %s." % sg_name)
 
             res = node.destroy()
             success.append(res)
@@ -1545,14 +1773,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     def resizeVM(self, vm, radl, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
-            new_cpu = radl.systems[0].getValue('cpu.count')
-            new_memory = radl.systems[0].getValue('memory.size')
-            instance_type = radl.systems[0].getValue('instance_type')
-            if not any([new_cpu, new_memory, instance_type]):
-                self.log_debug("No memory nor cpu nor instance_type specified. VM not resized.")
+            new_system = self.resize_vm_radl(vm, radl)
+            if not new_system:
                 return (True, "")
             else:
-                instance_type = self.get_instance_type(node.driver.list_sizes(), radl.systems[0])
+                instance_type = self.get_instance_type(node.driver, new_system)
                 if instance_type is None:
                     return (False, "Error resizing VM: No instance type found.")
                 if node.extra['flavorId'] != instance_type.id:
@@ -1733,7 +1958,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         driver = self.get_driver(auth_data)
         images = []
         for image in driver.list_images():
-            images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
+            if 'status' not in image.extra or image.extra['status'] == 'active':
+                images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
         return images
 
     @staticmethod
@@ -1759,6 +1985,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             net_quotas = driver.ex_get_network_quotas(tenant_id)
         except Exception:
             net_quotas = None
+        try:
+            vol_quotas = driver.ex_get_volume_quotas(tenant_id)
+        except Exception:
+            vol_quotas = None
 
         quotas_dict = {}
         quotas_dict["cores"] = {"used": quotas.cores.in_use + quotas.cores.reserved,
@@ -1778,4 +2008,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             quotas_dict["security_groups"] = {"used": net_quotas.security_group.in_use +
                                               net_quotas.security_group.reserved,
                                               "limit": net_quotas.security_group.limit}
+        if vol_quotas:
+            quotas_dict["volumes"] = {"used": vol_quotas.volumes.in_use + vol_quotas.volumes.reserved,
+                                      "limit": vol_quotas.volumes.limit}
+            quotas_dict["volume_storage"] = {"used": vol_quotas.gigabytes.in_use + vol_quotas.gigabytes.reserved,
+                                             "limit": vol_quotas.gigabytes.limit}
+
         return quotas_dict

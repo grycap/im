@@ -1,0 +1,53 @@
+# IM - Infrastructure Manager
+# Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Task to create an OSCAR function
+- name: Create OSCAR service at {{ oscar_endpoint }}
+  uri:
+    url: "{{ oscar_endpoint }}/system/services"
+    user: "{{ oscar_username }}"
+    password: "{{ oscar_password }}"
+    method: POST
+    body: "{{ oscar_service_json }}"
+    force_basic_auth: yes
+    status_code: [201, 409]
+    body_format: json
+    validate_certs: false
+    timeout: 60
+  register: endpoint_result
+  changed_when: "endpoint_result.status == 201"
+  until: endpoint_result.status == 201 or endpoint_result.status == 409
+  retries: 10
+  delay: 5
+
+- name: Create OSCAR service at localhost
+  uri:
+    url: "http://localhost/system/services"
+    user: "{{ oscar_username }}"
+    password: "{{ oscar_password }}"
+    method: POST
+    body: "{{ oscar_service_json }}"
+    force_basic_auth: yes
+    status_code: [201, 409]
+    body_format: json
+    validate_certs: false
+    timeout: 60
+  register: _result
+  changed_when: "_result.status == 201"
+  until: _result.status == 201 or _result.status == 409
+  retries: 10
+  delay: 5
+  when: endpoint_result is failed

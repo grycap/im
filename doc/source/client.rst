@@ -178,10 +178,28 @@ The :program:`im_client` is called like this::
       Import the data of an infrastructure previously exported with the previous function.
       The ``json_file`` is a file with the data generated with the  ``export`` function.
 
+   ``wait infId [max_time]``
+      Wait infrastructure with ID ``infId`` to get a final state. It will return code ``0`` if it
+      becomes ``configured`` or ``1`` otherwhise. Optional parameter ``max_time`` to set the max time
+      to wait.
+
+   ``create_wait_outputs inputfile``
+      This operation is a combination of the create, wait and getoutputs functions. First it creates the
+      infrastructure using the specified ``inputfile``, then waits for it to be configured, and finally
+      gets the TOSCA outputs. In case of failure in then infrastructure creation step only the error message
+      will be returned. The results will be returned to stdout in json format::
+         
+         {"infid": "ID", "error": "Error message"}
+
 .. _auth-file:
 
 Authorization File
 ------------------
+
+To access the IM service an authenticatio file must be created.
+It must have one line per authentication element. **It must have at least
+one line with the authentication data for the IM service** and another
+one for the Cloud/s provider/s the user want to access.
 
 The authorization file stores in plain text the credentials to access the
 cloud providers, the IM service and the VMRC service. Each line of the file
@@ -203,8 +221,8 @@ The available keys are:
 
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
-  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``AzureClassic``,
-  ``Kubernetes``, ``vSphere``, ``Linode`` and ``Orange``.
+  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``,
+  ``Kubernetes``, ``vSphere``, ``Linode``, ``Orange``, ``EGI`` and ``Vault``.
 
 * ``username`` indicates the user name associated to the credential. In EC2
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
@@ -217,10 +235,11 @@ The available keys are:
   In CloudStack refers to Secret Key value.
 
 * ``tenant`` indicates the tenant associated to the credential.
-  This field is only used in the OpenStack and Orange plugins.
+  This field is only used in the OpenStack, Orange and Azure plugins.
 
 * ``host`` indicates the address of the access point to the cloud provider.
-  This field is not used in IM, GCE, Azure, and EC2 credentials.
+  In case of EGI connector it indicates the site name.
+  This field is not used in IM, GCE, Azure, Orange, Linode, and EC2 credentials.
   
 * ``proxy`` indicates the content of the proxy file associated to the credential.
   To refer to a file you must use the function "file(/tmp/proxyfile.pem)" as shown in the example.
@@ -231,23 +250,47 @@ The available keys are:
   
 * ``public_key`` indicates the content of the public key file associated to the credential.
   To refer to a file you must use the function "file(cert.pem)" as shown in the example.
-  This field is used in the Azure Classic and Docker plugins. For Azure Classic see how to get it
-  `here <https://msdn.microsoft.com/en-us/library/azure/gg551722.aspx>`_
+  This field is used in the Docker plugin. 
 
 * ``private_key`` indicates the content of the private key file associated to the credential.
   To refer to a file you must use the function "file(key.pem)" as shown in the example.
-  This field is used in the Azure Classic and Docker plugins. For Azure Classic see how to get it
-  `here <https://msdn.microsoft.com/en-us/library/azure/gg551722.aspx>`_
+  This field is used in the Docker plugin.
 
 * ``id`` associates an identifier to the credential. The identifier should be
   used as the label in the *deploy* section in the RADL. **The id field MUST start by a letter (not a number).**
 
-* ``subscription_id`` indicates the subscription_id name associated to the credential.
-  This field is only used in the Azure and Azure Classic plugins. To create a user to use the Azure (ARM)
+* ``subscription_id`` indicates the subscription_id associated to the credential.
+  This field is only used in the Azure plugin. To create a user to use the Azure
   plugin check the documentation of the Azure python SDK:
   `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
 
-* ``token`` indicates the OpenID token associated to the credential. This field is used in the OCCI plugin (from version 1.6.2). 
+* ``client_id`` indicates the client ID associated to the credential.
+  This field is only used in the Azure plugin. To create a user to use the Azure
+  plugin check the documentation of the Azure python SDK:
+  `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
+
+* ``secret`` indicates the client secret associated to the credential.
+  This field is only used in the Azure plugin. To create a user to use the Azure
+  plugin check the documentation of the Azure python SDK:
+  `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
+
+* ``token`` indicates the OpenID token associated to the credential. This field is used in the EGI, OCCI plugins
+  and also to authenticate with the InfrastructureManager. To refer to the output of a command you must
+  use the function "command(command)" as shown in the examples.
+
+* ``vo`` indicates the VO name associated to the credential. This field is used in the EGI plugin. 
+
+* ``path`` indicates the Vault path to read user credentials credential. This field is used in the Vault type.
+  This field is optional with default value ``credentials/``.
+
+* ``role`` indicates the Vault role to read user credentials credential. This field is used in the Vault type.
+  This field is optional with default value ``im``.
+
+Vault Credentials support
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The IM also supports to read user credentials from a Vault server instead of passing all the information in the
+authorization file. See :ref:`vault-creds` to configure the Vault support to the IM server.
 
 OpenStack additional fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -276,7 +319,7 @@ OpenStack has a set of additional fields to access a cloud site:
   server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
   The value is: http://cloud_server.com:9292.
   
-  * ``volume_url`` base URL to the OpenStack API cinder endpoint. By default, the connector obtains API endpoint URL from the 
+* ``volume_url`` base URL to the OpenStack API cinder endpoint. By default, the connector obtains API endpoint URL from the 
   server catalog, but if this argument is provided, this step is skipped and the provided value is used directly.
   The value is: http://cloud_server.com:8776/v2/<tenant_id>.
 
@@ -329,7 +372,7 @@ EGI FedCloud specific parameters
 *******************************
 
 To use the EGI CheckIn to authenticate with a Keystone server properly configured the parameters are the following (see
-more info at `EGI Documentation <https://egi-federated-cloud-integration.readthedocs.io/en/latest/openstack.html#cli-access>`_):
+more info at `EGI Documentation <https://docs.egi.eu/users/cloud-compute/openstack/#authentication>`_):
 
 * username: ``egi.eu``.
 * tenant: ``openid``.
@@ -341,6 +384,13 @@ So the auth line will be like that::
 
    id = ost; type = OpenStack; host = https://ostserver:5000; username = egi.eu; tenant = openid; password = egi_aai_token_value; auth_version = 3.x_oidc_access_token; domain = project_name
 
+From IM version 1.10.2 the EGI connector is available and you can also use this kind of auth line::
+
+   id = egi; type = EGI; host = CESGA; vo = vo.access.egi.eu; token = egi_aai_token_value
+
+In this case the information needed to access the OpenStack API of the EGI FedCloud site will be obtained from
+`AppDB REST API <https://appdb.egi.eu/rest/1.0>`_). This connector is recommended for non advanced users. If you
+can get the data to access the OpenStack API directly it is recommened to use it.
 
 Open Telekom Cloud
 ++++++++++++++++++
@@ -357,16 +407,25 @@ Examples
 
 An example of the auth file::
 
+   # InfrastructureManager auth
+   type = InfrastructureManager; username = user; password: pass
+   type = InfrastructureManager: token = access_token_value
+   # Vault auth
+   type = Vault; host = https://vault.com:8200; token = access_token_value; role = role; path = path
    # OpenNebula site
    id = one; type = OpenNebula; host = osenserver:2633; username = user; password = pass
    # OpenStack site using standard user, password, tenant format
    id = ost; type = OpenStack; host = https://ostserver:5000; username = user; password = pass; tenant = tenant
    # OpenStack site using VOMS proxy authentication
    id = ostvoms; type = OpenStack; proxy = file(/tmp/proxy.pem); host = https://keystone:5000; tenant = tname
+   # OpenStack site using OIDC authentication for EGI Sites
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = egi.eu; tenant = openid; password = command(oidc-token OIDC_ACCOUNT); auth_version = 3.x_oidc_access_token; domain = project_name_or_id
    #  OpenStack site using OpenID authentication
    id = ost; type = OpenStack; host = https://ostserver:5000; username = indentity_provider; tenant = oidc; password = access_token_value; auth_version = 3.x_oidc_access_token
    # IM auth data
    id = im; type = InfrastructureManager; username = user; password = pass
+   # IM auth data with OIDC token
+   id = im; type = InfrastructureManager; token = access_token_value
    # VMRC auth data
    id = vmrc; type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
    # EC2 auth data
@@ -381,14 +440,16 @@ An example of the auth file::
    id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://server.com:11443
    # OCCI OIDC site auth data
    id = occi; type = OCCI; token = token; host = https://server.com:11443
-   # Azure (RM) site auth data
-   id = azure; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
+   # Azure site userpass auth data (old method)
+   id = azure_upo; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
+   # Azure site userpass auth data
+   id = azure_up; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass; client_id=clientid
+   # Azure site site credential auth data
+   id = azure_sc; type = Azure; subscription_id = subscription-id; client_id=clientid; secret=client_secret; tenant=tenant_id
    # Kubernetes site auth data
    id = kub; type = Kubernetes; host = http://server:8080; token = auth_token
    # FogBow auth data
    id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
-   # Azure Classic auth data
-   id = azurecla; type = AzureClassic; subscription_id = subscription_id; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    # vSphere site auth data
    id = vsphere; type = vSphere; host = http://server; username = user; password = pass
    # CloudStack site auth data
@@ -397,6 +458,11 @@ An example of the auth file::
    id = linode; type = Linode; username = apikey
    # Orange Flexible Cloud auth data
    id = orange; type = Orange; username = usern; password = pass; domain = DOMAIN; region = region; tenant = tenant
+   #  EGI auth data
+   id = egi; type = EGI; host = SITE_NAME; vo = vo_name; token = egi_aai_token_value
+   #  EGI auth data command
+   id = egi; type = EGI; host = SITE_NAME; vo = vo_name; token = command(oidc-token OIDC_ACCOUNT)
+
 
 IM Server does not store the credentials used in the creation of
 infrastructures. Then the user has to provide them in every call of

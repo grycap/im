@@ -69,23 +69,45 @@ class TestGCEConnector(TestCloudConnectorBase):
         driver = MagicMock()
         get_driver.return_value = driver
 
-        node_size = MagicMock()
-        node_size.ram = 512
-        node_size.price = 1.0
-        node_size.disk = 1
-        node_size.name = "small"
+        node_size = NodeSize("1", "small", 512, 1, None, 1.0, driver)
         node_size.extra = {'guestCpus': 1}
-        node_size2 = MagicMock()
-        node_size2.ram = 1024
-        node_size2.price = None
-        node_size2.disk = 2
-        node_size2.name = "medium"
+        node_size2 = NodeSize("2", "medium", 1024, 2, None, None, driver)
         node_size2.extra = {'guestCpus': 2}
         driver.list_sizes.return_value = [node_size, node_size2]
 
         gce_cloud = self.get_gce_cloud()
         concrete = gce_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            gpu.count>=1 and
+            gpu.vendor='NVIDIA' and
+            memory.size>=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'gce://us-central1-a/centos-6' and
+            disk.0.os.credentials.username = 'user'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl_system = radl.systems[0]
+
+        node_size3 = NodeSize("3", "small.g", 2048, 2, None, None, driver)
+        node_size3.extra = {'guestCpus': 2, 'accelerators': [{'guestAcceleratorCount': 1,
+                                                              'guestAcceleratorType': 'nvidia-tesla-v100'}]}
+        node_size4 = NodeSize("4", "medium.g", 1024, 2, None, None, driver)
+        node_size4.extra = {'guestCpus': 2, 'accelerators': [{'guestAcceleratorCount': 1,
+                                                              'guestAcceleratorType': 'amd-radeon-xx'}]}
+        driver.list_sizes.return_value = [node_size, node_size2, node_size3, node_size4]
+
+        concrete = gce_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+        self.assertEqual(concrete[0].getValue("memory.size"), 2147483648)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
@@ -263,6 +285,8 @@ class TestGCEConnector(TestCloudConnectorBase):
         zone.name = 'us-central1-a'
         node.extra = {'zone': zone}
         node.size = NodeSize("1", "name1", 512, 1, None, None, driver)
+        node.size.extra = {'accelerators': [{'guestAcceleratorCount': 1,
+                                             'guestAcceleratorType': 'nvidia-tesla-v100'}]}
         driver.ex_get_node.return_value = node
 
         dns_driver.iterate_zones.return_value = []
@@ -278,6 +302,8 @@ class TestGCEConnector(TestCloudConnectorBase):
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][0], 'test.domain.com.')
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][2], 'A')
         self.assertEquals(dns_driver.create_record.call_args_list[0][0][3], {'rrdatas': ['158.42.1.1'], 'ttl': 300})
+        self.assertEquals(vm.info.systems[0].getValue('gpu.count'), 1)
+        self.assertEquals(vm.info.systems[0].getValue('gpu.model'), 'nvidia-tesla-v100')
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
@@ -433,8 +459,9 @@ class TestGCEConnector(TestCloudConnectorBase):
         size.extra = {"selfLink": "/some/path/sizenamne", "guestCpus": 1}
         size.ram = 1024
         size.name = "sizenamne"
-        sizes = [size]
-        instance = gce_cloud.get_instance_type(sizes, radl.systems[0])
+        driver = MagicMock()
+        driver.list_sizes.return_value = [size]
+        instance = gce_cloud.get_instance_type(driver, radl.systems[0])
         self.assertEquals(instance.name, "custom-2-2048")
         self.assertEquals(instance.extra['selfLink'], "/some/path/custom-2-2048")
 
@@ -442,8 +469,8 @@ class TestGCEConnector(TestCloudConnectorBase):
         size2.extra = {"selfLink": "/some/path/sizenamne", "guestCpus": 2}
         size2.ram = 2048
         size2.name = "sizenamne"
-        sizes.append(size2)
-        instance = gce_cloud.get_instance_type(sizes, radl.systems[0])
+        driver.list_sizes.return_value = [size, size2]
+        instance = gce_cloud.get_instance_type(driver, radl.systems[0])
         self.assertEquals(instance.name, "sizenamne")
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
@@ -465,7 +492,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         res = gce_cloud.list_images(auth)
 
-        self.assertEqual(res, [{"uri": "gce://location/image_id", "name": "location/image_name"}])
+        self.assertEqual(res, [{"uri": "gce://location/image_name", "name": "location/image_name"}])
 
 
 if __name__ == '__main__':

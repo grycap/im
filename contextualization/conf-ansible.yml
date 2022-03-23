@@ -5,11 +5,25 @@
   gather_facts: false
   vars:
     # Ansible specific Version or "latest"
-    ANSIBLE_VERSION: 2.9.15
+    ANSIBLE_VERSION: 2.9.26
   tasks:
     - name: Set Ansible version from env if defined
       set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
       when: lookup('env','ANSIBLE_VERSION') != ""
+
+  ############## To avoid some issues with cloud-init and unattended upgrades ###############
+    - name: Avoid unattended upgrades
+      raw: |
+        sudo touch /var/lib/apt/periodic/upgrade-stamp; \
+        sudo touch /var/lib/apt/periodic/update-stamp; \
+        sudo touch /var/lib/apt/periodic/download-upgradeable-stamp;
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Wait the VM to boot
+      raw: systemctl is-system-running --wait
+      ignore_errors: yes
+      changed_when: false
 
   ################### Some OSs does not have python by default #########################
     - name: Check Python is installed
@@ -24,11 +38,6 @@
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
       when: python3_version is failed or python3_version.stdout|int < 5
-
-    - name: Link correct python version in Ubuntu 14
-      raw: ls /usr/bin/python3.5 && sudo rm -f /usr/bin/python3 && sudo ln -s /usr/bin/python3.5 /usr/bin/python3
-      when: python3_version is success and python3_version.stdout|int < 5
-      ignore_errors: yes
 
     - name: Bootstrap with python RedHat/CentOS
       raw: sudo yum install -y python3
@@ -62,15 +71,15 @@
       command: yum install -y epel-release
       args:
         creates: /etc/yum.repos.d/epel.repo
-      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
+      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora" and ansible_distribution_major_version|int < 9
 
     - name: Ensure to Enable EPEL repo
       ini_file:
         dest: /etc/yum.repos.d/epel.repo
         section: epel
         option: enabled
-        value: 1
-      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora"
+        value: "1"
+      when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora" and ansible_distribution_major_version|int < 9
       ignore_errors: yes
 
     - name: Ubuntu/Debian apt update
@@ -87,60 +96,19 @@
 
     - name: Debian/Ubuntu install requisites with apt
       apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
-      when: ansible_os_family == "Debian" and not (ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14)
-
-    # We need some hacks to make Ubuntu 14 to work
-    - block:
-
-      - name: Ubuntu 14 install requisites with apt
-        command: apt install -y --no-install-recommends gcc python3-apt python3.5-dev libffi-dev libssl-dev python3-pip wget python3-setuptools sshpass openssh-client unzip
-      
-      - name: Ubuntu 14 install pip3.5
-        command: python3.5 /usr/lib/python3/dist-packages/easy_install.py "pip>=18.0,<21.0" creates=/usr/local/bin/pip3.5
-
-      - name: Remove old pip3 in Ubuntu 14
-        file: path=/usr/bin/pip3 state=absent
-
-      - name: Link pip3.5 in Ubuntu 14
-        file: src=/usr/local/bin/pip3.5 dest=/usr/bin/pip3 state=link
-
-      - name: Install python3-apt in Ubuntu 14
-        pip:
-          name: python-apt
-          executable: pip3
-
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
+      when: ansible_os_family == "Debian"
 
     - name: Yum install requisites RH 7/8 or Fedora
       command: yum install -y python3-pip python3-setuptools sshpass openssh-clients
       when: ansible_os_family == "RedHat"
 
     - name: Zypper install requirements Suse
-      zypper: name=python3-pip,python3-setuptools,gcc,python3-devel,wget,libffi-devel,openssl-devel,python3-cryptography,make state=present
+      zypper: name=python3-pip,python3-setuptools,wget,python3-cryptography state=present
       when: ansible_os_family == "Suse"
 
-  ##################################################### Alpine support #######################################################
-
-    - name: Apk install requirements Alpine
-      package: name=py3-pip,py3-setuptools,sshpass,openssh-client,unzip,gcc,libffi-dev,openssl-dev,musl-dev,make,wget,python3-dev
-      when: ansible_os_family == "Alpine"
-
-    - name: Move original ps in Alpine
-      command: mv /bin/ps /sbin/ps creates=/sbin/ps
-      when: ansible_os_family == "Alpine"
-
-    - name: Install ps with -p support in Alpine
-      get_url:
-        url: https://gist.githubusercontent.com/micafer/f74de4dc21a636df30d51202cbeee475/raw/388945406b9e9d225a0c7e95b97fc2515f1a17ef/ps_opt_p_enabled_for_alpine.sh
-        dest: /bin/ps
-        mode: 0755
-        owner: root
-        group: root
-      when: ansible_os_family == "Alpine"
-
-    - name: Pip install wheel Alpine
-      pip: name=wheel
-      when: ansible_os_family == "Alpine"
+    - name: Install python-setuptools
+      package: name=python-setuptools
+      when: ansible_python_version is version('3', '<')
 
   ######################################### Use pip to enable to set the version #############################################
 
@@ -149,56 +117,47 @@
       pip:
         name: pip>18.0,<21.0
         executable: pip3
-      when: ansible_python_version is version('3.6', '<')
+      when: ansible_python_version is version('3.7', '<')
 
     - name: Upgrade pip in py3.6 +
       pip:
         name: pip>18.0
         executable: pip3
-      when: ansible_python_version is version('3.6', '>=')
+      when: ansible_python_version is version('3.7', '>=')
 
     - name: Upgrade setuptools with Pip
       pip: name=setuptools state=latest executable=pip3
 
-    - name: Install cryptography
+    - name: Install pyOpenSSL & cryptography & pyyaml & wheel
       pip:
-        name: cryptography<3.3
+        name:
+          - pyOpenSSL>20.0
+          - cryptography
+          - wheel
+          - pyyaml
         executable: pip3
-
-    - name: Install pyOpenSSL
-      pip:
-        name: pyOpenSSL>20.0
-        executable: pip3
-
-    - name: Ubuntu 14 extra pip packages needed to avoid https issues
-      pip: name=urllib3,ndg-httpsclient,pyasn1 executable=pip3
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
-
-    - name: Ubuntu 14 pip cryptography
-      pip: name=cryptography version=2.9.2 executable=pip3
-      when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version|int <= 14
-
-    - name: Install pyyaml
-      pip: name=pyyaml executable=pip3
+        extra_args: --prefer-binary
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip3
       when: ANSIBLE_VERSION != "latest"
 
     - name: Install latest ansible version with Pip
-      pip: name=ansible state=latest executable=pip3
+      pip: name=ansible state=latest executable=pip3 
       when: ANSIBLE_VERSION == "latest"
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
 
-    - name: Install jmespath with Pip
-      pip: name=jmespath executable=pip3
-
-    - name: Install scp with Pip
-      pip: name=scp executable=pip3
+    - name: Install jmespath & scp with Pip
+      pip:
+        name:
+          - jmespath
+          - scp
+        executable: pip3
+        extra_args: --prefer-binary
 
     - name: Install pywinrm with Pip
-      pip: name=pywinrm executable=pip3
+      pip: name=pywinrm executable=pip3 extra_args=--prefer-binary 
       ignore_errors: yes
 
 ################################################ Configure Ansible  ###################################################
@@ -224,9 +183,5 @@
       - { section: 'defaults', option: 'roles_path', value: '/etc/ansible/roles' }
       - { section: 'defaults', option: 'timeout', value: '30' }
       - { section: 'defaults', option: 'ansible_python_interpreter', value: 'auto' }
- 
-    - name: Set transport to ssh in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=defaults option=transport value=ssh
-
-    - name: Change ssh_args to set ControlPersist to 15 min in ansible.cfg
-      ini_file: dest=/etc/ansible/ansible.cfg section=ssh_connection option=ssh_args value="-o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null"
+      - { section: 'defaults', option: 'transport', value: 'ssh' }
+      - { section: 'ssh_connection', option: 'ssh_args', value: '-o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null' }

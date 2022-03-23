@@ -49,8 +49,8 @@ class Recipe:
                 db = DataBase(Config.RECIPES_DB_FILE)
                 db.connect()
 
-                res = db.execute('''insert into recipes values ("%s", "%s", "%s", "%s", %d, "%s", "%s", "%s")''' % (
-                    name, version, module, recipe, isapp, galaxy_module, desc, requirements))
+                res = db.execute('insert into recipes values (%s, %s, %s, %s, %s, %s, %s, %s)',
+                                 (name, version, module, recipe, isapp, galaxy_module, desc, requirements))
                 return res
             except Exception:
                 return False

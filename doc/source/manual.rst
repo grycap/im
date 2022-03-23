@@ -4,6 +4,7 @@ IM Docker Image (Recommended Option)
 The recommended option to use the Infrastructure Manager service is using the available docker image.
 A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
 default configuration. Information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im/ <https://registry.hub.docker.com/u/grycap/im/>`_.
+It is also available in Github Container registry ghcr.io/grycap/im: `https://github.com/grycap/im/pkgs/container/im <https://github.com/grycap/im/pkgs/container/im>`_.
 
 How to launch the IM service using docker::
 
@@ -28,10 +29,12 @@ IM Service Installation
 Prerequisites
 -------------
 
-IM needs at least Python 2.7 (Python 3.5 or higher recommended) to run, as well as the next libraries:
+IM needs at least Python 2.7 (Python 3.6 or higher recommended) to run, as well as the next libraries:
 
 * `The RADL parser <https://github.com/grycap/radl>`_.
   (Since IM version 1.5.3, it requires RADL version 1.1.0 or later).
+* `The TOSCA parser <https://github.com/openstack/tosca-parser>`_.
+  A TOSCA YAML Spec 1.0 Parser.
 * `paramiko <http://www.lag.net/paramiko/>`_, ssh2 protocol library for python
   (version 1.14 or later).
 * `PyYAML <http://pyyaml.org/>`_, a YAML parser.
@@ -70,26 +73,26 @@ Finally, check the next values in the Ansible configuration file
 Optional Packages
 -----------------
 
-* `The Bottle framework<http://bottlepy.org/>`_ is used for the REST API. 
-   It is typically available as the 'python-bottle' package.
+* `The Bottle framework <http://bottlepy.org/>`_ is used for the REST API. 
+  It is typically available as the 'python-bottle' package.
 * `The CherryPy Web framework <http://www.cherrypy.org/>`_, is needed for the REST API. 
-   It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
-   In newer versions (9.0 and later) the functionality has been moved `the cheroot
-   library<https://github.com/cherrypy/cheroot>`_ it can be installed using pip.
+  It is typically available as the 'python-cherrypy' or 'python-cherrypy3' package.
+  In newer versions (9.0 and later) the functionality has been moved `the cheroot
+  library <https://github.com/cherrypy/cheroot>`_ it can be installed using pip.
 * `apache-libcloud <http://libcloud.apache.org/>`_ 3.0 or later is used in the
-  LibCloud, OpenStack and GCE connectors.
+  LibCloud, OpenStack, EGI and GCE connectors.
 * `boto <http://boto.readthedocs.org>`_ 2.29.0 or later is used as interface to
   Amazon EC2. It is available as package named ``python-boto`` in Debian based
   distributions. It can also be downloaded from `boto GitHub repository <https://github.com/boto/boto>`_.
   Download the file and copy the boto subdirectory into the IM install path.
-* pyOpenSSL are needed if needed to secure the REST API
+* `pyOpenSSL <https://www.pyopenssl.org/>`_ is needed to secure the REST API
   with SSL certificates (see :confval:`REST_SSL`).
   pyOpenSSL can be installed using pip.
 * `The Python interface to MySQL <https://www.mysql.com/>`_, is needed to access MySQL server as IM data 
   backend. It is typically available as the package 'python-mysqldb' or 'MySQL-python' package. In case of
   using Python 3 use the PyMySQL package, available as the package 'python3-pymysql' on debian systems or PyMySQL
   package in pip.
-  *`The Python interface to MongoDB <https://www.mongodb.com/>`_, is needed to access MongoDB server as IM data 
+* `The Python interface to MongoDB <https://www.mongodb.com/>`_, is needed to access MongoDB server as IM data 
   backend. It is typically available as the package 'python-pymongo' package in most distributions or pymongo
   package in pip.
 * `The Azure Python SDK <https://docs.microsoft.com/es-es/azure/python-how-to-install/>`_, is needed by the Azure
@@ -101,16 +104,6 @@ Optional Packages
 Installation
 ------------
 
-Using installer (Recommended option)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The IM provides a script to install the IM in one single step (using pip).
-You only need to execute the following command::
-
-	$ wget -qO- https://raw.githubusercontent.com/grycap/im/master/install.sh | bash
-
-It works for the most recent version of the main Linux distributions (RHEL, CentOS, Fedora, Ubuntu, Debian).
-In case that you O.S. does not work with this install script see next sections.
-
 From Pip
 ^^^^^^^^
 
@@ -118,17 +111,21 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
     $ apt update
-    $ apt install gcc python-dev libffi-dev libssl-dev python-pip sshpass python-pysqlite2 python-requests
+    $ apt install gcc python3-dev libffi-dev libssl-dev python3-pip sshpass python-pysqlite2 python-requests
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::
 
 	$ yum install epel-release
-	$ yum install which gcc python-devel libffi-devel openssl-devel python-pip sshpass python-sqlite3dbm
+	$ yum install which gcc python3-devel libffi-devel openssl-devel python3-pip sshpass default-libmysqlclient-dev
 
 Then you only have to call the install command of the pip tool with the IM package::
 
 	$ pip install IM
+
+You can also install an specific branch of the Github repository::
+
+   $ pip install git+https://github.com/grycap/im.git@master
 
 Pip will also install the, non installed, pre-requisites needed. So Ansible 2.4 or later will 
 be installed in the system. Some of the optional packages are also installed please check if some
@@ -137,68 +134,6 @@ of IM features that you need requires to install some of the packages of section
 You must also remember to modify the ansible.cfg file setting as specified in the 
 "Prerequisites" section.
 
-From RPM packages (RH7)
-^^^^^^^^^^^^^^^^^^^^^^^
-Download the RPM package from `GitHub <https://github.com/grycap/im/releases/latest>`_. 
-Also remember to download the RPM of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_. 
-You must have the epel repository enabled:: 
-
-   $ yum install epel-release
-   
-Then install the downloaded RPMs:: 
-
-   $ yum localinstall IM-*.rpm RADL-*.rpm
-   
-Azure python SDK is not available in CentOS. So if you need the Azure plugin you have to manually install them using pip::
-
-	$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns
-
-From Deb package (Tested with Ubuntu 14.04 and 16.04)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Download the Deb package from `GitHub <https://github.com/grycap/im/releases/latest>`_
-Also remember to download the Deb of the RADL package also from `GitHub <https://github.com/grycap/radl/releases/latest>`_.
-
-In Ubuntu 14.04 there are some requisites not available for the "trusty" version or are too old, so you have to manually install them manually.
-You can download it from their corresponding PPAs. But here you have some links:
- 
- * python-backports.ssl-match-hostname: `download <http://archive.ubuntu.com/ubuntu/pool/universe/b/backports.ssl-match-hostname/python-backports.ssl-match-hostname_3.4.0.2-1_all.deb>`_
- * python-scp: `download <http://archive.ubuntu.com/ubuntu/pool/universe/p/python-scp/python-scp_0.10.2-1_all.deb>`_
- * python-libcloud: `download <http://archive.ubuntu.com/ubuntu/pool/universe/libc/libcloud/python-libcloud_2.2.1-1_all.deb>`_
- * python-xmltodict: `download <http://archive.ubuntu.com/ubuntu/pool/universe/p/python-xmltodict/python-xmltodict_0.11.0-1_all.deb>`_ 
-
-Also Azure python SDK is not available in Ubuntu 16.04. So if you need the Azure plugin you have to manually install them.
-You can download it from their corresponding PPAs. But here you have some links:
-
- * python-msrestazure: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-msrestazure_0.4.3-1_all.deb>`_
- * python-msrest: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-msrest_0.4.4-1_all.deb>`_
- * python-azure: `download <https://launchpad.net/ubuntu/+archive/primary/+files/python-azure_2.0.0~rc6+dfsg-2_all.deb>`_
-
-It is also recommended to configure the Ansible PPA to install the newest versions of Ansible (see `Ansible installation <http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-apt-ubuntu>`_)::
-
-	$ sudo apt-get install software-properties-common
-	$ sudo apt-add-repository ppa:ansible/ansible
-	$ sudo apt-get update
-
-Put all the .deb files in the same directory and do::
-
-	$ sudo dpkg -i *.deb
-	$ sudo apt install -f -y
-
-From Source
-^^^^^^^^^^^
-
-Once the dependences are installed, just download the tarball of *IM Service*
-from `Download <https://github.com/grycap/im>`_, extract the 
-content and move the extracted directory to the installation path (for instance
-:file:`/usr/local` or :file:`/opt`)::
-
-   $ tar xvzf IM-0.1.tar.gz
-   $ sudo chown -R root:root IM-0.1.tar.gz
-   $ sudo mv IM-0.1 /usr/local
-
-Finally you must copy (or link) $IM_PATH/scripts/im file to /etc/init.d directory::
-
-   $ sudo ln -s /usr/local/IM-0.1/scripts/im /etc/init.d
 
 Configuration
 -------------
@@ -631,6 +566,104 @@ If you need to specify more advanced details of the logging configuration you ha
 	format=%(asctime)s - %(hostname)s - %(name)s - %(levelname)s - %(message)s
 	datefmt=
 
+.. _vault-creds:
+
+Vault Configuration
+^^^^^^^^^^^^^^^^^^^^
+
+From version 1.10.7 the IM service supports reading authorization data from a Vault server.
+These values are used by the REST API enabling to use ``Bearer`` authentication header and
+get the all the credential values from the configured Vault server.
+
+.. confval:: VAULT_URL 
+
+   URL to the Vault server API.
+   The default value is ``''``.
+
+.. confval:: VAULT_PATH 
+
+   Configured path of the KV (ver 1) secret. 
+   The default value is ``'credentials/'``.
+
+.. confval:: VAULT_ROLE 
+   
+   Configured role with the correct permissions to read the credentials secret store.
+   There is no default value, so the default value configured in the JWT authentication
+   method will be used.
+
+Vault server must configured with the JWT authentication method enabled, setting
+you OIDC issuer, e.g. using the EGI Checkin issuer, and setting ``im`` as the default
+role::
+
+   vault write auth/jwt/config \
+      oidc_discovery_url="https://aai.egi.eu/oidc/" \
+      default_role="im"
+
+A KV (v1) secret store must be enabled setting the desired path. In this example the 
+default vaule ``credentials`` is used::
+
+   vault secrets enable -version=1 -path=credentials kv
+
+Also a policy must be created to enable the users to manage only their own credentials::
+
+   vault policy write manage-imcreds - <<EOF
+   path "credentials/{{identity.entity.id}}" {
+   capabilities = [ "create", "read", "update", "delete", "list" ]
+   }
+   EOF
+
+And finally the ``im`` role to assign the policy to the JWT users::
+
+   vault write auth/jwt/role/im - <<EOF
+   {
+   "role_type": "jwt",
+   "policies": ["manage-imcreds"],
+   "token_explicit_max_ttl": 60,
+   "user_claim": "sub",
+   "bound_claims": {
+      "sub": "*"
+   },
+   "bound_claims_type": "glob"
+   }
+   EOF
+
+These set of commands are only an example of how to configure the Vault server to be
+accesed by the IM. Read `Vault documentation <https://www.vaultproject.io/docs>`_ for more details.
+
+The authentication data must be stored using one item per line in the :ref:`auth-file`, setting as
+key value the ``id`` of the item and all the auth line (in JSON format) as the value, e.g. An auth
+line like that::
+
+   id = one; type = OpenNebula; host = oneserver:2633; username = user; password = pass
+
+Must be stored in the vault KV secrect, setting ``one`` as key and this content as value::
+
+   {"id": "one", "type": "OpenNebula", "host": "oneserver:2633", "username": "user", "password": "pass"}
+
+In all the auth lines where an access token is needed it must not be set and the IM will replace it with
+then access token used to authenticate with the IM itself.
+
+Virtual Machine Tags
+^^^^^^^^^^^^^^^^^^^^^
+
+Name of the tags that IM will add in the VMs with username, infrastructure ID, URL of the IM service,
+and IM name comment or leave empty not to set them
+
+.. confval:: VM_TAG_USERNAME
+
+   Name of the tag to set the IM username as tag in the IM created VMs.
+
+.. confval:: VM_TAG_INF_ID
+
+   Name of the tag to set the IM infrastructure ID as tag in the IM created VMs.
+
+.. confval:: VM_TAG_IM_URL
+
+   Name of the tag to set the IM URL as tag in the IM created VMs.
+
+.. confval:: VM_TAG_IM
+
+   Name of the tag to set the IM string (``'es.grycap.upv.im'```) as tag in the IM created VMs.
 
 .. _options-ha:
 

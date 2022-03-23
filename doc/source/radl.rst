@@ -170,17 +170,20 @@ The supported features are:
    Indicate the ports to be open in the VM at the Cloud provider system.
    Valid formats:
 
+   * 0.0.0.0/24-8899/tcp-8899/tcp,22/tcp-22/tcp
 	* 8899/tcp-8899/tcp,22/tcp-22/tcp
 	* 8899/tcp-8899,22/tcp-22
 	* 8899-8899,22-22
 	* 8899/tcp,22/udp
 	* 8899,22
+   * 0.0.0.0/24-8899,0.0.0.0/24-22
 	* 9000:9100/tcp
 	* 9000:9100
 
    The usage of ``-`` means port mapping the first port (remote) will be opened and
    redirected the the second port (local). 
-   The usage of ``:`` means port range.  
+   The usage of ``:`` means port range.
+   It can also be specified the remote CIDR allowed to access the specified port.
    The default value is ``''``.
    
 ``provider_id = <string>``
@@ -302,7 +305,7 @@ machine.  The supported features are:
 
    * ``one://<server>:<port>/<image-id>``, for OpenNebula;
    * ``one://<server>:<port>/<image-name>``, for OpenNebula;
-   * ``ost://<server>:<port>/<image-id>``, for OpenStack;
+   * ``ost://<server>:<port>/<image-id>``, for OpenStack or EGI;
    * ``aws://<region>/<ami-id>``, for Amazon Web Service;
    * ``aws://<region>/<snapshot-id>``, for Amazon Web Service;
    * ``aws://<region>/<snapshot-name>``, for Amazon Web Service;
@@ -311,7 +314,9 @@ machine.  The supported features are:
    * ``azr://<publisher>/<offer>/<sku>/<version>``, for Microsoft Azure;
    * ``azr://[snapshots|disk]/<rgname>/<diskname>``, for Microsoft Azure;
    * ``<fedcloud_endpoint_url>/<image_id>``, for FedCloud OCCI connector.
-   * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI or OpenStack connector using AppDB info (from vers. 1.6.0 and 1.8.6).
+   * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI, OpenStack or EGI connectors using AppDB info (from vers. 1.6.0, 1.8.6 and 1.10.2 respectively).
+     In case of EGI connector the ``vo_name`` is not required as it will be get from auth data.
+   * ``appdb://<apc_name>?<vo_name>``, for FedCloud OCCI, OpenStack or EGI connectors without setting site_name.
    * ``docker://<docker_image>``, for Docker images.
    * ``fbw://<fns_server>/<image-id>``, for FogBow images.
    * ``lin://linode/<image-id>``, for Linode images.
@@ -350,7 +355,8 @@ machine.  The supported features are:
 ``disk.<diskId>.type = <string>``
    Set the type of the disk, if it is a disk with no source set.
    The types depends on the provider: e.g. in GCE posible types are: pd-standard | pd-ssd,
-   in EC2 possible values are: standard | io1 | gp2.
+   in EC2 possible values are: standard | io1 | gp2. In OpenStack possible values are ephemeral,
+   or any volume type supported by the provider.
 
 ``disk.0.free_size = <positive integer value>B|K|M|G``
    Set the free space available in boot disk.
@@ -415,6 +421,18 @@ machine.  The supported features are:
    Set that this instance will be used as a NAT router for a set of nodes. 
    It will configure the node to enable nat with the appropriate iptables rules
    (experimental).
+
+``gpu.count <=|=|=> <positive integer value>``
+   Constrain the number of virtual GPUs in the virtual machine.
+
+``gpu.vendor = <string>``
+   Constrain the vendor name of the GPU in the virtual machine like ``NVIDIA`` or ``AMD``.
+
+``gpu.model = <string>``
+   Constrain the model name of the GPU in the virtual machine like ``Tesla-v100`` or ``Radeon RX 5000``
+
+``rg_name = <string>``
+   The name of the Resource Group associated with the system. It only applies in a subset of connectors.
 
 Disk Management
 ^^^^^^^^^^^^^^^
@@ -514,6 +532,9 @@ the virtual machine.
 
 ``IM_NODE_CLOUD_TYPE``
    Cloud type where the VM has been deployed.
+
+``IM_NODE_CLOUD_SERVER``
+   Cloud server where the VM has been deployed (if available, if not this variable is not defined).
 
 ``IM_MASTER_HOSTNAME``
    Hostname (without the domain) of the virtual machine doing the *master*
@@ -621,7 +642,7 @@ The optional "option" lines enable to specify some contextualizacion option valu
 ``ansible_version`` is supported. It enables the user to specify the ansible version to be installed
 in the "master" VM that will be used to configure all the VMs of the infrastructure. For example::
 
-   option ansible_version = 2.6.20
+   option ansible_version = '2.6.20'
 
 Each line inside the contextualize section enables to specify which configure section ``configure_id``
 will be applied in the nodes of type ``system_id``. Optionally a step number can be specified to set

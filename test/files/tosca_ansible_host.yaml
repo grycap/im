@@ -1,0 +1,70 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+imports:
+  - ec3_custom_types: https://raw.githubusercontent.com/grycap/ec3/tosca/tosca/custom_types.yaml
+
+topology_template:
+
+  node_templates:
+
+    ansible_host:
+      type: tosca.nodes.im.AnsibleHost
+      properties:
+        host: ansible_host_ip_or_name
+        credential:
+          token_type: password # or private_key
+          user: username
+          token: password # or the private_key
+
+    priv_network:
+      type: tosca.nodes.network.Network
+      properties:
+        network_type: private
+
+    server_port:
+      type: tosca.nodes.network.Port
+      properties:
+        order: 0
+        ip_address: deployed_node_ip
+      requirements:
+        - binding: simple_node
+        - link: priv_network
+
+    create_users:
+      type: tosca.nodes.SoftwareComponent
+      requirements:
+        - host: simple_node 
+      interfaces:
+        Standard:
+          configure:
+            implementation: https://raw.githubusercontent.com/grycap/ec3/tosca/tosca/artifacts/create_users.yml
+            inputs:
+              user_num: 1
+
+    simple_node:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        endpoint:
+          properties:
+            ports:
+              ssh_port:
+                protocol: tcp
+                source: 22
+        host:
+          properties:
+            num_cpus: 1
+            mem_size: 1 GB
+        os:
+          properties:
+            image: 'one://ramses.i3m.upv.es/1396'
+            type: linux
+            credential: 
+              token_type: password # or private_key
+              user: username
+              token: password # or the private_key
+
+  outputs:
+    node_ip:
+      value: { get_attribute: [ simple_node, public_address, 0 ] }
+    node_creds:
+      value: { get_attribute: [ simple_node, endpoint, credential, 0 ] }
