@@ -16,10 +16,6 @@
 
 import os.path
 import requests
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
 
 from IM.config import Config
 from radl.radl import Feature, system
@@ -72,16 +68,16 @@ class AppDBIS:
         """
         Get the list of images of the specified site
         """
-        filter = 'site.name::eq:"%s"' % site
-        return self.get_image_list(filter=filter)
+        name_filter = 'site.name::eq:"%s"' % site
+        return self.get_image_list(filter=name_filter)
 
-    def get_image_list(self, limit=100, filter=None):
+    def get_image_list(self, limit=100, image_filter=None):
         """
         Get the list of images from the REST API
         """
         url = self.appdbis_url + self.REST_API_PATH + "/images"
-        if filter:
-            url += "?filter=" + filter
+        if image_filter:
+            url += "?filter=" + image_filter
         return self.get_all_paged_results(url, limit)
 
     def get_image(self, image_id):
@@ -229,28 +225,29 @@ class AppDBIS:
         app_name_filter = "*%s* [%s/%s/*]" % (name, distribution, version)
         code, res = self.get_endpoints_and_images(vo, app_name_filter, cpus, mem_in_mb)
 
+        if code != 200:
+            return None
         res_systems = []
-        if code == 200:
-            for site in res:
-                url = site["gocEndpointUrl"]
-                # Ignore sites in critical state
-                if site["serviceStatus"]["value"] == "CRITICAL":
-                    continue
+        for site in res:
+            url = site["gocEndpointUrl"]
+            # Ignore sites in critical state
+            if site["serviceStatus"]["value"] == "CRITICAL":
+                continue
 
-                if url.endswith("/"):
-                    url = url[0:-1]
-                if url.endswith("v3"):
-                    url = url[0:-3]
-                if url.endswith("v2.0"):
-                    url = url[0:-5]
+            if url.endswith("/"):
+                url = url[0:-1]
+            if url.endswith("v3"):
+                url = url[0:-3]
+            if url.endswith("v2.0"):
+                url = url[0:-5]
 
-                for image in site["images"]["items"]:
-                    image_id = os.path.basename(image["entityName"])
-                    if image_id.startswith("os#"):
-                        image_id = image_id[3:]
+            for image in site["images"]["items"]:
+                image_id = os.path.basename(image["entityName"])
+                if image_id.startswith("os#"):
+                    image_id = image_id[3:]
 
-                    res_systems.append(system(radl_system.name,
-                                              [Feature("disk.0.image.url", "=", "%s/%s" % (url, image_id)),
-                                               Feature("disk.0.image.vo", "=", image["imageVoVmiInstanceVO"])]))
+                res_systems.append(system(radl_system.name,
+                                          [Feature("disk.0.image.url", "=", "%s/%s" % (url, image_id)),
+                                           Feature("disk.0.image.vo", "=", image["imageVoVmiInstanceVO"])]))
 
         return res_systems
