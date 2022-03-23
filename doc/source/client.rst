@@ -196,7 +196,7 @@ The :program:`im_client` is called like this::
 Authorization File
 ------------------
 
-To access the IM service an authenticatio file must be created.
+To access the IM service an authentication file must be created.
 It must have one line per authentication element. **It must have at least
 one line with the authentication data for the IM service** and another
 one for the Cloud/s provider/s the user want to access.
@@ -410,6 +410,8 @@ An example of the auth file::
    # InfrastructureManager auth
    type = InfrastructureManager; username = user; password: pass
    type = InfrastructureManager: token = access_token_value
+   # Having at least one of the two lines above is mandatory for all auth files.
+   # The lines below are concrete examples for each infrastructure. Please add only the ones that are relevant to you.
    # Vault auth
    type = Vault; host = https://vault.com:8200; token = access_token_value; role = role; path = path
    # OpenNebula site
