@@ -121,3 +121,9 @@ class TestAppDB(unittest.TestCase):
         site_url, image_id, _ = AppDB.get_image_data(str_url, "openstack", site='cloud.recas.ba.infn.it')
         self.assertEqual(site_url, "https://cloud.recas.ba.infn.it:5000")
         self.assertEqual(image_id, "image_id2")
+
+        str_url = "appdb://egi.ubuntu.16.04"
+        site_url, image_id, _ = AppDB.get_image_data(str_url, "openstack", vo="fedcloud.egi.eu",
+                                                     site='cloud.recas.ba.infn.it')
+        self.assertEqual(site_url, "https://cloud.recas.ba.infn.it:5000")
+        self.assertEqual(image_id, "image_id2")
