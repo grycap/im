@@ -38,7 +38,7 @@ In this first examples we will use the IM-client tool to create, manage and fina
 Authentication file
 ^^^^^^^^^^^^^^^^^^^
 To access the IM service an authenticatio file must be created. It must have one line per authentication element.
-It must have at least one line with the authentication data for the IM service and another one for the Cloud/s
+**It must have at least one line with the authentication data for the IM service** and another one for the Cloud/s
 provider/s the user want to access.
 
 An example to access an OpenNebula and/or an OpenStack site::
@@ -69,12 +69,12 @@ specify an existing image on the cluod provider where VM will be launched. O.S. 
 Cloud providers:
 
    * **one://<server>:<port>/<image-id>**, for OpenNebula;
-   * **ost://<server>/<ami-id>**, for OpenStack;
+   * **ost://<server>/<ami-id>**, for OpenStack or EGI;
    * **aws://<region>/<ami-id>**, for Amazon Web Service;
    * **gce://<region>/<image-id>**, for Google Cloud;
    * **azr://<publisher>/<offer>/<sku>/<version>**, for Microsoft Azure; and
    * **<fedcloud_endpoint_url>/<image_id>**, for FedCloud OCCI connector.
-   * **appdb://<site_name>/<apc_name>?<vo_name>**, for FedCloud OCCI connector using AppDB info (from ver. 1.6.0).
+   * **appdb://<site_name>/<apc_name>?<vo_name>**, for FedCloud OCCI, EGI or OpenStack connector using AppDB info.
    * **docker://<docker_image>**, for Docker images.
    * **fbw://<fns_server>/<image-id>**, for FogBow images.
    * **lin://linode/<image-id>**, for Linode images.
