@@ -127,7 +127,7 @@ class CloudInfo:
                             cloud_item.extra['tenant'] = auth['tenant']
                 elif 'type' in auth and auth['type'] == "EGI":
                     if 'vo' in auth and auth['vo']:
-                        cloud_item.extra["vo"] = 'vo'
+                        cloud_item.extra["vo"] = auth['vo']
 
                 res.append(cloud_item)
 

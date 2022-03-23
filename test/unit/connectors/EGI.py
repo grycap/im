@@ -103,6 +103,12 @@ class TestEGIConnector(TestCloudConnectorBase):
         self.assertEqual(concrete[0].getValue("instance_type"), "small")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        radl_system.setValue('disk.0.image.url', 'appdb://image_apc_name')
+        concrete = egi_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+        self.assertEqual(concrete[0].getValue("instance_type"), "small")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
     def create_node(self, **kwargs):
         """
         Create VMs returning error only first time
@@ -133,7 +139,7 @@ class TestEGIConnector(TestCloudConnectorBase):
             net_interface.1.connection = 'net1' and
             net_interface.0.connection = 'net2' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'ost://server.com/ami-id' and
+            disk.0.image.url = 'appdb://apc_image_name' and
             disk.0.os.credentials.username = 'user' and
             disk.1.size=1GB and
             disk.1.device='hdb' and
@@ -152,6 +158,7 @@ class TestEGIConnector(TestCloudConnectorBase):
         driver = MagicMock()
         get_driver.return_value = driver
 
+        get_image_data.return_value = "", "imageid", ""
         appdb.get_site_id.return_value = "site1"
         appdb.get_site_url.return_value = "https://site.com:5000/v3"
         appdb.get_project_ids.return_value = {"vo.access.egi.eu": "projectid"}
