@@ -96,7 +96,7 @@ should be like that::
 
     topology_template:
     
-    node_templates:
+      node_templates:
     
         simple_node:
           type: tosca.nodes.indigo.Compute
@@ -112,11 +112,11 @@ should be like that::
               properties:
                 image: one://someserver.com/123
 
-    outputs:
-      node_ip:
-        value: { get_attribute: [ simple_node, public_address, 0 ] }
-      node_creds:
-        value: { get_attribute: [ simple_node, endpoint, credential, 0 ] }
+      outputs:
+        node_ip:
+          value: { get_attribute: [ simple_node, public_address, 0 ] }
+        node_creds:
+          value: { get_attribute: [ simple_node, endpoint, credential, 0 ] }
 
 For more information about TOSCA see the 
 `OASIS TOSCA Simple Profile in YAML Version 1.0 <http://docs.oasis-open.org/tosca/TOSCA-Simple-Profile-YAML/v1.0/TOSCA-Simple-Profile-YAML-v1.0.html>`_.
