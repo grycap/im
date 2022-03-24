@@ -685,7 +685,9 @@ class AzureCloudConnector(CloudConnector):
             if net.getValue("provider_id"):
                 parts = net.getValue("provider_id").split(".")
                 if len(parts) != 2:
-                    raise Exception("Invalid provider_id format: net_name.subnet_name")
+                    parts = net.getValue("provider_id").split("/")
+                    if len(parts) != 2:
+                        raise Exception("Invalid provider_id format: net_name.subnet_name")
                 vnet_name = parts[0]
                 subnet_name = parts[1]
 
