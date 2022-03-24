@@ -177,10 +177,10 @@ class TestEC2Connector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.assertEquals(len(conn.create_security_group.call_args_list), 3)
-        self.assertEquals(conn.create_security_group.call_args_list[0][0][0], "im-%s" % inf.id)
-        self.assertEquals(conn.create_security_group.call_args_list[1][0][0], "sgname")
-        self.assertEquals(conn.create_security_group.call_args_list[2][0][0], "im-%s-net2" % inf.id)
+        self.assertEqual(len(conn.create_security_group.call_args_list), 3)
+        self.assertEqual(conn.create_security_group.call_args_list[0][0][0], "im-%s" % inf.id)
+        self.assertEqual(conn.create_security_group.call_args_list[1][0][0], "sgname")
+        self.assertEqual(conn.create_security_group.call_args_list[2][0][0], "im-%s-net2" % inf.id)
 
         # Check the case that we do not use VPC
         radl_data = """
@@ -225,10 +225,10 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         # check the instance_type selected is correct
         self.assertIn(".micro", conn.run_instances.call_args_list[1][1]["instance_type"])
-        self.assertEquals(conn.create_vpc.call_args_list[0][0][0], "10.0.128.0/22")
-        self.assertEquals(conn.create_subnet.call_args_list[0][0], ('vpc-id', '10.0.128.0/24'))
-        self.assertEquals(conn.create_subnet.call_args_list[1][0], ('vpc-id', '10.0.129.0/24'))
-        self.assertEquals(conn.create_subnet.call_args_list[2][0], ('vpc-id', '10.0.130.0/24'))
+        self.assertEqual(conn.create_vpc.call_args_list[0][0][0], "10.0.128.0/22")
+        self.assertEqual(conn.create_subnet.call_args_list[0][0], ('vpc-id', '10.0.128.0/24'))
+        self.assertEqual(conn.create_subnet.call_args_list[1][0], ('vpc-id', '10.0.129.0/24'))
+        self.assertEqual(conn.create_subnet.call_args_list[2][0], ('vpc-id', '10.0.130.0/24'))
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
@@ -400,11 +400,11 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        self.assertEquals(dns_conn.create_zone.call_count, 1)
-        self.assertEquals(dns_conn.create_zone.call_args_list[0][0][0], "domain.com.")
-        self.assertEquals(changes.add_change.call_args_list, [call('CREATE', 'test.domain.com.', 'A')])
-        self.assertEquals(change.add_value.call_args_list, [call('158.42.1.1')])
-        self.assertEquals(conn.create_route.call_args_list, [call('routet-id', '10.0.10.0/24', instance_id='int-id')])
+        self.assertEqual(dns_conn.create_zone.call_count, 1)
+        self.assertEqual(dns_conn.create_zone.call_args_list[0][0][0], "domain.com.")
+        self.assertEqual(changes.add_change.call_args_list, [call('CREATE', 'test.domain.com.', 'A')])
+        self.assertEqual(change.add_value.call_args_list, [call('158.42.1.1')])
+        self.assertEqual(conn.create_route.call_args_list, [call('routet-id', '10.0.10.0/24', instance_id='int-id')])
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     def test_30_updateVMInfo_spot(self, get_connection):
@@ -690,17 +690,17 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        self.assertEquals(dns_conn.delete_hosted_zone.call_count, 1)
-        self.assertEquals(dns_conn.delete_hosted_zone.call_args_list[0][0][0], zone.id)
-        self.assertEquals(changes.add_change.call_args_list, [call('DELETE', 'test.domain.com.', 'A')])
-        self.assertEquals(change.add_value.call_args_list, [call('158.42.1.1')])
-        self.assertEquals(sg.delete.call_args_list, [call()])
-        self.assertEquals(sg1.delete.call_args_list, [])
-        self.assertEquals(sg2.delete.call_args_list, [call()])
-        self.assertEquals(conn.delete_subnet.call_args_list, [call('subnet-id')])
-        self.assertEquals(conn.delete_vpc.call_args_list, [call('vpc-id')])
-        self.assertEquals(conn.delete_internet_gateway.call_args_list, [call('ig-id')])
-        self.assertEquals(conn.detach_internet_gateway.call_args_list, [call('ig-id', 'vpc-id')])
+        self.assertEqual(dns_conn.delete_hosted_zone.call_count, 1)
+        self.assertEqual(dns_conn.delete_hosted_zone.call_args_list[0][0][0], zone.id)
+        self.assertEqual(changes.add_change.call_args_list, [call('DELETE', 'test.domain.com.', 'A')])
+        self.assertEqual(change.add_value.call_args_list, [call('158.42.1.1')])
+        self.assertEqual(sg.delete.call_args_list, [call()])
+        self.assertEqual(sg1.delete.call_args_list, [])
+        self.assertEqual(sg2.delete.call_args_list, [call()])
+        self.assertEqual(conn.delete_subnet.call_args_list, [call('subnet-id')])
+        self.assertEqual(conn.delete_vpc.call_args_list, [call('vpc-id')])
+        self.assertEqual(conn.delete_internet_gateway.call_args_list, [call('ig-id')])
+        self.assertEqual(conn.detach_internet_gateway.call_args_list, [call('ig-id', 'vpc-id')])
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     @patch('time.sleep')

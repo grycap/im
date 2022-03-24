@@ -233,7 +233,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertEqual(json_vm_req['os_profile']['admin_password'], 'pass')
         self.assertEqual(json_vm_req['os_profile']['admin_password'], 'pass')
         self.assertEqual(nclient.subnets.begin_create_or_update.call_args_list[0][0][3]['address_prefix'],
-                          '10.0.1.0/24')
+                         '10.0.1.0/24')
 
         radl_data = """
             network net1 (outbound = 'yes')
@@ -279,7 +279,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         json_vm_req = cclient.virtual_machines.begin_create_or_update.call_args_list[5][0][2]
         self.assertEqual(json_vm_req['storage_profile']['os_disk']['os_type'], 'linux')
         self.assertEqual(nclient.subnets.begin_create_or_update.call_args_list[2][0][3]['address_prefix'],
-                          '192.168.1.0/24')
+                         '192.168.1.0/24')
 
         radl_data = """
             network net1 (outbound = 'yes')
@@ -405,10 +405,10 @@ class TestAzureConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertEqual(dclient.zones.create_or_update.call_args_list,
-                          [call('rg0', 'domain.com', {'location': 'global'})])
+                         [call('rg0', 'domain.com', {'location': 'global'})])
         self.assertEqual(dclient.record_sets.create_or_update.call_args_list,
-                          [call('rg0', 'domain.com', 'test', 'A',
-                                {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300})])
+                         [call('rg0', 'domain.com', 'test', 'A',
+                               {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300})])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.Azure.ComputeManagementClient')

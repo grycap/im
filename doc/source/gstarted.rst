@@ -37,13 +37,13 @@ In this first examples we will use the IM-client tool to create, manage and fina
 
 Authentication file
 ^^^^^^^^^^^^^^^^^^^
-To access the IM service an authenticatio file must be created. It must have one line per authentication element.
+To access the IM service an authentication file must be created. It must have one line per authentication element.
 **It must have at least one line with the authentication data for the IM service** and another one for the Cloud/s
 provider/s the user want to access.
 
 An example to access an OpenNebula and/or an OpenStack site::
 
-    id = im; type = InfrastructureManager; username = user; password = pass
+    id = im; type = InfrastructureManager; username = user; password = pass # mandatory
     id = one; type = OpenNebula; host = osenserver:2633; username = user; password = pass
     id = ost; type = OpenStack; host = https://ostserver:5000; username = user; password = pass; tenant = tenant
 

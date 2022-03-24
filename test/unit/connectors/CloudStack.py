@@ -206,7 +206,7 @@ class TestOSCConnector(TestCloudConnectorBase):
         success, vm = osc_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.cloudstack.CloudStackNodeDriver')

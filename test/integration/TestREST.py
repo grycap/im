@@ -452,7 +452,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR getting TOSCA outputs:" + resp.text)
         res = json.loads(resp.text)
         server_url = str(res['outputs']['server_url'][0])
-        self.assertRegexpMatches(
+        self.assertRegex(
             server_url, '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', msg="Unexpected outputs: " + resp.text)
 
     def test_95_add_tosca(self):
