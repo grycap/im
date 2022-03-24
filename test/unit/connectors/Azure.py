@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from distutils.command.config import config
 import sys
 import unittest
 
@@ -30,6 +31,7 @@ from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Azure import AzureCloudConnector
 from azure.core.exceptions import ResourceNotFoundError
 from mock import patch, MagicMock, call
+from IM.config import Config
 
 
 class TestAzureConnector(TestCloudConnectorBase):
@@ -165,6 +167,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         subnet_create = MagicMock()
         subnet_create_res = MagicMock()
         subnet_create_res.id = "subnet-0"
+        subnet_create_res.address_prefix = "10.0.1.0/24"
         subnet_create.result.return_value = subnet_create_res
         nclient.subnets.begin_create_or_update.return_value = subnet_create
         nclient.subnets.get.side_effect = ResourceNotFoundError()
@@ -308,6 +311,14 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertEqual(nclient.subnets.get.call_args_list[3][0][2], 'subnet1')
         self.assertEqual(nclient.subnets.begin_create_or_update.call_count, 3)
         self.assertEqual(nclient.virtual_networks.begin_create_or_update.call_count, 3)
+        self.assertEqual(nclient.public_ip_addresses.begin_create_or_update.call_count, 7)
+
+        old_priv = Config.PRIVATE_NET_MASKS
+        Config.PRIVATE_NET_MASKS = ["172.16.0.0/12", "192.168.0.0/16"]
+        res = azure_cloud.launch(inf, radl, radl, 1, auth)
+        Config.PRIVATE_NET_MASKS = old_priv
+        # Check that public ip is not created
+        self.assertEqual(nclient.public_ip_addresses.begin_create_or_update.call_count, 7)
 
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ComputeManagementClient')
