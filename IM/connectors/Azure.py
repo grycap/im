@@ -422,10 +422,9 @@ class AzureCloudConnector(CloudConnector):
         hasPublicIP = False
         hasPrivateIP = False
         pub_network_name = None
+        publicAdded = False
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
-            # TODO: check how to do that
-            # fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
             network = radl.get_network_by_id(network_name)
 
             if network.isPublic():
@@ -434,11 +433,17 @@ class AzureCloudConnector(CloudConnector):
             else:
                 hasPrivateIP = True
 
+            if not publicAdded and network_name in subnets:
+                subnet_network_mask = IPNetwork(subnets[network_name].address_prefix)
+                is_private = any([IPAddress(subnet_network_mask.ip) in IPNetwork(mask)
+                                  for mask in Config.PRIVATE_NET_MASKS])
+                if not is_private:
+                    publicAdded = True
+
             i += 1
 
         i = 0
         res = []
-        publicAdded = False
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
