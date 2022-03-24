@@ -25,6 +25,8 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
+from netaddr import IPNetwork, IPAddress
+from IM.config import Config
 
 try:
     from azure.mgmt.resource import ResourceManagementClient
@@ -988,7 +990,12 @@ class AzureCloudConnector(CloudConnector):
 
             for ip in ip_conf:
                 if ip.private_ip_address:
-                    private_ips.append(ip.private_ip_address)
+                    is_private = any([IPAddress(ip.private_ip_address) in IPNetwork(mask)
+                                      for mask in Config.PRIVATE_NET_MASKS])
+                    if is_private:
+                        private_ips.append(ip.private_ip_address)
+                    else:
+                        public_ips.append(ip.private_ip_address)
                 if ip.public_ip_address:
                     name = " ".join(ip.public_ip_address.id.split('/')[-1:])
                     sub = "".join(ip.public_ip_address.id.split('/')[4])
