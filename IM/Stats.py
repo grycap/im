@@ -25,6 +25,7 @@ from IM.auth import Authentication
 from IM.config import Config
 from radl.radl_parse import parse_radl
 
+
 class Stats():
 
     logger = logging.getLogger('InfrastructureManager')
@@ -101,7 +102,7 @@ class Stats():
                     res['inf_id'] = inf_id
                     res['last_date'] = str(date)
                     stats.append(res)
-                
+
             db.close()
             return stats
         else:

@@ -1393,7 +1393,7 @@ configure step2 (
     @patch('IM.Stats.DataBase')
     @patch('IM.InfrastructureManager.InfrastructureManager.check_auth_data')
     def test_get_stats(self, check_auth_data, DataBase):
-        
+
         radl = """
             system node (
             memory.size = 512M and
