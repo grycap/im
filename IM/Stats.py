@@ -57,14 +57,16 @@ class Stats():
         resp['cloud_type'] = None
         resp['cloud_host'] = None
         resp['hybrid'] = False
-        for vm_data in dic['vm_list']:
+        for str_vm_data in dic['vm_list']:
+            vm_data = json.loads(str_vm_data)
+            cloud_data = json.loads(vm_data["cloud"])
 
             # only get the cloud of the first VM
             if not resp['cloud_type']:
-                resp['cloud_type'] = vm_data["cloud"]["type"]
+                resp['cloud_type'] = cloud_data["type"]
             if not resp['cloud_host']:
-                resp['cloud_host'] = vm_data["cloud"]["server"]
-            elif resp['cloud_host'] != vm_data["cloud"]["server"]:
+                resp['cloud_host'] = cloud_data["server"]
+            elif resp['cloud_host'] != cloud_data["server"]:
                 resp['hybrid'] = True
 
             vm_sys = parse_radl(vm_data['info']).systems[0]
