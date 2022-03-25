@@ -23,8 +23,7 @@ import logging
 from IM.db import DataBase
 from IM.auth import Authentication
 from IM.config import Config
-from IM.VirtualMachine import VirtualMachine
-
+from radl.radl_parse import parse_radl
 
 class Stats():
 
@@ -34,12 +33,14 @@ class Stats():
     @staticmethod
     def _get_data(str_data, auth=None):
         dic = json.loads(str_data)
+        inf_auth = Authentication(dic['auth'])
+        if auth is not None and not inf_auth.compare(auth, 'InfrastructureManager'):
+            return None
+
         resp = {'creation_date': None}
         if 'creation_date' in dic and dic['creation_date']:
             resp['creation_date'] = str(datetime.datetime.fromtimestamp(float(dic['creation_date'])))
-        auth = Authentication.deserialize(dic['auth'])
         resp['icon'] = None
-        im_auth = auth.getAuthInfo("InfrastructureManager")[0]
         if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
             try:
                 tosca = yaml.safe_load(dic['extra_info']['TOSCA'])
@@ -55,28 +56,25 @@ class Stats():
         resp['cloud_host'] = None
         resp['hybrid'] = False
         for vm_data in dic['vm_list']:
-            vm = VirtualMachine.deserialize(vm_data)
 
             # only get the cloud of the first VM
             if not resp['cloud_type']:
-                resp['cloud_type'] = vm.cloud.type
+                resp['cloud_type'] = vm_data["cloud"]["type"]
             if not resp['cloud_host']:
-                resp['cloud_host'] = vm.cloud.get_url()
-            elif resp['cloud_host'] != vm.cloud.get_url():
+                resp['cloud_host'] = vm_data["cloud"]["server"]
+            elif resp['cloud_host'] != vm_data["cloud"]["server"]:
                 resp['hybrid'] = True
 
-            vm_sys = vm.info.systems[0]
+            vm_sys = parse_radl(vm_data['info']).systems[0]
             if vm_sys.getValue('cpu.count'):
                 resp['cpu_count'] += vm_sys.getValue('cpu.count')
             if vm_sys.getValue('memory.size'):
                 resp['memory_size'] += vm_sys.getFeature('memory.size').getValue('M')
             resp['vm_count'] += 1
 
-        if auth is None or im_auth.compare(auth):
-            resp['im_user'] = im_auth.get('username', "")
-            return resp
-        else:
-            return None
+        im_auth = inf_auth.getAuthInfo("InfrastructureManager")[0]
+        resp['im_user'] = im_auth.get('username', "")
+        return resp
 
     @staticmethod
     def get_stats(init_date="1970-01-01", auth=None):

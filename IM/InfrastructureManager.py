@@ -1746,8 +1746,7 @@ class InfrastructureManager:
         """
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
-        im_auth = auth.getAuthInfo("InfrastructureManager")[0]
-        stats = Stats.get_stats(date, im_auth)
+        stats = Stats.get_stats(date, auth)
         if not stats:
             raise Exception("ERROR connecting with the database!.")
         else:
