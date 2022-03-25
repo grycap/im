@@ -41,12 +41,12 @@ class Stats():
         resp = {'creation_date': None}
         if 'creation_date' in dic and dic['creation_date']:
             resp['creation_date'] = str(datetime.datetime.fromtimestamp(float(dic['creation_date'])))
-        resp['icon'] = None
+        resp['tosca_name'] = None
         if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
             try:
                 tosca = yaml.safe_load(dic['extra_info']['TOSCA'])
                 icon = tosca.get("metadata", {}).get("icon", "")
-                resp['icon'] = os.path.basename(icon)[:-4]
+                resp['tosca_name'] = os.path.basename(icon)[:-4]
             except Exception:
                 Stats.logger.exception("Error loading TOSCA.")
 
@@ -89,7 +89,7 @@ class Stats():
 
         Return: a list of dict with the stats with the following format:
             {'creation_date': '2022-03-07 13:16:14',
-             'icon': 'kubernetes',
+             'tosca_name': 'kubernetes',
              'vm_count': 2,
              'cpu_count': 4,
              'memory_size': 1024,

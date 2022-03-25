@@ -15,6 +15,8 @@ tags:
     description: Manages Virtual Infrastructures.
   - name: version
     description: Get IM server version.
+  - name: stats
+    description: Get IM server stats.
   - name: clouds
     description: Get cloud information.
 
@@ -37,6 +39,40 @@ paths:
                 example: 1.10.0
         '400':
           description: Invalid status value
+
+  /stats:
+    get:
+      tags:
+        - stats
+      summary: Get IM server stats.
+      description: >-
+        Return the stats of the current user in the IM service.
+        Return all the infrastructures since the init_date parameter deployed
+        by the user showing some aggregated information.
+      operationId: GetStats
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              examples:
+                response:
+                  value:
+                    - creation_date: '2022-03-07 13:16:14'
+                      tosca_name: 'kubernetes'
+                      vm_count: 2
+                      cpu_count: 4
+                      memory_size: 1024
+                      cloud_type: 'OSCAR'
+                      cloud_host: 'sharp-elbakyan5.im.grycap.net'
+                      hybrid: false
+                      im_user: '__OPENID__mcaballer'
+                      inf_id: '1'
+                      last_date: '2022-03-23'
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
 
   /infrastructures:
     get:

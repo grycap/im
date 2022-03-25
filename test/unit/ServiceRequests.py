@@ -200,6 +200,13 @@ class TestServiceRequests(unittest.TestCase):
             IM.ServiceRequests.IMBaseRequest.CHANGE_INFRASTRUCTURE_AUTH, ("", "", False, ""))
         req._call_function()
 
+    @patch('IM.InfrastructureManager.InfrastructureManager')
+    def test_get_stats(self, inflist):
+        import IM.ServiceRequests
+        req = IM.ServiceRequests.IMBaseRequest.create_request(
+            IM.ServiceRequests.IMBaseRequest.GET_STATS, ("", ""))
+        req._call_function()
+
 
 if __name__ == '__main__':
     unittest.main()

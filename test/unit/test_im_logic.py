@@ -1432,7 +1432,7 @@ configure step2 (
 
         stats = IM.GetStats('2001-01-01', auth)
         expected_res = [{'creation_date': '2022-03-07 13:16:14',
-                         'icon': 'kubernetes',
+                         'tosca_name': 'kubernetes',
                          'vm_count': 2,
                          'cpu_count': 4,
                          'memory_size': 1024,

@@ -1080,7 +1080,9 @@ def RESTGetStats():
         else:
             init_date = "1970-01-01"
 
-        return InfrastructureManager.GetStats(init_date, auth)
+        stats = InfrastructureManager.GetStats(init_date, auth)
+        bottle.response.content_type = "application/json"
+        return format_output(stats, default_type="application/json", field_name="stats")
     except Exception as ex:
         logger.exception("Error getting stats")
         return return_error(400, "Error getting stats: %s" % get_ex_error(ex))

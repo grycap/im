@@ -50,7 +50,7 @@ Next tables summaries the resources and the HTTP methods available.
 +-------------+------------------------------------------------------+------------------------------------------------------+
 | **POST**    |                                                      | | **Modify** the specified property ``property_name``|
 |             |                                                      | | associated to the infrastructure ``infId``.        |
-|             |                                                      | | only ``authorization`` property is valid.         |
+|             |                                                      | | only ``authorization`` property is valid.          |
 +-------------+------------------------------------------------------+------------------------------------------------------+
 
 
@@ -421,7 +421,7 @@ GET ``http://imserver.com/clouds/<cloudId>/images``
    The id ``cloudId`` is relative to the id field in the AUTHORIZATION header.
    The result is JSON format has the following format::
 
-   {
+    {
       "images":
          [
             {
@@ -433,7 +433,7 @@ GET ``http://imserver.com/clouds/<cloudId>/images``
                "name" : "Image Name2"
             }
          ]
-   }
+    }
 
 GET ``http://imserver.com/clouds/<cloudId>/quotas``
    :Response Content-type: application/json
@@ -453,4 +453,30 @@ GET ``http://imserver.com/clouds/<cloudId>/quotas``
          "floating_ips": {"used": 1, "limit": 10},
          "security_groups": {"used": 1, "limit": 10}
       }
+    }
+
+GET ``http://imserver.com/stats``
+   :Response Content-type: application/json
+   :ok response: 200 OK
+   :input fields: ``init_date`` (optional)
+   :fail response: 401, 400
+
+   Return the stats of the current user in the IM service.
+   Return all the infrastructures deployed by the user showing some
+   aggregated information. In JSON format::
+
+    {
+      "stats": [
+                  {"creation_date": "2022-03-07 13:16:14",
+                  "tosca_name": "kubernetes",
+                  "vm_count": 2,
+                  "cpu_count": 4,
+                  "memory_size": 1024,
+                  "cloud_type": "OSCAR",
+                  "cloud_host": "sharp-elbakyan5.im.grycap.net",
+                  "hybrid": false,
+                  "im_user": "__OPENID__mcaballer",
+                  "inf_id": "1",
+                  "last_date": "2022-03-23"}
+      ]
     }

@@ -58,6 +58,7 @@ class IMBaseRequest(AsyncRequest):
     GET_CLOUD_IMAGE_LIST = "GetCloudImageList"
     GET_CLOUD_QUOTAS = "GetCloudQuotas"
     CHANGE_INFRASTRUCTURE_AUTH = "ChangeInfrastructureAuth"
+    GET_STATS = "GetStats"
 
     @staticmethod
     def create_request(function, arguments=()):
@@ -113,6 +114,8 @@ class IMBaseRequest(AsyncRequest):
             return Request_GetCloudQuotas(arguments)
         elif function == IMBaseRequest.CHANGE_INFRASTRUCTURE_AUTH:
             return Request_ChangeInfrastructureAuth(arguments)
+        elif function == IMBaseRequest.GET_STATS:
+            return Request_GetStats(arguments)
         else:
             raise NotImplementedError("Function not Implemented")
 
@@ -445,3 +448,14 @@ class Request_ChangeInfrastructureAuth(IMBaseRequest):
                                                                                        Authentication(new_auth),
                                                                                        overwrite,
                                                                                        Authentication(auth_data))
+
+
+class Request_GetStats(IMBaseRequest):
+    """
+    Request class for the GetStats function
+    """
+
+    def _call_function(self):
+        self._error_mesage = "Error getting stats"
+        (init_date, auth_data) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.GetStats(init_date, Authentication(auth_data))
