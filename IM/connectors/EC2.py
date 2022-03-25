@@ -16,7 +16,7 @@
 
 import time
 import requests
-from netaddr import IPNetwork, spanning_cidr
+from netaddr import IPNetwork, IPAddress, spanning_cidr
 
 try:
     import boto.ec2
@@ -1031,7 +1031,13 @@ class EC2CloudConnector(CloudConnector):
             num_nets += 1
             num_pub_nets = 1
         if instance.private_ip_address is not None and len(instance.private_ip_address) > 0:
-            private_ips = [instance.private_ip_address]
+            is_private = any([IPAddress(instance.private_ip_address) in IPNetwork(mask)
+                              for mask in Config.PRIVATE_NET_MASKS])
+            if is_private:
+                private_ips = [instance.private_ip_address]
+            else:
+                public_ips = [instance.private_ip_address]
+                num_pub_nets += 1
             num_nets += 1
 
         vm.setIps(public_ips, private_ips)

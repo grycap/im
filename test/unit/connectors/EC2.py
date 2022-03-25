@@ -28,6 +28,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.EC2 import EC2CloudConnector
+from IM.config import Config
 from mock import patch, MagicMock, call
 
 
@@ -405,6 +406,17 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(changes.add_change.call_args_list, [call('CREATE', 'test.domain.com.', 'A')])
         self.assertEqual(change.add_value.call_args_list, [call('158.42.1.1')])
         self.assertEqual(conn.create_route.call_args_list, [call('routet-id', '10.0.10.0/24', instance_id='int-id')])
+
+        # Test using PRIVATE_NET_MASKS setting 10.0.0.0/8 as public net
+        old_priv = Config.PRIVATE_NET_MASKS
+        Config.PRIVATE_NET_MASKS = ["172.16.0.0/12", "192.168.0.0/16"]
+        instance.ip_address = None
+        instance.private_ip_address = "10.0.0.1"
+        conn.get_all_addresses.return_value = []
+        success, vm = ec2_cloud.updateVMInfo(vm, auth)
+        Config.PRIVATE_NET_MASKS = old_priv
+        self.assertEqual(vm.getPublicIP(), "10.0.0.1")
+        self.assertEqual(vm.getPrivateIP(), None)
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     def test_30_updateVMInfo_spot(self, get_connection):

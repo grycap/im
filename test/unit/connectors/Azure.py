@@ -410,6 +410,15 @@ class TestAzureConnector(TestCloudConnectorBase):
                                {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300})])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        # Test using PRIVATE_NET_MASKS setting 10.0.0.0/8 as public net
+        old_priv = Config.PRIVATE_NET_MASKS
+        Config.PRIVATE_NET_MASKS = ["172.16.0.0/12", "192.168.0.0/16"]
+        ip_conf.public_ip_address = None
+        success, vm = azure_cloud.updateVMInfo(vm, auth)
+        Config.PRIVATE_NET_MASKS = old_priv
+        self.assertEqual(vm.getPublicIP(), "10.0.0.1")
+        self.assertEqual(vm.getPrivateIP(), None)
+
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.ClientSecretCredential')
     def test_40_stop(self, credentials, compute_client):
