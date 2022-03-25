@@ -1401,13 +1401,13 @@ configure step2 (
             )"""
 
         auth = Authentication([{'type': 'InfrastructureManager', 'token': 'atoken',
-                                'username': '__OPENID__mcaballer', 'pass': 'pass'}])
+                                'username': '__OPENID__mcaballer', 'password': 'pass'}])
         check_auth_data.return_value = auth
 
         db = MagicMock()
         inf_data = {
             "id": "1",
-            "auth": auth.auth_list,
+            "auth": auth.serialize(),
             "creation_date": 1646655374,
             "extra_info": {"TOSCA": yaml.dump({"metadata": {"icon": "kubernetes.png"}})},
             "vm_list": [
@@ -1427,7 +1427,7 @@ configure step2 (
                 }
             ]
         }
-        db.select.return_value = [(json.dumps(inf_data).encode(), '2022-03-23', '1')]
+        db.select.return_value = [(json.dumps(inf_data), '2022-03-23', '1')]
         DataBase.return_value = db
 
         stats = IM.GetStats('2001-01-01', auth)

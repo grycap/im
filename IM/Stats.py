@@ -34,8 +34,9 @@ class Stats():
     @staticmethod
     def _get_data(str_data, auth=None):
         dic = json.loads(str_data)
-        inf_auth = Authentication(dic['auth'])
-        if auth is not None and not inf_auth.compare(auth, 'InfrastructureManager'):
+        inf_auth = Authentication.deserialize(dic['auth']).getAuthInfo('InfrastructureManager')[0]
+        user_auth = auth.getAuthInfo('InfrastructureManager')[0]
+        if inf_auth['username'] != user_auth['username'] or inf_auth['password'] != user_auth['password']:
             return None
 
         resp = {'creation_date': None}
@@ -73,8 +74,7 @@ class Stats():
                 resp['memory_size'] += vm_sys.getFeature('memory.size').getValue('M')
             resp['vm_count'] += 1
 
-        im_auth = inf_auth.getAuthInfo("InfrastructureManager")[0]
-        resp['im_user'] = im_auth.get('username', "")
+        resp['im_user'] = inf_auth.get('username')
         return resp
 
     @staticmethod
@@ -108,12 +108,14 @@ class Stats():
                 data = elem[0]
                 date = elem[1]
                 inf_id = elem[2]
-                res = Stats._get_data(data.decode(), auth)
-                if res:
-                    res['inf_id'] = inf_id
-                    res['last_date'] = str(date)
-                    stats.append(res)
-
+                try:
+                    res = Stats._get_data(data, auth)
+                    if res:
+                        res['inf_id'] = inf_id
+                        res['last_date'] = str(date)
+                        stats.append(res)
+                except Exception:
+                    Stats.logger.exception("ERROR reading infrastructure info from Inf ID: %s" % inf_id)
             db.close()
             return stats
         else:
