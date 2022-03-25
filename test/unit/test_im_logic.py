@@ -1389,6 +1389,74 @@ configure step2 (
         self.assertEqual(str(ex.exception), ("Invalid new infrastructure data provided: No credentials"
                                              " provided for the InfrastructureManager."))
 
+    @patch('IM.Stats.DataBase')
+    def test_get_stats(self, DataBase):
+        
+        radl = """
+            network public ( outbound = 'yes' )
+            system plants (
+            name = 'plants' and
+            memory.size = 488M and
+            script = '#!/bin/bash
+            echo "Hola"
+            ' and
+            cpu.count = 0.5 and
+            disk.0.image.url = 'oscar://sharp-elbakyan5.im.grycap.net/grycap/image' and
+            input.0.provider = 'minio.default' and
+            input.0.path = 'input' and
+            output.0.provider = 'minio.default' and
+            output.0.path = 'output' and
+            alpine = 0 and
+            net_interface.0.connection = 'public' and
+            state = 'configured' and
+            provider.type = 'OSCAR' and
+            instance_id = 'plants' and
+            net_interface.0.dns_name = 'vnode-0' and
+            token = 'ebfb145ab57a35520669fc89bc115edab1b231a5c8f92e895ecaee256f841bac'
+            )
+
+            configure plants ()
+            contextualize  (
+            system plants configure plants step 1 
+            )
+            deploy plants 1
+
+        """
+
+        db = MagicMock()
+        inf_data = {
+            "id": "1",
+            "auth": [
+                {"password": "https://aai.egi.eu/oidc/a67fff9c06e62401975aeb29ad35b8faf7c4fc74b4526a5504e5132b01496831@egi.eu",
+                 "type": "InfrastructureManager",
+                 "username": "__OPENID__mcaballer"
+                 }
+            ],
+            "vm_list": [
+                {"last_update": 1646656730,
+                 "destroy": True, 
+                 "state": "deleting",
+                 "id": "plants",
+                 "im_id": 0,
+                 "cloud": {
+                     "id": "oscar",
+                     "type": "OSCAR",
+                     "server": "sharp-elbakyan5.im.grycap.net",
+                     "protocol": "https"
+                 },
+                 "info": radl,
+                 "cont_out": "",
+                 "configured": True, 
+                 "creation_date": 1646655378
+                },
+                "extra_info": {"TOSCA": {"metadata": {"icon": "kubernetes.png"}}}
+            ]
+        }
+        db.select.return_value = [(inf_data, '2022-03-23', '1')]
+        DataBase.return_value = db
+
+        IM.GetStats()
+
 
 if __name__ == "__main__":
     unittest.main()

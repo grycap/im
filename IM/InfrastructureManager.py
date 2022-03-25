@@ -40,7 +40,7 @@ from radl.radl_json import dump_radl as dump_radl_json
 from IM.openid.JWT import JWT
 from IM.openid.OpenIDClient import OpenIDClient
 from IM.vault import VaultCredentials
-
+from IM.Stats import Stats
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
     from multiprocessing.pool import ThreadPool
@@ -1731,3 +1731,24 @@ class InfrastructureManager:
             sel_inf.change_auth(new_auth, overwrite)
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         return ""
+
+    @staticmethod
+    def GetStats(date, auth):
+        """
+        Get the statistics from the IM DB.
+
+        Args:
+
+        - init_date(str): Only will be returned infrastructure created afther this date.
+        - auth(Authentication): parsed authentication tokens.
+
+        Return: a list of dict with the stats.
+        """
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
+        im_auth = auth.getAuthInfo("InfrastructureManager")[0]
+        stats = Stats.get_stats(date, im_auth)
+        if not stats:
+            raise Exception("ERROR connecting with the database!.")
+        else:
+            return stats
