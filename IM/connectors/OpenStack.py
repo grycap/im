@@ -730,7 +730,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             priv_ips.append(ipu)
                         else:
                             pub_ips.append(ipu)
-                    vm.setIps(pub_ips, priv_ips)
+                    vm.setIps(pub_ips, priv_ips, False)
 
         else:
             # if addresses are not available use the old method
@@ -741,7 +741,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     private_ips.append(ip)
                 else:
                     public_ips.append(ip)
-            vm.setIps(public_ips, private_ips, True)
+            vm.setIps(public_ips, private_ips)
 
         if vm.state == VirtualMachine.RUNNING:
             if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:

@@ -278,7 +278,7 @@ class OCCICloudConnector(CloudConnector):
                 not public_ips and vm.requested_radl.hasPublicNet(vm.info.systems[0].name)):
             self.manage_public_ips(vm, auth_data, auth_header)
 
-        vm.setIps(public_ips, private_ips, remove_old=True)
+        vm.setIps(public_ips, private_ips)
 
     @staticmethod
     def get_property_from_category(occi_res, category, prop_name):

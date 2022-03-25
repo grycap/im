@@ -642,7 +642,7 @@ class VirtualMachine(LoggerMixin):
 
         return public_net, num_net
 
-    def setIps(self, public_ips, private_ips, remove_old=False, ignore_nets=None):
+    def setIps(self, public_ips, private_ips, remove_old=True, ignore_nets=None):
         """
         Set the specified IPs in the VM RADL info
         """
