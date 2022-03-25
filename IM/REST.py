@@ -19,6 +19,7 @@ import threading
 import json
 import base64
 import bottle
+import datetime
 
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
 from IM.InfrastructureManager import (InfrastructureManager, DeletedInfrastructureException,
@@ -1049,12 +1050,40 @@ def ReturnOptions(**kwargs):
 
 
 @app.route('/version', method='GET')
-def RESTGeVersion():
+def RESTGetVersion():
     try:
         from IM import __version__ as version
         return format_output(version, field_name="version")
     except Exception as ex:
         return return_error(400, "Error getting IM version: %s" % get_ex_error(ex))
+
+
+@app.route('/stats', method='GET')
+def RESTGetStats():
+    try:
+        auth = get_auth_header()
+    except Exception:
+        return return_error(401, "No authentication data provided")
+
+    try:
+        if "init_date" in bottle.request.params.keys():
+            init_date = bottle.request.params.get("init_date").lower()
+            init_date = init_date.replace("/", "-")
+            parts = init_date.split("-")
+            try:
+                year = int(parts[0])
+                month = int(parts[1])
+                day = int(parts[2])
+                datetime.date(year, month, day)
+            except Exception:
+                return return_error(400, "Incorrect format in init_date parameter: YYYY/MM/dd")
+        else:
+            init_date = "1970-01-01"
+
+        return InfrastructureManager.GetStats(init_date, auth)
+    except Exception as ex:
+        logger.exception("Error getting stats")
+        return return_error(400, "Error getting stats: %s" % get_ex_error(ex))
 
 
 @app.route('/infrastructures/:infid/vms/:vmid/disks/:disknum/snapshot', method='PUT')

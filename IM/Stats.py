@@ -87,7 +87,18 @@ class Stats():
         - init_date(str): Only will be returned infrastructure created afther this date.
         - auth(Authentication): parsed authentication tokens.
 
-        Return: a list of dict with the stats.
+        Return: a list of dict with the stats with the following format:
+            {'creation_date': '2022-03-07 13:16:14',
+             'icon': 'kubernetes',
+             'vm_count': 2,
+             'cpu_count': 4,
+             'memory_size': 1024,
+             'cloud_type': 'OSCAR',
+             'cloud_host': 'sharp-elbakyan5.im.grycap.net',
+             'hybrid': False,
+             'im_user': '__OPENID__mcaballer',
+             'inf_id': '1',
+             'last_date': '2022-03-23'}
         """
         stats = []
         db = DataBase(Config.DATA_DB)

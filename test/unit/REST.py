@@ -53,11 +53,12 @@ from IM.REST import (RESTDestroyInfrastructure,
                      RESTStartVM,
                      RESTStopVM,
                      RESTRebootVM,
-                     RESTGeVersion,
+                     RESTGetVersion,
                      RESTCreateDiskSnapshot,
                      RESTImportInfrastructure,
                      RESTGetCloudInfo,
                      RESTChangeInfrastructureAuth,
+                     RESTGetStats,
                      return_error,
                      format_output)
 
@@ -1073,6 +1074,21 @@ class TestREST(unittest.TestCase):
                                                                                        "username": "new_user",
                                                                                        "password": "new_pass"}])
         self.assertEqual(ChangeInfrastructureAuth.call_args_list[0][0][2], True)
+
+    @patch("bottle.request")
+    @patch("IM.InfrastructureManager.InfrastructureManager.GetStats")
+    def test_GetStats(self, GetStats, bottle_request):
+        """Test REST GetStats."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": "type = InfrastructureManager; username = user; password = pass"}
+        GetStats.return_value = [{"stats"}]
+        bottle_request.params = {'init_date': '2010-01-01'}
+        res = RESTGetStats()
+        self.assertEqual(res, [{"stats"}])
+        self.assertEqual(GetStats.call_args_list[0][0][0], '2010-01-01')
+        self.assertEqual(GetStats.call_args_list[0][0][1].auth_list, [{"type": "InfrastructureManager",
+                                                                       "username": "user",
+                                                                       "password": "pass"}])
 
 
 if __name__ == "__main__":
