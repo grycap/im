@@ -347,11 +347,11 @@ class Tosca:
         for port in ports_dict.values():
             protocol = "tcp"
             source_range = None
-            remote_cidr = None
+            remote_cidr = ""
             if "protocol" in port:
                 protocol = port["protocol"]
             if "remote_cidr" in port:
-                remote_cidr = port["remote_cidr"]
+                remote_cidr = "%s-" % port["remote_cidr"]
             if "source_range" in port:
                 source_range = port["source_range"]
             else:
@@ -368,14 +368,11 @@ class Tosca:
             if source_range:
                 if res:
                     res += ","
-                res += "%s:%s/%s" % (source_range[0], source_range[1], protocol)
+                res += "%s%s:%s/%s" % (remote_cidr, source_range[0], source_range[1], protocol)
             else:
                 if res:
                     res += ","
-                res += "%s/%s-%s/%s" % (remote_port, protocol, local_port, protocol)
-
-            if remote_cidr:
-                res = "%s-%s" % (remote_cidr, res)
+                res += "%s%s/%s-%s/%s" % (remote_cidr, remote_port, protocol, local_port, protocol)
 
         return res
 

@@ -1543,17 +1543,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                              outport.get_remote_cidr())
                     except Exception as ex:
                         self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
+                        self.error_messages += ("Exception adding port range: %s-%s to SG rules.\n" %
+                                                outport.get_port_init(), outport.get_port_end())
                 else:
-                    if outport.get_remote_port() != 22 or not network.isPublic():
-                        try:
-                            driver.ex_create_security_group_rule(sg, outport.get_protocol(),
-                                                                 outport.get_remote_port(),
-                                                                 outport.get_remote_port(),
-                                                                 outport.get_remote_cidr())
-                        except Exception as ex:
-                            self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
-                            self.error_messages += ("Exception adding port %s to SG rules.\n" %
-                                                    outport.get_remote_port())
+                    try:
+                        driver.ex_create_security_group_rule(sg, outport.get_protocol(),
+                                                             outport.get_remote_port(),
+                                                             outport.get_remote_port(),
+                                                             outport.get_remote_cidr())
+                    except Exception as ex:
+                        self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
+                        self.error_messages += ("Exception adding port %s to SG rules.\n" %
+                                                outport.get_remote_port())
 
         return res
 

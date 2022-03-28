@@ -388,7 +388,7 @@ class AzureCloudConnector(CloudConnector):
                                               outport.get_port_end())
                 sr['destination_port_range'] = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
                 security_rules.append(sr)
-            elif outport.get_local_port() != 22:
+            else:
                 sr['name'] = 'sr-%s-%d-%d' % (outport.get_protocol(),
                                               outport.get_remote_port(),
                                               outport.get_local_port())
