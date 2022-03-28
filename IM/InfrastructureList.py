@@ -61,7 +61,13 @@ class InfrastructureList():
     @staticmethod
     def get_inf_ids(auth=None):
         """ Get the IDs of the Infrastructures """
-        return InfrastructureList._get_inf_ids_from_db(auth)
+        if auth:
+            res = []
+            for elem in auth.getAuthInfo("InfrastructureManager"):
+                res.extend(InfrastructureList._get_inf_ids_from_db(Authentication([elem])))
+            return res
+        else:
+            return InfrastructureList._get_inf_ids_from_db()
 
     @staticmethod
     def get_infrastructure(inf_id):
