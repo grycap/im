@@ -1431,6 +1431,9 @@ configure step2 (
                          'inf_id': '1',
                          'last_date': '2022-03-23'}]
         self.assertEqual(stats, expected_res)
+        self.assertEqual(db.select.call_args_list[0][0][0],
+                         "SELECT data, date, id FROM inf_list WHERE creation_date > 978303600 and"
+                         " creation_date < 4796665200 and (auth = '__OPENID__mcaballer:pass') order by rowid desc;")
 
 
 if __name__ == "__main__":
