@@ -45,11 +45,10 @@ class DB110to112():
             sys.exit(-1)
 
     @staticmethod
-    def rename_old_data(db_url):
+    def rename_old_data(db_url, now):
         db = DataBase(db_url)
         if db.connect():
             if db.table_exists("inf_list"):
-                now = str(int(time.time() * 100))
                 if db.db_type == DataBase.SQLITE:
                     db.execute('ALTER TABLE inf_list RENAME TO inf_list_%s;' % now)
                     db.close()
@@ -82,8 +81,9 @@ if __name__ == "__main__":
     sys.stdout.write("Loading Data...\n")
     inf_list = DB110to112.load_data(db_url)
     if inf_list:
-        sys.stdout.write("Previous table inf_list will be renamed to inf_list_XXXXXX.\n")
-        DB110to112.rename_old_data(db_url)
+        now = str(int(time.time() * 100))
+        sys.stdout.write("Previous table inf_list will be renamed to inf_list_%s.\n" % now)
+        DB110to112.rename_old_data(db_url, now)
         # To create the new table
         sys.stdout.write("Saving Data...\n")
         DB110to112.save_data(db_url, inf_list)

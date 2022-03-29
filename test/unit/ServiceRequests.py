@@ -204,7 +204,7 @@ class TestServiceRequests(unittest.TestCase):
     def test_get_stats(self, inflist):
         import IM.ServiceRequests
         req = IM.ServiceRequests.IMBaseRequest.create_request(
-            IM.ServiceRequests.IMBaseRequest.GET_STATS, ("", ""))
+            IM.ServiceRequests.IMBaseRequest.GET_STATS, ("", "", ""))
         req._call_function()
 
 

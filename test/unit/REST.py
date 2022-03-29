@@ -758,7 +758,7 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res, "Error rebooting VM: Invalid VM ID")
 
     def test_GeVersion(self):
-        res = RESTGeVersion()
+        res = RESTGetVersion()
         self.assertEqual(res, version)
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot")
@@ -1081,12 +1081,13 @@ class TestREST(unittest.TestCase):
         """Test REST GetStats."""
         bottle_request.return_value = MagicMock()
         bottle_request.headers = {"AUTHORIZATION": "type = InfrastructureManager; username = user; password = pass"}
-        GetStats.return_value = [{"stats"}]
-        bottle_request.params = {'init_date': '2010-01-01'}
+        GetStats.return_value = [{"key": 1}]
+        bottle_request.params = {'init_date': '2010-01-01', 'end_date': '2022-01-01'}
         res = RESTGetStats()
-        self.assertEqual(res, [{"stats"}])
+        self.assertEqual(json.loads(res), {"stats": [{"key": 1}]})
         self.assertEqual(GetStats.call_args_list[0][0][0], '2010-01-01')
-        self.assertEqual(GetStats.call_args_list[0][0][1].auth_list, [{"type": "InfrastructureManager",
+        self.assertEqual(GetStats.call_args_list[0][0][1], '2022-01-01')
+        self.assertEqual(GetStats.call_args_list[0][0][2].auth_list, [{"type": "InfrastructureManager",
                                                                        "username": "user",
                                                                        "password": "pass"}])
 

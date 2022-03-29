@@ -1733,20 +1733,21 @@ class InfrastructureManager:
         return ""
 
     @staticmethod
-    def GetStats(date, auth):
+    def GetStats(init_date, end_date, auth):
         """
         Get the statistics from the IM DB.
 
         Args:
 
         - init_date(str): Only will be returned infrastructure created afther this date.
+        - end_date(str): Only will be returned infrastructure created before this date.
         - auth(Authentication): parsed authentication tokens.
 
         Return: a list of dict with the stats.
         """
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
-        stats = Stats.get_stats(date, auth)
+        stats = Stats.get_stats(init_date, end_date, auth)
         if stats is None:
             raise Exception("ERROR connecting with the database!.")
         else:

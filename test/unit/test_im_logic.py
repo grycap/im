@@ -1418,7 +1418,7 @@ configure step2 (
         db.select.return_value = [(json.dumps(inf_data), '2022-03-23', '1')]
         DataBase.return_value = db
 
-        stats = IM.GetStats('2001-01-01', auth)
+        stats = IM.GetStats('2001-01-01', '2122-01-01', auth)
         expected_res = [{'creation_date': '2022-03-07 13:16:14',
                          'tosca_name': 'kubernetes',
                          'vm_count': 2,
