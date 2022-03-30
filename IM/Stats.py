@@ -81,7 +81,7 @@ class Stats():
         return resp
 
     @staticmethod
-    def get_stats(init_date="1977-04-09", end_date=None, auth=None):
+    def get_stats(init_date=None, end_date=None, auth=None):
         """
         Get the statistics from the IM DB.
 
@@ -107,19 +107,27 @@ class Stats():
         stats = []
         db = DataBase(Config.DATA_DB)
         if db.connect():
-            where = "creation_date > %d" % time.mktime(
-                datetime.datetime.strptime(init_date, "%Y-%m-%d").timetuple())
+            init_date_int = 0
+            if init_date:
+                init_date_int = time.mktime(datetime.datetime.strptime(init_date, "%Y-%m-%d").timetuple())
+            end_date_int = time.time()
             if end_date:
-                where += " and creation_date < %d" % time.mktime(
-                    datetime.datetime.strptime(end_date, "%Y-%m-%d").timetuple())
-            if auth:
-                where += " and ("
-                for num, elem in enumerate(auth.getAuthInfo("InfrastructureManager")):
-                    if num > 0:
-                        where += " or "
-                    where += "auth = '%s:%s'" % (elem["username"], elem["password"])
-                where += ")"
-            res = db.select("SELECT data, date, id FROM inf_list WHERE %s order by rowid desc;" % where)
+                end_date_int = time.mktime(datetime.datetime.strptime(end_date, "%Y-%m-%d").timetuple())
+            if auth and auth.getAuthInfo("InfrastructureManager"):
+                auth_list = []
+                for elem in auth.getAuthInfo("InfrastructureManager"):
+                    auth_list.append("%s:%s" % (elem["username"], elem["password"]))
+                if len(auth_list) > 1:
+                    res = db.select("SELECT data, date, id FROM inf_list WHERE creation_date >= %s and "
+                                    "creation_date <= %s and auth in %s order by rowid desc;",
+                                    (init_date_int, end_date_int, tuple(auth_list)))
+                else:
+                    res = db.select("SELECT data, date, id FROM inf_list WHERE creation_date >= %s and "
+                                    "creation_date <= %s and auth = %s order by rowid desc;",
+                                    (init_date_int, end_date_int, auth_list[0]))
+            else:
+                res = db.select("SELECT data, date, id FROM inf_list WHERE creation_date >= %s and creation_date <= %s"
+                                " order by rowid desc;", (init_date_int, end_date_int))
             for elem in res:
                 data = elem[0]
                 date = elem[1]

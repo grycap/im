@@ -239,13 +239,14 @@ class InfrastructureList():
                 if db.db_type == DataBase.MONGO:
                     filt = {"deleted": 0},
                     if inf.get_auth():
-                        filt["auth"] = inf.get_auth()
+                        filt["auth"] = inf.get_auth(True)
                     res = db.find("inf_list", filt, {"id": True}, [('id', -1)])
                 else:
-                    where = "deleted = 0"
-                    if inf.get_auth():
-                        where += " and auth = '%s'" % inf.get_auth()
-                    res = db.select("select id from inf_list where %s order by rowid desc" % where)
+                    if inf.get_auth(True):
+                        res = db.select("select id from inf_list where deleted = 0 and auth = %s order by rowid desc",
+                                        (inf.get_auth(True),))
+                    else:
+                        res = db.select("select id from inf_list where deleted = 0 order by rowid desc")
 
                 for elem in res:
                     if db.db_type == DataBase.MONGO:

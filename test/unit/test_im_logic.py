@@ -1401,7 +1401,9 @@ configure step2 (
             )"""
 
         auth = Authentication([{'type': 'InfrastructureManager', 'token': 'atoken',
-                                'username': '__OPENID__mcaballer', 'password': 'pass'}])
+                                'username': '__OPENID__mcaballer', 'password': 'pass'},
+                               {'type': 'InfrastructureManager', 'token': 'atoken1',
+                                'username': '__OPENID__mcaballer1', 'password': 'pass1'}])
         check_auth_data.return_value = auth
 
         db = MagicMock()
@@ -1432,8 +1434,10 @@ configure step2 (
                          'last_date': '2022-03-23'}]
         self.assertEqual(stats, expected_res)
         self.assertEqual(db.select.call_args_list[0][0][0],
-                         "SELECT data, date, id FROM inf_list WHERE creation_date > 978303600 and"
-                         " creation_date < 4796665200 and (auth = '__OPENID__mcaballer:pass') order by rowid desc;")
+                         "SELECT data, date, id FROM inf_list WHERE creation_date >= %s and creation_date <= %s"
+                         " and auth in %s order by rowid desc;")
+        self.assertEqual(db.select.call_args_list[0][0][1], (978303600.0, 4796665200.0, ('__OPENID__mcaballer:pass',
+                                                                                         '__OPENID__mcaballer1:pass1')))
 
 
 if __name__ == "__main__":
