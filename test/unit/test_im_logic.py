@@ -1436,7 +1436,7 @@ configure step2 (
         self.assertEqual(db.select.call_args_list[0][0][0],
                          "SELECT data, date, id FROM inf_list WHERE creation_date >= %s and creation_date <= %s"
                          " and auth in %s order by rowid desc;")
-        self.assertEqual(db.select.call_args_list[0][0][1], (978303600.0, 4796665200.0, ('__OPENID__mcaballer:pass',
+        self.assertEqual(db.select.call_args_list[0][0][1], (978307200.0, 4796668800.0, ('__OPENID__mcaballer:pass',
                                                                                          '__OPENID__mcaballer1:pass1')))
 
 
