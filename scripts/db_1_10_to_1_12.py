@@ -29,7 +29,7 @@ class DB110to112():
     def save_data(db_url, inf_list):
         """ Save Data to file """
         try:
-            InfrastructureList.init_table()
+            InfrastructureList.init_table(db_url)
             InfrastructureList._save_data_to_db(db_url, inf_list)
         except Exception as ex:
             sys.stderr.write("ERROR saving data: " + str(ex) + ".")
@@ -39,7 +39,7 @@ class DB110to112():
     def load_data(db_url):
         """ Load Data from DB"""
         try:
-            return InfrastructureList._get_data_from_db(db_url)
+            return InfrastructureList._get_data_from_db(db_url, all=True)
         except Exception as ex:
             sys.stderr.write("ERROR loading data: " + str(ex) + ".\nCorrect or delete it!! ")
             sys.exit(-1)

@@ -134,9 +134,9 @@ class InfrastructureList():
                 sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 
     @staticmethod
-    def init_table():
+    def init_table(db_url=Config.DATA_DB):
         """ Creates de database """
-        db = DataBase(Config.DATA_DB)
+        db = DataBase(db_url)
         if db.connect():
             if not db.table_exists("inf_list"):
                 InfrastructureList.logger.debug("Creating the IM database!.")
@@ -155,12 +155,12 @@ class InfrastructureList():
         return False
 
     @staticmethod
-    def _get_data_from_db(db_url, inf_id=None):
+    def _get_data_from_db(db_url, inf_id=None, all=False):
         """
         Get data from DB.
         If no inf_id specified all Infrastructures are loaded.
         """
-        if InfrastructureList.init_table():
+        if InfrastructureList.init_table(db_url):
             db = DataBase(db_url)
             if db.connect():
                 inf_list = {}
@@ -171,9 +171,15 @@ class InfrastructureList():
                         res = db.select("select data from inf_list where id = %s", (inf_id,))
                 else:
                     if db.db_type == DataBase.MONGO:
-                        res = db.find("inf_list", {"deleted": 0}, {"data": True}, [('_id', -1)])
+                        filt = {"deleted": 0}
+                        if all:
+                            filt = None
+                        res = db.find("inf_list", filt, {"data": True}, [('_id', -1)])
                     else:
-                        res = db.select("select data from inf_list where deleted = 0 order by rowid desc")
+                        if all:
+                            res = db.select("select data from inf_list order by rowid desc")
+                        else:
+                            res = db.select("select data from inf_list where deleted = 0 order by rowid desc")
                 if len(res) > 0:
                     for elem in res:
                         try:
