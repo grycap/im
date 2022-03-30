@@ -1421,7 +1421,7 @@ configure step2 (
         DataBase.return_value = db
 
         stats = IM.GetStats('2001-01-01', '2122-01-01', auth)
-        expected_res = [{'creation_date': '2022-03-07 13:16:14',
+        expected_res = [{'creation_date': '2022-03-07 12:16:14',
                          'tosca_name': 'kubernetes',
                          'vm_count': 2,
                          'cpu_count': 4,
