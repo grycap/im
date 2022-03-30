@@ -700,4 +700,5 @@ IM 1.11.0:
     * Fix error in EGI connector using appdb image url without setting site name.
     * Fix error getting project ids from AppDB.
 
-
+IM 1.12.0:
+    * Enable to get IM stats.
