@@ -155,7 +155,7 @@ class InfrastructureList():
         return False
 
     @staticmethod
-    def _get_data_from_db(db_url, inf_id=None, all=False):
+    def _get_data_from_db(db_url, inf_id=None, return_all=False):
         """
         Get data from DB.
         If no inf_id specified all Infrastructures are loaded.
@@ -172,11 +172,11 @@ class InfrastructureList():
                 else:
                     if db.db_type == DataBase.MONGO:
                         filt = {"deleted": 0}
-                        if all:
+                        if return_all:
                             filt = None
                         res = db.find("inf_list", filt, {"data": True}, [('_id', -1)])
                     else:
-                        if all:
+                        if return_all:
                             res = db.select("select data from inf_list order by rowid desc")
                         else:
                             res = db.select("select data from inf_list where deleted = 0 order by rowid desc")

@@ -39,7 +39,7 @@ class DB110to112():
     def load_data(db_url):
         """ Load Data from DB"""
         try:
-            return InfrastructureList._get_data_from_db(db_url, all=True)
+            return InfrastructureList._get_data_from_db(db_url, return_all=True)
         except Exception as ex:
             sys.stderr.write("ERROR loading data: " + str(ex) + ".\nCorrect or delete it!! ")
             sys.exit(-1)
