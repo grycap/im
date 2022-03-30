@@ -183,19 +183,6 @@ class InfrastructureInfo:
         newinf.deleting = False
         return newinf
 
-    @staticmethod
-    def deserialize_auth(str_data):
-        """
-        Only Loads auth data
-        """
-        newinf = InfrastructureInfo()
-        dic = json.loads(str_data)
-        newinf.deleted = dic['deleted']
-        newinf.id = dic['id']
-        if dic['auth']:
-            newinf.auth = Authentication.deserialize(dic['auth'])
-        return newinf
-
     def destroy_vms(self, auth):
         """
         Destroy all the VMs
@@ -768,13 +755,13 @@ class InfrastructureInfo:
                 raise Exception("Infrastructure deleted. Do not add resources.")
             self.adding = value
 
-    def get_auth(self):
+    def get_auth(self, only_user_pass=False):
         """
         Return IM auth in a simple way
         """
         if self.auth is not None:
             self_im_auth = self.auth.getAuthInfo("InfrastructureManager")[0]
-            if 'token' in self_im_auth:
+            if 'token' in self_im_auth and not only_user_pass:
                 return self_im_auth['token']
             elif 'username' in self_im_auth and 'password' in self_im_auth:
                 return "%s:%s" % (self_im_auth['username'], self_im_auth['password'])

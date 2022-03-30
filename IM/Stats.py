@@ -16,6 +16,7 @@
 
 import os.path
 import datetime
+import time
 import json
 import yaml
 import logging
@@ -80,13 +81,14 @@ class Stats():
         return resp
 
     @staticmethod
-    def get_stats(init_date="1970-01-01", auth=None):
+    def get_stats(init_date="1977-04-09", end_date=None, auth=None):
         """
         Get the statistics from the IM DB.
 
         Args:
 
         - init_date(str): Only will be returned infrastructure created afther this date.
+        - end_date(str): Only will be returned infrastructure created afther this date.
         - auth(Authentication): parsed authentication tokens.
 
         Return: a list of dict with the stats with the following format:
@@ -105,7 +107,19 @@ class Stats():
         stats = []
         db = DataBase(Config.DATA_DB)
         if db.connect():
-            res = db.select("SELECT data, date, id FROM inf_list WHERE date > '%s' order by rowid desc;" % init_date)
+            where = "creation_date > %d" % time.mktime(
+                datetime.datetime.strptime(init_date, "%Y-%m-%d").timetuple())
+            if end_date:
+                where += " and creation_date < %d" % time.mktime(
+                    datetime.datetime.strptime(end_date, "%Y-%m-%d").timetuple())
+            if auth:
+                where += " and ("
+                for num, elem in enumerate(auth.getAuthInfo("InfrastructureManager")):
+                    if num > 0:
+                        where += " or "
+                    where += "auth = '%s:%s'" % (elem["username"], elem["password"])
+                where += ")"
+            res = db.select("SELECT data, date, id FROM inf_list WHERE %s order by rowid desc;" % where)
             for elem in res:
                 data = elem[0]
                 date = elem[1]

@@ -220,9 +220,9 @@ def ChangeInfrastructureAuth(inf_id, new_auth_data, overwrite, auth_data):
     return WaitRequest(request)
 
 
-def GetStats(init_date, auth_data):
+def GetStats(init_date, end_date, auth_data):
     request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_STATS, (init_date, auth_data))
+        IMBaseRequest.GET_STATS, (init_date, end_date, auth_data))
     return WaitRequest(request)
 
 

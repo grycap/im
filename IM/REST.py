@@ -1066,6 +1066,7 @@ def RESTGetStats():
         return return_error(401, "No authentication data provided")
 
     try:
+        init_date = None
         if "init_date" in bottle.request.params.keys():
             init_date = bottle.request.params.get("init_date").lower()
             init_date = init_date.replace("/", "-")
@@ -1080,7 +1081,20 @@ def RESTGetStats():
         else:
             init_date = "1970-01-01"
 
-        stats = InfrastructureManager.GetStats(init_date, auth)
+        end_date = None
+        if "end_date" in bottle.request.params.keys():
+            end_date = bottle.request.params.get("end_date").lower()
+            end_date = end_date.replace("/", "-")
+            parts = end_date.split("-")
+            try:
+                year = int(parts[0])
+                month = int(parts[1])
+                day = int(parts[2])
+                datetime.date(year, month, day)
+            except Exception:
+                return return_error(400, "Incorrect format in end_date parameter: YYYY/MM/dd")
+
+        stats = InfrastructureManager.GetStats(init_date, end_date, auth)
         bottle.response.content_type = "application/json"
         return format_output(stats, default_type="application/json", field_name="stats")
     except Exception as ex:

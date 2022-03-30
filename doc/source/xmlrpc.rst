@@ -417,13 +417,14 @@ This is the list of method names:
 
 ``GetStat``
    :parameter 0: ``init_date``: string
-   :parameter 1: ``auth``: array of structs
+   :parameter 1: ``end_date``: string
+   :parameter 2: ``auth``: array of structs
    :ok response: [true, list of dicts]
    :fail response: [false, ``error``: string]
 
    Return the stats of the current user in the IM service.
-   Return all the infrastructures since ``init_date`` deployed by the user showing some
-   aggregated information. In JSON format::
+   Return all the infrastructures in the interval ``init_date``-``end-date`` deployed by the user
+   showing some aggregated information. In JSON format::
       
       [
          {"creation_date": "2022-03-07 13:16:14",

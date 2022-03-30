@@ -459,6 +459,7 @@ GET ``http://imserver.com/stats``
    :Response Content-type: application/json
    :ok response: 200 OK
    :input fields: ``init_date`` (optional)
+   :input fields: ``end_date`` (optional)
    :fail response: 401, 400
 
    Return the stats of the current user in the IM service.

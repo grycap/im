@@ -457,5 +457,5 @@ class Request_GetStats(IMBaseRequest):
 
     def _call_function(self):
         self._error_mesage = "Error getting stats"
-        (init_date, auth_data) = self.arguments
-        return IM.InfrastructureManager.InfrastructureManager.GetStats(init_date, Authentication(auth_data))
+        (init_date, end_date, auth_data) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.GetStats(init_date, end_date, Authentication(auth_data))
