@@ -1409,7 +1409,6 @@ class InfrastructureManager:
     @staticmethod
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
-        auth = InfrastructureManager.get_auth_from_vault(auth)
         im_auth = auth.getAuthInfo("InfrastructureManager")
 
         if not im_auth:
@@ -1445,8 +1444,7 @@ class InfrastructureManager:
             auth_list.extend(single_site_auth)
             auth = Authentication(auth_list)
 
-        # We have to check if TTS is needed for other auth item
-        return auth
+        return InfrastructureManager.get_auth_from_vault(auth)
 
     @staticmethod
     def CreateInfrastructure(radl_data, auth, async_call=False):
