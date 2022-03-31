@@ -21,6 +21,7 @@ import os.path
 import tempfile
 import requests
 import base64
+from IM.CloudInfo import CloudInfo
 
 try:
     from libcloud.common.exceptions import BaseHTTPError
@@ -78,6 +79,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         driver = self.get_driver(auth_data)
         node = driver.ex_get_node_details(node_id)
+        # for old infras add cloud extra fields
+        if not self.cloud.extra:
+            CloudInfo.add_extra_fields(auth_data.getAuthInfo(self.type, self.cloud.server)[0], self.cloud)
         return node
 
     def get_auth(self, auths):
@@ -91,6 +95,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         Returns: a :py:class:`IM.auth.Authentication`
         """
+        # in OLD infras extra field is not set
+        if not self.cloud.extra:
+            # Use the old behaviour
+            return auths[0]
+
         if 'auth_version' not in self.cloud.extra or not self.cloud.extra['auth_version']:
             self.cloud.extra['auth_version'] = self.DEFAULT_AUTH_VERSION
         for auth in auths:
@@ -105,8 +114,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 auth['auth_version'] = self.DEFAULT_AUTH_VERSION
 
             for field in fields:
-                # in OLD infras extra field is not set
-                if self.cloud.extra.get(field) and auth.get(field) != self.cloud.extra.get(field):
+                if auth.get(field) != self.cloud.extra.get(field):
                     valid = False
                     break
 
