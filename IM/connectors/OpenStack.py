@@ -105,7 +105,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 auth['auth_version'] = self.DEFAULT_AUTH_VERSION
 
             for field in fields:
-                if auth.get(field) != self.cloud.extra.get(field):
+                # in OLD infras extra field is not set
+                if self.cloud.extra.get(field) and auth.get(field) != self.cloud.extra.get(field):
                     valid = False
                     break
 
