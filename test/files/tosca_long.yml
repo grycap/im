@@ -158,7 +158,7 @@ topology_template:
               http_port:
                 protocol: tcp
                 source: 10000
-                remote_cidr: 0.0.0.0/0 
+                remote_cidr: 0.0.0.0/0
               other_port:
                 protocol: tcp
                 source: 80
