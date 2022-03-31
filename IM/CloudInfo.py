@@ -70,6 +70,26 @@ class CloudInfo:
         return res
 
     @staticmethod
+    def add_extra_fields(auth, cloud_item):
+        # Add extra fields in case of OpenStack and EGI sites
+        if 'type' in auth and auth['type'] == "OpenStack":
+            auth_version = auth['auth_version'] if 'auth_version' in auth else ""
+            cloud_item.extra['auth_version'] = auth_version
+            if auth_version == "3.x_oidc_access_token":
+                # in this case username represents the identity provider
+                if 'username' in auth and auth['username']:
+                    cloud_item.extra['username'] = auth['username']
+                # and the domain the project/tenant name
+                if 'domain' in auth and auth['domain']:
+                    cloud_item.extra['domain'] = auth['domain']
+            elif "password" in auth_version:
+                if 'tenant' in auth and auth['tenant']:
+                    cloud_item.extra['tenant'] = auth['tenant']
+        elif 'type' in auth and auth['type'] == "EGI":
+            if 'vo' in auth and auth['vo']:
+                cloud_item.extra["vo"] = auth['vo']
+
+    @staticmethod
     def get_cloud_list(auth_data):
         """
         Get the list of cloud providers from the authentication data
@@ -112,22 +132,7 @@ class CloudInfo:
                     pass
 
                 # Add extra fields in case of OpenStack and EGI sites
-                if 'type' in auth and auth['type'] == "OpenStack":
-                    auth_version = auth['auth_version'] if 'auth_version' in auth else ""
-                    cloud_item.extra['auth_version'] = auth_version
-                    if auth_version == "3.x_oidc_access_token":
-                        # in this case username represents the identity provider
-                        if 'username' in auth and auth['username']:
-                            cloud_item.extra['username'] = auth['username']
-                        # and the domain the project/tenant name
-                        if 'domain' in auth and auth['domain']:
-                            cloud_item.extra['domain'] = auth['domain']
-                    elif "password" in auth_version:
-                        if 'tenant' in auth and auth['tenant']:
-                            cloud_item.extra['tenant'] = auth['tenant']
-                elif 'type' in auth and auth['type'] == "EGI":
-                    if 'vo' in auth and auth['vo']:
-                        cloud_item.extra["vo"] = auth['vo']
+                CloudInfo.add_extra_fields(auth, cloud_item)
 
                 res.append(cloud_item)
 

@@ -21,6 +21,7 @@ import os.path
 import tempfile
 import requests
 import base64
+from IM.CloudInfo import CloudInfo
 
 try:
     from libcloud.common.exceptions import BaseHTTPError
@@ -78,6 +79,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         driver = self.get_driver(auth_data)
         node = driver.ex_get_node_details(node_id)
+        # for old infras add cloud extra fields
+        if not self.cloud.extra:
+            CloudInfo.add_extra_fields(auth_data.getAuthInfo(self.type, self.cloud.server)[0], self.cloud)
         return node
 
     def get_auth(self, auths):
