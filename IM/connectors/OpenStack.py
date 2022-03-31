@@ -91,6 +91,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         Returns: a :py:class:`IM.auth.Authentication`
         """
+        # in OLD infras extra field is not set
+        if not self.cloud.extra:
+            # Use the old behaviour
+            return auths[0]
+
         if 'auth_version' not in self.cloud.extra or not self.cloud.extra['auth_version']:
             self.cloud.extra['auth_version'] = self.DEFAULT_AUTH_VERSION
         for auth in auths:
@@ -105,8 +110,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 auth['auth_version'] = self.DEFAULT_AUTH_VERSION
 
             for field in fields:
-                # in OLD infras extra field is not set
-                if self.cloud.extra.get(field) and auth.get(field) != self.cloud.extra.get(field):
+                if auth.get(field) != self.cloud.extra.get(field):
                     valid = False
                     break
 
