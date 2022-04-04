@@ -672,7 +672,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         try:
             for pool in node.driver.ex_list_floating_ip_pools():
                 for ip in pool.list_floating_ips():
-                    if ip.node_id == node.id:
+                    if ip.get_node_id() == node.id:
                         ips.append(ip.ip_address)
         except BaseHTTPError as ex:
             if ex.code == 404:
@@ -1399,7 +1399,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         Get a floating IP
         """
         for ip in pool.list_floating_ips():
-            if not ip.node_id:
+            if not ip.get_node_id():
                 is_private = any([IPAddress(ip.ip_address) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
                 if is_private:
                     self.log_info("Floating IP found %s, but it is private. Ignore." % ip.ip_address)
@@ -1959,7 +1959,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 no_delete_ips = vm.floating_ips
 
             for floating_ip in node.driver.ex_list_floating_ips():
-                if floating_ip.node_id == node.id:
+                if floating_ip.get_node_id() == node.id:
                     # remove it from the node
                     try:
                         node.driver.ex_detach_floating_ip_from_node(node, floating_ip)
