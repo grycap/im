@@ -538,7 +538,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                       fdetails.get("vcpus"),
                                                       fdetails.get("ephemeral"),
                                                       fdetails.get("swap"),
-                                                      fdetails.get("extra"))
+                                                      fdetails.get("extra", {}))
                 self.update_system_info_from_instance(vm.info.systems[0], instance_type)
             except Exception as ex:
                 self.log_warn("Error updating VM info from flavor ID: %s" % get_ex_error(ex))
