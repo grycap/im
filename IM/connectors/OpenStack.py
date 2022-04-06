@@ -28,7 +28,10 @@ try:
     from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
     from libcloud.compute.base import NodeAuthSSHKey
-    from libcloud.compute.drivers.openstack import OpenStack_2_NodeDriver, OpenStack_2_SubNet, OpenStackSecurityGroup
+    from libcloud.compute.drivers.openstack import (OpenStack_2_NodeDriver,
+                                                    OpenStack_2_SubNet,
+                                                    OpenStackSecurityGroup,
+                                                    OpenStackNodeSize)
 except Exception as ex:
     print("WARN: libcloud library not correctly installed. OpenStackCloudConnector will not work!.")
     print(ex)
@@ -518,13 +521,24 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             try:
                 flavorId = node.extra['flavorId']
-                instance_type = node.driver.ex_get_size(flavorId)
-                if len(instance_type.extra) == 0:
-                    try:
-                        # get it now
-                        instance_type.extra = node.driver.ex_get_size_extra_specs(instance_type.id)
-                    except Exception:
-                        self.log_exception("Error trying to get flavor '%s' extra_specs." % instance_type.id)
+                if flavorId:
+                    instance_type = node.driver.ex_get_size(flavorId)
+                    if len(instance_type.extra) == 0:
+                        try:
+                            # get it now
+                            instance_type.extra = node.driver.ex_get_size_extra_specs(instance_type.id)
+                        except Exception:
+                            self.log_exception("Error trying to get flavor '%s' extra_specs." % instance_type.id)
+                elif node.extra['flavor_details']:
+                    fdetails = node.extra['flavor_details']
+                    instance_type = OpenStackNodeSize("id", fdetails.get("original_name"),
+                                                      fdetails.get("ram"),
+                                                      fdetails.get("disk"),
+                                                      None, None, node.driver,
+                                                      fdetails.get("vcpus"),
+                                                      fdetails.get("ephemeral"),
+                                                      fdetails.get("swap"),
+                                                      fdetails.get("extra", {}))
                 self.update_system_info_from_instance(vm.info.systems[0], instance_type)
             except Exception as ex:
                 self.log_warn("Error updating VM info from flavor ID: %s" % get_ex_error(ex))
@@ -658,7 +672,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         try:
             for pool in node.driver.ex_list_floating_ip_pools():
                 for ip in pool.list_floating_ips():
-                    if ip.node_id == node.id:
+                    if ip.get_node_id() == node.id:
                         ips.append(ip.ip_address)
         except BaseHTTPError as ex:
             if ex.code == 404:
@@ -1385,7 +1399,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         Get a floating IP
         """
         for ip in pool.list_floating_ips():
-            if not ip.node_id:
+            if not ip.get_node_id():
                 is_private = any([IPAddress(ip.ip_address) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
                 if is_private:
                     self.log_info("Floating IP found %s, but it is private. Ignore." % ip.ip_address)
@@ -1945,7 +1959,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 no_delete_ips = vm.floating_ips
 
             for floating_ip in node.driver.ex_list_floating_ips():
-                if floating_ip.node_id == node.id:
+                if floating_ip.get_node_id() == node.id:
                     # remove it from the node
                     try:
                         node.driver.ex_detach_floating_ip_from_node(node, floating_ip)
