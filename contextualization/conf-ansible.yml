@@ -25,6 +25,11 @@
       ignore_errors: yes
       changed_when: false
 
+    - name: Wait for any possibly running unattended upgrade to finish
+      raw: systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
+      ignore_errors: yes
+      changed_when: false
+
   ################### Some OSs does not have python by default #########################
     - name: Check Python is installed
       raw: python3 -c 'import sys; print(sys.version_info[1])'
