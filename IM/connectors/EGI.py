@@ -114,6 +114,7 @@ class EGICloudConnector(OpenStackCloudConnector):
         url = urlparse(str_url)
         protocol = url[0]
         src_host = url[1].split(':')[0]
+        vo = url[4]
 
         if protocol in ["ost", "appdb"] and self.cloud.server and not self.cloud.protocol:
             site_host = ""
@@ -129,6 +130,16 @@ class EGICloudConnector(OpenStackCloudConnector):
             if ((protocol == "ost" and site_host == src_host) or
                     (protocol == "appdb" and src_host == self.cloud.server)):
                 driver = self.get_driver(auth_data)
+
+                # In AppDB case also check the vo name, if set in the url
+                if protocol == "appdb" and vo:
+                    auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+                    if not auths:
+                        raise Exception("No auth data has been specified to EGI.")
+                    else:
+                        auth = self.get_egi_auth(auths)
+                        if auth['vo'] != vo:
+                            return None
 
                 res_system = radl_system.clone()
                 instance_type = self.get_instance_type(driver, res_system)
