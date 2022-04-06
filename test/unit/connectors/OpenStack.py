@@ -439,7 +439,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         # In this case the Node has the float ip assigned
         # node.public_ips = ['8.8.8.8']
-        floating_ip.node_id = node.id
+        floating_ip.get_node_id.return_value = node.id
         pool.list_floating_ips.return_value = [floating_ip]
         driver.ex_list_floating_ip_pools.return_value = [pool]
 
@@ -735,7 +735,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.delete_security_group.return_value = True
 
         fip = MagicMock()
-        fip.node_id = node.id
+        fip.get_node_id.return_value = node.id
         fip.ip_address = '158.42.1.1'
         fip.delete.return_value = True
         driver.ex_list_floating_ips.return_value = [fip]
