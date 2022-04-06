@@ -15,7 +15,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3-setupto
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity && \
      pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.21&& \
      pip3 install git+https://github.com/openstack/tosca-parser && \
-     cd /tmp && git clone https://github.com/grycap/im.git -b $BRANCH && pip3 install /tmp/im && \
+     pip3 install git+https://github.com/micafer/libcloud@micro && \
+     pip3 install git+https://github.com/grycap/im@$BRANCH && \
      apt-get purge -y git python3-pip && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
