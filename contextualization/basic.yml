@@ -16,7 +16,7 @@
       changed_when: false
 
     - name: Wait for any possibly running unattended upgrade to finish
-      raw: systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
+      raw: sudo systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
       ignore_errors: yes
       changed_when: false
 
