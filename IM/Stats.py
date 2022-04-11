@@ -119,15 +119,15 @@ class Stats():
                     auth_list.append("%s:%s" % (elem["username"], elem["password"]))
                 if len(auth_list) > 1:
                     res = db.select("SELECT data, date, id FROM inf_list WHERE creation_date >= %s and "
-                                    "creation_date <= %s and auth in %s order by rowid desc;",
+                                    "creation_date <= %s and auth in %s order by creation_date asc;",
                                     (init_date_int, end_date_int, tuple(auth_list)))
                 else:
                     res = db.select("SELECT data, date, id FROM inf_list WHERE creation_date >= %s and "
-                                    "creation_date <= %s and auth = %s order by rowid desc;",
+                                    "creation_date <= %s and auth = %s order by creation_date asc;",
                                     (init_date_int, end_date_int, auth_list[0]))
             else:
                 res = db.select("SELECT data, date, id FROM inf_list WHERE creation_date >= %s and creation_date <= %s"
-                                " order by rowid desc;", (init_date_int, end_date_int))
+                                " order by creation_date asc;", (init_date_int, end_date_int))
             for elem in res:
                 data = elem[0]
                 date = elem[1]
