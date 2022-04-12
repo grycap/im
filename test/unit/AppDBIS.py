@@ -38,12 +38,15 @@ class TestAppDBIS(unittest.TestCase):
                 resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_image.json'))
         elif method == "POST":
             if url == "/graphql":
-                graph_ql_req = """
+                graph_ql_req1 = """
                 {
                   siteCloudComputingEndpoints(filter: {
                     templates: {
                       CPU: {gt: 2},
                       RAM: {gt: 1024}
+                    },
+                    serviceStatus: {
+                      value: {ne: CRITICAL}
                     },
                     images: {
                       entityName: {
@@ -113,11 +116,42 @@ class TestAppDBIS(unittest.TestCase):
                 }
                 """
                 self.maxDiff = None
-                expected = '{"query": "%s"}' % graph_ql_req.replace(' ', '').replace('"', '\\"').replace('\n', '')
-                self.assertEqual(data, expected)
+                expected1 = '{"query": "%s"}' % graph_ql_req1.replace(' ', '').replace('"', '\\"').replace('\n', '')
+
+                graph_ql_req2 = """
+                {
+                  siteCloudComputingEndpoints(filter: {
+                    serviceStatus: {
+                      value: {ne: CRITICAL}
+                    },
+                    images: {
+                      shareVO:{
+                        eq: "vo.access.egi.eu"
+                      }
+                    },
+                    isInProduction:true,
+                    beta:false,
+                    endpointServiceType: {
+                      eq: "org.openstack.nova"
+                    }
+                  }) {
+                    items {
+                      gocEndpointUrl,
+                      site {
+                        name
+                      }
+                    }
+                  }
+                }
+                """
+                expected2 = '{"query": "%s"}' % graph_ql_req2.replace(' ', '').replace('"', '\\"').replace('\n', '')
+                self.assertIn(data, [expected1, expected2])
 
                 resp.status_code = 200
-                resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_res.json'))
+                if data == expected1:
+                    resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_res.json'))
+                else:
+                    resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_sites.json'))
 
         return resp
 
@@ -169,3 +203,12 @@ class TestAppDBIS(unittest.TestCase):
         self.assertEqual(res[0].getValue('disk.0.image.vo'), "vo.access.egi.eu")
         self.assertEqual(res[0].getValue('disk.0.image.url'), ("https://api.cloud.ifca.es:5000/"
                                                                "3b771444-fd81-4cbb-aadb-51be1285d2ea"))
+
+    @patch('requests.request')
+    def test_get_sites_supporting_vo(self, requests):
+        requests.side_effect = self.get_response
+        app = AppDBIS()
+        code, res = app.get_sites_supporting_vo("vo.access.egi.eu")
+        self.assertEqual(code, 200)
+        self.assertEqual(len(res), 9)
+        self.assertEqual(res[0][0], "CESGA")

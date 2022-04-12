@@ -1418,6 +1418,22 @@ class InfrastructureManager:
             return auth
 
     @staticmethod
+    def gen_auth_from_appdb(auth):
+        # Gen EGI auth for all the sites that supports the specified VO
+        appdb_auth = auth.getAuthInfo("AppDBIS")
+        if appdb_auth and "vo" in appdb_auth[0] and "token" in appdb_auth[0]:
+            vo = appdb_auth[0]["vo"]
+            for appdb_auth_item in appdb_auth:
+                if "host" in appdb_auth_item:
+                    appdb = AppDBIS(appdb_auth_item["host"])
+                else:
+                    appdb = AppDBIS()
+            for site in appdb.get_sites_supporting_vo(vo):
+                auth_site = {"id": site[0], "host": site[0], "type": "EGI", "vo": vo, "token": appdb_auth[0]["token"]}
+                auth.auth_list.append(auth_site)
+        return auth
+
+    @staticmethod
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
         im_auth = auth.getAuthInfo("InfrastructureManager")
@@ -1455,7 +1471,9 @@ class InfrastructureManager:
             auth_list.extend(single_site_auth)
             auth = Authentication(auth_list)
 
-        return InfrastructureManager.get_auth_from_vault(auth)
+        auth = InfrastructureManager.get_auth_from_vault(auth)
+        auth = InfrastructureManager.gen_auth_from_appdb(auth)
+        return auth
 
     @staticmethod
     def CreateInfrastructure(radl_data, auth, async_call=False):

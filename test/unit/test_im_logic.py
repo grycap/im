@@ -1483,6 +1483,20 @@ configure step2 (
         self.assertEqual(db.select.call_args_list[0][0][1], (978307200.0, 4796668800.0, ('__OPENID__mcaballer:pass',
                                                                                          '__OPENID__mcaballer1:pass1')))
 
+    @patch('IM.InfrastructureManager.AppDBIS')
+    def test_gen_auth_from_appdb(self, appbis):
+        appbis_mock = MagicMock()
+        appbis_mock.get_sites_supporting_vo.return_value = [("CESGA", ""), ("IFCA", "")]
+        appbis.return_value = appbis_mock
+        auth = Authentication([{'type': 'AppDBIS', 'vo': 'vo_name', 'token': 'btoken'},
+                               {'type': 'InfrastructureManager', 'token': 'atoken'}])
+        res = IM.gen_auth_from_appdb(auth)
+        self.assertIn({'id': 'CESGA', 'type': 'EGI', 'host': 'CESGA', 'token': 'btoken', 'vo': 'vo_name'},
+                      res.auth_list)
+        self.assertIn({'id': 'IFCA', 'type': 'EGI', 'host': 'IFCA', 'token': 'btoken', 'vo': 'vo_name'},
+                      res.auth_list)
+        self.assertIn({'type': 'InfrastructureManager', 'token': 'atoken'}, res.auth_list)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -91,6 +91,66 @@ class AppDBIS:
         else:
             return resp.status_code, resp.text
 
+    def _call_graphql(self, graph_ql_req):
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        graph_ql_q = '{"query": "%s"}' % graph_ql_req.replace(' ', '').replace('"', '\\"').replace('\n', '')
+
+        resp = requests.request("POST", self.appdbis_url + self.GRAPH_QL_PATH, headers=headers,
+                                data=graph_ql_q, verify=self.verify)
+
+        if resp.status_code == 200:
+            try:
+                data = resp.json()["data"]["siteCloudComputingEndpoints"]["items"]
+            except Exception:
+                # in case of format not expected return only the text
+                return resp.status_code, resp.text
+        else:
+            return resp.status_code, resp.text
+
+        return 200, data
+
+    def get_sites_supporting_vo(self, vo):
+        """
+        Get the list of sites that supports an specific VO.
+        """
+        # GrapghQL Query
+        graph_ql_req = """
+        {
+          siteCloudComputingEndpoints(filter: {
+            serviceStatus: {
+              value: {ne: CRITICAL}
+            },
+            images: {
+              shareVO:{
+                eq: "%s"
+              }
+            },
+            isInProduction:true,
+            beta:false,
+            endpointServiceType: {
+              eq: "org.openstack.nova"
+            }
+          }) {
+            items {
+              gocEndpointUrl,
+              site {
+                name
+              }
+            }
+          }
+        }
+        """ % vo
+
+        code, data = self._call_graphql(graph_ql_req)
+
+        if code == 200:
+            res = []
+            for elem in data:
+                res.append((elem["site"]["name"], elem["gocEndpointUrl"]))
+            return code, res
+        else:
+            return code, data
+
     def get_endpoints_and_images(self, vo, app_name_filter, cpus, mem_in_mb):
         """
         Get the list of sites that supports an specific VO and has some templates
@@ -104,6 +164,9 @@ class AppDBIS:
             templates: {
               CPU: {gt: %s},
               RAM: {gt: %s}
+            },
+            serviceStatus: {
+              value: {ne: CRITICAL}
             },
             images: {
               entityName: {
@@ -173,22 +236,7 @@ class AppDBIS:
         }
         """ % (cpus, mem_in_mb, app_name_filter, vo, vo, app_name_filter, vo)
 
-        headers = {"Content-Type": "application/json", "Accept": "application/json"}
-        graph_ql_req = '{"query": "%s"}' % graph_ql_req.replace(' ', '').replace('"', '\\"').replace('\n', '')
-
-        resp = requests.request("POST", self.appdbis_url + self.GRAPH_QL_PATH, headers=headers,
-                                data=graph_ql_req, verify=self.verify)
-
-        if resp.status_code == 200:
-            try:
-                data = resp.json()["data"]["siteCloudComputingEndpoints"]["items"]
-            except Exception:
-                # in case of format not expected return only the text
-                return resp.status_code, resp.text
-        else:
-            return resp.status_code, resp.text
-
-        return 200, data
+        return self._call_graphql(graph_ql_req)
 
     def search_vm(self, radl_system):
         """
