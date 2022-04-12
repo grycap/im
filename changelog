@@ -700,5 +700,11 @@ IM 1.11.0:
     * Fix error in EGI connector using appdb image url without setting site name.
     * Fix error getting project ids from AppDB.
 
+IM 1.11.1:
+    * Fix error in OpenStack connector setting microversion.
+    * Fix vo set in appdb image in EGI conn is not compared with auth data.
+
 IM 1.12.0:
     * Enable to get IM stats.
+    * Enable to get info from VM images from AppDB/AppDBIS.
+

@@ -2,6 +2,7 @@
 FROM ubuntu:20.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
 LABEL version="1.12.0"
+
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
