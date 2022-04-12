@@ -227,7 +227,8 @@ class AppDBIS:
         code, res = self.get_endpoints_and_images(vo, app_name_filter, cpus, mem_in_mb)
 
         # Order res by maxVM - totalVM (free VMs)
-        # TODO:
+        res = sorted(res, reverse =True,
+                     key=lambda item: (item["shares"]["items"][0]["maxVM"] - item["shares"]["items"][0]["totalVM"] ))
 
         if code != 200:
             return None

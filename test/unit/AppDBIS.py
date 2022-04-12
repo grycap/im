@@ -167,5 +167,5 @@ class TestAppDBIS(unittest.TestCase):
 
         self.assertEqual(res[0].name, "s0")
         self.assertEqual(res[0].getValue('disk.0.image.vo'), "vo.access.egi.eu")
-        self.assertEqual(res[0].getValue('disk.0.image.url'), ("https://fedcloud-osservices.egi.cesga.es:5000/"
-                                                               "a015ed1d-f416-4277-aca3-06ca43ac8fcf"))
+        self.assertEqual(res[0].getValue('disk.0.image.url'), ("https://api.cloud.ifca.es:5000/"
+                                                               "3b771444-fd81-4cbb-aadb-51be1285d2ea"))
