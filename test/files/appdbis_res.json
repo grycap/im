@@ -1,354 +1,363 @@
 {
   "data": {
-    "siteServices": {
-      "totalCount": 8,
+    "siteCloudComputingEndpoints": {
       "items": [
         {
-          "computingManagerWorkingAreaTotal": 0,
-          "computingManagerTotalLogicalCPUs": 0,
+          "gocEndpointUrl": "https://fedcloud-osservices.egi.cesga.es:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 20,
+                "maxVM": 20,
+                "runningVM": 20,
+                "suspendedVM": 0,
+                "VO": "vo.access.egi.eu"
+              }
+            ]
+          },
           "serviceStatus": {
             "value": "OK",
-            "timestamp": "2019-12-19T07:41:45Z"
+            "timestamp": "2022-04-12T07:56:10Z"
           },
-          "gocEndpointUrl": "https://fedcloud-osservices.egi.cesga.es:5000/v3",
+          "serviceDowntimes": [],
           "site": {
             "name": "CESGA"
           },
-          "serviceDowntimes": [
-            {
-              "outcome": "upcomming",
-              "severity": "OUTAGE",
-              "endDate": 1576774800
-            }
-          ],
           "images": {
-            "totalCount": 3,
+            "totalCount": 1,
             "items": [
               {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8b3f7a4d-29ae-5bd1-ada5-efedd1993643:8118/",
-                "applicationEnvironmentAppName": "Image for EGI FedCloud Clients [Ubuntu/16.04/KVM]",
-                "entityName": "http://schemas.openstack.org/template/os#7e59923c-3932-4a4f-a67d-06f412800f5b",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8df7ba00-8467-57aa-bf1e-05754a2a73bf:8113/",
-                "applicationEnvironmentAppName": "Image for EGI Ubuntu 16.04 LTS [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#79de8f8b-d54b-4b99-bfae-471369099e9c",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/52bbf9d7-9b0e-544d-96ce-fa2a45901642:8112/",
-                "applicationEnvironmentAppName": "Image for Ubuntu 16.04 [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#94626b3c-dc3f-45f5-aff6-be82f0f9af20",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
+                "share": {
+                  "projectID": "3a8e9d966e644405bf19b536adf7743d",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "a015ed1d-f416-4277-aca3-06ca43ac8fcf"
               }
             ]
           }
         },
         {
-          "computingManagerWorkingAreaTotal": 10240,
-          "computingManagerTotalLogicalCPUs": 3360,
+          "gocEndpointUrl": "https://egiosc.gsi.de:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 5,
+                "maxVM": 10,
+                "runningVM": 5,
+                "suspendedVM": 0,
+                "VO": "vo.access.egi.eu"
+              }
+            ]
+          },
           "serviceStatus": {
             "value": "OK",
-            "timestamp": "2019-12-19T07:41:45Z"
+            "timestamp": "2022-04-12T07:56:10Z"
           },
+          "serviceDowntimes": [],
+          "site": {
+            "name": "GSI-LCG2"
+          },
+          "images": {
+            "totalCount": 2,
+            "items": [
+              {
+                "share": {
+                  "projectID": "1392719e6e4c4bf7ba0fce8c0acbbd22",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "e987241c-a9ea-4105-95ad-b3406dad2f5f"
+              },
+              {
+                "share": {
+                  "projectID": "1392719e6e4c4bf7ba0fce8c0acbbd22",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "e149f71c-ae5b-4906-8d45-6883ac0da1fa"
+              }
+            ]
+          }
+        },
+        {
           "gocEndpointUrl": "https://api.cloud.ifca.es:5000/v3/",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 1,
+                "maxVM": 25,
+                "runningVM": 1,
+                "suspendedVM": 0,
+                "VO": "vo.access.egi.eu"
+              }
+            ]
+          },
+          "serviceStatus": {
+            "value": "OK",
+            "timestamp": "2022-04-12T07:56:10Z"
+          },
+          "serviceDowntimes": [],
           "site": {
             "name": "IFCA-LCG2"
           },
-          "serviceDowntimes": [],
           "images": {
-            "totalCount": 3,
+            "totalCount": 1,
             "items": [
               {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8df7ba00-8467-57aa-bf1e-05754a2a73bf:8100/",
-                "applicationEnvironmentAppName": "EGI FEDCLOUD Image for EGI Ubuntu 16.04 LTS [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#deeec0be-8c57-4ac2-abfe-594f51a25c7b",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/52bbf9d7-9b0e-544d-96ce-fa2a45901642:8111/",
-                "applicationEnvironmentAppName": "EGI FEDCLOUD Image for Ubuntu 16.04 [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#a7054d62-d40f-4886-96d3-308c6705c5fc",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8b3f7a4d-29ae-5bd1-ada5-efedd1993643:8095/",
-                "applicationEnvironmentAppName": "EGI FEDCLOUD Image for EGI FedCloud Clients [Ubuntu/16.04/KVM]",
-                "entityName": "http://schemas.openstack.org/template/os#9682e108-c3be-4304-ae26-d4eeee1fb2cd",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
+                "share": {
+                  "projectID": "999f045cb1ff4684a15ebb338af69460",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": "ubuntu",
+                "OSVersion": "20.04",
+                "OSPlatform": "amd64",
+                "entityName": "EGI vo.access.egi.eu Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "3b771444-fd81-4cbb-aadb-51be1285d2ea"
               }
             ]
           }
         },
         {
-          "computingManagerWorkingAreaTotal": 24,
-          "computingManagerTotalLogicalCPUs": 8,
+          "gocEndpointUrl": "https://cloud.ui.savba.sk:5000/v3/",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 4,
+                "maxVM": 10,
+                "runningVM": 4,
+                "suspendedVM": 0,
+                "VO": "vo.access.egi.eu"
+              }
+            ]
+          },
           "serviceStatus": {
             "value": "OK",
-            "timestamp": "2019-12-19T07:41:45Z"
+            "timestamp": "2022-04-12T07:56:10Z"
           },
-          "gocEndpointUrl": "https://nova.ui.savba.sk:5000/v3/",
+          "serviceDowntimes": [],
           "site": {
             "name": "IISAS-FedCloud"
           },
-          "serviceDowntimes": [],
           "images": {
-            "totalCount": 3,
+            "totalCount": 4,
             "items": [
               {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8df7ba00-8467-57aa-bf1e-05754a2a73bf:8113/",
-                "applicationEnvironmentAppName": "Image for EGI Ubuntu 16.04 LTS [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#0dbd4f7d-3393-423b-ad4b-70ed53a1f589",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
+                "share": {
+                  "projectID": "71dc9c3785cc4876bfb1a4bfc681e0f3",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "faa4e66a-56cb-42b6-8be7-de7f26dd8a58"
               },
               {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/52bbf9d7-9b0e-544d-96ce-fa2a45901642:8111/",
-                "applicationEnvironmentAppName": "Image for Ubuntu 16.04 [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#25ee15be-8da7-4cd1-b134-8080ed68a726",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
+                "share": {
+                  "projectID": "71dc9c3785cc4876bfb1a4bfc681e0f3",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "ad95508f-680b-4527-b54c-abf8be32281d"
               },
               {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8b3f7a4d-29ae-5bd1-ada5-efedd1993643:8118/",
-                "applicationEnvironmentAppName": "Image for EGI FedCloud Clients [Ubuntu/16.04/KVM]",
-                "entityName": "http://schemas.openstack.org/template/os#407adb77-ad9e-4c13-8d5e-aa585ce215bf",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
+                "share": {
+                  "projectID": "71dc9c3785cc4876bfb1a4bfc681e0f3",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "0161b224-da2c-4919-b9ac-5027239e40ae"
+              },
+              {
+                "share": {
+                  "projectID": "71dc9c3785cc4876bfb1a4bfc681e0f3",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "74e2a7fd-0d00-4a7b-ab3d-6dddcb9ae179"
               }
             ]
           }
         },
         {
-          "computingManagerWorkingAreaTotal": 0,
-          "computingManagerTotalLogicalCPUs": 0,
-          "serviceStatus": {
-            "value": "CRITICAL",
-            "timestamp": "2019-12-19T07:41:45Z"
-          },
           "gocEndpointUrl": "https://sbgcloud.in2p3.fr:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 19,
+                "maxVM": 32,
+                "runningVM": 19,
+                "suspendedVM": 0,
+                "VO": "vo.access.egi.eu"
+              }
+            ]
+          },
+          "serviceStatus": {
+            "value": "OK",
+            "timestamp": "2022-04-12T07:56:10Z"
+          },
+          "serviceDowntimes": [],
           "site": {
             "name": "IN2P3-IRES"
           },
-          "serviceDowntimes": [
-            {
-              "outcome": "ongoing",
-              "severity": "OUTAGE",
-              "endDate": 1576749600
-            },
-            {
-              "outcome": "upcomming",
-              "severity": "OUTAGE",
-              "endDate": 1576836000
-            },
-            {
-              "outcome": "upcomming",
-              "severity": "OUTAGE",
-              "endDate": 1576771200
-            },
-            {
-              "outcome": "upcomming",
-              "severity": "OUTAGE",
-              "endDate": 1576792800
-            },
-            {
-              "outcome": "upcomming",
-              "severity": "OUTAGE",
-              "endDate": 1576857600
-            }
-          ],
           "images": {
-            "totalCount": 3,
+            "totalCount": 1,
             "items": [
               {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/52bbf9d7-9b0e-544d-96ce-fa2a45901642:8112/",
-                "applicationEnvironmentAppName": "Image for Ubuntu 16.04 [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#7bbaf0ba-32b6-4a19-940c-8a71b5518c2e",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8b3f7a4d-29ae-5bd1-ada5-efedd1993643:8118/",
-                "applicationEnvironmentAppName": "Image for EGI FedCloud Clients [Ubuntu/16.04/KVM]",
-                "entityName": "http://schemas.openstack.org/template/os#7edf523a-d5ef-402f-a491-0938a7bae61d",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8df7ba00-8467-57aa-bf1e-05754a2a73bf:8113/",
-                "applicationEnvironmentAppName": "Image for EGI Ubuntu 16.04 LTS [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#cabdb6b2-98e8-4d2e-8f70-7516f8c79126",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
+                "share": {
+                  "projectID": "7a91022b9ae74ed9ac1a574972a79499",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "f07c2625-a321-4148-8938-f58e61d5d373"
               }
             ]
           }
         },
         {
-          "computingManagerWorkingAreaTotal": 64,
-          "computingManagerTotalLogicalCPUs": 24,
+          "gocEndpointUrl": "https://cloud.scai.fraunhofer.de:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 0,
+                "maxVM": 10,
+                "runningVM": 0,
+                "suspendedVM": 0,
+                "VO": "vo.access.egi.eu"
+              }
+            ]
+          },
           "serviceStatus": {
             "value": "OK",
-            "timestamp": "2019-12-19T07:41:46Z"
-          },
-          "gocEndpointUrl": "https://stack-server.ct.infn.it:35357/v3",
-          "site": {
-            "name": "INFN-CATANIA-STACK"
+            "timestamp": "2022-04-12T07:56:10Z"
           },
           "serviceDowntimes": [],
-          "images": {
-            "totalCount": 3,
-            "items": [
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/52bbf9d7-9b0e-544d-96ce-fa2a45901642:8111/",
-                "applicationEnvironmentAppName": "FEDCLOUD Image for Ubuntu 16.04 [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#98369830-22a9-4fcf-8763-879bee39eb69",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8b3f7a4d-29ae-5bd1-ada5-efedd1993643:8029/",
-                "applicationEnvironmentAppName": "FEDCLOUD Image for EGI FedCloud Clients [Ubuntu/16.04/KVM]",
-                "entityName": "http://schemas.openstack.org/template/os#6c505d91-ce97-481d-9a16-c457d2784009",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8df7ba00-8467-57aa-bf1e-05754a2a73bf:7822/",
-                "applicationEnvironmentAppName": "FEDCLOUD Image for EGI Ubuntu 16.04 LTS [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#a5c9085d-68fa-445f-87bc-28fef0683ee6",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              }
-            ]
-          }
-        },
-        {
-          "computingManagerWorkingAreaTotal": 2400,
-          "computingManagerTotalLogicalCPUs": 480,
-          "serviceStatus": {
-            "value": "OK",
-            "timestamp": "2019-12-19T07:41:45Z"
-          },
-          "gocEndpointUrl": "https://nimbus.ncg.ingrid.pt:5000/v3",
-          "site": {
-            "name": "NCG-INGRID-PT"
-          },
-          "serviceDowntimes": [],
-          "images": {
-            "totalCount": 3,
-            "items": [
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/52bbf9d7-9b0e-544d-96ce-fa2a45901642:8112/",
-                "applicationEnvironmentAppName": "Image for Ubuntu 16.04 [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#6862e200-7ec8-49eb-8a34-e7d532d4864c",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8df7ba00-8467-57aa-bf1e-05754a2a73bf:8113/",
-                "applicationEnvironmentAppName": "Image for EGI Ubuntu 16.04 LTS [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#cc4b470b-fb61-419e-9d75-18ab0f87e6b2",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8b3f7a4d-29ae-5bd1-ada5-efedd1993643:8118/",
-                "applicationEnvironmentAppName": "Image for EGI FedCloud Clients [Ubuntu/16.04/KVM]",
-                "entityName": "http://schemas.openstack.org/template/os#17abccf8-c8f4-4581-9366-d925d8290cca",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              }
-            ]
-          }
-        },
-        {
-          "computingManagerWorkingAreaTotal": 600,
-          "computingManagerTotalLogicalCPUs": 300,
-          "serviceStatus": {
-            "value": "OK",
-            "timestamp": "2019-12-19T07:41:45Z"
-          },
-          "gocEndpointUrl": "https://cloud.recas.ba.infn.it:5000/v3",
-          "site": {
-            "name": "RECAS-BARI"
-          },
-          "serviceDowntimes": [],
-          "images": {
-            "totalCount": 8,
-            "items": [
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/d017d7bd-316b-59c4-9082-8bb090d468a8:6139/",
-                "applicationEnvironmentAppName": "Image for ubuntu 16.04 - testing cloudinit [Ubuntu/16.04/VirtualBox]_EGI_fedcloud",
-                "entityName": "os_tpl#96509ce6-a859-44d9-82ee-46af280924c5",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/07fbd366-bbd2-5ca4-8f47-82c23ebc7d23:6225/",
-                "applicationEnvironmentAppName": "Image for EGI Docker Ubuntu 16.04 [Ubuntu/16.04/VirtualBox]_EGI_fedcloud",
-                "entityName": "os_tpl#fcea8617-5910-4fd5-b460-3e017f99e200",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8b3f7a4d-29ae-5bd1-ada5-efedd1993643:8029/",
-                "applicationEnvironmentAppName": "Image for EGI FedCloud Clients [Ubuntu/16.04/KVM]_EGI_fedcloud",
-                "entityName": "os_tpl#f2945a2b-908b-4c3c-8142-18adcab2fdc5",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/ef44c18e-9e52-5bee-b6ff-b4ae61238314:5820/",
-                "applicationEnvironmentAppName": "Image for KubeNow [Ubuntu/16.04/QEMU-KVM]_EGI_fedcloud",
-                "entityName": "os_tpl#1167bf4a-2dec-4a8f-b2ec-8096c8996232",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/7fabcd35-9165-57c8-8e7d-9909aa2ed755:7324/",
-                "applicationEnvironmentAppName": "Image for EGI Small Ubuntu 16.04 for Monitoring [Ubuntu/16.04/VirtualBox]_EGI_fedcloud",
-                "entityName": "os_tpl#51927782-afad-4b9a-b20b-debf4ad0edff",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8df7ba00-8467-57aa-bf1e-05754a2a73bf:7822/",
-                "applicationEnvironmentAppName": "Image for EGI Ubuntu 16.04 LTS [Ubuntu/16.04/VirtualBox]_EGI_fedcloud",
-                "entityName": "os_tpl#6489fbf8-8358-4759-8b35-81484ae81e62",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/52bbf9d7-9b0e-544d-96ce-fa2a45901642:8111/",
-                "applicationEnvironmentAppName": "Image for Ubuntu 16.04 [Ubuntu/16.04/VirtualBox]_EGI_fedcloud",
-                "entityName": "os_tpl#327810d8-4eab-4a4d-ab74-551ef9890c9e",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
-              {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/beeb1752-a027-5bc7-9be5-489f16ea1ead:6204/",
-                "applicationEnvironmentAppName": "Image for ubuntu 16.04 - testing cloudinit [Ubuntu/16.04/Vir]_EGI_fedcloud",
-                "entityName": "os_tpl#c3e068f7-fabf-47a6-889a-2c862f917076",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              }
-            ]
-          }
-        },
-        {
-          "computingManagerWorkingAreaTotal": 0,
-          "computingManagerTotalLogicalCPUs": 0,
-          "serviceStatus": {
-            "value": "OK",
-            "timestamp": "2019-12-19T07:41:45Z"
-          },
-          "gocEndpointUrl": "https://fc.scai.fraunhofer.de:5000/v3",
           "site": {
             "name": "SCAI"
           },
-          "serviceDowntimes": [],
           "images": {
-            "totalCount": 3,
+            "totalCount": 1,
             "items": [
               {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8b3f7a4d-29ae-5bd1-ada5-efedd1993643:8095/",
-                "applicationEnvironmentAppName": "Image for EGI FedCloud Clients [Ubuntu/16.04/KVM]",
-                "entityName": "http://schemas.openstack.org/template/os#6b3ed2ed-c683-429e-9f37-7f2fbb58d40d",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
+                "share": {
+                  "projectID": "7583e1bb07544efdac165e7a121c663e",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "0b0667da-3525-4c04-9f7a-67a82e50534a"
+              }
+            ]
+          }
+        },
+        {
+          "gocEndpointUrl": "https://bulut.truba.gov.tr:5000/v3",
+          "shares": {
+            "items": [
               {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/8df7ba00-8467-57aa-bf1e-05754a2a73bf:8100/",
-                "applicationEnvironmentAppName": "Image for EGI Ubuntu 16.04 LTS [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#0422098a-1f62-4972-84ab-b97ddb7df3f9",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
-              },
+                "totalVM": 1,
+                "maxVM": 10,
+                "runningVM": 0,
+                "suspendedVM": 0,
+                "VO": "vo.access.egi.eu"
+              }
+            ]
+          },
+          "serviceStatus": {
+            "value": "OK",
+            "timestamp": "2022-04-12T07:56:10Z"
+          },
+          "serviceDowntimes": [],
+          "site": {
+            "name": "TR-FC1-ULAKBIM"
+          },
+          "images": {
+            "totalCount": 1,
+            "items": [
               {
-                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/52bbf9d7-9b0e-544d-96ce-fa2a45901642:8111/",
-                "applicationEnvironmentAppName": "Image for Ubuntu 16.04 [Ubuntu/16.04/VirtualBox]",
-                "entityName": "http://schemas.openstack.org/template/os#45b7be85-8c6d-467b-ab25-7321a830d18b",
-                "imageVoVmiInstanceVO": "fedcloud.egi.eu"
+                "share": {
+                  "projectID": "2fa316a05d364de9b5a55ac78a45f8bf",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "6ae4eb1f-01ae-4bc8-b7bb-657619c0f4fb"
+              }
+            ]
+          }
+        },
+        {
+          "gocEndpointUrl": "https://thor.univ-lille.fr:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 1,
+                "maxVM": 16,
+                "runningVM": 1,
+                "suspendedVM": 0,
+                "VO": "vo.access.egi.eu"
+              }
+            ]
+          },
+          "serviceStatus": {
+            "value": "OK",
+            "timestamp": "2022-04-12T07:56:10Z"
+          },
+          "serviceDowntimes": [],
+          "site": {
+            "name": "UNIV-LILLE"
+          },
+          "images": {
+            "totalCount": 1,
+            "items": [
+              {
+                "share": {
+                  "projectID": "e57db5c1e0b24bcbac9904f4ac22dcaa",
+                  "VO": "vo.access.egi.eu"
+                },
+                "OSFamily": null,
+                "OSName": null,
+                "OSVersion": null,
+                "OSPlatform": "amd64",
+                "entityName": "Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]",
+                "imageID": "d57482d1-9253-4ee7-b3d0-a64d92682591"
               }
             ]
           }

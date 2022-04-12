@@ -53,10 +53,10 @@ class AppDBIS:
             surl = url + sep_char + "limit=%s&skip=%s" % (limit, skip)
             resp = requests.request("GET", surl, verify=self.verify)
             if resp.status_code == 200:
-                data = resp.json()["data"]
+                data = resp.json()
                 if data["totalCount"] < total_count:
                     total_count = data["totalCount"]
-                res.extend(data["items"])
+                res.extend(data["data"])
             else:
                 return resp.status_code, resp.text
 
@@ -165,6 +165,7 @@ class AppDBIS:
                   OSVersion,
                   OSPlatform,
                   entityName,
+                  imageID
                 }
               }
             }
@@ -180,7 +181,7 @@ class AppDBIS:
 
         if resp.status_code == 200:
             try:
-                data = resp.json()["data"]["siteServices"]["items"]
+                data = resp.json()["data"]["siteCloudComputingEndpoints"]["items"]
             except Exception:
                 # in case of format not expected return only the text
                 return resp.status_code, resp.text
@@ -225,6 +226,9 @@ class AppDBIS:
         app_name_filter = "*%s* [%s/%s/*]" % (name, distribution, version)
         code, res = self.get_endpoints_and_images(vo, app_name_filter, cpus, mem_in_mb)
 
+        # Order res by maxVM - totalVM (free VMs)
+        # TODO:
+
         if code != 200:
             return None
         res_systems = []
@@ -242,12 +246,8 @@ class AppDBIS:
                 url = url[0:-5]
 
             for image in site["images"]["items"]:
-                image_id = os.path.basename(image["entityName"])
-                if image_id.startswith("os#"):
-                    image_id = image_id[3:]
-
                 res_systems.append(system(radl_system.name,
-                                          [Feature("disk.0.image.url", "=", "%s/%s" % (url, image_id)),
-                                           Feature("disk.0.image.vo", "=", image["imageVoVmiInstanceVO"])]))
+                                          [Feature("disk.0.image.url", "=", "%s/%s" % (url, image["imageID"])),
+                                           Feature("disk.0.image.vo", "=", image["share"]["VO"])]))
 
         return res_systems
