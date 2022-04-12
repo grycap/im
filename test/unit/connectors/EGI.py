@@ -109,6 +109,16 @@ class TestEGIConnector(TestCloudConnectorBase):
         self.assertEqual(concrete[0].getValue("instance_type"), "small")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        radl_system.setValue('disk.0.image.url', 'appdb://CESGA/image_apc_name?vo_name')
+        concrete = egi_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 0)
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        radl_system.setValue('disk.0.image.url', 'appdb://CESGA/image_apc_name?vo.access.egi.eu')
+        concrete = egi_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
     def create_node(self, **kwargs):
         """
         Create VMs returning error only first time

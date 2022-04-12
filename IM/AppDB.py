@@ -92,9 +92,13 @@ class AppDB:
         if data:
             if 'provider:image' in data['virtualization:provider']:
                 for image in data['virtualization:provider']['provider:image']:
-                    if (image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name)):
-                        image_basename = os.path.basename(image['@va_provider_image_id'])
-                        images.append((image_basename, image['@vmiversion']))
+                    try:
+                        if (image['@appcname'] == image_name and (not vo_name or image['@voname'] == vo_name)):
+                            image_basename = os.path.basename(image['@va_provider_image_id'])
+                            images.append((image_basename, image['@vmiversion']))
+                    except Exception:
+                        # in case of error ignore image
+                        pass
 
         image = None
         if len(images) == 1:
