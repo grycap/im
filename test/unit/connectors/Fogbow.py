@@ -298,10 +298,10 @@ class TestFogBowConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
-        self.assertEquals(vm.info.systems[0].getValue("memory.size"), 1073741824)
-        self.assertEquals(vm.info.systems[0].getValue("disk.1.device"), "/dev/sdb")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEqual(vm.info.systems[0].getValue("memory.size"), 1073741824)
+        self.assertEqual(vm.info.systems[0].getValue("disk.1.device"), "/dev/sdb")
 
         data = json.loads(requests.call_args_list[1][1]["data"])
         self.assertEqual(data["computeId"], '1')

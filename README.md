@@ -88,7 +88,7 @@ All the information about this chart is available at the [IM chart README](https
 
 ### 3.1 REQUISITES
 
-IM is based on Python, so Python 2.7 or higher (Python 3.5 or higher recommended) runtime and
+IM is based on Python, so Python 2.7 or higher (Python 3.6 or higher recommended) runtime and
 standard library must be installed in the system.
 
 If you use pip to install the IM, all the requisites will be installed.
@@ -172,7 +172,7 @@ Azure python SDK (https://azure.microsoft.com/es-es/develop/python/) is used to 
 Microsoft Azure platform. The easiest way is to install all the required packages with pip:
 
 ```sh
-$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns
+$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity
 ```
 
 The VMware vSphere API Python Bindings (https://github.com/vmware/pyvmomi/) are needed by the vSphere

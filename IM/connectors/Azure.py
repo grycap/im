@@ -25,6 +25,8 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
+from netaddr import IPNetwork, IPAddress
+from IM.config import Config
 
 try:
     from azure.mgmt.resource import ResourceManagementClient
@@ -386,7 +388,7 @@ class AzureCloudConnector(CloudConnector):
                                               outport.get_port_end())
                 sr['destination_port_range'] = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
                 security_rules.append(sr)
-            elif outport.get_local_port() != 22:
+            else:
                 sr['name'] = 'sr-%s-%d-%d' % (outport.get_protocol(),
                                               outport.get_remote_port(),
                                               outport.get_local_port())
@@ -420,10 +422,9 @@ class AzureCloudConnector(CloudConnector):
         hasPublicIP = False
         hasPrivateIP = False
         pub_network_name = None
+        publicAdded = False
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
-            # TODO: check how to do that
-            # fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
             network = radl.get_network_by_id(network_name)
 
             if network.isPublic():
@@ -432,11 +433,17 @@ class AzureCloudConnector(CloudConnector):
             else:
                 hasPrivateIP = True
 
+            if not publicAdded and network_name in subnets:
+                subnet_network_mask = IPNetwork(subnets[network_name].address_prefix)
+                is_private = any([IPAddress(subnet_network_mask.ip) in IPNetwork(mask)
+                                  for mask in Config.PRIVATE_NET_MASKS])
+                if not is_private:
+                    publicAdded = True
+
             i += 1
 
         i = 0
         res = []
-        publicAdded = False
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
             fixed_ip = system.getValue("net_interface." + str(i) + ".ip")
@@ -678,7 +685,9 @@ class AzureCloudConnector(CloudConnector):
             if net.getValue("provider_id"):
                 parts = net.getValue("provider_id").split(".")
                 if len(parts) != 2:
-                    raise Exception("Invalid provider_id format: net_name.subnet_name")
+                    parts = net.getValue("provider_id").split("/")
+                    if len(parts) != 2:
+                        raise Exception("Invalid provider_id format: net_name.subnet_name")
                 vnet_name = parts[0]
                 subnet_name = parts[1]
 
@@ -988,7 +997,12 @@ class AzureCloudConnector(CloudConnector):
 
             for ip in ip_conf:
                 if ip.private_ip_address:
-                    private_ips.append(ip.private_ip_address)
+                    is_private = any([IPAddress(ip.private_ip_address) in IPNetwork(mask)
+                                      for mask in Config.PRIVATE_NET_MASKS])
+                    if is_private:
+                        private_ips.append(ip.private_ip_address)
+                    else:
+                        public_ips.append(ip.private_ip_address)
                 if ip.public_ip_address:
                     name = " ".join(ip.public_ip_address.id.split('/')[-1:])
                     sub = "".join(ip.public_ip_address.id.split('/')[4])

@@ -222,7 +222,7 @@ class TestDockerConnector(TestCloudConnectorBase):
         success, vm = docker_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         self.activate_swarm()
@@ -232,7 +232,7 @@ class TestDockerConnector(TestCloudConnectorBase):
         docker_cloud._swarm = None
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')

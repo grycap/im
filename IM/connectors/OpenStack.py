@@ -21,13 +21,17 @@ import os.path
 import tempfile
 import requests
 import base64
+from IM.CloudInfo import CloudInfo
 
 try:
     from libcloud.common.exceptions import BaseHTTPError
     from libcloud.compute.types import Provider
     from libcloud.compute.providers import get_driver
     from libcloud.compute.base import NodeAuthSSHKey
-    from libcloud.compute.drivers.openstack import OpenStack_2_NodeDriver, OpenStack_2_SubNet, OpenStackSecurityGroup
+    from libcloud.compute.drivers.openstack import (OpenStack_2_NodeDriver,
+                                                    OpenStack_2_SubNet,
+                                                    OpenStackSecurityGroup,
+                                                    OpenStackNodeSize)
 except Exception as ex:
     print("WARN: libcloud library not correctly installed. OpenStackCloudConnector will not work!.")
     print(ex)
@@ -78,6 +82,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         driver = self.get_driver(auth_data)
         node = driver.ex_get_node_details(node_id)
+        # for old infras add cloud extra fields
+        if not self.cloud.extra:
+            CloudInfo.add_extra_fields(auth_data.getAuthInfo(self.type, self.cloud.server)[0], self.cloud)
         return node
 
     def get_auth(self, auths):
@@ -91,6 +98,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         Returns: a :py:class:`IM.auth.Authentication`
         """
+        # in OLD infras extra field is not set
+        if not self.cloud.extra:
+            # Use the old behaviour
+            return auths[0]
+
         if 'auth_version' not in self.cloud.extra or not self.cloud.extra['auth_version']:
             self.cloud.extra['auth_version'] = self.DEFAULT_AUTH_VERSION
         for auth in auths:
@@ -509,13 +521,24 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             try:
                 flavorId = node.extra['flavorId']
-                instance_type = node.driver.ex_get_size(flavorId)
-                if len(instance_type.extra) == 0:
-                    try:
-                        # get it now
-                        instance_type.extra = node.driver.ex_get_size_extra_specs(instance_type.id)
-                    except Exception:
-                        self.log_exception("Error trying to get flavor '%s' extra_specs." % instance_type.id)
+                if flavorId:
+                    instance_type = node.driver.ex_get_size(flavorId)
+                    if len(instance_type.extra) == 0:
+                        try:
+                            # get it now
+                            instance_type.extra = node.driver.ex_get_size_extra_specs(instance_type.id)
+                        except Exception:
+                            self.log_exception("Error trying to get flavor '%s' extra_specs." % instance_type.id)
+                elif node.extra['flavor_details']:
+                    fdetails = node.extra['flavor_details']
+                    instance_type = OpenStackNodeSize("id", fdetails.get("original_name"),
+                                                      fdetails.get("ram"),
+                                                      fdetails.get("disk"),
+                                                      None, None, node.driver,
+                                                      fdetails.get("vcpus"),
+                                                      fdetails.get("ephemeral"),
+                                                      fdetails.get("swap"),
+                                                      fdetails.get("extra", {}))
                 self.update_system_info_from_instance(vm.info.systems[0], instance_type)
             except Exception as ex:
                 self.log_warn("Error updating VM info from flavor ID: %s" % get_ex_error(ex))
@@ -649,7 +672,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         try:
             for pool in node.driver.ex_list_floating_ip_pools():
                 for ip in pool.list_floating_ips():
-                    if ip.node_id == node.id:
+                    if ip.get_node_id() == node.id:
                         ips.append(ip.ip_address)
         except BaseHTTPError as ex:
             if ex.code == 404:
@@ -730,7 +753,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             priv_ips.append(ipu)
                         else:
                             pub_ips.append(ipu)
-                    vm.setIps(pub_ips, priv_ips)
+                    vm.setIps(pub_ips, priv_ips, False)
 
         else:
             # if addresses are not available use the old method
@@ -741,7 +764,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     private_ips.append(ip)
                 else:
                     public_ips.append(ip)
-            vm.setIps(public_ips, private_ips, True)
+            vm.setIps(public_ips, private_ips)
 
         if vm.state == VirtualMachine.RUNNING:
             if self.add_public_ip_count < self.MAX_ADD_IP_COUNT:
@@ -1376,7 +1399,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         Get a floating IP
         """
         for ip in pool.list_floating_ips():
-            if not ip.node_id:
+            if not ip.get_node_id():
                 is_private = any([IPAddress(ip.ip_address) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
                 if is_private:
                     self.log_info("Floating IP found %s, but it is private. Ignore." % ip.ip_address)
@@ -1543,17 +1566,18 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                              outport.get_remote_cidr())
                     except Exception as ex:
                         self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
+                        self.error_messages += ("Exception adding port range: %s-%s to SG rules.\n" %
+                                                outport.get_port_init(), outport.get_port_end())
                 else:
-                    if outport.get_remote_port() != 22 or not network.isPublic():
-                        try:
-                            driver.ex_create_security_group_rule(sg, outport.get_protocol(),
-                                                                 outport.get_remote_port(),
-                                                                 outport.get_remote_port(),
-                                                                 outport.get_remote_cidr())
-                        except Exception as ex:
-                            self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
-                            self.error_messages += ("Exception adding port %s to SG rules.\n" %
-                                                    outport.get_remote_port())
+                    try:
+                        driver.ex_create_security_group_rule(sg, outport.get_protocol(),
+                                                             outport.get_remote_port(),
+                                                             outport.get_remote_port(),
+                                                             outport.get_remote_cidr())
+                    except Exception as ex:
+                        self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
+                        self.error_messages += ("Exception adding port %s to SG rules.\n" %
+                                                outport.get_remote_port())
 
         return res
 
@@ -1935,7 +1959,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 no_delete_ips = vm.floating_ips
 
             for floating_ip in node.driver.ex_list_floating_ips():
-                if floating_ip.node_id == node.id:
+                if floating_ip.get_node_id() == node.id:
                     # remove it from the node
                     try:
                         node.driver.ex_detach_floating_ip_from_node(node, floating_ip)

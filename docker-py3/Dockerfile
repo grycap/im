@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:20.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.11.0"
+LABEL version="1.12.0"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -12,9 +12,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 python3
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
-     pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.21&& \
-     cd /tmp && git clone https://github.com/micafer/tosca-parser && pip3 install /tmp/tosca-parser && \
-     pip3 install IM==1.11.0 && \
+     pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.26&& \
+     pip3 install git+https://github.com/openstack/tosca-parser && \
+     pip3 install git+https://github.com/micafer/libcloud@micro && \
+     pip3 install IM==1.12.0 && \
      apt-get purge -y python3-pip git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 

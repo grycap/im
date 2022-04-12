@@ -23,6 +23,7 @@ import unittest
 import sys
 import json
 import base64
+import yaml
 
 from mock import Mock, patch, MagicMock
 
@@ -1432,6 +1433,55 @@ configure step2 (
             IM.ChangeInfrastructureAuth(infId0, auth3, True, auth1)
         self.assertEqual(str(ex.exception), ("Invalid new infrastructure data provided: No credentials"
                                              " provided for the InfrastructureManager."))
+
+    @patch('IM.Stats.DataBase')
+    @patch('IM.InfrastructureManager.InfrastructureManager.check_auth_data')
+    def test_get_stats(self, check_auth_data, DataBase):
+
+        radl = """
+            system node (
+            memory.size = 512M and
+            cpu.count = 2
+            )"""
+
+        auth = Authentication([{'type': 'InfrastructureManager', 'token': 'atoken',
+                                'username': '__OPENID__mcaballer', 'password': 'pass'},
+                               {'type': 'InfrastructureManager', 'token': 'atoken1',
+                                'username': '__OPENID__mcaballer1', 'password': 'pass1'}])
+        check_auth_data.return_value = auth
+
+        db = MagicMock()
+        inf_data = {
+            "id": "1",
+            "auth": auth.serialize(),
+            "creation_date": 1646655374,
+            "extra_info": {"TOSCA": yaml.dump({"metadata": {"icon": "kubernetes.png"}})},
+            "vm_list": [
+                json.dumps({"cloud": '{"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}', "info": radl}),
+                json.dumps({"cloud": '{"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}', "info": radl})
+            ]
+        }
+        db.select.return_value = [(json.dumps(inf_data), '2022-03-23', '1')]
+        DataBase.return_value = db
+
+        stats = IM.GetStats('2001-01-01', '2122-01-01', auth)
+        expected_res = [{'creation_date': '2022-03-07 12:16:14',
+                         'tosca_name': 'kubernetes',
+                         'vm_count': 2,
+                         'cpu_count': 4,
+                         'memory_size': 1024,
+                         'cloud_type': 'OSCAR',
+                         'cloud_host': 'sharp-elbakyan5.im.grycap.net',
+                         'hybrid': False,
+                         'im_user': '__OPENID__mcaballer',
+                         'inf_id': '1',
+                         'last_date': '2022-03-23'}]
+        self.assertEqual(stats, expected_res)
+        self.assertEqual(db.select.call_args_list[0][0][0],
+                         "SELECT data, date, id FROM inf_list WHERE creation_date >= %s and creation_date <= %s"
+                         " and auth in %s order by rowid desc;")
+        self.assertEqual(db.select.call_args_list[0][0][1], (978307200.0, 4796668800.0, ('__OPENID__mcaballer:pass',
+                                                                                         '__OPENID__mcaballer1:pass1')))
 
 
 if __name__ == "__main__":

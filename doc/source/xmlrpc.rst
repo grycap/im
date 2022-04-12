@@ -406,3 +406,36 @@ This is the list of method names:
    Change the authentication data of the infrastructure with ID ``infId``. using
    the ``newAuth`` provider. If ``overwrite`` is true, the authentication data will
    be overwrited otherwise it will be appended.
+
+``GetVersion``
+   :ok response: [true, string]
+   :fail response: [false, ``error``: string]
+
+   Return the version of the IM service.
+
+.. _GetStat-xmlrpc:
+
+``GetStat``
+   :parameter 0: ``init_date``: string
+   :parameter 1: ``end_date``: string
+   :parameter 2: ``auth``: array of structs
+   :ok response: [true, list of dicts]
+   :fail response: [false, ``error``: string]
+
+   Return the stats of the current user in the IM service.
+   Return all the infrastructures in the interval ``init_date``-``end-date`` deployed by the user
+   showing some aggregated information. In JSON format::
+      
+      [
+         {"creation_date": "2022-03-07 13:16:14",
+         "tosca_name": "kubernetes",
+         "vm_count": 2,
+         "cpu_count": 4,
+         "memory_size": 1024,
+         "cloud_type": "OSCAR",
+         "cloud_host": "sharp-elbakyan5.im.grycap.net",
+         "hybrid": false,
+         "im_user": "__OPENID__mcaballer",
+         "inf_id": "1",
+         "last_date": "2022-03-23"}
+      ]

@@ -19,6 +19,7 @@ import sys
 import time
 import logging
 import threading
+from IM.auth import Authentication
 
 from IM.db import DataBase
 from IM.config import Config
@@ -61,15 +62,10 @@ class InfrastructureList():
     def get_inf_ids(auth=None):
         """ Get the IDs of the Infrastructures """
         if auth:
-            # In this case only loads the auth data to improve performance
-            inf_ids = []
-            for inf_id in InfrastructureList._get_inf_ids_from_db():
-                res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
-                if res:
-                    inf = res[inf_id]
-                    if inf and inf.is_authorized(auth):
-                        inf_ids.append(inf.id)
-            return inf_ids
+            res = []
+            for elem in auth.getAuthInfo("InfrastructureManager"):
+                res.extend(InfrastructureList._get_inf_ids_from_db(Authentication([elem])))
+            return res
         else:
             return InfrastructureList._get_inf_ids_from_db()
 
@@ -138,18 +134,19 @@ class InfrastructureList():
                 sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 
     @staticmethod
-    def init_table():
+    def init_table(db_url=Config.DATA_DB):
         """ Creates de database """
-        db = DataBase(Config.DATA_DB)
+        db = DataBase(db_url)
         if db.connect():
             if not db.table_exists("inf_list"):
                 InfrastructureList.logger.debug("Creating the IM database!.")
                 if db.db_type == DataBase.MYSQL:
                     db.execute("CREATE TABLE inf_list(rowid INTEGER NOT NULL AUTO_INCREMENT UNIQUE,"
-                               " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGBLOB)")
+                               " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, creation_date TIMESTAMP,"
+                               " auth VARCHAR(255), data LONGBLOB)")
                 elif db.db_type == DataBase.SQLITE:
                     db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
-                               " date TIMESTAMP, data LONGBLOB)")
+                               " date TIMESTAMP, creation_date TIMESTAMP, auth VARCHAR(255), data LONGBLOB)")
                 db.close()
             return True
         else:
@@ -158,13 +155,12 @@ class InfrastructureList():
         return False
 
     @staticmethod
-    def _get_data_from_db(db_url, inf_id=None, auth=None):
+    def _get_data_from_db(db_url, inf_id=None, return_all=False):
         """
         Get data from DB.
         If no inf_id specified all Infrastructures are loaded.
-        If auth is specified only auth data will be loaded.
         """
-        if InfrastructureList.init_table():
+        if InfrastructureList.init_table(db_url):
             db = DataBase(db_url)
             if db.connect():
                 inf_list = {}
@@ -175,20 +171,23 @@ class InfrastructureList():
                         res = db.select("select data from inf_list where id = %s", (inf_id,))
                 else:
                     if db.db_type == DataBase.MONGO:
-                        res = db.find("inf_list", {"deleted": 0}, {"data": True}, [('_id', -1)])
+                        filt = {"deleted": 0}
+                        if return_all:
+                            filt = None
+                        res = db.find("inf_list", filt, {"data": True}, [('_id', -1)])
                     else:
-                        res = db.select("select data from inf_list where deleted = 0 order by rowid desc")
+                        if return_all:
+                            res = db.select("select data from inf_list order by rowid desc")
+                        else:
+                            res = db.select("select data from inf_list where deleted = 0 order by rowid desc")
                 if len(res) > 0:
                     for elem in res:
-                        if db.db_type == DataBase.MONGO:
-                            data = elem['data']
-                        else:
-                            data = elem[0]
                         try:
-                            if auth:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(data)
+                            if db.db_type == DataBase.MONGO:
+                                data = elem['data']
                             else:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(data)
+                                data = elem[0]
+                            inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(data)
                             inf_list[inf.id] = inf
                         except Exception:
                             InfrastructureList.logger.exception(
@@ -220,10 +219,14 @@ class InfrastructureList():
                 data = inf.serialize()
                 if db.db_type == DataBase.MONGO:
                     res = db.replace("inf_list", {"id": inf.id}, {"id": inf.id, "deleted": int(inf.deleted),
-                                                                  "data": data, "date": time.time()})
+                                                                  "data": data, "date": time.time(),
+                                                                  "creation_date": inf.creation_date,
+                                                                  "auth": inf.get_auth(True)})
                 else:
-                    res = db.execute("replace into inf_list (id, deleted, data, date) values (%s, %s, %s, now())",
-                                     (inf.id, int(inf.deleted), data))
+                    res = db.execute("replace into inf_list (id, deleted, data, date, creation_date, auth) "
+                                     "values (%s, %s, %s, now(), %s, %s)", (inf.id, int(inf.deleted),
+                                                                            data, inf.creation_date,
+                                                                            inf.get_auth(True)))
 
             db.close()
             return res
@@ -232,15 +235,25 @@ class InfrastructureList():
             return None
 
     @staticmethod
-    def _get_inf_ids_from_db():
+    def _get_inf_ids_from_db(auth=None):
         try:
             db = DataBase(Config.DATA_DB)
             if db.connect():
+                inf = IM.InfrastructureInfo.InfrastructureInfo()
+                inf.auth = auth
                 inf_list = []
                 if db.db_type == DataBase.MONGO:
-                    res = db.find("inf_list", {"deleted": 0}, {"id": True}, [('id', -1)])
+                    filt = {"deleted": 0},
+                    if inf.get_auth():
+                        filt["auth"] = inf.get_auth(True)
+                    res = db.find("inf_list", filt, {"id": True}, [('id', -1)])
                 else:
-                    res = db.select("select id from inf_list where deleted = 0 order by rowid desc")
+                    if inf.get_auth(True):
+                        res = db.select("select id from inf_list where deleted = 0 and auth = %s order by rowid desc",
+                                        (inf.get_auth(True),))
+                    else:
+                        res = db.select("select id from inf_list where deleted = 0 order by rowid desc")
+
                 for elem in res:
                     if db.db_type == DataBase.MONGO:
                         inf_list.append(elem['id'])

@@ -50,7 +50,7 @@ class TestTosca(unittest.TestCase):
         tosca_data = read_file_as_string('../files/tosca_long.yml')
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
-        print(radl)
+        radl.check()
         radl = parse_radl(str(radl))
         net = radl.get_network_by_id('public_net')
         net1 = radl.get_network_by_id('public_net_1')
@@ -70,7 +70,8 @@ class TestTosca(unittest.TestCase):
             self.assertIn('80/tcp-80/tcp', net1.getValue("outports"))
             self.assertIn('8080/tcp-8080/tcp', net1.getValue("outports"))
 
-        self.assertIn('10000/tcp-10000/tcp', net2.getValue("outports"))
+        self.assertIn('0.0.0.0/0-10000/tcp-10000/tcp', net2.getValue("outports"))
+        self.assertIn('8.0.0.0/24-80/tcp-80/tcp', net2.getValue("outports"))
 
         lrms_wn = radl.get_system_by_name('lrms_wn')
         self.assertEqual(lrms_wn.getValue('memory.size'), 2000000000)

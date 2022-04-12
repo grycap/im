@@ -270,6 +270,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         ]
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
         self.assertEqual(driver.ex_create_subnet.call_args_list[0][0][2], "10.0.1.0/24")
+        self.assertEqual(driver.ex_create_security_group_rule.call_args_list[8][0][1:], ('tcp', 22, 22, '0.0.0.0/0'))
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
@@ -424,35 +425,35 @@ class TestOSTConnector(TestCloudConnectorBase):
         success, vm = ost_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ipv6"), "fec0:4801:7808:52:16:3eff:fe6e:b7e2")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
-        self.assertEquals(driver.ex_update_subnet.call_args_list[0][0][0].id, "subnet1")
-        self.assertEquals(driver.ex_update_subnet.call_args_list[0][1],
-                          {'host_routes': [{'nexthop': '10.0.0.1', 'destination': '10.0.0.0/16'}]})
-        self.assertEquals(vm.info.systems[0].getValue("disk.1.device"), "vdb")
-        self.assertEquals(vm.info.systems[0].getValue("disk.1.image.url"), "ost://server.com/vol1")
-        self.assertEquals(vm.info.systems[0].getValue("gpu.count"), 1)
-        self.assertEquals(vm.info.systems[0].getValue("gpu.model"), 'Tesla V100')
-        self.assertEquals(vm.info.systems[0].getValue("gpu.vendor"), 'NVIDIA')
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ipv6"), "fec0:4801:7808:52:16:3eff:fe6e:b7e2")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEqual(driver.ex_update_subnet.call_args_list[0][0][0].id, "subnet1")
+        self.assertEqual(driver.ex_update_subnet.call_args_list[0][1],
+                         {'host_routes': [{'nexthop': '10.0.0.1', 'destination': '10.0.0.0/16'}]})
+        self.assertEqual(vm.info.systems[0].getValue("disk.1.device"), "vdb")
+        self.assertEqual(vm.info.systems[0].getValue("disk.1.image.url"), "ost://server.com/vol1")
+        self.assertEqual(vm.info.systems[0].getValue("gpu.count"), 1)
+        self.assertEqual(vm.info.systems[0].getValue("gpu.model"), 'Tesla V100')
+        self.assertEqual(vm.info.systems[0].getValue("gpu.vendor"), 'NVIDIA')
 
         # In this case the Node has the float ip assigned
         # node.public_ips = ['8.8.8.8']
-        floating_ip.node_id = node.id
+        floating_ip.get_node_id.return_value = node.id
         pool.list_floating_ips.return_value = [floating_ip]
         driver.ex_list_floating_ip_pools.return_value = [pool]
 
         success, vm = ost_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
 
         # In this case the Node addresses are not available and it uses the old method
         node.extra = {'flavorId': 'small'}
         success, vm = ost_cloud.updateVMInfo(vm, auth)
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
 
@@ -468,8 +469,8 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         success, vm = ost_cloud.updateVMInfo(vm, auth)
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
-        self.assertEquals(vm.info.systems[0].getValue("net_interface.0.ipv6"), "2001:630:12:581:f816:3eff:fe92:2146")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ipv6"), "2001:630:12:581:f816:3eff:fe92:2146")
 
         url = 'https://nsupdate.fedcloud.eu/nic/update?hostname=test.domain.com&myip=8.8.8.8'
         self.assertEqual(request.call_args_list[0][0][0], url)
@@ -734,7 +735,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.delete_security_group.return_value = True
 
         fip = MagicMock()
-        fip.node_id = node.id
+        fip.get_node_id.return_value = node.id
         fip.ip_address = '158.42.1.1'
         fip.delete.return_value = True
         driver.ex_list_floating_ips.return_value = [fip]
@@ -956,13 +957,13 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         self.maxDiff = None
         res = ost_cloud.get_quotas(auth)
-        self.assertEquals(res, {"cores": {"used": 2, "limit": 4},
-                                "ram": {"used": 2, "limit": 4},
-                                "instances": {"used": 2, "limit": 4},
-                                "floating_ips": {"used": 4, "limit": 6},
-                                "security_groups": {"used": 4, "limit": 6},
-                                'volume_storage': {'limit': 6, 'used': 4},
-                                'volumes': {'limit': 6, 'used': 4}})
+        self.assertEqual(res, {"cores": {"used": 2, "limit": 4},
+                               "ram": {"used": 2, "limit": 4},
+                               "instances": {"used": 2, "limit": 4},
+                               "floating_ips": {"used": 4, "limit": 6},
+                               "security_groups": {"used": 4, "limit": 6},
+                               'volume_storage': {'limit': 6, 'used': 4},
+                               'volumes': {'limit': 6, 'used': 4}})
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     def test_get_driver(self, get_driver):
