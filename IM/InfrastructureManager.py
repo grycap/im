@@ -1422,8 +1422,10 @@ class InfrastructureManager:
         # Gen EGI auth for all the sites that supports the specified VO
         appdb_auth = auth.getAuthInfo("AppDBIS")
         if appdb_auth and "vo" in appdb_auth[0] and "token" in appdb_auth[0]:
-            vo = appdb_auth[0]["vo"]
             for appdb_auth_item in appdb_auth:
+                vo = appdb_auth_item["vo"]
+                # To avoid connecting with AppDBIS again
+                del appdb_auth_item["vo"]
                 if "host" in appdb_auth_item:
                     appdb = AppDBIS(appdb_auth_item["host"])
                 else:

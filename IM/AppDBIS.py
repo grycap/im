@@ -14,7 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 import requests
+import re
 
 from IM.config import Config
 from radl.radl import Feature, system
@@ -267,49 +272,32 @@ class AppDBIS:
 
         distribution = radl_system.getValue("disk.0.os.flavour")
         if not distribution:
-            distribution = "*"
+            distribution = ".*"
         version = radl_system.getValue("disk.0.os.version")
         if not version:
-            version = "*"
-        cpus = radl_system.getValue("cpu.count")
-        if not cpus:
-            cpus = Config.DEFAULT_VM_CPUS
-        mem_in_mb = Config.DEFAULT_VM_MEMORY
-        if radl_system.getFeature('memory.size'):
-            mem_in_mb = radl_system.getFeature('memory.size').getValue('M')
+            version = ".*"
         vo = radl_system.getValue("disk.0.os.image.vo")
-        if not vo:
-            vo = "*"
         name = radl_system.getValue("disk.0.os.image.name")
         if not name:
             name = ""
 
-        app_name_filter = "*%s* [%s/%s/*]" % (name, distribution, version)
-        code, res = self.get_endpoints_and_images(vo, app_name_filter, cpus, mem_in_mb)
-
-        # Order res by maxVM - totalVM (free VMs)
-        res = sorted(res, reverse=True,
-                     key=lambda item: (item["shares"]["items"][0]["maxVM"] - item["shares"]["items"][0]["totalVM"]))
+        vo_filter = None
+        if vo:
+          vo_filter = 'shareVO:"%s"' % vo
+        code, images = self.get_image_list(image_filter=vo_filter)
 
         if code != 200:
-            return None
+          return None
+
         res_systems = []
-        for site in res:
-            url = site["gocEndpointUrl"]
-            # Ignore sites in critical state
-            if site["serviceStatus"]["value"] == "CRITICAL":
-                continue
+        for image in images:
+          app_name_reg = ".*%s.* \[%s\/%s\/.*]" % (name.lower(), distribution.lower(), version)
+          if not re.search(app_name_reg,image['entityName'].lower()):
+            continue
 
-            if url.endswith("/"):
-                url = url[0:-1]
-            if url.endswith("v3"):
-                url = url[0:-3]
-            if url.endswith("v2.0"):
-                url = url[0:-5]
-
-            for image in site["images"]["items"]:
-                res_systems.append(system(radl_system.name,
-                                          [Feature("disk.0.image.url", "=", "%s/%s" % (url, image["imageID"])),
-                                           Feature("disk.0.image.vo", "=", image["share"]["VO"])]))
+          endpoint = urlparse(image["endpointID"])
+          res_systems.append(system(radl_system.name,
+                                    [Feature("disk.0.image.url", "=", "ost://%s/%s" % (endpoint[1],
+                                                                                       image["imageID"]))]))
 
         return res_systems

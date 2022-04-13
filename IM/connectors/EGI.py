@@ -149,7 +149,12 @@ class EGICloudConnector(OpenStackCloudConnector):
 
                 res_system = radl_system.clone()
                 instance_type = self.get_instance_type(driver, res_system)
+                if not instance_type:
+                    return None
                 self.update_system_info_from_instance(res_system, instance_type)
+
+                if vo:
+                    res_system.setValue("disk.0.os.image.vo", vo)
 
                 username = res_system.getValue('disk.0.os.credentials.username')
                 if not username:
