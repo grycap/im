@@ -144,7 +144,8 @@ class AppDBIS:
               }) {
                 items {
                   totalVM,
-                  maxVM
+                  maxVM,
+                  projectID
                 }
               }
               site {
@@ -164,7 +165,10 @@ class AppDBIS:
                           key=lambda item: (item["shares"]["items"][0]["maxVM"] -
                                             item["shares"]["items"][0]["totalVM"]))
             for elem in data:
-                res.append((elem["site"]["name"], elem["gocEndpointUrl"]))
+                endpoint = urlparse(elem["gocEndpointUrl"])
+                res.append((elem["site"]["name"],
+                            "%s://%s" % (endpoint[0], endpoint[1]),
+                            elem["shares"]["items"][0]["projectID"]))
             return code, res
         else:
             return code, data

@@ -144,7 +144,8 @@ class TestAppDBIS(unittest.TestCase):
                       }) {
                         items {
                           totalVM,
-                          maxVM
+                          maxVM,
+                          projectID
                         }
                       }
                       site {

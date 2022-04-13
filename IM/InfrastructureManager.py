@@ -1432,9 +1432,10 @@ class InfrastructureManager:
                     appdb = AppDBIS()
                 code, sites = appdb.get_sites_supporting_vo(vo)
                 if code == 200:
-                    for site in sites:
-                        auth_site = {"id": site[0], "host": site[0], "type": "EGI",
-                                     "vo": vo, "token": appdb_auth[0]["token"]}
+                    for site_name, site_url, project_id in sites:
+                        auth_site = {"id": site_name, "host": site_url, "type": "OpenStack",
+                                    "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
+                                     "domain": project_id, "password": appdb_auth[0]["token"]}
                         auth.auth_list.append(auth_site)
                 else:
                     InfrastructureManager.logger.error("Error getting auth data from AppDBIS: %s" % sites)
