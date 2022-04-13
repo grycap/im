@@ -429,6 +429,7 @@ class Tosca:
                     # This is for the special case of OST with net name and pool name
                     network_name = parts[0].strip()
                     pool_name = parts[1].strip()
+                    public_ip = True
 
                 if network_name == "PUBLIC":
                     public_ip = True
