@@ -143,7 +143,7 @@ class EGICloudConnector(OpenStackCloudConnector):
                     vo = self.get_vo_name(auth_data)
 
                 if protocol == "appdb":
-                    _, image_id, _ = AppDB.get_image_data(str_url, "openstack", vo, site=self.cloud.server)
+                    site_url, image_id, _ = AppDB.get_image_data(str_url, "openstack", vo, site=self.cloud.server)
                     if not image_id:
                         return None
 

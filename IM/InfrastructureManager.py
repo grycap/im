@@ -1421,8 +1421,6 @@ class InfrastructureManager:
     def gen_auth_from_appdb(auth):
         # Gen EGI auth for all the sites that supports the specified VO
         appdb_auth = auth.getAuthInfo("AppDBIS")
-        if appdb_auth:
-            auth.delAuthInfo("AppDBIS")
         if appdb_auth and "vo" in appdb_auth[0] and "token" in appdb_auth[0]:
             vo = appdb_auth[0]["vo"]
             for appdb_auth_item in appdb_auth:

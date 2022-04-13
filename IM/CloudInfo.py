@@ -97,7 +97,7 @@ class CloudInfo:
         res = []
 
         for i, auth in enumerate(auth_data.auth_list):
-            if 'type' in auth and auth['type'] not in ['InfrastructureManager', 'VMRC']:
+            if 'type' in auth and auth['type'] not in ['InfrastructureManager', 'VMRC', 'AppDBIS']:
                 cloud_item = CloudInfo()
                 cloud_item.type = auth['type']
                 if 'id' in auth.keys() and auth['id']:
