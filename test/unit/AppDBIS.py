@@ -137,6 +137,16 @@ class TestAppDBIS(unittest.TestCase):
                   }) {
                     items {
                       gocEndpointUrl,
+                      shares(filter: {
+                        VO:{
+                          eq: "vo.access.egi.eu"
+                        }
+                      }) {
+                        items {
+                          totalVM,
+                          maxVM
+                        }
+                      }
                       site {
                         name
                       }
@@ -211,4 +221,4 @@ class TestAppDBIS(unittest.TestCase):
         code, res = app.get_sites_supporting_vo("vo.access.egi.eu")
         self.assertEqual(code, 200)
         self.assertEqual(len(res), 9)
-        self.assertEqual(res[0][0], "CESGA")
+        self.assertEqual(res[0][0], "INFN-PADOVA-STACK")

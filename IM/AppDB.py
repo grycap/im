@@ -127,6 +127,8 @@ class AppDB:
         data = AppDB.appdb_call('/rest/1.0/sites')
         if data:
             for site in data['appdb:site']:
+                if site_host == site['@name']:
+                    return site['@name']
                 if site['@infrastructure'] == "Production" and 'site:service' in site:
                     if isinstance(site['site:service'], list):
                         services = site['site:service']

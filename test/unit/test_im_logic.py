@@ -1486,7 +1486,7 @@ configure step2 (
     @patch('IM.InfrastructureManager.AppDBIS')
     def test_gen_auth_from_appdb(self, appbis):
         appbis_mock = MagicMock()
-        appbis_mock.get_sites_supporting_vo.return_value = [("CESGA", ""), ("IFCA", "")]
+        appbis_mock.get_sites_supporting_vo.return_value = 200, [("CESGA", ""), ("IFCA", "")]
         appbis.return_value = appbis_mock
         auth = Authentication([{'type': 'AppDBIS', 'vo': 'vo_name', 'token': 'btoken'},
                                {'type': 'InfrastructureManager', 'token': 'atoken'}])

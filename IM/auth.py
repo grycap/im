@@ -215,6 +215,24 @@ class Authentication:
 
         return res
 
+    def delAuthInfo(self, auth_type, host=None):
+        """
+        Delete the auth data of the specified type
+
+        Arguments:
+           - auth_type(str): The auth type
+           - host(str): The host of the auth (optional)
+        """
+        for num, auth in enumerate(self.auth_list):
+            if 'type' in auth and auth['type'] == auth_type:
+                if host:
+                    if 'host' in auth and auth['host'].find(host) != -1:
+                        del self.auth_list[num]
+                        return
+                else:
+                    del self.auth_list[num]
+                    return
+
     def serialize(self):
         return json.dumps(self.auth_list, sort_keys=True)
 

@@ -1,62 +1,134 @@
 {
-    "data": {
-      "siteCloudComputingEndpoints": {
-        "items": [
-          {
-            "gocEndpointUrl": "https://fedcloud-osservices.egi.cesga.es:5000/v3",
-            "site": {
-              "name": "CESGA"
-            }
+  "data": {
+    "siteCloudComputingEndpoints": {
+      "items": [
+        {
+          "gocEndpointUrl": "https://fedcloud-osservices.egi.cesga.es:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 20,
+                "maxVM": 20
+              }
+            ]
           },
-          {
-            "gocEndpointUrl": "https://egiosc.gsi.de:5000/v3",
-            "site": {
-              "name": "GSI-LCG2"
-            }
-          },
-          {
-            "gocEndpointUrl": "https://api.cloud.ifca.es:5000/v3/",
-            "site": {
-              "name": "IFCA-LCG2"
-            }
-          },
-          {
-            "gocEndpointUrl": "https://cloud.ui.savba.sk:5000/v3/",
-            "site": {
-              "name": "IISAS-FedCloud"
-            }
-          },
-          {
-            "gocEndpointUrl": "https://sbgcloud.in2p3.fr:5000/v3",
-            "site": {
-              "name": "IN2P3-IRES"
-            }
-          },
-          {
-            "gocEndpointUrl": "https://egi-cloud.pd.infn.it:443/v3",
-            "site": {
-              "name": "INFN-PADOVA-STACK"
-            }
-          },
-          {
-            "gocEndpointUrl": "https://cloud.scai.fraunhofer.de:5000/v3",
-            "site": {
-              "name": "SCAI"
-            }
-          },
-          {
-            "gocEndpointUrl": "https://bulut.truba.gov.tr:5000/v3",
-            "site": {
-              "name": "TR-FC1-ULAKBIM"
-            }
-          },
-          {
-            "gocEndpointUrl": "https://thor.univ-lille.fr:5000/v3",
-            "site": {
-              "name": "UNIV-LILLE"
-            }
+          "site": {
+            "name": "CESGA"
           }
-        ]
-      }
+        },
+        {
+          "gocEndpointUrl": "https://egiosc.gsi.de:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 5,
+                "maxVM": 10
+              }
+            ]
+          },
+          "site": {
+            "name": "GSI-LCG2"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://api.cloud.ifca.es:5000/v3/",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 1,
+                "maxVM": 25
+              }
+            ]
+          },
+          "site": {
+            "name": "IFCA-LCG2"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://cloud.ui.savba.sk:5000/v3/",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 4,
+                "maxVM": 10
+              }
+            ]
+          },
+          "site": {
+            "name": "IISAS-FedCloud"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://sbgcloud.in2p3.fr:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 19,
+                "maxVM": 32
+              }
+            ]
+          },
+          "site": {
+            "name": "IN2P3-IRES"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://egi-cloud.pd.infn.it:443/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 1,
+                "maxVM": 30
+              }
+            ]
+          },
+          "site": {
+            "name": "INFN-PADOVA-STACK"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://cloud.scai.fraunhofer.de:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 0,
+                "maxVM": 10
+              }
+            ]
+          },
+          "site": {
+            "name": "SCAI"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://bulut.truba.gov.tr:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 1,
+                "maxVM": 10
+              }
+            ]
+          },
+          "site": {
+            "name": "TR-FC1-ULAKBIM"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://thor.univ-lille.fr:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 1,
+                "maxVM": 16
+              }
+            ]
+          },
+          "site": {
+            "name": "UNIV-LILLE"
+          }
+        }
+      ]
     }
   }
+}

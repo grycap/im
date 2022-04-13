@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os.path
 import requests
 
 from IM.config import Config
@@ -133,18 +132,32 @@ class AppDBIS:
           }) {
             items {
               gocEndpointUrl,
+              shares(filter: {
+                VO:{
+                  eq: "%s"
+                }
+              }) {
+                items {
+                  totalVM,
+                  maxVM
+                }
+              }
               site {
                 name
               }
             }
           }
         }
-        """ % vo
+        """ % (vo, vo)
 
         code, data = self._call_graphql(graph_ql_req)
 
         if code == 200:
             res = []
+            # Order res by maxVM - totalVM (free VMs)
+            data = sorted(data, reverse=True,
+                          key=lambda item: (item["shares"]["items"][0]["maxVM"] -
+                                            item["shares"]["items"][0]["totalVM"]))
             for elem in data:
                 res.append((elem["site"]["name"], elem["gocEndpointUrl"]))
             return code, res

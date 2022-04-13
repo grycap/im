@@ -140,6 +140,12 @@ class EGICloudConnector(OpenStackCloudConnector):
                         auth = self.get_egi_auth(auths)
                         if auth['vo'] != vo:
                             return None
+                    vo = self.get_vo_name(auth_data)
+
+                if protocol == "appdb":
+                    _, image_id, _ = AppDB.get_image_data(str_url, "openstack", vo, site=self.cloud.server)
+                    if not image_id:
+                        return None
 
                 res_system = radl_system.clone()
                 instance_type = self.get_instance_type(driver, res_system)
