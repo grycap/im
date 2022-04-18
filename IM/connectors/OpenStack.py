@@ -1567,7 +1567,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     except Exception as ex:
                         self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
                         self.error_messages += ("Exception adding port range: %s-%s to SG rules.\n" %
-                                                outport.get_port_init(), outport.get_port_end())
+                                                (outport.get_port_init(), outport.get_port_end()))
                 else:
                     try:
                         driver.ex_create_security_group_rule(sg, outport.get_protocol(),
