@@ -287,21 +287,21 @@ class AppDBIS:
 
         vo_filter = None
         if vo:
-          vo_filter = 'shareVO:"%s"' % vo
+            vo_filter = 'shareVO:"%s"' % vo
         code, images = self.get_image_list(image_filter=vo_filter)
 
         if code != 200:
-          return None
+            return None
 
         res_systems = []
         for image in images:
-          app_name_reg = ".*%s.* \[%s\/%s\/.*]" % (name.lower(), distribution.lower(), version)
-          if not re.search(app_name_reg,image['entityName'].lower()):
-            continue
+            app_name_reg = ".*%s.* \[%s\/%s\/.*]" % (name.lower(), distribution.lower(), version)
+            if not re.search(app_name_reg, image['entityName'].lower()):
+                continue
 
-          endpoint = urlparse(image["endpointID"])
-          res_systems.append(system(radl_system.name,
-                                    [Feature("disk.0.image.url", "=", "ost://%s/%s" % (endpoint[1],
-                                                                                       image["imageID"]))]))
+            endpoint = urlparse(image["endpointID"])
+            res_systems.append(system(radl_system.name,
+                                      [Feature("disk.0.image.url", "=", "ost://%s/%s" % (endpoint[1],
+                                                                                         image["imageID"]))]))
 
         return res_systems
