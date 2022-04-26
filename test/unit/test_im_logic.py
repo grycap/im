@@ -1486,14 +1486,16 @@ configure step2 (
     @patch('IM.InfrastructureManager.AppDBIS')
     def test_gen_auth_from_appdb(self, appbis):
         appbis_mock = MagicMock()
-        appbis_mock.get_sites_supporting_vo.return_value = 200, [("CESGA", ""), ("IFCA", "")]
+        appbis_mock.get_sites_supporting_vo.return_value = 200, [("CESGA", "hc", "prid"), ("IFCA", "hi", "prid1")]
         appbis.return_value = appbis_mock
         auth = Authentication([{'type': 'AppDBIS', 'vo': 'vo_name', 'token': 'btoken'},
                                {'type': 'InfrastructureManager', 'token': 'atoken'}])
         res = IM.gen_auth_from_appdb(auth)
-        self.assertIn({'id': 'CESGA', 'type': 'EGI', 'host': 'CESGA', 'token': 'btoken', 'vo': 'vo_name'},
+        self.assertIn({'id': 'CESGA', 'type': 'OpenStack', 'host': 'hc', 'password': 'btoken', 'domain': 'prid',
+                       'username': 'egi.eu', 'tenant': 'openid', 'auth_version': '3.x_oidc_access_token'},
                       res.auth_list)
-        self.assertIn({'id': 'IFCA', 'type': 'EGI', 'host': 'IFCA', 'token': 'btoken', 'vo': 'vo_name'},
+        self.assertIn({'id': 'IFCA', 'type': 'OpenStack', 'host': 'hi', 'password': 'btoken', 'domain': 'prid1',
+                       'username': 'egi.eu', 'tenant': 'openid', 'auth_version': '3.x_oidc_access_token'},
                       res.auth_list)
         self.assertIn({'type': 'InfrastructureManager', 'token': 'atoken'}, res.auth_list)
 
