@@ -1434,7 +1434,7 @@ class InfrastructureManager:
                 if code == 200:
                     for site_name, site_url, project_id in sites:
                         auth_site = {"id": site_name, "host": site_url, "type": "OpenStack",
-                                    "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
+                                     "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
                                      "domain": project_id, "password": appdb_auth[0]["token"]}
                         auth.auth_list.append(auth_site)
                 else:
