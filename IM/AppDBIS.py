@@ -302,6 +302,7 @@ class AppDBIS:
             endpoint = urlparse(image["endpointID"])
             res_systems.append(system(radl_system.name,
                                       [Feature("disk.0.image.url", "=", "ost://%s/%s" % (endpoint[1],
-                                                                                         image["imageID"]))]))
+                                                                                         image["imageID"])),
+                                       Feature("disk.0.image.vo", "=", image["shareVO"])]))
 
         return res_systems

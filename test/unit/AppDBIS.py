@@ -194,26 +194,23 @@ class TestAppDBIS(unittest.TestCase):
         self.assertEqual(len(res), 8)
         self.assertEqual(res[0]["site"]["name"], "CESGA")
 
-    @patch('IM.AppDBIS.AppDBIS.get_endpoints_and_images')
-    def test_search_vm(self, get_endpoints_and_images):
-        end_res = json.loads(read_file_as_string('../files/appdbis_res.json'))
-        end_res = end_res["data"]["siteCloudComputingEndpoints"]["items"]
-        get_endpoints_and_images.return_value = 200, end_res
+    @patch('IM.AppDBIS.AppDBIS.get_image_list')
+    def test_search_vm(self, get_image_list):
+        images = json.loads(read_file_as_string('../files/appdbis_images.json'))
+        get_image_list.return_value = 200, images["data"]
         app = AppDBIS()
         sys = system("s0", [Feature("disk.0.os.flavour", "=", "Ubuntu"),
                             Feature("disk.0.os.version", "=", "20.04"),
-                            Feature("disk.0.os.image.name", "=", "Name"),
+                            Feature("disk.0.os.image.name", "=", "EGI"),
                             Feature("cpu.count", "=", 2),
                             Feature("memory.size", "=", 1024, "m")])
         res = app.search_vm(sys)
-        self.assertEqual(len(res), 12)
-        self.assertEqual(get_endpoints_and_images.call_args_list[0][0],
-                         ('*', "*Name* [Ubuntu/20.04/*]", 2, 1024))
+        self.assertEqual(len(res), 1)
 
         self.assertEqual(res[0].name, "s0")
         self.assertEqual(res[0].getValue('disk.0.image.vo'), "vo.access.egi.eu")
-        self.assertEqual(res[0].getValue('disk.0.image.url'), ("https://api.cloud.ifca.es:5000/"
-                                                               "3b771444-fd81-4cbb-aadb-51be1285d2ea"))
+        self.assertEqual(res[0].getValue('disk.0.image.url'), ("ost://thor.univ-lille.fr:5000/"
+                                                               "d57482d1-9253-4ee7-b3d0-a64d92682591"))
 
     @patch('requests.request')
     def test_get_sites_supporting_vo(self, requests):
