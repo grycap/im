@@ -78,6 +78,7 @@ class TestEGIConnector(TestCloudConnectorBase):
         appdb.get_site_id.return_value = "site1"
         appdb.get_site_url.return_value = "https://site.com:5000/v3"
         appdb.get_project_ids.return_value = {"vo.access.egi.eu": "projectid"}
+        appdb.get_image_data.return_value = "https://site.com:5000/v3", "imageid", ""
 
         node_size = MagicMock()
         node_size.id = '1'
