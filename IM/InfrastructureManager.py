@@ -593,18 +593,17 @@ class InfrastructureManager:
         InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Groups of VMs with dependencies")
         InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + "\n" + str(deploy_groups))
 
-        retries = Config.MAX_VM_FAILS
+        new_vms = []
         all_failed = True
         cloud_id = None
         # We are going to start adding resources
         sel_inf.set_adding()
 
-        while all_failed and retries > 0:
-            retries += 1
+        while all_failed:
             # Delete last used cloud to avoid using it in case of failure
             if cloud_id:
                 del cloud_list[cloud_id]
-                if len(cloud_list) == 0:
+                if not cloud_list:
                     # If there are no more cloud providers exit the loop
                     break
 
