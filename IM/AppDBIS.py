@@ -20,6 +20,7 @@ except ImportError:
     from urllib.parse import urlparse
 import requests
 import re
+import time
 
 from IM.config import Config
 from radl.radl import Feature, system
@@ -33,6 +34,10 @@ class AppDBIS:
     DEFAULT_APPDBIS_URL = "http://is.marie.hellasgrid.gr"
     REST_API_PATH = "/rest/cloud/computing"
     GRAPH_QL_PATH = "/graphql"
+
+    CACHE_TIMEOUT = 600
+    SITES_CACHE = {}
+    """Cache of sites info"""
 
     def __init__(self, url=None, verify=False):
         self.verify = verify
@@ -117,6 +122,13 @@ class AppDBIS:
         """
         Get the list of sites that supports an specific VO.
         """
+        if vo in AppDBIS.SITES_CACHE:
+            res, data_time = AppDBIS.SITES_CACHE[vo]
+            if time.time() - data_time > AppDBIS.CACHE_TIMEOUT:
+                del AppDBIS.SITES_CACHE[vo]
+            else:
+                return 200, res
+
         # GrapghQL Query
         graph_ql_req = """
         {
@@ -169,6 +181,7 @@ class AppDBIS:
                 res.append((elem["site"]["name"],
                             "%s://%s" % (endpoint[0], endpoint[1]),
                             elem["shares"]["items"][0]["projectID"]))
+            AppDBIS.SITES_CACHE[vo] = (res, time.time())
             return code, res
         else:
             return code, data

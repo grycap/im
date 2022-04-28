@@ -593,95 +593,107 @@ class InfrastructureManager:
         InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Groups of VMs with dependencies")
         InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + "\n" + str(deploy_groups))
 
-        # Sort by score the cloud providers
-        deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
-                                                                  deploy_groups, auth)
-
+        retries = Config.MAX_VM_FAILS
+        all_failed = True
+        cloud_id = None
         # We are going to start adding resources
         sel_inf.set_adding()
 
-        if sel_inf.deleted:
-            InfrastructureManager.logger.info("Inf ID: %s: Deleted Infrastructure. Stop deploying!" % sel_inf.id)
-            return []
+        while all_failed and retries > 0:
+            retries += 1
+            # Delete last used cloud to avoid using it in case of failure
+            if cloud_id:
+                del cloud_list[cloud_id]
+                if len(cloud_list) == 0:
+                    # If there are no more cloud providers exit the loop
+                    break
 
-        # Launch every group in the same cloud provider
-        deployed_vm = {}
-        deploy_items = []
-        for deploy_group in deploy_groups:
-            if not deploy_group:
-                InfrastructureManager.logger.warning("Inf ID: %s: No VMs to deploy!" % sel_inf.id)
-                sel_inf.add_cont_msg("No VMs to deploy. Exiting.")
-                if sel_inf.configured is None:
-                    sel_inf.configured = False
+            # Sort by score the cloud providers
+            deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
+                                                                      deploy_groups, auth)
+
+            if sel_inf.deleted:
+                InfrastructureManager.logger.info("Inf ID: %s: Deleted Infrastructure. Stop deploying!" % sel_inf.id)
                 return []
 
-            cloud_id = deploys_group_cloud[id(deploy_group)]
-            cloud = cloud_list[cloud_id]
+            # Launch every group in the same cloud provider
+            deployed_vm = {}
+            deploy_items = []
+            for deploy_group in deploy_groups:
+                if not deploy_group:
+                    InfrastructureManager.logger.warning("Inf ID: %s: No VMs to deploy!" % sel_inf.id)
+                    sel_inf.add_cont_msg("No VMs to deploy. Exiting.")
+                    if sel_inf.configured is None:
+                        sel_inf.configured = False
+                    return []
 
-            for d in deploy_group:
-                deploy_items.append((d, cloud_id, cloud))
+                cloud_id = deploys_group_cloud[id(deploy_group)]
+                cloud = cloud_list[cloud_id]
 
-        # Now launch all the deployments
-        if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
-            pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
-            pool.map(
-                lambda depitem: InfrastructureManager._launch_deploy(sel_inf, depitem[0], depitem[1],
-                                                                     depitem[2], concrete_systems, radl, auth,
-                                                                     deployed_vm),
-                deploy_items)
-            pool.close()
-        else:
-            for deploy, cloud_id, cloud in deploy_items:
-                InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
-                                                     cloud, concrete_systems, radl,
-                                                     auth, deployed_vm)
+                for d in deploy_group:
+                    deploy_items.append((d, cloud_id, cloud))
 
-        # We make this to maintain the order of the VMs in the sel_inf.vm_list
-        # according to the deploys shown in the RADL
-        new_vms = []
-        for orig_dep in radl.deploys:
-            for deploy in deployed_vm.keys():
-                if orig_dep.id == deploy.id:
-                    for vm in deployed_vm.get(deploy, []):
-                        if vm not in new_vms:
-                            new_vms.append(vm)
+            # Now launch all the deployments
+            if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
+                pool = ThreadPool(processes=Config.MAX_SIMULTANEOUS_LAUNCHES)
+                pool.map(
+                    lambda depitem: InfrastructureManager._launch_deploy(sel_inf, depitem[0], depitem[1],
+                                                                         depitem[2], concrete_systems, radl, auth,
+                                                                         deployed_vm),
+                    deploy_items)
+                pool.close()
+            else:
+                for deploy, cloud_id, cloud in deploy_items:
+                    InfrastructureManager._launch_deploy(sel_inf, deploy, cloud_id,
+                                                         cloud, concrete_systems, radl,
+                                                         auth, deployed_vm)
 
-        # Remove the VMs in creating state
-        sel_inf.remove_creating_vms()
+            # We make this to maintain the order of the VMs in the sel_inf.vm_list
+            # according to the deploys shown in the RADL
+            new_vms = []
+            for orig_dep in radl.deploys:
+                for deploy in deployed_vm.keys():
+                    if orig_dep.id == deploy.id:
+                        for vm in deployed_vm.get(deploy, []):
+                            if vm not in new_vms:
+                                new_vms.append(vm)
 
-        all_failed = True
-        for vm in new_vms:
-            # Set now the VM as "created"
-            vm.creating = False
-            # and add it to the Inf
-            sel_inf.add_vm(vm)
+            # Remove the VMs in creating state
+            sel_inf.remove_creating_vms()
 
-            if vm.state != VirtualMachine.FAILED:
-                all_failed = False
-
-                (_, passwd, _, _) = vm.info.systems[0].getCredentialValues()
-                (_, new_passwd, _, _) = vm.info.systems[0].getCredentialValues(new=True)
-                if passwd and not new_passwd:
-                    # The VM uses the VMI password, set to change it
-                    random_password = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
-                    vm.info.systems[0].setCredentialValues(password=random_password, new=True)
-
-        error_msg = ""
-        # Add the new virtual machines to the infrastructure
-        sel_inf.update_radl(radl, deployed_vm, False)
-        if all_failed:
-            InfrastructureManager.logger.error("VMs failed when adding to Inf ID: %s" % sel_inf.id)
-            sel_inf.add_cont_msg("All VMs failed. No contextualize.")
-
-            # in case of all VMs are failed delete it
-            delete_list = list(reversed(sel_inf.get_vm_list()))
+            all_failed = True
             for vm in new_vms:
-                if vm.error_msg:
-                    error_msg += "%s\n" % vm.error_msg
-                vm.delete(delete_list, auth, [])
-            sel_inf.add_cont_msg(error_msg)
-        else:
-            InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
+                # Set now the VM as "created"
+                vm.creating = False
+                # and add it to the Inf
+                sel_inf.add_vm(vm)
+
+                if vm.state != VirtualMachine.FAILED:
+                    all_failed = False
+
+                    (_, passwd, _, _) = vm.info.systems[0].getCredentialValues()
+                    (_, new_passwd, _, _) = vm.info.systems[0].getCredentialValues(new=True)
+                    if passwd and not new_passwd:
+                        # The VM uses the VMI password, set to change it
+                        random_password = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
+                        vm.info.systems[0].setCredentialValues(password=random_password, new=True)
+
+            error_msg = ""
+            if all_failed:
+                InfrastructureManager.logger.error("VMs failed when adding to Inf ID: %s" % sel_inf.id)
+                sel_inf.add_cont_msg("All VMs failed. No contextualize.")
+
+                # in case of all VMs are failed delete it
+                delete_list = list(reversed(sel_inf.get_vm_list()))
+                for vm in new_vms:
+                    if vm.error_msg:
+                        error_msg += "%s\n" % vm.error_msg
+                    vm.delete(delete_list, auth, [])
+                sel_inf.add_cont_msg(error_msg)
+            else:
+                # Add the new virtual machines to the infrastructure
+                sel_inf.update_radl(radl, deployed_vm, False)
+                InfrastructureManager.logger.info("VMs %s successfully added to Inf ID: %s" % (new_vms, sel_inf.id))
 
         # The resources has been added
         sel_inf.set_adding(False)
@@ -1420,23 +1432,23 @@ class InfrastructureManager:
     @staticmethod
     def gen_auth_from_appdb(auth):
         # Gen EGI auth for all the sites that supports the specified VO
-        appdb_auth = auth.getAuthInfo("AppDBIS")
-        if appdb_auth and "vo" in appdb_auth[0] and "token" in appdb_auth[0]:
-            for appdb_auth_item in appdb_auth:
-                vo = appdb_auth_item["vo"]
+        appdbis_auth = auth.getAuthInfo("AppDBIS")
+        if appdbis_auth and "vo" in appdbis_auth[0] and "token" in appdbis_auth[0]:
+            for appdbis_auth_item in appdbis_auth:
+                vo = appdbis_auth_item["vo"]
                 # To avoid connecting with AppDBIS again
-                del appdb_auth_item["vo"]
-                if "host" in appdb_auth_item:
-                    appdb = AppDBIS(appdb_auth_item["host"])
+                del appdbis_auth_item["vo"]
+                if "host" in appdbis_auth_item:
+                    appdbis = AppDBIS(appdbis_auth_item["host"])
                 else:
-                    appdb = AppDBIS()
-                InfrastructureManager.logger.debug("Getting getting auth data from AppDBIS")
-                code, sites = appdb.get_sites_supporting_vo(vo)
+                    appdbis = AppDBIS()
+                InfrastructureManager.logger.debug("Getting auth data from AppDBIS")
+                code, sites = appdbis.get_sites_supporting_vo(vo)
                 if code == 200:
                     for site_name, site_url, project_id in sites:
                         auth_site = {"id": site_name, "host": site_url, "type": "OpenStack",
                                      "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
-                                     "domain": project_id, "password": appdb_auth[0]["token"], "vo": vo}
+                                     "domain": project_id, "password": appdbis_auth[0]["token"], "vo": vo}
                         auth.auth_list.append(auth_site)
                 else:
                     InfrastructureManager.logger.error("Error getting auth data from AppDBIS: %s" % sites)
