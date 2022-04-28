@@ -1435,7 +1435,7 @@ class InfrastructureManager:
                     for site_name, site_url, project_id in sites:
                         auth_site = {"id": site_name, "host": site_url, "type": "OpenStack",
                                      "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
-                                     "domain": project_id, "password": appdb_auth[0]["token"]}
+                                     "domain": project_id, "password": appdb_auth[0]["token"], "vo": vo}
                         auth.auth_list.append(auth_site)
                 else:
                     InfrastructureManager.logger.error("Error getting auth data from AppDBIS: %s" % sites)

@@ -180,6 +180,8 @@ class AppDB:
             else:
                 if not vo_name:
                     vo_name = vo
+                elif vo and vo_name != vo:
+                    return None, None, "Invalid VO set in the image '%s'. User VO is: '%s'" % (vo_name, vo)
                 image_id = AppDB.get_image_id(site_id, image_name, vo_name)
                 if not image_id:
                     return None, None, "No image ID returned from EGI AppDB for image: %s/%s/%s." % (site_id,

@@ -132,6 +132,13 @@ class TestAppDB(unittest.TestCase):
         self.assertEqual(site_url, "https://cloud.recas.ba.infn.it:5000")
         self.assertEqual(image_id, "image_id2")
 
+        str_url = "appdb://egi.ubuntu.16.04?fedcloud.egi.eu"
+        site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack", vo="vo.access.egi.eu",
+                                                       site='cloud.recas.ba.infn.it')
+        self.assertIsNone(site_url)
+        self.assertIsNone(image_id)
+        self.assertEqual(msg, "Invalid VO set in the image 'fedcloud.egi.eu'. User VO is: 'vo.access.egi.eu'")
+
     @patch('requests.request')
     def test_get_project_ids(self, requests):
         requests.side_effect = self.get_response
