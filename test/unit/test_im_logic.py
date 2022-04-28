@@ -1492,10 +1492,12 @@ configure step2 (
                                {'type': 'InfrastructureManager', 'token': 'atoken'}])
         res = IM.gen_auth_from_appdb(auth)
         self.assertIn({'id': 'CESGA', 'type': 'OpenStack', 'host': 'hc', 'password': 'btoken', 'domain': 'prid',
-                       'username': 'egi.eu', 'tenant': 'openid', 'auth_version': '3.x_oidc_access_token'},
+                       'username': 'egi.eu', 'tenant': 'openid', 'auth_version': '3.x_oidc_access_token',
+                       'vo': 'vo_name'},
                       res.auth_list)
         self.assertIn({'id': 'IFCA', 'type': 'OpenStack', 'host': 'hi', 'password': 'btoken', 'domain': 'prid1',
-                       'username': 'egi.eu', 'tenant': 'openid', 'auth_version': '3.x_oidc_access_token'},
+                       'username': 'egi.eu', 'tenant': 'openid', 'auth_version': '3.x_oidc_access_token',
+                       'vo': 'vo_name'},
                       res.auth_list)
         self.assertIn({'type': 'InfrastructureManager', 'token': 'atoken'}, res.auth_list)
 
