@@ -342,8 +342,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
+        vo = self.get_vo_name(auth_data)
+        sys_image_vo = radl_system.getValue("disk.0.image.vo")
+        if sys_image_vo and vo and vo != sys_image_vo:
+            return None
+
         if protocol == "appdb":
-            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack", site=self.cloud.server)
+            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack", vo, site=self.cloud.server)
             if not image_id or not site_url:
                 self.log_error(msg)
                 return None

@@ -1430,6 +1430,7 @@ class InfrastructureManager:
                     appdb = AppDBIS(appdb_auth_item["host"])
                 else:
                     appdb = AppDBIS()
+                InfrastructureManager.logger.debug("Getting getting auth data from AppDBIS")
                 code, sites = appdb.get_sites_supporting_vo(vo)
                 if code == 200:
                     for site_name, site_url, project_id in sites:
