@@ -59,7 +59,7 @@ class ResponseIM:
 
 class IM:
 
-    def __init__(self, url, user, password, token=None, verify=False, timeout=5):
+    def __init__(self, url, user, password, token=None, verify=False, timeout=20):
         self.url = url
         self.verify_ssl = verify
         self.timeout = timeout
