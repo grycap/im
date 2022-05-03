@@ -59,7 +59,7 @@ class ResponseIM:
 
 class IM:
 
-    def __init__(self, url, user, password, token=None, verify=False, timeout=5):
+    def __init__(self, url, user, password, token=None, verify=False, timeout=20):
         self.url = url
         self.verify_ssl = verify
         self.timeout = timeout
@@ -100,7 +100,9 @@ class IM:
         except requests.exceptions.InvalidHeader as e:
             logging.error("* InvalidHeader exception: ---> " + str(e) + " <--")
             rq = ResponseIM(111, e)
-
+        except requests.exceptions.Timeout as e:
+            logging.error("* Timeout ConnectionError exception at method " + method + ": " + str(e))
+            rq = ResponseIM(111, "Timeout connecting with %s" % self.url)
         return rq
 
     def list_infrastructure(self):
@@ -303,15 +305,18 @@ def main(url, token, username, password, delay=0.5):
     vms = im.get_infrastructure_vms(url_infr)
     if vms.statuscode == 200:
         if len(vms.info) != 1:
-            return 1, "Unexpected number of VMs: %s != 1" % vms.info, im.get_mean_response_time()
+            im.delete_infrastructure(url_infr)
+            return 1, "Unexpected number of VMs: %s != 1" % len(vms.info), im.get_mean_response_time()
     else:
-        return 1, "Error getting infrastructure VMs", im.get_mean_response_time()
+        im.delete_infrastructure(url_infr)
+        return 1, "Error getting infrastructure VMs: %s" % vms.info, im.get_mean_response_time()
 
     # START INFRASTRUCTURE
     time.sleep(delay)
     si = im.start_infrastructure(url_infr)
 
     if si.statuscode != 200:
+        im.delete_infrastructure(url_infr)
         logging.error("Infrastructure could NOT be STARTED")
         return 1, str(si.info), im.get_mean_response_time()
 
@@ -320,6 +325,7 @@ def main(url, token, username, password, delay=0.5):
     li = im.list_infrastructure()
 
     if li.statuscode != 200:
+        im.delete_infrastructure(url_infr)
         logging.error("Infrastructure could NOT be LISTED")
         return 1, str(li.info), im.get_mean_response_time()
 
@@ -328,16 +334,20 @@ def main(url, token, username, password, delay=0.5):
     cv = im.create_vm(url_infr)
 
     if cv.statuscode != 200:
+        im.delete_infrastructure(url_infr)
         logging.error("VM could NOT be CREATED")
         return 1, str(cv.info), im.get_mean_response_time()
 
+    time.sleep(delay)
     # GET VMS
     vms = im.get_infrastructure_vms(url_infr)
     if vms.statuscode == 200:
         if len(vms.info) != 2:
-            return 1, "Unexpected number of VMs: %s != 2" % vms.info, im.get_mean_response_time()
+            im.delete_infrastructure(url_infr)
+            return 1, "Unexpected number of VMs: %s != 2" % len(vms.info), im.get_mean_response_time()
     else:
-        return 1, "Error getting infrastructure VMs", im.get_mean_response_time()
+        im.delete_infrastructure(url_infr)
+        return 1, "Error getting infrastructure VMs: %s" % vms.info, im.get_mean_response_time()
 
     # DELETE INFRASTRUCTURE
     time.sleep(delay)
