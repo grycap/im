@@ -608,7 +608,7 @@ class SSH:
             self.thread.start()
             self.thread.join(timeout)
 
-            if self.thread.isAlive():
+            if self.thread.is_alive():
                 self.thread.close()
                 self.thread.join(2)
                 if kill_command:

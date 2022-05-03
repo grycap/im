@@ -221,7 +221,7 @@ class InfrastructureInfo:
         Stop all the Ctxt threads
         """
         # Stop the Ctxt thread if it is alive.
-        if self.cm and self.cm.isAlive():
+        if self.cm and self.cm.is_alive():
             self.cm.stop()
 
         # kill all the ctxt processes in the VMs
@@ -524,12 +524,12 @@ class InfrastructureInfo:
                 self.ctxt_tasks.put(elem)
 
     def get_ctxt_process_names(self):
-        return [t.name for t in self.conf_threads if t.isAlive()]
+        return [t.name for t in self.conf_threads if t.is_alive()]
 
     def is_ctxt_process_running(self):
         all_finished = True
         for t in self.conf_threads:
-            if t.isAlive():
+            if t.is_alive():
                 all_finished = False
         if all_finished:
             self.conf_threads = []
@@ -654,7 +654,7 @@ class InfrastructureInfo:
 
         self.add_ctxt_tasks(ctxt_task)
 
-        if self.cm is None or not self.cm.isAlive():
+        if self.cm is None or not self.cm.is_alive():
             self.cm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time)
             self.cm.start()
         else:
