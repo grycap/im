@@ -156,7 +156,15 @@ class InfrastructureManager:
                 deploy_groups_net[net].append(d)
 
         deploy_groups.extend(deploy_groups_net.values())
-        return deploy_groups
+
+        # Avoid to add "empty" deploy groups
+        final_deploy_groups = []
+        for deploy_group in deploy_groups:
+            total = sum([d.vm_number for d in deploy_group])
+            if total > 0:
+                final_deploy_groups.append(deploy_group)
+
+        return final_deploy_groups
 
     @staticmethod
     def _launch_deploy(sel_inf, dep, cloud_id, cloud, concrete_systems, radl, auth, deployed_vm):
@@ -608,8 +616,15 @@ class InfrastructureManager:
                     break
 
             # Sort by score the cloud providers
-            deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
-                                                                      deploy_groups, auth)
+            try:
+                deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
+                                                                        deploy_groups, auth)
+            except Exception as ex:
+                if cloud_id:
+                    break
+                else:
+                    sel_inf.set_adding(False)
+                    raise ex
 
             if sel_inf.deleted:
                 InfrastructureManager.logger.info("Inf ID: %s: Deleted Infrastructure. Stop deploying!" % sel_inf.id)
