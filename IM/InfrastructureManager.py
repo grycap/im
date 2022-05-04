@@ -603,6 +603,9 @@ class InfrastructureManager:
 
         new_vms = []
         all_failed = True
+        # If there are no deploy_groups, skip
+        if not deploy_groups:
+            all_failed = False
         cloud_id = None
         # We are going to start adding resources
         sel_inf.set_adding()
