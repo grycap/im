@@ -618,7 +618,7 @@ class InfrastructureManager:
             # Sort by score the cloud providers
             try:
                 deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
-                                                                        deploy_groups, auth)
+                                                                          deploy_groups, auth)
             except Exception as ex:
                 if cloud_id:
                     break
