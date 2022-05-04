@@ -83,7 +83,7 @@ topology_template:
             inputs:
               db_name: { get_property: [ SELF, name ] }
               db_data: { get_artifact: [ SELF, db_content ] }
-              db_name: { get_property: [ SELF, name ] }
+              db_password: { get_property: [ SELF, password ] }
               db_user: { get_property: [ SELF, user ] }
 
     mysql:
