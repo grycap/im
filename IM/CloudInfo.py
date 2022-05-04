@@ -73,7 +73,8 @@ class CloudInfo:
     def add_extra_fields(auth, cloud_item):
         # Add extra fields in case of OpenStack and EGI sites
         if 'type' in auth and auth['type'] == "OpenStack":
-            auth_version = auth['auth_version'] if 'auth_version' in auth else ""
+            # This should be the same as OpenStackCloudConnector.DEFAULT_AUTH_VERSION
+            auth_version = auth['auth_version'] if 'auth_version' in auth else "2.0_password"
             cloud_item.extra['auth_version'] = auth_version
             if auth_version == "3.x_oidc_access_token":
                 # in this case username represents the identity provider
