@@ -36,7 +36,6 @@ system small_node
 deploy small_node 1
 """
 
-
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
@@ -107,6 +106,7 @@ class IM:
 
     def list_infrastructure(self):
 
+        logging.info("List Infrastructure")
         r = self.requestIM('GET', self.url + "/infrastructures")
 
         if r.statuscode == 200:
@@ -125,6 +125,7 @@ class IM:
 
     def create_infrastructure(self):
 
+        logging.info("Create Infrastructure")
         r = self.requestIM('POST', self.url + "/infrastructures", CREATE_RADL)
 
         if r.statuscode == 200:
@@ -148,6 +149,7 @@ class IM:
 
     def start_infrastructure(self, uri_inf_id):
 
+        logging.info("Start Infrastructure")
         r = self.requestIM('PUT', uri_inf_id + '/start')
 
         if r.statuscode == 200:
@@ -166,6 +168,7 @@ class IM:
 
     def create_vm(self, uri_inf_id):
 
+        logging.info("Create VM")
         r = self.requestIM('POST', uri_inf_id, ADD_RADL)
 
         if r.statuscode == 200:
@@ -184,10 +187,14 @@ class IM:
 
     def delete_infrastructure(self, uri_inf_id):
 
+        logging.info("Delete Infrastructure")
         r = self.requestIM('DELETE', uri_inf_id)
 
         if r.statuscode == 200:
             ret = ResponseIM(r.statuscode, 'delete_infrastructure is OK')
+            global INF_ID
+            if 'INF_ID' in globals() and uri_inf_id == INF_ID:
+                INF_ID = None
         elif r.statuscode == 111:
             ret = ResponseIM(r.statuscode, r.info)
         else:
@@ -202,6 +209,7 @@ class IM:
 
     def get_infrastructure_vms(self, uri_inf_id):
 
+        logging.info("Get Infrastructure VMs")
         r = self.requestIM('GET', uri_inf_id)
 
         if r.statuscode == 200:
@@ -221,6 +229,7 @@ class IM:
 
     def get_im_version(self):
 
+        logging.info("Get IM Version")
         r = self.requestIM('GET', self.url + "/version")
 
         if r.statuscode == 200:
@@ -276,9 +285,7 @@ def log_setup(loglevel, log_file):
         logger.setLevel(lvl)
 
 
-def main(url, token, username, password, delay=0.5):
-
-    im = IM(url, username, password, token)
+def main(im, delay=0.5):
 
     vi = im.get_im_version()
 
@@ -289,6 +296,8 @@ def main(url, token, username, password, delay=0.5):
     # CREATE INFRASTRUCTURE
     ci = im.create_infrastructure()
     url_infr = ci.info
+    global INF_ID
+    INF_ID = url_infr
 
     if ci.statuscode == 401:
         return 2, "Authentication Error", 0
@@ -369,6 +378,7 @@ def handler(signum, frame):
 
 if __name__ == '__main__':
 
+    im = None
     rc_status_map = {0: "OK", 1: "WARNING", 2: "CRITICAL", 3: "UNKNOWN"}
 
     try:
@@ -398,7 +408,8 @@ if __name__ == '__main__':
             with open(args.token) as file:
                 args.token = file.read().replace('\n', '')
 
-        rc, msg, mean_time = main(args.url, args.token, args.username, args.password)
+        im = IM(args.url, args.username, args.password, args.token)
+        rc, msg, mean_time = main(im)
     except TimeOutExcetion as tex:
         rc = 2
         msg = str(tex)
@@ -407,6 +418,13 @@ if __name__ == '__main__':
         rc = 3
         msg = str(ex)
         mean_time = 0
+
+    try:
+        # In case of errors if delete the infra
+        if im and INF_ID:
+            im.delete_infrastructure(INF_ID)
+    except Exception as ex:
+        logging.info("Initializing --------------")
 
     msg = "%s: %s" % (rc_status_map[rc], msg)
     if mean_time > 0:
