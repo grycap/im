@@ -240,7 +240,7 @@ The main menu bar is located on top of the pages:
 * "External Links" show a set of configurables information links (documentation, video tutorials, etc.)
 * Finally on the right top corner appears the "User" menu item. This item shows the full name of the logged user,
   and an avatar obtained from `Gravatar <https://www.gravatar.com/>`_. In this menu the user can access their 
-  "Cloud Credentials" with the cloud providers or logout the application.
+  "Cloud Credentials" with the cloud providers, add his "SSH Keys" to be added to the VMs or logout the application.
 
 Cloud Crecentials
 ^^^^^^^^^^^^^^^^^^^
@@ -264,6 +264,29 @@ available from the sites and the list of VOs the user is member.
 .. figure:: images/dash_edit_cred.png
 
    Fig 3. Edit/Add a Crecential.
+
+SSH Key
+^^^^^^^^
+
+This page enables the user to add or delete public SSH Keys to be injected to the deployed VMs
+to allow him to establish a secure connection between your computer and your virtual server(s).
+
+The user can manage a set of SSH Keys that will appear in the SSK Keys list as 
+depicted in :ref:`Fig. 4 <_figure_dash_ssh_key_list>`. The user can delete the existing SSH Keys
+or add new ones using the "New SSH Key" Button.
+
+.. _figure_dash_ssh_key_list:
+.. figure:: images/dash_ssh_key_list.png
+
+   Fig 4. SSH Keys list.
+
+If the "New SSH Key" :ref:`Fig. 5 <_figure_dash_ssh_key_add>` will be shown, enabling the user to
+add a new key setting a description that will be shown in the list.
+
+.. _figure_dash_ssh_key_add:
+.. figure:: images/dash_ssh_key_add.png
+
+   Fig 5. Add a new SSH Key.
 
 
 TOSCA Templates
