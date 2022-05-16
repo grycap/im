@@ -265,8 +265,8 @@ available from the sites and the list of VOs the user is member.
 
    Fig 3. Edit/Add a Crecential.
 
-SSH Key
-^^^^^^^^
+SSH Keys
+^^^^^^^^^
 
 This page enables the user to add or delete public SSH Keys to be injected to the deployed VMs
 to allow him to establish a secure connection between your computer and your virtual server(s).
