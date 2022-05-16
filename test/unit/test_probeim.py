@@ -57,7 +57,7 @@ class TestProbeIMZabbix(unittest.TestCase):
         self.assertEqual(cv.info, 'Creation of VM is OK')
 
     @mock.patch('probeim.IM.requestIM')
-    def test_delete_vm(self, request_delete_mock):
+    def test_delete_infra(self, request_delete_mock):
         """ Testing IM.delete_infrastructure """
         request_delete_mock.return_value = MockResponse({}, 200)
         im = probeim.IM("http://server.com:8800", "", "")
@@ -100,7 +100,8 @@ class TestProbeIMZabbix(unittest.TestCase):
         create.return_value = MockResponse("any/url", 200)
         get_im_version.return_value = MockResponse('{"version": "1.10.0"}', 200)
         get_infrastructure_vms.side_effect = [MockResponse(["vm"], 200), MockResponse(["vm", "vm2"], 200)]
-        rc, _, _ = probeim.main("", None, "user", "pass")
+        im = probeim.IM("http://server.com:8800", "", "")
+        rc, _, _ = probeim.main(im)
         self.assertEqual(rc, 0)
 
 
