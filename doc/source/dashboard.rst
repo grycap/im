@@ -74,59 +74,6 @@ You need to run the IM dashboard on HTTPS (otherwise you will get an error); you
 
 Details are provided in the next paragraphs.
 
-Enabling Credentials encryption
--------------------------------
-
-To enable the encryption of the Cloud providers credentials (sensitive data), you have to set the `CREDS_KEY`
-environment varible with a valid key used to encrypt/decrypt de data. To get a valid one you can use this 
-python code (you will need `Cryptography <https://cryptography.io/>`_ ) library)::
-
-   from cryptography.fernet import Fernet
-   key = Fernet.generate_key()
-   print(key.decode())
-
-
-TOSCA Template Metadata
------------------------
-
-The IM dashboard can exploit some optional information provided in the TOSCA templates for rendering the cards describing the type of applications/services or virtual infrastructure that a user can deploy.
-
-In particular, the following tags are supported:
-
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| **Tag name**          | **Description**                                                                                                      |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| description           | | Used for showing the card description                                                                              |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| metadata.display_name | | Used for the card title. If not pro                                                                                |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| metadata.icon         | | Used for showing the card image. If no image URL is provided,                                                      |
-|                       | | the dashboard will load this `icon <https://cdn4.iconfinder.com/data/icons/mosaicon-04/512/websettings-512.png>`_. |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| metadata.display_name | | Used for the card title. If not provided, the template name will be used                                           |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| metadata.tag          | | Used for the card ribbon (displayed on the right bottom corner)                                                    |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-
-
-Example of template metadata::
-
-   tosca_definitions_version: tosca_simple_yaml_1_0
-
-   imports:
-   - indigo_custom_types: https://raw.githubusercontent.com/indigo-dc/tosca-types/v4.0.0/custom_types.yaml
-
-   description: Deploy a Mesos Cluster (with Marathon and Chronos frameworks) on top of Virtual machines
-
-   metadata:
-   display_name: Deploy a Mesos cluster
-   icon: images/mesos.png
-
-   topology_template:
-
-   ....
-
-
 Enabling HTTPS
 ^^^^^^^^^^^^^^
 
@@ -205,6 +152,59 @@ Performance tuning
 You can change the number of gunicorn worker processes using the environment variable WORKERS.
 E.g. if you want to use 2 workers, launch the container with the option `-e WORKERS=2`
 Check the `documentation <http://docs.gunicorn.org/en/stable/design.html#how-many-workers>`_ for ideas on tuning this parameter.
+
+
+Enabling Credentials encryption
+-------------------------------
+
+To enable the encryption of the Cloud providers credentials (sensitive data), you have to set the `CREDS_KEY`
+environment varible with a valid key used to encrypt/decrypt de data. To get a valid one you can use this 
+python code (you will need `Cryptography <https://cryptography.io/>`_ ) library)::
+
+   from cryptography.fernet import Fernet
+   key = Fernet.generate_key()
+   print(key.decode())
+
+
+TOSCA Template Metadata
+-----------------------
+
+The IM dashboard can exploit some optional information provided in the TOSCA templates for rendering the cards describing the type of applications/services or virtual infrastructure that a user can deploy.
+
+In particular, the following tags are supported:
+
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| **Tag name**          | **Description**                                                                                                      |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| description           | | Used for showing the card description                                                                              |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| metadata.display_name | | Used for the card title. If not pro                                                                                |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| metadata.icon         | | Used for showing the card image. If no image URL is provided,                                                      |
+|                       | | the dashboard will load this `icon <https://cdn4.iconfinder.com/data/icons/mosaicon-04/512/websettings-512.png>`_. |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| metadata.display_name | | Used for the card title. If not provided, the template name will be used                                           |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| metadata.tag          | | Used for the card ribbon (displayed on the right bottom corner)                                                    |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+
+
+Example of template metadata::
+
+   tosca_definitions_version: tosca_simple_yaml_1_0
+
+   imports:
+   - indigo_custom_types: https://raw.githubusercontent.com/indigo-dc/tosca-types/v4.0.0/custom_types.yaml
+
+   description: Deploy a Mesos Cluster (with Marathon and Chronos frameworks) on top of Virtual machines
+
+   metadata:
+   display_name: Deploy a Mesos cluster
+   icon: images/mesos.png
+
+   topology_template:
+
+   ....
 
 .. _use-dashboard:
 
