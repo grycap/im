@@ -74,59 +74,6 @@ You need to run the IM dashboard on HTTPS (otherwise you will get an error); you
 
 Details are provided in the next paragraphs.
 
-Enabling Credentials encryption
--------------------------------
-
-To enable the encryption of the Cloud providers credentials (sensitive data), you have to set the `CREDS_KEY`
-environment varible with a valid key used to encrypt/decrypt de data. To get a valid one you can use this 
-python code (you will need `Cryptography <https://cryptography.io/>`_ ) library)::
-
-   from cryptography.fernet import Fernet
-   key = Fernet.generate_key()
-   print(key.decode())
-
-
-TOSCA Template Metadata
------------------------
-
-The IM dashboard can exploit some optional information provided in the TOSCA templates for rendering the cards describing the type of applications/services or virtual infrastructure that a user can deploy.
-
-In particular, the following tags are supported:
-
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| **Tag name**          | **Description**                                                                                                      |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| description           | | Used for showing the card description                                                                              |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| metadata.display_name | | Used for the card title. If not pro                                                                                |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| metadata.icon         | | Used for showing the card image. If no image URL is provided,                                                      |
-|                       | | the dashboard will load this `icon <https://cdn4.iconfinder.com/data/icons/mosaicon-04/512/websettings-512.png>`_. |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| metadata.display_name | | Used for the card title. If not provided, the template name will be used                                           |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-| metadata.tag          | | Used for the card ribbon (displayed on the right bottom corner)                                                    |
-+-----------------------+----------------------------------------------------------------------------------------------------------------------+
-
-
-Example of template metadata::
-
-   tosca_definitions_version: tosca_simple_yaml_1_0
-
-   imports:
-   - indigo_custom_types: https://raw.githubusercontent.com/indigo-dc/tosca-types/v4.0.0/custom_types.yaml
-
-   description: Deploy a Mesos Cluster (with Marathon and Chronos frameworks) on top of Virtual machines
-
-   metadata:
-   display_name: Deploy a Mesos cluster
-   icon: images/mesos.png
-
-   topology_template:
-
-   ....
-
-
 Enabling HTTPS
 ^^^^^^^^^^^^^^
 
@@ -206,6 +153,59 @@ You can change the number of gunicorn worker processes using the environment var
 E.g. if you want to use 2 workers, launch the container with the option `-e WORKERS=2`
 Check the `documentation <http://docs.gunicorn.org/en/stable/design.html#how-many-workers>`_ for ideas on tuning this parameter.
 
+
+Enabling Credentials encryption
+-------------------------------
+
+To enable the encryption of the Cloud providers credentials (sensitive data), you have to set the `CREDS_KEY`
+environment varible with a valid key used to encrypt/decrypt de data. To get a valid one you can use this 
+python code (you will need `Cryptography <https://cryptography.io/>`_ ) library)::
+
+   from cryptography.fernet import Fernet
+   key = Fernet.generate_key()
+   print(key.decode())
+
+
+TOSCA Template Metadata
+-----------------------
+
+The IM dashboard can exploit some optional information provided in the TOSCA templates for rendering the cards describing the type of applications/services or virtual infrastructure that a user can deploy.
+
+In particular, the following tags are supported:
+
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| **Tag name**          | **Description**                                                                                                      |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| description           | | Used for showing the card description                                                                              |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| metadata.display_name | | Used for the card title. If not pro                                                                                |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| metadata.icon         | | Used for showing the card image. If no image URL is provided,                                                      |
+|                       | | the dashboard will load this `icon <https://cdn4.iconfinder.com/data/icons/mosaicon-04/512/websettings-512.png>`_. |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| metadata.display_name | | Used for the card title. If not provided, the template name will be used                                           |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+| metadata.tag          | | Used for the card ribbon (displayed on the right bottom corner)                                                    |
++-----------------------+----------------------------------------------------------------------------------------------------------------------+
+
+
+Example of template metadata::
+
+   tosca_definitions_version: tosca_simple_yaml_1_0
+
+   imports:
+   - indigo_custom_types: https://raw.githubusercontent.com/indigo-dc/tosca-types/v4.0.0/custom_types.yaml
+
+   description: Deploy a Mesos Cluster (with Marathon and Chronos frameworks) on top of Virtual machines
+
+   metadata:
+   display_name: Deploy a Mesos cluster
+   icon: images/mesos.png
+
+   topology_template:
+
+   ....
+
 .. _use-dashboard:
 
 Usage
@@ -240,7 +240,7 @@ The main menu bar is located on top of the pages:
 * "External Links" show a set of configurables information links (documentation, video tutorials, etc.)
 * Finally on the right top corner appears the "User" menu item. This item shows the full name of the logged user,
   and an avatar obtained from `Gravatar <https://www.gravatar.com/>`_. In this menu the user can access their 
-  "Cloud Credentials" with the cloud providers or logout the application.
+  "Cloud Credentials" with the cloud providers, add his "SSH Keys" to be added to the VMs or logout the application.
 
 Cloud Crecentials
 ^^^^^^^^^^^^^^^^^^^
@@ -265,6 +265,28 @@ available from the sites and the list of VOs the user is member.
 
    Fig 3. Edit/Add a Crecential.
 
+SSH Keys
+^^^^^^^^^
+
+This page enables the user to add or delete public SSH Keys to be injected to the deployed VMs
+to allow him to establish a secure connection between his computer and his virtual server(s).
+
+The user can manage a set of SSH Keys that will appear in the SSK Keys list as 
+depicted in :ref:`Fig. 4 <_figure_dash_ssh_key_list>`. The user can delete the existing SSH Keys
+from the list or add new ones using the "New SSH Key" Button on the top-right of the page.
+
+.. _figure_dash_ssh_key_list:
+.. figure:: images/dash_ssh_key_list.png
+
+   Fig 4. SSH Keys list.
+
+If the "New SSH Key" a new modal form (:ref:`Fig. 5 <_figure_dash_ssh_key_add>`) will be shown,
+enabling the user to add a new key, setting a description that will be shown in the list.
+
+.. _figure_dash_ssh_key_add:
+.. figure:: images/dash_ssh_key_add.png
+
+   Fig 5. Add a new SSH Key.
 
 TOSCA Templates
 ^^^^^^^^^^^^^^^^
@@ -275,24 +297,24 @@ displayed on the right bottom corner. An special "tag" is the elastic one that a
 that are configured to automatically manage the elasticity of the deployed cluster.
 
 The user have to click on the "Configure" button to set the input values of the TOSCA template and 
-also to select the VO, Site and Image to deploy the infrastructure (:ref:`Fig. 4 <figure_dash_configure>`).
+also to select the VO, Site and Image to deploy the infrastructure (:ref:`Fig. 6 <figure_dash_configure>`).
 
 .. _figure_dash_configure:
 .. figure:: images/dash_configure.png
 
-   Fig 4. List of TOSCA templates.
+   Fig 6. List of TOSCA templates.
 
 Initially the user can set a name to describe the infrastructure to be deployed. It will make easier to list infrastructures.
 In the firsts tabs the user can introduce the set of input values of the toplogy. By default there is only one tab
-called "Input Values" (:ref:`Fig. 5 <figure_dash_inputs>`), but the TOSCA developer can add/rename them to make 
+called "Input Values" (:ref:`Fig. 7 <figure_dash_inputs>`), but the TOSCA developer can add/rename them to make 
 easier the input values selection.
 
 .. _figure_dash_inputs:
 .. figure:: images/dash_inputs.png
 
-   Fig 5. TOSCA input values.
+   Fig 7. TOSCA input values.
 
-The final tab will be the "Cloud Provider Selection" (:ref:`Fig. 6 <figure_dash_site>`).
+The final tab will be the "Cloud Provider Selection" (:ref:`Fig. 8 <figure_dash_site>`).
 In this tab the user has to select: first, one of the Cloud providers that has been previously added (and not disabled) 
 in the "Cloud Crecentials" page, then it has to select the base image used to deploy the VMs.
 In case of EGI Cloud Compute sites the user has two options, he can select an image from the list of images provided by the
@@ -304,39 +326,42 @@ the user has to specify manually the AMI id of the image to use.
 .. _figure_dash_site:
 .. figure:: images/dash_site.png
 
-   Fig 6. Select Cloud Provider and Image.
+   Fig 8. Select Cloud Provider and Image.
 
 
 Infrastructures
 ^^^^^^^^^^^^^^^^
 
-This page will show the list of infrastructures deployed by the current user (:ref:`Fig. 7 <figure_dash_inf_list>`). The first column shows the name set
-by the user on infrastructure creation, then shows the ID assinged by the IM service, third column shows the current
-status of the infrastructure, fourth show the list of VMs with their IDs and finally appears a button with a set of
-actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
+This page will show the list of infrastructures deployed by the current user (:ref:`Fig. 9 <figure_dash_inf_list>`).
+The first column shows the name set by the user on infrastructure creation, then shows the ID assinged by the IM service,
+third column shows the Cloud type where the infrastructure was deployed, next column shows information about the Cloud
+provider, fifth column shows the current status of the infrastructure, sixth one shows the list of VMs with their IDs and
+finally appears a button with a set of actions to perform to it (:ref:`Fig. 10 <figure_dash_inf_actions>`). Columns
+"Cloud Type" and "Cloud Info" were added in version 2.2.0, infrastructures launched with previous versions will have
+both columns empty.
 
 
 .. _figure_dash_inf_list:
 .. figure:: images/dash_inf_list.png
 
-   Fig 7. List of infrastructures.
+   Fig 9. List of infrastructures.
 
 
 .. _figure_dash_inf_actions:
 .. figure:: images/dash_inf_actions.png
 
-   Fig 8. List of infrastructure Actions.
+   Fig 10. List of infrastructure Actions.
 
 **List of Actions**:
 
 * Add nodes: The Add nodes action enables to add new VMs to the users' deployment. As depicted in
-  :ref:`Fig. 9 <figure_dash_add_nodes>` it will show the list of different types of nodes currently deployed in 
+  :ref:`Fig. 11 <figure_dash_add_nodes>` it will show the list of different types of nodes currently deployed in 
   the infrastructure and the user have to set the number of nodes of each type he wants to deploy.
 
 .. _figure_dash_add_nodes:
 .. figure:: images/dash_add_nodes.png
 
-   Fig 9. Add nodes page.
+   Fig 11. Add nodes page.
 
 * Show template: This action shows the original TOSCA template submitted to create the infrastructure.
 
@@ -352,7 +377,7 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 .. _figure_dash_outputs:
 .. figure:: images/dash_outputs.png
 
-   Fig 10. TOSCA outputs.
+   Fig 12. TOSCA outputs.
 
 * Delete: Delete this infrastructure and all the asociated resources. It also has the option to "Force" de deletion.
   In this case the infrastructure will be removed from the IM service even if some cloud resources cannot be deleted.
@@ -373,7 +398,7 @@ actions to perform to it (:ref:`Fig. 8 <figure_dash_inf_actions>`).
 .. _figure_dash_change_user:
 .. figure:: images/dash_change_user.png
 
-   Fig 11. Change/Add User modal form.
+   Fig 13. Change/Add User modal form.
 
 **VM Info page**:
 
@@ -387,12 +412,12 @@ the SSH credentials needed to access it. Second table will show other additional
 .. _figure_dash_vm_info:
 .. figure:: images/dash_vm_info.png
 
-   Fig 12. VM Info page.
+   Fig 14. VM Info page.
 
 In case of Resizing the VM the user must provide the new size of the VM in terms of number of CPUs and ammount of memory as
-show in :ref:`Fig. 12 <figure_dash_vm_resize>`.
+show in :ref:`Fig. 15 <figure_dash_vm_resize>`.
 
 .. _figure_dash_vm_resize:
 .. figure:: images/dash_vm_resize.png
 
-   Fig 12. VM Resize modal form.
+   Fig 15. VM Resize modal form.
