@@ -1258,6 +1258,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 'ex_security_groups': sgs,
                 'name': self.gen_instance_name(system)}
 
+        if system.getValue('availability_zone'):
+            args['ex_availability_zone'] = system.getValue('availability_zone')
+
         if blockdevicemappings:
             args['ex_blockdevicemappings'] = blockdevicemappings
 
