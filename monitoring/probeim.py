@@ -36,6 +36,7 @@ system small_node
 deploy small_node 1
 """
 
+
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
