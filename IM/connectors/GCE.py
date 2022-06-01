@@ -585,8 +585,17 @@ class GCECloudConnector(LibCloudCloudConnector):
             if not net_provider_id:
                 net_provider_id = "default"
 
-        args['ex_network'] = net_provider_id
-        self.create_firewall(inf, net_provider_id, radl, driver)
+        if "." in net_provider_id:
+            parts = net_provider_id.split(".")
+            if len(parts) == 2:
+                args['ex_network'] = parts[0]
+                args['ex_subnetwork'] = parts[1]
+                self.create_firewall(inf, parts[0], radl, driver)
+            else:
+                raise Exception("Incorrect subnet value in provider_id value: %s" % net_provider_id)
+        else:
+            args['ex_network'] = net_provider_id
+            self.create_firewall(inf, net_provider_id, radl, driver)
 
         args['ex_can_ip_forward'] = self.can_ip_forward(radl)
 
