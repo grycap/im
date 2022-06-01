@@ -18,6 +18,7 @@ import uuid
 import os
 import time
 import re
+from netaddr import IPNetwork, IPAddress
 
 try:
     from libcloud.compute.base import NodeSize, NodeState
@@ -39,6 +40,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
+from IM.config import Config
 
 
 class GCECloudConnector(LibCloudCloudConnector):
@@ -862,7 +864,17 @@ class GCECloudConnector(LibCloudCloudConnector):
 
             self.update_system_info_from_instance(vm.info.systems[0], node.size)
 
-            vm.setIps(node.public_ips, node.private_ips)
+            private_ips = []
+            public_ips = list(node.public_ips)
+            # Use PRIVATE_NET_MASKS to set private IPs
+            for private_ip in node.private_ips:
+                is_private = any([IPAddress(private_ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+                if is_private:
+                    private_ips.append(private_ip)
+                else:
+                    public_ips.append(private_ip)
+
+            vm.setIps(public_ips, private_ips)
             self.add_dns_entries(vm, auth_data)
             self.addRouterInstance(vm, driver)
         else:
