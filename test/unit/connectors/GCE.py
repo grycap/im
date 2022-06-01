@@ -114,7 +114,7 @@ class TestGCEConnector(TestCloudConnectorBase):
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, get_driver):
         radl_data = """
-            network net1 (outbound = 'yes' and outports = '8080,9000:9100')
+            network net1 (outbound = 'yes' and outports = '8080,9000:9100' and provider_id = 'net.subnet')
             network net2 ()
             system test (
             cpu.arch='x86_64' and
@@ -183,14 +183,15 @@ class TestGCEConnector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a single VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        self.assertEqual(driver.create_node.call_args_list[0][1]['ex_network'], "default")
+        self.assertEqual(driver.create_node.call_args_list[0][1]['ex_network'], "net")
+        self.assertEqual(driver.create_node.call_args_list[0][1]['ex_subnetwork'], "subnet")
         self.assertEqual(driver.create_node.call_args_list[0][1]['external_ip'], "ephemeral")
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][1]['deviceName'], "hdb")
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][1]['autoDelete'], True)
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][2]['deviceName'], "hdc")
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_disks_gce_struct'][2]['autoDelete'], False)
-        self.assertEqual(driver.ex_create_firewall.call_args_list[0][0][0], "im-%s-default-all" % inf.id)
-        self.assertEqual(driver.ex_create_firewall.call_args_list[1][0][0], "im-%s-default" % inf.id)
+        self.assertEqual(driver.ex_create_firewall.call_args_list[0][0][0], "im-%s-net-all" % inf.id)
+        self.assertEqual(driver.ex_create_firewall.call_args_list[1][0][0], "im-%s-net" % inf.id)
         self.assertEqual(driver.ex_create_firewall.call_args_list[0][0][1], [{'IPProtocol': 'udp', 'ports': '1-65535'},
                                                                              {'IPProtocol': 'tcp', 'ports': '1-65535'},
                                                                              {'IPProtocol': 'icmp'}])
