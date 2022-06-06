@@ -1,0 +1,143 @@
+{
+  "data": {
+    "siteCloudComputingEndpoints": {
+      "items": [
+        {
+          "gocEndpointUrl": "https://fedcloud-osservices.egi.cesga.es:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 20,
+                "maxVM": 20,
+                "projectID": "3a8e9d966e644405bf19b536adf7743d"
+              }
+            ]
+          },
+          "site": {
+            "name": "CESGA"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://egiosc.gsi.de:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 5,
+                "maxVM": 10,
+                "projectID": "1392719e6e4c4bf7ba0fce8c0acbbd22"
+              }
+            ]
+          },
+          "site": {
+            "name": "GSI-LCG2"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://api.cloud.ifca.es:5000/v3/",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 1,
+                "maxVM": 25,
+                "projectID": "999f045cb1ff4684a15ebb338af69460"
+              }
+            ]
+          },
+          "site": {
+            "name": "IFCA-LCG2"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://cloud.ui.savba.sk:5000/v3/",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 4,
+                "maxVM": 10,
+                "projectID": "71dc9c3785cc4876bfb1a4bfc681e0f3"
+              }
+            ]
+          },
+          "site": {
+            "name": "IISAS-FedCloud"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://sbgcloud.in2p3.fr:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 19,
+                "maxVM": 32,
+                "projectID": "7a91022b9ae74ed9ac1a574972a79499"
+              }
+            ]
+          },
+          "site": {
+            "name": "IN2P3-IRES"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://egi-cloud.pd.infn.it:443/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 1,
+                "maxVM": 30,
+                "projectID": "5ddb325ca8c2495abfd4e8f230bcd51a"
+              }
+            ]
+          },
+          "site": {
+            "name": "INFN-PADOVA-STACK"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://cloud.scai.fraunhofer.de:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 0,
+                "maxVM": 10,
+                "projectID": "7583e1bb07544efdac165e7a121c663e"
+              }
+            ]
+          },
+          "site": {
+            "name": "SCAI"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://bulut.truba.gov.tr:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 1,
+                "maxVM": 10,
+                "projectID": "2fa316a05d364de9b5a55ac78a45f8bf"
+              }
+            ]
+          },
+          "site": {
+            "name": "TR-FC1-ULAKBIM"
+          }
+        },
+        {
+          "gocEndpointUrl": "https://thor.univ-lille.fr:5000/v3",
+          "shares": {
+            "items": [
+              {
+                "totalVM": 1,
+                "maxVM": 16,
+                "projectID": "e57db5c1e0b24bcbac9904f4ac22dcaa"
+              }
+            ]
+          },
+          "site": {
+            "name": "UNIV-LILLE"
+          }
+        }
+      ]
+    }
+  }
+}

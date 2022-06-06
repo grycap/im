@@ -14,8 +14,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os.path
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 import requests
+import re
+import time
 
 from IM.config import Config
 from radl.radl import Feature, system
@@ -29,6 +34,10 @@ class AppDBIS:
     DEFAULT_APPDBIS_URL = "http://is.marie.hellasgrid.gr"
     REST_API_PATH = "/rest/cloud/computing"
     GRAPH_QL_PATH = "/graphql"
+
+    CACHE_TIMEOUT = 600
+    SITES_CACHE = {}
+    """Cache of sites info"""
 
     def __init__(self, url=None, verify=False):
         self.verify = verify
@@ -53,10 +62,10 @@ class AppDBIS:
             surl = url + sep_char + "limit=%s&skip=%s" % (limit, skip)
             resp = requests.request("GET", surl, verify=self.verify)
             if resp.status_code == 200:
-                data = resp.json()["data"]
+                data = resp.json()
                 if data["totalCount"] < total_count:
                     total_count = data["totalCount"]
-                res.extend(data["items"])
+                res.extend(data["data"])
             else:
                 return resp.status_code, resp.text
 
@@ -91,6 +100,92 @@ class AppDBIS:
         else:
             return resp.status_code, resp.text
 
+    def _call_graphql(self, graph_ql_req):
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        graph_ql_q = '{"query": "%s"}' % graph_ql_req.replace(' ', '').replace('"', '\\"').replace('\n', '')
+
+        resp = requests.request("POST", self.appdbis_url + self.GRAPH_QL_PATH, headers=headers,
+                                data=graph_ql_q, verify=self.verify)
+
+        if resp.status_code == 200:
+            try:
+                data = resp.json()["data"]["siteCloudComputingEndpoints"]["items"]
+            except Exception:
+                # in case of format not expected return only the text
+                return resp.status_code, resp.text
+        else:
+            return resp.status_code, resp.text
+
+        return 200, data
+
+    def get_sites_supporting_vo(self, vo):
+        """
+        Get the list of sites that supports an specific VO.
+        """
+        if vo in AppDBIS.SITES_CACHE:
+            res, data_time = AppDBIS.SITES_CACHE[vo]
+            if time.time() - data_time > AppDBIS.CACHE_TIMEOUT:
+                del AppDBIS.SITES_CACHE[vo]
+            else:
+                return 200, res
+
+        # GrapghQL Query
+        graph_ql_req = """
+        {
+          siteCloudComputingEndpoints(filter: {
+            serviceStatus: {
+              value: {ne: CRITICAL}
+            },
+            images: {
+              shareVO:{
+                eq: "%s"
+              }
+            },
+            isInProduction:true,
+            beta:false,
+            endpointServiceType: {
+              eq: "org.openstack.nova"
+            }
+          }) {
+            items {
+              gocEndpointUrl,
+              shares(filter: {
+                VO:{
+                  eq: "%s"
+                }
+              }) {
+                items {
+                  totalVM,
+                  maxVM,
+                  projectID
+                }
+              }
+              site {
+                name
+              }
+            }
+          }
+        }
+        """ % (vo, vo)
+
+        code, data = self._call_graphql(graph_ql_req)
+
+        if code == 200:
+            res = []
+            # Order res by maxVM - totalVM (free VMs)
+            data = sorted(data, reverse=True,
+                          key=lambda item: (item["shares"]["items"][0]["maxVM"] -
+                                            item["shares"]["items"][0]["totalVM"]))
+            for elem in data:
+                endpoint = urlparse(elem["gocEndpointUrl"])
+                res.append((elem["site"]["name"],
+                            "%s://%s" % (endpoint[0], endpoint[1]),
+                            elem["shares"]["items"][0]["projectID"]))
+            AppDBIS.SITES_CACHE[vo] = (res, time.time())
+            return code, res
+        else:
+            return code, data
+
     def get_endpoints_and_images(self, vo, app_name_filter, cpus, mem_in_mb):
         """
         Get the list of sites that supports an specific VO and has some templates
@@ -104,6 +199,9 @@ class AppDBIS:
             templates: {
               CPU: {gt: %s},
               RAM: {gt: %s}
+            },
+            serviceStatus: {
+              value: {ne: CRITICAL}
             },
             images: {
               entityName: {
@@ -165,6 +263,7 @@ class AppDBIS:
                   OSVersion,
                   OSPlatform,
                   entityName,
+                  imageID
                 }
               }
             }
@@ -172,22 +271,7 @@ class AppDBIS:
         }
         """ % (cpus, mem_in_mb, app_name_filter, vo, vo, app_name_filter, vo)
 
-        headers = {"Content-Type": "application/json", "Accept": "application/json"}
-        graph_ql_req = '{"query": "%s"}' % graph_ql_req.replace(' ', '').replace('"', '\\"').replace('\n', '')
-
-        resp = requests.request("POST", self.appdbis_url + self.GRAPH_QL_PATH, headers=headers,
-                                data=graph_ql_req, verify=self.verify)
-
-        if resp.status_code == 200:
-            try:
-                data = resp.json()["data"]["siteServices"]["items"]
-            except Exception:
-                # in case of format not expected return only the text
-                return resp.status_code, resp.text
-        else:
-            return resp.status_code, resp.text
-
-        return 200, data
+        return self._call_graphql(graph_ql_req)
 
     def search_vm(self, radl_system):
         """
@@ -205,49 +289,33 @@ class AppDBIS:
 
         distribution = radl_system.getValue("disk.0.os.flavour")
         if not distribution:
-            distribution = "*"
+            distribution = ".*"
         version = radl_system.getValue("disk.0.os.version")
         if not version:
-            version = "*"
-        cpus = radl_system.getValue("cpu.count")
-        if not cpus:
-            cpus = Config.DEFAULT_VM_CPUS
-        mem_in_mb = Config.DEFAULT_VM_MEMORY
-        if radl_system.getFeature('memory.size'):
-            mem_in_mb = radl_system.getFeature('memory.size').getValue('M')
+            version = ".*"
         vo = radl_system.getValue("disk.0.os.image.vo")
-        if not vo:
-            vo = "*"
         name = radl_system.getValue("disk.0.os.image.name")
         if not name:
             name = ""
 
-        app_name_filter = "*%s* [%s/%s/*]" % (name, distribution, version)
-        code, res = self.get_endpoints_and_images(vo, app_name_filter, cpus, mem_in_mb)
+        vo_filter = None
+        if vo:
+            vo_filter = 'shareVO:"%s"' % vo
+        code, images = self.get_image_list(image_filter=vo_filter)
 
         if code != 200:
             return None
+
         res_systems = []
-        for site in res:
-            url = site["gocEndpointUrl"]
-            # Ignore sites in critical state
-            if site["serviceStatus"]["value"] == "CRITICAL":
+        for image in images:
+            app_name_reg = ".*%s.* \[%s\/%s\/.*]" % (name.lower(), distribution.lower(), version)
+            if not re.search(app_name_reg, image['entityName'].lower()):
                 continue
 
-            if url.endswith("/"):
-                url = url[0:-1]
-            if url.endswith("v3"):
-                url = url[0:-3]
-            if url.endswith("v2.0"):
-                url = url[0:-5]
-
-            for image in site["images"]["items"]:
-                image_id = os.path.basename(image["entityName"])
-                if image_id.startswith("os#"):
-                    image_id = image_id[3:]
-
-                res_systems.append(system(radl_system.name,
-                                          [Feature("disk.0.image.url", "=", "%s/%s" % (url, image_id)),
-                                           Feature("disk.0.image.vo", "=", image["imageVoVmiInstanceVO"])]))
+            endpoint = urlparse(image["endpointID"])
+            res_systems.append(system(radl_system.name,
+                                      [Feature("disk.0.image.url", "=", "ost://%s/%s" % (endpoint[1],
+                                                                                         image["imageID"])),
+                                       Feature("disk.0.image.vo", "=", image["shareVO"])]))
 
         return res_systems

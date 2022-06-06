@@ -234,7 +234,7 @@ class InfrastructureInfo:
         Stop all the Ctxt threads
         """
         # Stop the Ctxt thread if it is alive.
-        if self.cm and self.cm.isAlive():
+        if self.cm and self.cm.is_alive():
             self.cm.stop()
 
         # kill all the ctxt processes in the VMs
@@ -537,12 +537,12 @@ class InfrastructureInfo:
                 self.ctxt_tasks.put(elem)
 
     def get_ctxt_process_names(self):
-        return [t.name for t in self.conf_threads if t.isAlive()]
+        return [t.name for t in self.conf_threads if t.is_alive()]
 
     def is_ctxt_process_running(self):
         all_finished = True
         for t in self.conf_threads:
-            if t.isAlive():
+            if t.is_alive():
                 all_finished = False
         if all_finished:
             self.conf_threads = []
@@ -667,7 +667,7 @@ class InfrastructureInfo:
 
         self.add_ctxt_tasks(ctxt_task)
 
-        if self.cm is None or not self.cm.isAlive():
+        if self.cm is None or not self.cm.is_alive():
             self.cm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time)
             self.cm.start()
         else:
@@ -768,13 +768,13 @@ class InfrastructureInfo:
                 raise Exception("Infrastructure deleted. Do not add resources.")
             self.adding = value
 
-    def get_auth(self):
+    def get_auth(self, only_user_pass=False):
         """
         Return IM auth in a simple way
         """
         if self.auth is not None:
             self_im_auth = self.auth.getAuthInfo("InfrastructureManager")[0]
-            if 'token' in self_im_auth:
+            if 'token' in self_im_auth and not only_user_pass:
                 return self_im_auth['token']
             elif 'username' in self_im_auth and 'password' in self_im_auth:
                 return "%s:%s" % (self_im_auth['username'], self_im_auth['password'])

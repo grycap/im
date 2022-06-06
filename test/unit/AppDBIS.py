@@ -33,24 +33,27 @@ class TestAppDBIS(unittest.TestCase):
                 resp.status_code = 200
                 resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_images_p2.json'))
             elif url == ("/rest/cloud/computing/images/egi.top.vaproviders."
-                         "images.00716434466174a6823f0224254aa7c91acff60d"):
+                         "images.008b85eaa022d50fb385e3fcae018d34ff48abdb"):
                 resp.status_code = 200
                 resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_image.json'))
         elif method == "POST":
             if url == "/graphql":
-                graph_ql_req = """
+                graph_ql_req1 = """
                 {
                   siteCloudComputingEndpoints(filter: {
                     templates: {
                       CPU: {gt: 2},
                       RAM: {gt: 1024}
                     },
+                    serviceStatus: {
+                      value: {ne: CRITICAL}
+                    },
                     images: {
                       entityName: {
-                        ilike: "*Name* [Ubuntu/16.04/*]"
+                        ilike: "*Name* [Ubuntu/20.04/*]"
                       },
                       shareVO:{
-                        ilike: "fedcloud.egi.eu"
+                        ilike: "vo.access.egi.eu"
                       }
                     },
                     isInProduction:true,
@@ -63,7 +66,7 @@ class TestAppDBIS(unittest.TestCase):
                       gocEndpointUrl,
                       shares(filter: {
                         VO:{
-                          ilike: "fedcloud.egi.eu"
+                          ilike: "vo.access.egi.eu"
                         }
                       }) {
                         items {
@@ -88,10 +91,10 @@ class TestAppDBIS(unittest.TestCase):
                       },
                       images(filter: {
                         entityName:{
-                          ilike: "*Name* [Ubuntu/16.04/*]"
+                          ilike: "*Name* [Ubuntu/20.04/*]"
                         },
                         shareVO:{
-                          ilike: "fedcloud.egi.eu"
+                          ilike: "vo.access.egi.eu"
                         }
                       }) {
                         totalCount,
@@ -105,6 +108,7 @@ class TestAppDBIS(unittest.TestCase):
                           OSVersion,
                           OSPlatform,
                           entityName,
+                          imageID
                         }
                       }
                     }
@@ -112,11 +116,53 @@ class TestAppDBIS(unittest.TestCase):
                 }
                 """
                 self.maxDiff = None
-                expected = '{"query": "%s"}' % graph_ql_req.replace(' ', '').replace('"', '\\"').replace('\n', '')
-                self.assertEqual(data, expected)
+                expected1 = '{"query": "%s"}' % graph_ql_req1.replace(' ', '').replace('"', '\\"').replace('\n', '')
+
+                graph_ql_req2 = """
+                {
+                  siteCloudComputingEndpoints(filter: {
+                    serviceStatus: {
+                      value: {ne: CRITICAL}
+                    },
+                    images: {
+                      shareVO:{
+                        eq: "vo.access.egi.eu"
+                      }
+                    },
+                    isInProduction:true,
+                    beta:false,
+                    endpointServiceType: {
+                      eq: "org.openstack.nova"
+                    }
+                  }) {
+                    items {
+                      gocEndpointUrl,
+                      shares(filter: {
+                        VO:{
+                          eq: "vo.access.egi.eu"
+                        }
+                      }) {
+                        items {
+                          totalVM,
+                          maxVM,
+                          projectID
+                        }
+                      }
+                      site {
+                        name
+                      }
+                    }
+                  }
+                }
+                """
+                expected2 = '{"query": "%s"}' % graph_ql_req2.replace(' ', '').replace('"', '\\"').replace('\n', '')
+                self.assertIn(data, [expected1, expected2])
 
                 resp.status_code = 200
-                resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_res.json'))
+                if data == expected1:
+                    resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_res.json'))
+                else:
+                    resp.json.return_value = json.loads(read_file_as_string('../files/appdbis_sites.json'))
 
         return resp
 
@@ -127,43 +173,50 @@ class TestAppDBIS(unittest.TestCase):
         code, res = app.get_image_list(10)
         self.assertEqual(code, 200)
         self.assertEqual(len(res), 20)
-        self.assertEqual(res[0]["applicationEnvironmentAppName"],
-                         "VO VO.NEXTGEOSS.EU Image for EGI CentOS 7 [CentOS/7/VirtualBox]")
+        self.assertEqual(res[0]["entityName"],
+                         "Image for EGI Ubuntu 18.04 [Ubuntu/18.04/VirtualBox]")
 
     @patch('requests.request')
     def test_get_image(self, requests):
         requests.side_effect = self.get_response
         app = AppDBIS()
-        code, res = app.get_image('egi.top.vaproviders.images.00716434466174a6823f0224254aa7c91acff60d')
+        code, res = app.get_image('egi.top.vaproviders.images.008b85eaa022d50fb385e3fcae018d34ff48abdb')
         self.assertEqual(code, 200)
         self.assertEqual(res["imageBaseMpUri"],
-                         "https://appdb.egi.eu/store/vm/image/b3008f58-8a15-4480-9c03-c0770eafbb3b:7751")
+                         "https://appdb.egi.eu/store/vm/image/9117c171-8ca5-41ad-bd36-4b71e4e5dc85:7949")
 
     @patch('requests.request')
     def test_get_endpoints_and_images(self, requests):
         requests.side_effect = self.get_response
         app = AppDBIS()
-        code, res = app.get_endpoints_and_images("fedcloud.egi.eu", "*Name* [Ubuntu/16.04/*]", 2, 1024)
+        code, res = app.get_endpoints_and_images("vo.access.egi.eu", "*Name* [Ubuntu/20.04/*]", 2, 1024)
         self.assertEqual(code, 200)
         self.assertEqual(len(res), 8)
         self.assertEqual(res[0]["site"]["name"], "CESGA")
 
-    @patch('IM.AppDBIS.AppDBIS.get_endpoints_and_images')
-    def test_search_vm(self, get_endpoints_and_images):
-        end_res = json.loads(read_file_as_string('../files/appdbis_res.json'))["data"]["siteServices"]["items"]
-        get_endpoints_and_images.return_value = 200, end_res
+    @patch('IM.AppDBIS.AppDBIS.get_image_list')
+    def test_search_vm(self, get_image_list):
+        images = json.loads(read_file_as_string('../files/appdbis_images.json'))
+        get_image_list.return_value = 200, images["data"]
         app = AppDBIS()
         sys = system("s0", [Feature("disk.0.os.flavour", "=", "Ubuntu"),
-                            Feature("disk.0.os.version", "=", "16.04"),
-                            Feature("disk.0.os.image.name", "=", "Name"),
+                            Feature("disk.0.os.version", "=", "20.04"),
+                            Feature("disk.0.os.image.name", "=", "EGI"),
                             Feature("cpu.count", "=", 2),
                             Feature("memory.size", "=", 1024, "m")])
         res = app.search_vm(sys)
-        self.assertEqual(len(res), 26)
-        self.assertEqual(get_endpoints_and_images.call_args_list[0][0],
-                         ('*', "*Name* [Ubuntu/16.04/*]", 2, 1024))
+        self.assertEqual(len(res), 1)
 
         self.assertEqual(res[0].name, "s0")
-        self.assertEqual(res[0].getValue('disk.0.image.vo'), "fedcloud.egi.eu")
-        self.assertEqual(res[0].getValue('disk.0.image.url'), ("https://fedcloud-osservices.egi.cesga.es:5000/"
-                                                               "7e59923c-3932-4a4f-a67d-06f412800f5b"))
+        self.assertEqual(res[0].getValue('disk.0.image.vo'), "vo.access.egi.eu")
+        self.assertEqual(res[0].getValue('disk.0.image.url'), ("ost://thor.univ-lille.fr:5000/"
+                                                               "d57482d1-9253-4ee7-b3d0-a64d92682591"))
+
+    @patch('requests.request')
+    def test_get_sites_supporting_vo(self, requests):
+        requests.side_effect = self.get_response
+        app = AppDBIS()
+        code, res = app.get_sites_supporting_vo("vo.access.egi.eu")
+        self.assertEqual(code, 200)
+        self.assertEqual(len(res), 9)
+        self.assertEqual(res[0][0], "INFN-PADOVA-STACK")

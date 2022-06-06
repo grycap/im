@@ -1418,9 +1418,33 @@ class InfrastructureManager:
             return auth
 
     @staticmethod
+    def gen_auth_from_appdb(auth):
+        # Gen EGI auth for all the sites that supports the specified VO
+        appdbis_auth = auth.getAuthInfo("AppDBIS")
+        if appdbis_auth and "vo" in appdbis_auth[0] and "token" in appdbis_auth[0]:
+            for appdbis_auth_item in appdbis_auth:
+                vo = appdbis_auth_item["vo"]
+                # To avoid connecting with AppDBIS again
+                del appdbis_auth_item["vo"]
+                if "host" in appdbis_auth_item:
+                    appdbis = AppDBIS(appdbis_auth_item["host"])
+                else:
+                    appdbis = AppDBIS()
+                InfrastructureManager.logger.debug("Getting auth data from AppDBIS")
+                code, sites = appdbis.get_sites_supporting_vo(vo)
+                if code == 200:
+                    for site_name, site_url, project_id in sites:
+                        auth_site = {"id": site_name, "host": site_url, "type": "OpenStack",
+                                     "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
+                                     "domain": project_id, "password": appdbis_auth[0]["token"], "vo": vo}
+                        auth.auth_list.append(auth_site)
+                else:
+                    InfrastructureManager.logger.error("Error getting auth data from AppDBIS: %s" % sites)
+        return auth
+
+    @staticmethod
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
-        auth = InfrastructureManager.get_auth_from_vault(auth)
         im_auth = auth.getAuthInfo("InfrastructureManager")
 
         if not im_auth:
@@ -1457,6 +1481,8 @@ class InfrastructureManager:
             auth = Authentication(auth_list)
 
         # We have to check if TTS is needed for other auth item
+        auth = InfrastructureManager.get_auth_from_vault(auth)
+        auth = InfrastructureManager.gen_auth_from_appdb(auth)
         return auth
 
     @staticmethod
