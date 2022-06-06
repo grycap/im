@@ -22,7 +22,6 @@ import requests
 import re
 import time
 
-from IM.config import Config
 from radl.radl import Feature, system
 
 
