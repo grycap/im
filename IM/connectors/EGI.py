@@ -179,5 +179,3 @@ class EGICloudConnector(OpenStackCloudConnector):
                 return auth['tenant_id']
             else:
                 return auth['tenant']
-
-        return None
