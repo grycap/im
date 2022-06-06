@@ -1,0 +1,32 @@
+{
+    "entityType": "SiteServiceImage",
+    "dataType": "item",
+    "httpStatus": 200,
+    "data": {
+        "id": "egi.top.vaproviders.images.00716434466174a6823f0224254aa7c91acff60d",
+        "entityName": "http://schemas.openstack.org/template/os#5de4f68d-9678-4dee-a7c9-d3e1a72bea4c",
+        "applicationEnvironmentID": "http://schemas.openstack.org/template/os#5de4f68d-9678-4dee-a7c9-d3e1a72bea4c_https://stack-server.ct.infn.it:35357/v2.0",
+        "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/fab3f817-3f10-5cad-a220-061629527d69:6929/",
+        "applicationEnvironmentAppName": "D4SCIENCE.ORG Image for gCube Smart Executor [Ubuntu/14.04/VirtualBox]",
+        "applicationEnvironmentAppVersion": "1.9.1",
+        "applicationEnvironmentDescription": "The gCube Smart Executor acts as a working node for a gCube Statistical Manager Service. Please refer to https//wiki.gcube-system.org/gcube/Statistical_Manager for more information.",
+        "applicationEnvironmentComputingManagerForeignKey": "https://stack-server.ct.infn.it:35357/v2.0_cloud.compute_manager",
+        "imageBaseMpUri": "https://appdb.egi.eu/store/vm/image/b3008f58-8a15-4480-9c03-c0770eafbb3b:7751",
+        "imageContentType": "vo",
+        "imageVoVmiInstanceId": 6929,
+        "imageVmiInstanceId": 6929,
+        "imageAppDBVAppID": 923,
+        "hash": "00716434466174a6823f0224254aa7c91acff60d",
+        "site": {
+            "id": "egi.goc.sites.infn-catania-stack",
+            "pkey": "91514G0",
+            "name": "INFN-CATANIA-STACK"
+        },
+        "service": {
+            "id": "egi.top.vaproviders.infn-catania-stack.11488g0.glue2.0",
+            "endpointPKey": "11488G0",
+            "isInProduction": true,
+            "endpointURL": "http://stack-server.ct.infn.it:8774/v2.1/4e410904908e43418294ace8629ec843"
+        }
+    }
+}

@@ -1,0 +1,93 @@
+{
+    "entityType": "SiteServiceImage",
+    "dataType": "collection",
+    "httpStatus": 200,
+    "data": {
+        "totalCount": 20,
+        "count": 10,
+        "limit": 10,
+        "skip": 0,
+        "items": [
+            {
+                "id": "egi.top.vaproviders.images.00605b00d090adb75101a6a9a6620cd4b15b8f48",
+                "entityName": "http://schemas.openstack.org/template/os#e251e709-3d7e-4d3a-8306-462e2b5c8fa0",
+                "applicationEnvironmentID": "http://schemas.openstack.org/template/os#e251e709-3d7e-4d3a-8306-462e2b5c8fa0_https://api.cloud.ifca.es:5000/v3",
+                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/a60d70bd-138f-5c3d-8008-00fb8febaa8b:8017/",
+                "applicationEnvironmentAppName": "VO VO.NEXTGEOSS.EU Image for EGI CentOS 7 [CentOS/7/VirtualBox]",
+                "applicationEnvironmentAppVersion": "2019.07.08"
+            },
+            {
+                "id": "egi.top.vaproviders.images.00716434466174a6823f0224254aa7c91acff60d",
+                "entityName": "http://schemas.openstack.org/template/os#5de4f68d-9678-4dee-a7c9-d3e1a72bea4c",
+                "applicationEnvironmentID": "http://schemas.openstack.org/template/os#5de4f68d-9678-4dee-a7c9-d3e1a72bea4c_https://stack-server.ct.infn.it:35357/v2.0",
+                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/fab3f817-3f10-5cad-a220-061629527d69:6929/",
+                "applicationEnvironmentAppName": "D4SCIENCE.ORG Image for gCube Smart Executor [Ubuntu/14.04/VirtualBox]",
+                "applicationEnvironmentAppVersion": "1.9.1"
+            },
+            {
+                "id": "egi.top.vaproviders.images.00c3c3650238c10e10e8dfb55af167489cfae1a1",
+                "entityName": "http://schemas.openstack.org/template/os#dd7fd31d-9bed-4d6e-a94b-9c6ca73b71ef",
+                "applicationEnvironmentID": "http://schemas.openstack.org/template/os#dd7fd31d-9bed-4d6e-a94b-9c6ca73b71ef_https://fedcloud-osservices.egi.cesga.es:5000/v3/",
+                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/370d1f0c-f880-5bee-b260-cefdfec548da:8138/",
+                "applicationEnvironmentAppName": "Image for Chipster [Ubuntu/16.04/KVM]",
+                "applicationEnvironmentAppVersion": "3.14.2"
+            },
+            {
+                "id": "egi.top.vaproviders.images.00d4e5cd25ff3ec3971063b930459c0c9a8f4053",
+                "entityName": "os_tpl#6d0389e2-44c5-4711-a582-9f89e478e970",
+                "applicationEnvironmentID": "os_tpl#6d0389e2-44c5-4711-a582-9f89e478e970_https://cloud.recas.ba.infn.it:5000/v2.0",
+                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/0c283f02-91e6-589e-aa58-7783680b78c8:4398/",
+                "applicationEnvironmentAppName": "Image for Developer Cloud Sandbox [CentOS/6.9/KVM]_EGI_geohazards",
+                "applicationEnvironmentAppVersion": "1.0.4"
+            },
+            {
+                "id": "egi.top.vaproviders.images.00e141ee7601719db50884a2cd1f9680322b29e1",
+                "entityName": "http://schemas.fedcloud-services.egi.cesga.es/occi/infrastructure/os_tpl#117",
+                "applicationEnvironmentID": "http://schemas.fedcloud-services.egi.cesga.es/occi/infrastructure/os_tpl#117_fedcloud-services.egi.cesga.es",
+                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/e773b6a2-72d4-5bae-bd14-d3cfcf59b0ea:6737/",
+                "applicationEnvironmentAppName": "e773b6a2-72d4-5bae-bd14-d3cfcf59b0ea@default",
+                "applicationEnvironmentAppVersion": "1.0"
+            },
+            {
+                "id": "egi.top.vaproviders.images.012e0f56a04d7b501d610b057a045d366cdb154a",
+                "entityName": "os_tpl#3f9ef085-68d4-48f8-8be8-a336b10e691b",
+                "applicationEnvironmentID": "os_tpl#3f9ef085-68d4-48f8-8be8-a336b10e691b_https://cloud.recas.ba.infn.it:5000/v2.0",
+                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/51292df6-2e9a-5ef3-9e39-01444e4cc9ed:6039/",
+                "applicationEnvironmentAppName": "Image for DCI-Bridge [CentOS/7.4/KVM]_EGI_dariah",
+                "applicationEnvironmentAppVersion": "3.7.5.4"
+            },
+            {
+                "id": "egi.top.vaproviders.images.015e730c7a71c3340bd0cec0f18216233305883c",
+                "entityName": "http://schemas.openstack.org/template/os#aeb89bc3-e852-4970-8a98-7d0f7db8e919",
+                "applicationEnvironmentID": "http://schemas.openstack.org/template/os#aeb89bc3-e852-4970-8a98-7d0f7db8e919_https://fedcloud-osservices.egi.cesga.es:5000/v3/",
+                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/54ee95e6-e26f-5d0f-8939-dde6de652666:8137/",
+                "applicationEnvironmentAppName": "Image for EGI Centos 6 [CentOS/6/KVM]",
+                "applicationEnvironmentAppVersion": "2019.07.08"
+            },
+            {
+                "id": "egi.top.vaproviders.images.015f99283dda5c5b4e3385a97839a3fc2b3be955",
+                "entityName": "http://schemas.openstack.org/template/os#0e4d5af2-de83-483e-883b-1206891777fa",
+                "applicationEnvironmentID": "http://schemas.openstack.org/template/os#0e4d5af2-de83-483e-883b-1206891777fa_https://cloud.100percentit.com:5000/v2.0",
+                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/b93d7f71-ae03-5826-bb44-d9154ed28a91:2678/",
+                "applicationEnvironmentAppName": "Image for DCI-Bridge [Debian/7.0/KVM]_EGI_FCTF",
+                "applicationEnvironmentAppVersion": "3.7.1.7"
+            },
+            {
+                "id": "egi.top.vaproviders.images.017d32adba8771894a0f8ff0c31fee9f581f8c98",
+                "entityName": "os_tpl#327f0fa6-95ce-4732-a716-c12c4cf8feb6",
+                "applicationEnvironmentID": "os_tpl#327f0fa6-95ce-4732-a716-c12c4cf8feb6_https://cloud.recas.ba.infn.it:5000/v2.0",
+                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/fab3f817-3f10-5cad-a220-061629527d69:4431/",
+                "applicationEnvironmentAppName": "Image for gCube Smart Executor [Ubuntu/14.04/VirtualBox]_EGI_d4science",
+                "applicationEnvironmentAppVersion": "1.9"
+            },
+            {
+                "id": "egi.top.vaproviders.images.01ac011d579081c37fd160bc3d646a67f78a40a9",
+                "entityName": "http://schemas.openstack.org/template/os#3bab18da-1ab9-43c1-a9b1-d52e1147cba0",
+                "applicationEnvironmentID": "http://schemas.openstack.org/template/os#3bab18da-1ab9-43c1-a9b1-d52e1147cba0_https://sbgcloud.in2p3.fr:5000/v3",
+                "applicationEnvironmentRepository": "https://appdb.egi.eu/store/vo/image/422d9336-e695-5316-adb1-3bc0d0a79377:8136/",
+                "applicationEnvironmentAppName": "Image for EGI CentOS 7 [CentOS/7/VirtualBox]",
+                "applicationEnvironmentAppVersion": "2019.07.08"
+            }
+        ]
+    }
+}
