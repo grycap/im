@@ -76,7 +76,7 @@
     - name: Fix EPEL
       lineinfile:
         path: /etc/yum.repos.d/epel.repo
-        regexp: '^metalink=https://mirrors.fedoraproject.org/metalink?repo=epel-$releasever&arch=$basearch&infra=$infra&content=$contentdir'
+        regexp: '^metalink=https:\/\/mirrors\.fedoraproject\.org\/metalink\?repo=epel-\$releasever&arch=\$basearch&infra=\$infra&content=\$contentdir'
         insertafter: '^#baseurl '
         line: 'baseurl=https://dl.fedoraproject.org/pub/archive/epel/8.5.2022-05-10/Everything/x86_64/'
       when: ansible_os_family == "RedHat" and ansible_distribution != "Fedora" and ansible_distribution_major_version|int < 9
