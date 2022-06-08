@@ -1422,24 +1422,23 @@ class InfrastructureManager:
         # Gen EGI auth for all the sites that supports the specified VO
         appdbis_auth = auth.getAuthInfo("AppDBIS")
         if appdbis_auth and "vo" in appdbis_auth[0] and "token" in appdbis_auth[0]:
-            for appdbis_auth_item in appdbis_auth:
-                vo = appdbis_auth_item["vo"]
-                # To avoid connecting with AppDBIS again
-                del appdbis_auth_item["vo"]
-                if "host" in appdbis_auth_item:
-                    appdbis = AppDBIS(appdbis_auth_item["host"])
-                else:
-                    appdbis = AppDBIS()
-                InfrastructureManager.logger.debug("Getting auth data from AppDBIS")
-                code, sites = appdbis.get_sites_supporting_vo(vo)
-                if code == 200:
-                    for site_name, site_url, project_id in sites:
-                        auth_site = {"id": site_name, "host": site_url, "type": "OpenStack",
-                                     "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
-                                     "domain": project_id, "password": appdbis_auth[0]["token"], "vo": vo}
-                        auth.auth_list.append(auth_site)
-                else:
-                    InfrastructureManager.logger.error("Error getting auth data from AppDBIS: %s" % sites)
+            vo = appdbis_auth[0]["vo"]
+            # To avoid connecting with AppDBIS again
+            del appdbis_auth[0]["vo"]
+            if "host" in appdbis_auth[0]:
+                appdbis = AppDBIS(appdbis_auth[0]["host"])
+            else:
+                appdbis = AppDBIS()
+            InfrastructureManager.logger.debug("Getting auth data from AppDBIS")
+            code, sites = appdbis.get_sites_supporting_vo(vo)
+            if code == 200:
+                for site_name, site_url, project_id in sites:
+                    auth_site = {"id": site_name, "host": site_url, "type": "OpenStack",
+                                 "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
+                                 "domain": project_id, "password": appdbis_auth[0]["token"], "vo": vo}
+                    auth.auth_list.append(auth_site)
+            else:
+                InfrastructureManager.logger.error("Error getting auth data from AppDBIS: %s" % sites)
         return auth
 
     @staticmethod
@@ -1717,7 +1716,15 @@ class InfrastructureManager:
         """
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
-        return InfrastructureManager._get_cloud_conn(cloud_id, auth).list_images(auth)
+        appdbis_auth = auth.getAuthInfo("AppDBIS")
+        if appdbis_auth and "token" in appdbis_auth[0] and cloud_id == appdbis_auth[0]['id']:
+            if "host" in appdbis_auth[0]:
+                appdbis = AppDBIS(appdbis_auth[0]["host"])
+            else:
+                appdbis = AppDBIS()
+            return appdbis.list_images(filters)
+        else:
+            return InfrastructureManager._get_cloud_conn(cloud_id, auth).list_images(auth, filters)
 
     @staticmethod
     def GetCloudQuotas(cloud_id, auth):
