@@ -297,9 +297,7 @@ class AppDBIS:
         if not name:
             name = ""
 
-        vo_filter = None
-        if vo:
-            vo_filter = 'shareVO:"%s"' % vo
+        vo_filter = 'shareVO:"%s"' % vo if vo else None
         code, images = self.get_image_list(image_filter=vo_filter)
 
         if code != 200:
@@ -318,3 +316,49 @@ class AppDBIS:
                                        Feature("disk.0.image.vo", "=", image["shareVO"])]))
 
         return res_systems
+
+    def list_images(self, filters=None):
+        """
+        Get a list of images available on AppDBIS using IM URI format.
+
+        Args:
+
+          - filters(:py:class:`dict` of str objects): Pair key value to filter the list of images.
+                                                     It is cloud provider specific.
+
+        Returns: a list dicts with at least two fields "uri" and "name".
+        """
+        if not filters:
+            filters = {}
+
+        if "distribution" in filters:
+            distribution = filters["distribution"]
+        else:
+            distribution = ".*"
+
+        if "vo" in filters:
+            vo = filters["vo"]
+        else:
+            vo = None
+
+        if "version" in filters:
+            version = filters["version"]
+        else:
+            version = ".*"
+
+        vo_filter = 'shareVO:"%s"' % vo if vo else None
+        code, images = self.get_image_list(image_filter=vo_filter)
+
+        if code != 200:
+            return None
+
+        res = []
+        for image in images:
+            app_name_reg = ".* \[%s\/%s\/.*]" % (distribution.lower(), version)
+            if not re.search(app_name_reg, image['entityName'].lower()):
+                continue
+
+            endpoint = urlparse(image["endpointID"])
+            res.append({"uri": "ost://%s/%s" % (endpoint[1], image["imageID"]), "name": image['entityName']})
+
+        return res

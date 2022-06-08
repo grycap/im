@@ -1333,7 +1333,8 @@ configure step2 (
 
         Config.BOOT_MODE = 0
 
-    def test_get_cloud_info(self):
+    @patch('IM.InfrastructureManager.AppDBIS')
+    def test_get_cloud_info(self, appdbis):
         auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         res = IM.GetCloudImageList("cloud1", auth)
 
@@ -1348,6 +1349,18 @@ configure step2 (
 
         with self.assertRaises(Exception):
             IM.GetCloudQuotas("cloud2", auth)
+
+        auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'},
+                               {'id': 'app', 'type': 'AppDBIS', 'token': 'atoken'}])
+
+        appdbis_mock = MagicMock()
+        appdbis.return_value = appdbis_mock
+        appdbis_mock.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
+
+        res = IM.GetCloudImageList("app", auth, {"distribution": "Ubuntu", "version": "20.04"})
+        self.assertEqual(res, [{'uri': 'ost://site/imageid', 'name': 'Image Name'}])
+        self.assertEqual(appdbis_mock.list_images.call_args_list[0][0][0],
+                         {'distribution': 'Ubuntu', 'version': '20.04'})
 
     @patch('IM.InfrastructureManager.VMRC')
     @patch('IM.InfrastructureManager.AppDBIS')

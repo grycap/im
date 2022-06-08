@@ -220,3 +220,15 @@ class TestAppDBIS(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertEqual(len(res), 9)
         self.assertEqual(res[0][0], "INFN-PADOVA-STACK")
+
+    @patch('IM.AppDBIS.AppDBIS.get_image_list')
+    def test_list_images(self, get_image_list):
+        images = json.loads(read_file_as_string('../files/appdbis_images.json'))
+        get_image_list.return_value = 200, images["data"]
+        app = AppDBIS()
+        filters = {"distribution": "Ubuntu",
+                   "version": "20.04"}
+
+        res = app.list_images(filters)
+        self.assertEqual(res, [{'name': 'Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]',
+                                'uri': 'ost://thor.univ-lille.fr:5000/d57482d1-9253-4ee7-b3d0-a64d92682591'}])
