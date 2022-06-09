@@ -1333,7 +1333,8 @@ configure step2 (
 
         Config.BOOT_MODE = 0
 
-    def test_get_cloud_info(self):
+    @patch('IM.InfrastructureManager.AppDBIS')
+    def test_get_cloud_info(self, appdbis):
         auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         res = IM.GetCloudImageList("cloud1", auth)
 
@@ -1348,6 +1349,62 @@ configure step2 (
 
         with self.assertRaises(Exception):
             IM.GetCloudQuotas("cloud2", auth)
+
+        auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'},
+                               {'id': 'app', 'type': 'AppDBIS', 'token': 'atoken'}])
+
+        appdbis_mock = MagicMock()
+        appdbis.return_value = appdbis_mock
+        appdbis_mock.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
+
+        res = IM.GetCloudImageList("app", auth, {"distribution": "Ubuntu", "version": "20.04"})
+        self.assertEqual(res, [{'uri': 'ost://site/imageid', 'name': 'Image Name'}])
+        self.assertEqual(appdbis_mock.list_images.call_args_list[0][0][0],
+                         {'distribution': 'Ubuntu', 'version': '20.04'})
+
+    @patch('IM.InfrastructureManager.VMRC')
+    @patch('IM.InfrastructureManager.AppDBIS')
+    def test_systems_with_iis(self, appdbis, vmrc):
+        auth = self.getAuth([0], [0])
+        auth.auth_list.append({"type": "AppDBIS", "host": "http://is.marie.hellasgrid.gr"})
+        radl = RADL()
+        radl.add(system("s0", [Feature("disk.0.os.name", "=", "linux"),
+                               Feature("disk.0.os.flavour", "=", "ubuntu"),
+                               Feature("disk.0.os.version", "=", "18.04")]))
+        radl.add(deploy("s0", 1))
+        inf = InfrastructureInfo()
+        inf.id = "1"
+
+        sys_appdb = system("s0", [Feature("disk.0.os.name", "=", "linux"),
+                                  Feature("disk.0.os.flavour", "=", "ubuntu"),
+                                  Feature("disk.0.os.version", "=", "18.04"),
+                                  Feature("disk.0.image.url", "=", "https://fedcloud.eu"),
+                                  Feature("disk.0.image.vo", "=", "fedcloud.egi.eu")])
+
+        appdbis_mock = MagicMock()
+        appdbis.return_value = appdbis_mock
+        appdbis_mock.search_vm.return_value = [sys_appdb]
+
+        sys_vmrc = system("s0", [Feature("disk.0.os.name", "=", "linux"),
+                                 Feature("disk.0.os.flavour", "=", "ubuntu"),
+                                 Feature("disk.0.os.version", "=", "18.04"),
+                                 Feature("disk.0.image.url", "=", "one://server.com/1"),
+                                 Feature("disk.0.os.credentials.password", "=", "pass"),
+                                 Feature("disk.0.os.credentials.username", "=", "user")])
+
+        vmrc_mock = MagicMock()
+        vmrc.return_value = vmrc_mock
+        vmrc_mock.search_vm.return_value = [sys_vmrc]
+
+        res = IM.systems_with_iis(inf, radl, auth)
+
+        self.assertEqual(len(res['s0']), 2)
+        self.assertEqual(res['s0'][0].getValue("disk.0.image.url"), "one://server.com/1")
+        self.assertEqual(res['s0'][0].getValue("disk.0.os.credentials.password"), "pass")
+        self.assertEqual(res['s0'][0].getValue("disk.0.os.credentials.username"), "user")
+
+        self.assertEqual(res['s0'][1].getValue("disk.0.image.url"), "https://fedcloud.eu")
+        self.assertEqual(res['s0'][1].getValue("disk.0.image.vo"), "fedcloud.egi.eu")
 
     @patch('IM.InfrastructureManager.VaultCredentials')
     def test_get_auth_from_vault(self, vault):

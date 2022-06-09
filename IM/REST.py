@@ -1049,7 +1049,7 @@ def ReturnOptions(**kwargs):
 
 
 @app.route('/version', method='GET')
-def RESTGeVersion():
+def RESTGetVersion():
     try:
         from IM import __version__ as version
         return format_output(version, field_name="version")

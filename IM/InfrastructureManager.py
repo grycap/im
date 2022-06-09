@@ -27,6 +27,7 @@ import IM.InfrastructureInfo
 import IM.InfrastructureList
 
 from IM.VMRC import VMRC
+from IM.AppDBIS import AppDBIS
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from IM.recipe import Recipe
@@ -386,9 +387,10 @@ class InfrastructureManager:
         return concrete_system, score
 
     @staticmethod
-    def systems_with_vmrc(sel_inf, radl, auth):
+    def systems_with_iis(sel_inf, radl, auth):
         """
-        Concrete systems using VMRC
+        Concrete systems using Image Information Systems.
+        Currently supported VMRC and AppDBIS
         NOTE: consider not-fake deploys (vm_number > 0)
         """
         # Get VMRC credentials
@@ -397,12 +399,20 @@ class InfrastructureManager:
             if 'host' in vmrc_elem and 'username' in vmrc_elem and 'password' in vmrc_elem:
                 vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'], vmrc_elem['password']))
 
+        # Get AppDBIS credentials
+        appdbis_list = []
+        for appdbis_elem in auth.getAuthInfo('AppDBIS'):
+            host = None
+            if 'host' in appdbis_elem:
+                host = appdbis_elem['host']
+            appdbis_list.append(AppDBIS(host))
+
         systems_with_vmrc = {}
         for system_id in set([d.id for d in radl.deploys if d.vm_number > 0]):
             s = radl.get_system_by_name(system_id)
 
-            if not s.getValue("disk.0.image.url") and len(vmrc_list) == 0:
-                raise Exception("No correct VMRC auth data provided nor image URL")
+            if not s.getValue("disk.0.image.url") and len(vmrc_list + appdbis_list) == 0:
+                raise Exception("No correct VMRC or AppDBIS auth data provided nor image URL")
 
             if Config.SINGLE_SITE:
                 image_id = os.path.basename(s.getValue("disk.0.image.url"))
@@ -424,13 +434,14 @@ class InfrastructureManager:
                     s_without_apps.addFeature(f)
 
             vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
+            appdbis_res = [s0 for appdbis in appdbis_list for s0 in appdbis.search_vm(s)]
             # Check that now the image URL is in the RADL
-            if not s.getValue("disk.0.image.url") and not vmrc_res:
-                sel_inf.add_cont_msg("No VMI obtained from VMRC to system: " + system_id)
-                raise Exception("No VMI obtained from VMRC to system: " + system_id)
+            if not s.getValue("disk.0.image.url") and not vmrc_res and not appdbis_res:
+                sel_inf.add_cont_msg("No VMI obtained from VMRC nor AppDBIS to system: " + system_id)
+                raise Exception("No VMI obtained from VMRC nor AppDBIS to system: " + system_id)
 
             n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
-                 for s0 in vmrc_res]
+                 for s0 in (vmrc_res + appdbis_res)]
             systems_with_vmrc[system_id] = n if n else [s_without_apps]
 
         return systems_with_vmrc
@@ -555,7 +566,7 @@ class InfrastructureManager:
 
         # Concrete systems using VMRC
         try:
-            systems_with_vmrc = InfrastructureManager.systems_with_vmrc(sel_inf, radl, auth)
+            systems_with_iis = InfrastructureManager.systems_with_iis(sel_inf, radl, auth)
         except Exception as ex:
             sel_inf.configured = False
             sel_inf.add_cont_msg("Error getting VM images: %s" % str(ex))
@@ -567,7 +578,7 @@ class InfrastructureManager:
         cloud_list = dict([(c.id, c.getCloudConnector(sel_inf)) for c in CloudInfo.get_cloud_list(auth)])
         concrete_systems = {}
         for cloud_id, cloud in cloud_list.items():
-            for system_id, systems in systems_with_vmrc.items():
+            for system_id, systems in systems_with_iis.items():
                 s1 = [InfrastructureManager._compute_score(s.clone().applyFeatures(s0,
                                                                                    conflict="other",
                                                                                    missing="other").concrete(),
@@ -1407,9 +1418,32 @@ class InfrastructureManager:
             return auth
 
     @staticmethod
+    def gen_auth_from_appdb(auth):
+        # Gen EGI auth for all the sites that supports the specified VO
+        appdbis_auth = auth.getAuthInfo("AppDBIS")
+        if appdbis_auth and "vo" in appdbis_auth[0] and "token" in appdbis_auth[0]:
+            vo = appdbis_auth[0]["vo"]
+            # To avoid connecting with AppDBIS again
+            del appdbis_auth[0]["vo"]
+            if "host" in appdbis_auth[0]:
+                appdbis = AppDBIS(appdbis_auth[0]["host"])
+            else:
+                appdbis = AppDBIS()
+            InfrastructureManager.logger.debug("Getting auth data from AppDBIS")
+            code, sites = appdbis.get_sites_supporting_vo(vo)
+            if code == 200:
+                for site_name, site_url, project_id in sites:
+                    auth_site = {"id": site_name, "host": site_url, "type": "OpenStack",
+                                 "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
+                                 "domain": project_id, "password": appdbis_auth[0]["token"], "vo": vo}
+                    auth.auth_list.append(auth_site)
+            else:
+                InfrastructureManager.logger.error("Error getting auth data from AppDBIS: %s" % sites)
+        return auth
+
+    @staticmethod
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
-        auth = InfrastructureManager.get_auth_from_vault(auth)
         im_auth = auth.getAuthInfo("InfrastructureManager")
 
         if not im_auth:
@@ -1446,6 +1480,8 @@ class InfrastructureManager:
             auth = Authentication(auth_list)
 
         # We have to check if TTS is needed for other auth item
+        auth = InfrastructureManager.get_auth_from_vault(auth)
+        auth = InfrastructureManager.gen_auth_from_appdb(auth)
         return auth
 
     @staticmethod
@@ -1680,7 +1716,15 @@ class InfrastructureManager:
         """
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
-        return InfrastructureManager._get_cloud_conn(cloud_id, auth).list_images(auth)
+        appdbis_auth = auth.getAuthInfo("AppDBIS")
+        if appdbis_auth and "token" in appdbis_auth[0] and cloud_id == appdbis_auth[0]['id']:
+            if "host" in appdbis_auth[0]:
+                appdbis = AppDBIS(appdbis_auth[0]["host"])
+            else:
+                appdbis = AppDBIS()
+            return appdbis.list_images(filters)
+        else:
+            return InfrastructureManager._get_cloud_conn(cloud_id, auth).list_images(auth, filters)
 
     @staticmethod
     def GetCloudQuotas(cloud_id, auth):

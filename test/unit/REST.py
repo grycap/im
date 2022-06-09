@@ -53,7 +53,7 @@ from IM.REST import (RESTDestroyInfrastructure,
                      RESTStartVM,
                      RESTStopVM,
                      RESTRebootVM,
-                     RESTGeVersion,
+                     RESTGetVersion,
                      RESTCreateDiskSnapshot,
                      RESTImportInfrastructure,
                      RESTGetCloudInfo,
@@ -757,7 +757,7 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res, "Error rebooting VM: Invalid VM ID")
 
     def test_GeVersion(self):
-        res = RESTGeVersion()
+        res = RESTGetVersion()
         self.assertEqual(res, version)
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot")
