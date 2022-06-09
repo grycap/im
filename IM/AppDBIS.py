@@ -361,4 +361,17 @@ class AppDBIS:
             endpoint = urlparse(image["endpointID"])
             res.append({"uri": "ost://%s/%s" % (endpoint[1], image["imageID"]), "name": image['entityName']})
 
+        if vo:
+            code, sites = self.get_sites_supporting_vo(vo)
+            if code == 200:
+                ordered = []
+                # order images using sites
+                for _, endpoint, _ in sites:
+                    site_host = urlparse(endpoint)[1]
+                    for image in res:
+                        if site_host in image['uri']:
+                            ordered.append(image)
+
+                return ordered
+
         return res
