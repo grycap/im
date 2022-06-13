@@ -650,7 +650,7 @@ class CloudConnector(LoggerMixin):
         if new_memory:
             orig_system.setValue('memory.size', new_memory)
         instance_type = radl.systems[0].getValue('instance_type')
-        if instance_type:
+        if instance_type is not None:
             orig_system.setValue('instance_type', instance_type)
         new_gpu = radl.systems[0].getValue('gpu.count')
         if new_gpu:
