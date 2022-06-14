@@ -331,6 +331,11 @@ class AppDBIS:
         if not filters:
             filters = {}
 
+        if "app" in filters:
+            app = filters["app"]
+        else:
+            app = ""
+
         if "distribution" in filters:
             distribution = filters["distribution"]
         else:
@@ -354,7 +359,7 @@ class AppDBIS:
 
         res = []
         for image in images:
-            app_name_reg = ".* \[%s\/%s\/.*]" % (distribution.lower(), version)
+            app_name_reg = ".*%s.* \[%s\/%s\/.*]" % (app.lower(), distribution.lower(), version)
             if not re.search(app_name_reg, image['entityName'].lower()):
                 continue
 
@@ -366,10 +371,11 @@ class AppDBIS:
             if code == 200:
                 ordered = []
                 # order images using sites
-                for _, endpoint, _ in sites:
+                for name, endpoint, _ in sites:
                     site_host = urlparse(endpoint)[1]
                     for image in res:
                         if site_host in image['uri']:
+                            image['name'] = "%s - %s" % (name, image['name'])
                             ordered.append(image)
 
                 return ordered
