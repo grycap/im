@@ -230,7 +230,8 @@ class TestAppDBIS(unittest.TestCase):
         app = AppDBIS()
         filters = {"distribution": "Ubuntu",
                    "version": "20.04",
-                   "vo": "voname"}
+                   "vo": "voname",
+                   "app": "EGI"}
 
         res = app.list_images(filters)
         self.assertEqual(res, [{'name': 'Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]',
