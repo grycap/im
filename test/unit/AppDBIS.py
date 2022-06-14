@@ -234,5 +234,5 @@ class TestAppDBIS(unittest.TestCase):
                    "app": "EGI"}
 
         res = app.list_images(filters)
-        self.assertEqual(res, [{'name': 'Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]',
+        self.assertEqual(res, [{'name': 'NAME - Image for EGI Ubuntu 20.04 [Ubuntu/20.04/VirtualBox]',
                                 'uri': 'ost://thor.univ-lille.fr:5000/d57482d1-9253-4ee7-b3d0-a64d92682591'}])

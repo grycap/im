@@ -371,10 +371,11 @@ class AppDBIS:
             if code == 200:
                 ordered = []
                 # order images using sites
-                for _, endpoint, _ in sites:
+                for name, endpoint, _ in sites:
                     site_host = urlparse(endpoint)[1]
                     for image in res:
                         if site_host in image['uri']:
+                            image['name'] = "%s - %s" % (name, image['name'])
                             ordered.append(image)
 
                 return ordered
