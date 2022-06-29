@@ -356,7 +356,10 @@ both columns empty.
 
 * Add nodes: The Add nodes action enables to add new VMs to the users' deployment. As depicted in
   :ref:`Fig. 11 <figure_dash_add_nodes>` it will show the list of different types of nodes currently deployed in 
-  the infrastructure and the user have to set the number of nodes of each type he wants to deploy.
+  the infrastructure and the user have to set the number of nodes of each type he wants to deploy. It 
+  will also show the image selected to create the VMs (if available). In the dropdown list the user can 
+  change the base image, in case that you want to use a new one on the new deployed nodes, or the old one
+  has been removed and you need to select a new one to be able to deploy them.
 
 .. _figure_dash_add_nodes:
 .. figure:: images/dash_add_nodes.png
