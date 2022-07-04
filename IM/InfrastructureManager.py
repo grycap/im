@@ -1343,6 +1343,7 @@ class InfrastructureManager:
                 raise InvaliddUserException("Invalid InfrastructureManager credentials. Audience not accepted.")
 
         if Config.OIDC_SCOPES and Config.OIDC_CLIENT_ID and Config.OIDC_CLIENT_SECRET:
+            OpenIDClient.INSTROSPECT_PATH = Config.OIDC_INSTROSPECT_PATH
             success, res = OpenIDClient.get_token_introspection(token,
                                                                 Config.OIDC_CLIENT_ID,
                                                                 Config.OIDC_CLIENT_SECRET,
@@ -1369,6 +1370,7 @@ class InfrastructureManager:
 
         try:
             # Now try to get user info
+            OpenIDClient.USER_INFO_PATH = Config.OIDC_USER_INFO_PATH
             success, userinfo = OpenIDClient.get_user_info_request(token, Config.VERIFI_SSL)
             if success:
                 # convert to username to use it in the rest of the IM
