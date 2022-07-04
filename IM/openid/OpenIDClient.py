@@ -35,6 +35,7 @@ class OpenIDClient(object):
             resp = requests.request("GET", url, verify=verify_ssl)
             if resp.status_code != 200:
                 return {"error": "Code: %d. Message: %s." % (resp.status_code, resp.text)}
+            # Only store currently needed data
             OpenIDClient.ISSUER_CONFIG_CACHE[iss] = {"userinfo_endpoint": resp.json()["userinfo_endpoint"],
                                                      "introspection_endpoint": resp.json()["introspection_endpoint"]}
             return resp.json()
