@@ -49,7 +49,7 @@ class TestOpenIDClient(unittest.TestCase):
         self.assertEqual(msg, "Token expired")
 
     @patch('requests.request')
-    def test_get_user_info_request(self, requests):
+    def test_10_get_user_info_request(self, requests):
         mock_response1 = MagicMock()
         mock_response1.status_code = 200
         mock_response1.json.return_value = {"introspection_endpoint": "/introspect",
@@ -64,18 +64,17 @@ class TestOpenIDClient(unittest.TestCase):
 
         self.assertTrue(success)
         self.assertEqual(json.loads(user_info), user_info_resp)
+        self.assertEqual(OpenIDClient.ISSUER_CONFIG_CACHE,
+                         {'https://iam-test.indigo-datacloud.eu/': {'introspection_endpoint': '/introspect',
+                                                                    'userinfo_endpoint': '/userinfo'}})
 
     @patch('requests.request')
-    def test_get_token_introspection(self, requests):
-        mock_response1 = MagicMock()
-        mock_response1.status_code = 200
-        mock_response1.json.return_value = {"introspection_endpoint": "/introspect",
-                                            "userinfo_endpoint": "/userinfo"}
+    def test_20_get_token_introspection(self, requests):
         mock_response2 = MagicMock()
         mock_response2.status_code = 200
         token_info = read_file_as_string('../files/iam_token_info.json')
         mock_response2.text = token_info
-        requests.side_effect = [mock_response1, mock_response2]
+        requests.side_effect = [mock_response2]
 
         success, token_info_resp = OpenIDClient.get_token_introspection(self.token, "cid", "csec")
 
