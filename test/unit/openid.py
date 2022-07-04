@@ -52,8 +52,8 @@ class TestOpenIDClient(unittest.TestCase):
     def test_get_user_info_request(self, requests):
         mock_response1 = MagicMock()
         mock_response1.status_code = 200
-        mock_response1.json.return_value = {"introspection_endpoint":"/introspect",
-                                            "userinfo_endpoint":"/userinfo"}
+        mock_response1.json.return_value = {"introspection_endpoint": "/introspect",
+                                            "userinfo_endpoint": "/userinfo"}
         mock_response2 = MagicMock()
         mock_response2.status_code = 200
         user_info = read_file_as_string('../files/iam_user_info.json')
@@ -69,8 +69,8 @@ class TestOpenIDClient(unittest.TestCase):
     def test_get_token_introspection(self, requests):
         mock_response1 = MagicMock()
         mock_response1.status_code = 200
-        mock_response1.json.return_value = {"introspection_endpoint":"/introspect",
-                                            "userinfo_endpoint":"/userinfo"}                                       
+        mock_response1.json.return_value = {"introspection_endpoint": "/introspect",
+                                            "userinfo_endpoint": "/userinfo"}
         mock_response2 = MagicMock()
         mock_response2.status_code = 200
         token_info = read_file_as_string('../files/iam_token_info.json')
