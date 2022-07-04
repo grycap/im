@@ -24,8 +24,16 @@ from .JWT import JWT
 
 class OpenIDClient(object):
 
-    USER_INFO_PATH = "/userinfo"
-    INSTROSPECT_PATH = "/introspect"
+    @staticmethod
+    def get_openid_configuration(iss, verify_ssl=False):
+        try:
+            url = "%s/.well-known/openid-configuration" % iss
+            resp = requests.request("GET", url, verify=verify_ssl)
+            if resp.status_code != 200:
+                return {"error": "Code: %d. Message: %s." % (resp.status_code, resp.text)}
+            return resp.json()
+        except Exception as ex:
+            return {"error": str(ex)}
 
     @staticmethod
     def get_user_info_request(token, verify_ssl=False):
@@ -35,8 +43,8 @@ class OpenIDClient(object):
         try:
             decoded_token = JWT().get_info(token)
             headers = {'Authorization': 'Bearer %s' % token}
-            url = "%s%s" % (decoded_token['iss'], OpenIDClient.USER_INFO_PATH)
-            resp = requests.request("GET", url, verify=verify_ssl, headers=headers)
+            conf = OpenIDClient.get_openid_configuration(decoded_token['iss'], verify_ssl=False)
+            resp = requests.request("GET", conf["userinfo_endpoint"], verify=verify_ssl, headers=headers)
             if resp.status_code != 200:
                 return False, "Code: %d. Message: %s." % (resp.status_code, resp.text)
             return True, json.loads(resp.text)
@@ -50,8 +58,8 @@ class OpenIDClient(object):
         """
         try:
             decoded_token = JWT().get_info(token)
-            url = "%s%s" % (decoded_token['iss'],
-                            "%s?token=%s&token_type_hint=access_token" % (OpenIDClient.INSTROSPECT_PATH, token))
+            conf = OpenIDClient.get_openid_configuration(decoded_token['iss'], verify_ssl=False)
+            url = "%s?token=%s&token_type_hint=access_token" % (conf["introspection_endpoint"], token)
             resp = requests.request("GET", url, verify=verify_ssl,
                                     auth=requests.auth.HTTPBasicAuth(client_id, client_secret))
             if resp.status_code != 200:
