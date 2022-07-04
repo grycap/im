@@ -24,13 +24,19 @@ from .JWT import JWT
 
 class OpenIDClient(object):
 
+    ISSUER_CONFIG_CACHE = {}
+
     @staticmethod
     def get_openid_configuration(iss, verify_ssl=False):
         try:
+            if iss in OpenIDClient.ISSUER_CONFIG_CACHE:
+                return OpenIDClient.ISSUER_CONFIG_CACHE[iss]
             url = "%s/.well-known/openid-configuration" % iss
             resp = requests.request("GET", url, verify=verify_ssl)
             if resp.status_code != 200:
                 return {"error": "Code: %d. Message: %s." % (resp.status_code, resp.text)}
+            OpenIDClient.ISSUER_CONFIG_CACHE[iss] = {"userinfo_endpoint": resp.json()["userinfo_endpoint"],
+                                                     "introspection_endpoint": resp.json()["introspection_endpoint"]}
             return resp.json()
         except Exception as ex:
             return {"error": str(ex)}
