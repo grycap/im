@@ -664,7 +664,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
-    def get_floating_ip_node_id(ip):
+    def get_floating_ip_node_id(self, ip):
         """Get floating ip node."""
         try:
             # for OpenStack_2_FloatingIpAddress
