@@ -13,8 +13,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 python3
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
      pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.26&& \
-     pip3 install git+https://github.com/openstack/tosca-parser && \
-     pip3 install git+https://github.com/micafer/libcloud@micro && \
      pip3 install IM==1.11.1 && \
      apt-get purge -y python3-pip git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
