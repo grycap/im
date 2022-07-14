@@ -30,7 +30,7 @@ class AppDBIS:
     Get AppDBIS data
     """
     DOWNTIME_OUTCOME_VALUES = (ENDED, UPCOMMING, ONGOING) = ('ended', 'upcomming', 'ongoing')
-    DEFAULT_APPDBIS_URL = "http://is.marie.hellasgrid.gr"
+    DEFAULT_APPDBIS_URL = "https://is.appdb.egi.eu"
     REST_API_PATH = "/rest/cloud/computing"
     GRAPH_QL_PATH = "/graphql"
 
