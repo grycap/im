@@ -701,7 +701,10 @@ class InfrastructureInfo:
                     res = False
                     break
                 decoded_token = JWT().get_info(other_im_auth['token'])
-                password = str(decoded_token['iss']) + str(decoded_token['sub'])
+                issuer = str(decoded_token['iss'])
+                if not issuer.endswith('/'):
+                    issuer += '/'
+                password = issuer + str(decoded_token['sub'])
                 # check that the token provided is associated with the current owner of the inf.
                 if self_im_auth['password'] != password:
                     res = False

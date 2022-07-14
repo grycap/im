@@ -1381,7 +1381,10 @@ class InfrastructureManager:
                     im_auth['username'] += str(userinfo.get("name"))
                 else:
                     im_auth['username'] += str(userinfo.get("sub"))
-                im_auth['password'] = str(decoded_token['iss']) + str(userinfo.get("sub"))
+                issuer = str(decoded_token['iss'])
+                if not issuer.endswith('/'):
+                    issuer += '/'
+                im_auth['password'] = issuer + str(userinfo.get("sub"))
         except Exception as ex:
             InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
             raise Exception("Error trying to validate OIDC auth token: %s" % str(ex))
