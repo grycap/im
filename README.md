@@ -25,7 +25,10 @@ videos with demos of the functionality of the platform: <https://www.youtube.com
 Please acknowledge the use of this software in your scientific publications by
 including the following reference:
 
-Miguel Caballer, Ignacio Blanquer, German Molto, and Carlos de Alfonso. "[Dynamic management of virtual infrastructures](https://link.springer.com/article/10.1007/s10723-014-9296-5)". Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN 1570-7873, DOI: 10.1007/s10723-014-9296-5.
+Miguel Caballer, Ignacio Blanquer, German Molto, and Carlos de Alfonso.
+"[Dynamic management of virtual infrastructures](https://link.springer.com/article/10.1007/s10723-014-9296-5)".
+Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN
+1570-7873, DOI: 10.1007/s10723-014-9296-5.
 
 ## 1 DOCKER IMAGE (Recommended Option)
 
@@ -43,7 +46,8 @@ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
 ```
 
 To make the IM data persistent you also have to specify a persistent location
-for the IM database using the IM_DATA_DB environment variable and adding a volume::
+for the IM database using the IM_DATA_DB environment variable and adding a
+volume::
 
 ```sh
 sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e IM_DATA_DB=/db/inf.dat --name im grycap/im
@@ -53,7 +57,7 @@ You can also specify an external MySQL server to store IM data using the
 IM_DATA_DB environment variable::
 
 ```sh
-sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
+sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im
 ```
 
 Or you can also add a volume with all the IM configuration::
@@ -144,7 +148,7 @@ record_host_keys=False
 
 # Only in systems with OpenSSH support to ControlPersist
 ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null
-# In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11) 
+# In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11)
 #ssh_args = -o UserKnownHostsFile=/dev/null
 pipelining = True
 ```
@@ -176,7 +180,7 @@ In case of using the a MySQL DB as the backend to store IM data. The Python
 interface to MySQL must be installed, typically available as the package
 ``python-mysqldb`` or ``MySQL-python`` package. In case of using Python 3 use
 the PyMySQL package, available as the package ``python3-pymysql`` on
-debian systems or ``PyMySQL`` package in pip.  
+debian systems or ``PyMySQL`` package in pip.
 
 In case of using the a MongoDB as the backend to store IM data. The Python
 interface to MongoDB must be installed, typically available as the package
@@ -184,7 +188,7 @@ interface to MongoDB must be installed, typically available as the package
 
 In case of using the SSL secured version of the REST API pyOpenSSL
 (<https://pyopenssl.org/>) must be installed. available as ``pyOpenSSL``
-package in pip.  
+package in pip.
 
 Azure python SDK (<https://azure.microsoft.com/es-es/develop/python/>) is used
 to connect with the Microsoft Azure platform. The easiest way is to install all
@@ -196,7 +200,7 @@ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-comput
 
 The VMware vSphere API Python Bindings (<https://github.com/vmware/pyvmomi/>)
 are needed by the vSphere connector. It is available as the package ``pyvmomi``
-at the pip repository.  
+at the pip repository.
 
 ### 3.3 INSTALLING
 
