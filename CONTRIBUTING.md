@@ -39,18 +39,19 @@ If you are proposing a feature:
 You are welcome to open Pull Requests for either fixing a bug, adding a new
 feature, contributing to the documentation, etc.
 
-1. The Pull Request should include tests.
-2. For testing we use tox tool, update tox.ini file correspondingly.
-3. The Pull Request should work for Python 3.6 and above.
-4. Increase the version numbers in any examples files and the README.md to
-   the new version that this Pull Request would represent. The versioning
-   scheme we use is [SemVer](http://semver.org/).
-5. If the Pull Request adds functionality, the docs should be updated. Put your
-   new functionality into a function with a docstring
-   ([Sphinx docstring format](https://sphinx-rtd-tutorial.readthedocs.io/en/latest/docstrings.html)),
-   and add the feature in the appropriate place in sphinx docs (`docs/source` directory).
-6. Update the README.md with details of changes to the interface, this includes
-   new environment variables, exposed ports, useful file locations and container parameters.
+* The Pull Request should include tests.
+* For testing we use tox tool, update tox.ini file correspondingly.
+* The Pull Request should work for Python 3.6 and above.
+* Increase the version numbers in any examples files and the README.md to
+  the new version that this Pull Request would represent. The versioning
+  scheme we use is [SemVer](http://semver.org/).
+* If the Pull Request adds functionality, the docs should be updated. Put your
+  new functionality into a function with a docstring
+  ([Sphinx docstring format](https://sphinx-rtd-tutorial.readthedocs.io/en/latest/docstrings.html)),
+  and add the feature in the appropriate place in sphinx docs (`docs/source` directory).
+* Update the README.md with details of changes to the interface, this includes
+  new environment variables, exposed ports, useful file locations and
+  container parameters.
 
 ## Coding Standards
 
