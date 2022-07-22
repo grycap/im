@@ -104,27 +104,20 @@ If you use pip to install the IM, all the requisites will be installed.
 However, if you install IM from sources you should install:
 
 * The RADL parser (<https://github.com/grycap/radl>), available in pip
-   as the ``RADL`` package.
-
+  as the ``RADL`` package.
 * The paramiko ssh2 protocol library for python version 1.14 or later
 (<http://www.lag.net/paramiko/>), typically available as the
 ``python-paramiko`` package.
-
 * The YAML library for Python, typically available as the ``python-yaml`` or
   ``PyYAML`` package.
-
 * The suds library for Python, typically available as the ``python-suds``
   package.
-
 * The Netaddr library for Python, typically available as the ``python-netaddr``
   package.
-
 * The Requests library for Python, typically available as the
   ``python-requests`` package.
-
 * TOSCA parser library for Python, available as the ``tosca-parser`` package in
   pip.
-
 * Ansible (<http://www.ansibleworks.com/>) to configure nodes in the
   infrastructures.
    In particular, Ansible 2.4+ must be installed.
