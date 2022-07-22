@@ -17,45 +17,44 @@ contextualization system to enable the installation and configuration of all the
 user required applications providing the user with a fully functional
 infrastructure.
 
-Read the documentation and more at http://www.grycap.upv.es/im.
+Read the documentation and more at <http://www.grycap.upv.es/im>.
 
 There is also an Infrastructure Manager YouTube reproduction list with a set of videos with demos
-of the functionality of the platform: https://www.youtube.com/playlist?list=PLgPH186Qwh_37AMhEruhVKZSfoYpHkrUp.
+of the functionality of the platform: <https://www.youtube.com/playlist?list=PLgPH186Qwh_37AMhEruhVKZSfoYpHkrUp>.
 
 Please acknowledge the use of this software in your scientific publications by including the following reference:
 
 Miguel Caballer, Ignacio Blanquer, German Molto, and Carlos de Alfonso. "[Dynamic management of virtual infrastructures](https://link.springer.com/article/10.1007/s10723-014-9296-5)". Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN 1570-7873, DOI: 10.1007/s10723-014-9296-5.
 
-
 ## 1 DOCKER IMAGE (Recommended Option)
 
 The recommended option to use the Infrastructure Manager service is using the available docker image.
-A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the 
-default configuration. Information about this image can be found here: https://hub.docker.com/r/grycap/im/.
-It is also available in Github Container registry `ghcr.io/grycap/im`: https://github.com/grycap/im/pkgs/container/im.
+A Docker image named `grycap/im` has been created to make easier the deployment of an IM service using the
+default configuration. Information about this image can be found here: <https://hub.docker.com/r/grycap/im/>.
+It is also available in Github Container registry `ghcr.io/grycap/im`: <https://github.com/grycap/im/pkgs/container/im>.
 
 How to launch the IM service using docker::
 
 ```sh
-$ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
+sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
 ```
 
 To make the IM data persistent you also have to specify a persistent location for the IM database using the IM_DATA_DB environment variable and adding a volume::
 
 ```sh
-$ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e IM_DATA_DB=/db/inf.dat --name im grycap/im
+sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e IM_DATA_DB=/db/inf.dat --name im grycap/im
 ```
 
 You can also specify an external MySQL server to store IM data using the IM_DATA_DB environment variable::
 
 ```sh
-$ sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
+sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im 
 ```
 
 Or you can also add a volume with all the IM configuration::
 
 ```sh
-$ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
+sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
 ```
 
 ## 2 Kubernetes Helm Chart
@@ -94,23 +93,23 @@ standard library must be installed in the system.
 If you use pip to install the IM, all the requisites will be installed.
 However, if you install IM from sources you should install:
 
- * The RADL parser (https://github.com/grycap/radl), available in pip
+* The RADL parser (<https://github.com/grycap/radl>), available in pip
    as the ``RADL`` package.
 
- * The paramiko ssh2 protocol library for python version 1.14 or later
-(http://www.lag.net/paramiko/), typically available as the ``python-paramiko`` package.
+* The paramiko ssh2 protocol library for python version 1.14 or later
+(<http://www.lag.net/paramiko/>), typically available as the ``python-paramiko`` package.
 
- * The YAML library for Python, typically available as the ``python-yaml`` or ``PyYAML`` package.
+* The YAML library for Python, typically available as the ``python-yaml`` or ``PyYAML`` package.
 
- * The suds library for Python, typically available as the ``python-suds`` package.
+* The suds library for Python, typically available as the ``python-suds`` package.
 
- * The Netaddr library for Python, typically available as the ``python-netaddr`` package.
+* The Netaddr library for Python, typically available as the ``python-netaddr`` package.
 
- * The Requests library for Python, typically available as the ``python-requests`` package.
+* The Requests library for Python, typically available as the ``python-requests`` package.
 
- * TOSCA parser library for Python, available as the ``tosca-parser`` package in pip.
+* TOSCA parser library for Python, available as the ``tosca-parser`` package in pip.
 
- * Ansible (http://www.ansibleworks.com/) to configure nodes in the infrastructures.
+* Ansible (<http://www.ansibleworks.com/>) to configure nodes in the infrastructures.
    In particular, Ansible 2.4+ must be installed.
    To ensure the functionality the following values must be set in the ansible.cfg file (usually found in /etc/ansible/):
 
@@ -138,46 +137,45 @@ pipelining = True
 
 ### 3.2 OPTIONAL PACKAGES
 
-The Bottle framework (http://bottlepy.org/) is used for the REST API. 
+The Bottle framework (<http://bottlepy.org/>) is used for the REST API.
 It is typically available as the ``python-bottle`` system package or ``bottle`` pip package.
 
-The CherryPy Web framework (http://www.cherrypy.org/), is needed for the REST API. 
+The CherryPy Web framework (<http://www.cherrypy.org/>), is needed for the REST API.
 It is typically available as the ``python-cherrypy`` or ``python-cherrypy3`` system package
 or ``CherryPy`` pip package.
 In newer versions (9.0 and later) the functionality has been moved to the ``cheroot`` library
-(https://github.com/cherrypy/cheroot) it can be installed using pip.
+(<https://github.com/cherrypy/cheroot>) it can be installed using pip.
 
-Apache-libcloud (http://libcloud.apache.org/) 3.0 or later is used in the
-LibCloud, OpenStack and GCE connectors. It is typically available as the ``python-libcloud`` 
+Apache-libcloud (<http://libcloud.apache.org/>) 3.0 or later is used in the
+LibCloud, OpenStack and GCE connectors. It is typically available as the ``python-libcloud``
 system package or ``apache-libcloud`` pip package.
 
-Boto (http://boto.readthedocs.org) 2.29.0 or later is used as interface to
+Boto (<http://boto.readthedocs.org>) 2.29.0 or later is used as interface to
 Amazon EC2. It is available as package named ``python-boto`` in Debian based
-distributions or ``boto`` pip package. It can also be downloaded from boto GitHub repository (https://github.com/boto/boto).
+distributions or ``boto`` pip package. It can also be downloaded from boto GitHub repository (<https://github.com/boto/boto>).
 Download the file and copy the boto subdirectory into the IM install path.
 
 In case of using the a MySQL DB as the backend to store IM data. The Python interface to MySQL
 must be installed, typically available as the package ``python-mysqldb`` or ``MySQL-python`` package.
-In case of using Python 3 use the PyMySQL package, available as the package ``python3-pymysql`` on 
+In case of using Python 3 use the PyMySQL package, available as the package ``python3-pymysql`` on
 debian systems or ``PyMySQL`` package in pip.  
 
 In case of using the a MongoDB as the backend to store IM data. The Python interface to MongoDB
 must be installed, typically available as the package ``python-pymongo``package in most distributions
 or ``pymongo`` pip package.
 
-In case of using the SSL secured version of the REST API pyOpenSSL (https://pyopenssl.org/) must be installed.
+In case of using the SSL secured version of the REST API pyOpenSSL (<https://pyopenssl.org/>) must be installed.
 available as ``pyOpenSSL`` package in pip.  
 
-Azure python SDK (https://azure.microsoft.com/es-es/develop/python/) is used to connect with the 
+Azure python SDK (<https://azure.microsoft.com/es-es/develop/python/>) is used to connect with the
 Microsoft Azure platform. The easiest way is to install all the required packages with pip:
 
 ```sh
-$ pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity
+pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity
 ```
 
-The VMware vSphere API Python Bindings (https://github.com/vmware/pyvmomi/) are needed by the vSphere
+The VMware vSphere API Python Bindings (<https://github.com/vmware/pyvmomi/>) are needed by the vSphere
 connector. It is available as the package ``pyvmomi`` at the pip repository.  
-
 
 ### 3.3 INSTALLING
 
@@ -187,35 +185,35 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
 ```sh
-$ apt update
-$ apt install -y gcc python3-dev libffi-dev libssl-dev python3-pip sshpass default-libmysqlclient-dev
+apt update
+apt install -y gcc python3-dev libffi-dev libssl-dev python3-pip sshpass default-libmysqlclient-dev
 ```
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do:
 
 ```sh
-$ yum install -y epel-release
-$ yum install -y which gcc python3-devel libffi-devel openssl-devel python3-pip sshpass
+yum install -y epel-release
+yum install -y which gcc python3-devel libffi-devel openssl-devel python3-pip sshpass
 ```
 
 Then you only have to call the install command of the pip tool with the IM package:
 
 ```sh
-$ pip3 install IM
+pip3 install IM
 ```
 
 You can also install an specific branch of the Github repository:
 
 ```sh
-$ pip install git+https://github.com/grycap/im.git@master
+pip install git+https://github.com/grycap/im.git@master
 ```
 
-Pip will also install the, non installed, pre-requisites needed. So Ansible  2.4 or later will 
+Pip will also install the, non installed, pre-requisites needed. So Ansible  2.4 or later will
 be installed in the system. Some of the optional packages are also installed please check if some
-of IM features that you need requires to install some of the packages of section OPTIONAL PACKAGES. 
+of IM features that you need requires to install some of the packages of section OPTIONAL PACKAGES.
 
-You must also remember to modify the ansible.cfg file setting as specified in the 
+You must also remember to modify the ansible.cfg file setting as specified in the
 REQUISITES section.
 
 ### 3.4 START IM ON BOOT
@@ -226,29 +224,29 @@ execute the next set of commands:
 On Debian Systems:
 
 ```sh
-$ chkconfig im on
+chkconfig im on
 ```
 
 Or for newer systems like ubuntu 14.04:
 
 ```sh
-$ sysv-rc-conf im on
+sysv-rc-conf im on
 ```
 
 On RedHat Systems:
 
 ```sh
-$ update-rc.d im start 99 2 3 4 5 . stop 05 0 1 6 .
+update-rc.d im start 99 2 3 4 5 . stop 05 0 1 6 .
 ```
 
 Or you can do it manually:
 
 ```sh
-$ ln -s /etc/init.d/im /etc/rc2.d/S99im
-$ ln -s /etc/init.d/im /etc/rc3.d/S99im
-$ ln -s /etc/init.d/im /etc/rc5.d/S99im
-$ ln -s /etc/init.d/im /etc/rc1.d/K05im
-$ ln -s /etc/init.d/im /etc/rc6.d/K05im
+ln -s /etc/init.d/im /etc/rc2.d/S99im
+ln -s /etc/init.d/im /etc/rc3.d/S99im
+ln -s /etc/init.d/im /etc/rc5.d/S99im
+ln -s /etc/init.d/im /etc/rc1.d/K05im
+ln -s /etc/init.d/im /etc/rc6.d/K05im
 ```
 
 Adjust the installation path by setting the IMDAEMON variable at /etc/init.d/im
@@ -264,11 +262,10 @@ reference of the configuration variables.
 
 Please pay attention to the next configuration variables, as they are the most important:
 
-DATA_DB - must be set to the URL to access the database to store the IM data. 
+DATA_DB - must be set to the URL to access the database to store the IM data.
          Be careful if you have two different instances of the IM service running in the same machine!!.
          It can be a MySQL DB: `mysql://username:password@server/db_name`,
          SQLite: `sqlite:///etc/im/inf.dat` or MongoDB: `mongodb://username:password@server/db_name`,
-
 
 #### 4.1 SECURITY
 
@@ -288,4 +285,3 @@ REST_SSL = True
 ```
 
 And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates paths.
-
