@@ -570,7 +570,11 @@ class OpenNebulaCloudConnector(CloudConnector):
             self.delete_snapshots(vm, auth_data)
 
         if vm.id:
-            success, err = server.one.vm.action(session_id, 'delete', int(vm.id))[0:2]
+            one_ver = self.getONEVersion(auth_data)
+            op = 'terminate'
+            if one_ver <= LooseVersion("4.14.0"):
+                op = 'delete'
+            success, err = server.one.vm.action(session_id, op, int(vm.id))[0:2]
         else:
             self.log_warn("No VM ID. Ignoring")
             err = ""
@@ -1176,7 +1180,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         image_type = ""  # Use the default one
         one_ver = self.getONEVersion(auth_data)
-        if one_ver.startswith("5."):
+        if one_ver >= LooseVersion("5.0"):
             success, res_info = server.one.vm.disksaveas(session_id, int(vm.id), disk_num,
                                                          image_name, image_type, -1)[0:2]
         else:

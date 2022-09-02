@@ -106,8 +106,8 @@ However, if you install IM from sources you should install:
 * The RADL parser (<https://github.com/grycap/radl>), available in pip
   as the ``RADL`` package.
 * The paramiko ssh2 protocol library for python version 1.14 or later
-(<http://www.lag.net/paramiko/>), typically available as the
-``python-paramiko`` package.
+  (<http://www.lag.net/paramiko/>), typically available as the
+  ``python-paramiko`` package.
 * The YAML library for Python, typically available as the ``python-yaml`` or
   ``PyYAML`` package.
 * The suds library for Python, typically available as the ``python-suds``
