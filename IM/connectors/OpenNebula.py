@@ -1180,7 +1180,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         image_type = ""  # Use the default one
         one_ver = self.getONEVersion(auth_data)
-        if one_ver.startswith("5."):
+        if one_ver >= LooseVersion("5.0"):
             success, res_info = server.one.vm.disksaveas(session_id, int(vm.id), disk_num,
                                                          image_name, image_type, -1)[0:2]
         else:
