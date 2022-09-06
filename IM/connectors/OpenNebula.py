@@ -314,9 +314,6 @@ class OpenNebulaCloudConnector(CloudConnector):
             if disk.TARGET and not vm.info.systems[0].getValue("disk." + str(disk.DISK_ID) + ".device"):
                 vm.info.systems[0].setValue(
                     "disk." + str(disk.DISK_ID) + ".device", disk.TARGET)
-            if disk.FORMAT and not vm.info.systems[0].getValue("disk." + str(disk.DISK_ID) + ".fstype"):
-                vm.info.systems[0].setValue(
-                    "disk." + str(disk.DISK_ID) + ".fstype", disk.FORMAT)
 
     @staticmethod
     def setIPsFromTemplate(vm, template):
@@ -649,11 +646,8 @@ class OpenNebulaCloudConnector(CloudConnector):
             else:
                 disk_size = system.getFeature(
                     "disk." + str(cont) + ".size").getValue('M')
-                disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
-                if not disk_fstype:
-                    disk_fstype = 'ext3'
 
-                disks += ' DISK = [ SAVE = no, TYPE = fs , FORMAT = %s, SIZE = %d' % (disk_fstype, int(disk_size))
+                disks += ' DISK = [ SAVE = no, TYPE = fs , FORMAT = qcow2, SIZE = %d' % int(disk_size)
 
             if disk_device:
                 disks += ', TARGET = %s' % disk_device
