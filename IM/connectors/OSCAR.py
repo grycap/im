@@ -91,6 +91,11 @@ class OSCARCloudConnector(CloudConnector):
             service["script"] = radl_system.getValue("script")
         if radl_system.getValue("alpine"):
             service["alpine"] = True
+        if radl_system.getValue("image_pull_secrets"):
+            secrets = radl_system.getValue("image_pull_secrets")
+            if not isinstance(secrets, list):
+                secrets = [secrets]
+            service["image_pull_secrets"] = secrets
 
         if radl_system.getValue("disk.0.image.url"):
             url_image = urlparse(radl_system.getValue("disk.0.image.url"))
