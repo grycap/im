@@ -1893,7 +1893,8 @@ class Tosca:
             'name': 'name',
             'cpu': 'cpu.count',
             'image': 'disk.0.image.url',
-            'script': 'script'
+            'script': 'script',
+            'image_pull_secrets': 'image_pull_secrets'
         }
 
         for prop in node.get_properties_objects():
@@ -1965,6 +1966,10 @@ class Tosca:
                         res["image"] = value
                 elif prop.name == 'env_variables':
                     res['environment'] = {'Variables': value}
+                elif prop.name == 'image_pull_secrets':
+                    if not isinstance(value, list):
+                        value = [value]
+                    res['image_pull_secrets'] = value
                 else:
                     # this should never happen
                     Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
