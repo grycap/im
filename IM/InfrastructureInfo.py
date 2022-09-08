@@ -312,7 +312,7 @@ class InfrastructureInfo:
             res = [vm for vm in self.vm_list if not vm.destroy]
         return res
 
-    def get_vm(self, str_vm_id, get_destroyed=False):
+    def get_vm(self, str_vm_id):
         """
         Get the VM with the specified ID (if it is not destroyed)
         """
@@ -324,7 +324,7 @@ class InfrastructureInfo:
         with self._lock:
             for vm in self.vm_list:
                 if vm.im_id == vm_id:
-                    if not vm.destroy or get_destroyed:
+                    if not vm.destroy:
                         return vm
                     else:
                         raise DeletedVMException()

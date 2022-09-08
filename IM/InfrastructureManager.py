@@ -1543,7 +1543,7 @@ class InfrastructureManager:
                 all_failed = False
                 error_msg = ""
                 for vmid in vms:
-                    vm = inf.get_vm(vmid, True)
+                    vm = inf.get_vm(vmid)
                     if vm.state == VirtualMachine.FAILED:
                         all_failed = True
                         if vm.error_msg:
