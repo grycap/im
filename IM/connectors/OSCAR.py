@@ -188,8 +188,6 @@ class OSCARCloudConnector(CloudConnector):
             self.log_exception("Error creating OSCAR function: %s." % ex)
             res.append((False, "%s" % ex))
 
-        res.append((True, vm))
-
         return res
 
     def finalize(self, vm, last, auth_data):
