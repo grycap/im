@@ -703,3 +703,15 @@ IM 1.11.0:
 IM 1.11.1:
     * Fix error in OpenStack connector setting microversion.
     * Fix vo set in appdb image in EGI conn is not compared with auth data.
+
+IM 1.12.0:
+    * Fix error creating snapshot in OpenNebula 6.
+    * Fix error deleting VMs in OpenNebula 6.
+    * Minor changes to support Keycloak EGI checkin.
+    * Enable to set a subnet in GCE.
+    * Add support for availability_zone in OpenStack conn.
+    * Fix error "No compatible OpenStack auth data has been specified.".
+    * In case of setting network_name using OST format (priv,pub) pub net is not assigned.
+    * Fix error getting OpenNebula quotas.
+    * Enable to get info from VM images from AppDB/AppDBIS or CMDB.
+
