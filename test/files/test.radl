@@ -62,7 +62,7 @@ configure test (
   - vars:
       NODENAME: '{{IM_INFRASTRUCTURE_RADL|json_query("[?id == ''front''].net_interface_0_dns_name|[0]")}}'
     pre_tasks:
-     - apt: name=python-setuptools,python-pip update_cache=yes cache_valid_time=3600
+     - apt: name=python3-setuptools,python3-pip update_cache=yes cache_valid_time=3600
        when: ansible_os_family == "Debian"
      - yum: name=epel-release
        when: ansible_os_family == "RedHat"
