@@ -332,6 +332,7 @@ class TestAzureConnector(TestCloudConnectorBase):
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.0.additional_dns_names = ['some.test@domain.com'] and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'azr://Canonical/UbuntuServer/16.04.0-LTS/latest' and
             disk.0.os.credentials.username = 'user' and
@@ -403,11 +404,14 @@ class TestAzureConnector(TestCloudConnectorBase):
         success, vm = azure_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
-        self.assertEqual(dclient.zones.create_or_update.call_args_list,
-                         [call('rg0', 'domain.com', {'location': 'global'})])
-        self.assertEqual(dclient.record_sets.create_or_update.call_args_list,
-                         [call('rg0', 'domain.com', 'test', 'A',
-                               {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300})])
+        self.assertEqual(dclient.zones.create_or_update.call_args_list[0],
+                         call('rg0', 'domain.com', {'location': 'global'}))
+        self.assertEqual(dclient.record_sets.create_or_update.call_args_list[0],
+                         call('rg0', 'domain.com', 'test', 'A',
+                               {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300}))
+        self.assertEqual(dclient.record_sets.create_or_update.call_args_list[1],
+                         call('rg0', 'domain.com', 'some.test', 'A',
+                               {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300}))
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         # Test using PRIVATE_NET_MASKS setting 10.0.0.0/8 as public net
