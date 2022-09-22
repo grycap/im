@@ -546,7 +546,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.addAdditionalIP(vm, node.driver)
             self.addRouterInstance(vm, node.driver)
             self.setIPsFromInstance(vm, node)
-            self.add_dns_entries(vm, auth_data)
+            self.manage_dns_entries("add", vm, auth_data)
             self.setVolumesInfo(vm, node)
         else:
             self.log_warn("Error updating the instance %s. VM not found." % vm.id)
@@ -554,32 +554,22 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, vm)
 
-    def add_dns_entries(self, vm, auth_data):
-        """
-        Add the required entries in the AWS Route53 service
-
-        Arguments:
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-        """
+    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args={}):
         try:
-            dns_entries = self.get_dns_entries(vm)
-            if dns_entries:
-                for hostname, domain, ip in dns_entries:
-                    # Special case for EGI DyDNS
-                    # format of the hostname: dydns:secret@hostname
-                    if hostname.startswith("dydns:") and "@" in hostname:
-                        parts = hostname[6:].split("@")
-                        auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
-                        headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
-                        url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
-                                                                                                  domain[:-1],
-                                                                                                  ip)
-                        resp = requests.get(url, headers=headers)
-                        resp.raise_for_status()
-                    else:
-                        # TODO: https://docs.openstack.org/designate/latest/index.html
-                        return False
+            # Special case for EGI DyDNS
+            # format of the hostname: dydns:secret@hostname
+            if hostname.startswith("dydns:") and "@" in hostname:
+                parts = hostname[6:].split("@")
+                auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
+                headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
+                url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
+                                                                                            domain[:-1],
+                                                                                            ip)
+                resp = requests.get(url, headers=headers)
+                resp.raise_for_status()
+            else:
+                # TODO: https://docs.openstack.org/designate/latest/index.html
+                return False
             return True
         except Exception as ex:
             self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
