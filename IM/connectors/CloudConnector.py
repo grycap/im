@@ -665,7 +665,7 @@ class CloudConnector(LoggerMixin):
                 outports.append(outport(22, 22, 'tcp'))
         return outports
 
-    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args={}):
+    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         """
         Add the required entriy in a DNS service
 
@@ -678,7 +678,7 @@ class CloudConnector(LoggerMixin):
         """
         raise NotImplementedError("Should have implemented this")
 
-    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args={}):
+    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         """
         Del the required entriy in a DNS service
 
@@ -691,7 +691,7 @@ class CloudConnector(LoggerMixin):
         """
         raise NotImplementedError("Should have implemented this")
 
-    def manage_dns_entries(self, op, vm, auth_data, extra_args={}):
+    def manage_dns_entries(self, op, vm, auth_data, extra_args=None):
         """
         Add/Delete the required entries in a DNS service
 

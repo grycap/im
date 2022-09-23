@@ -933,7 +933,7 @@ class AzureCloudConnector(CloudConnector):
         self.manage_dns_entries("add", vm, auth_data, extra_args={"group_name": group_name})
         return (True, vm)
 
-    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args={}):
+    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
             group_name = extra_args.get("group_name")
             if not group_name:
