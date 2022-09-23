@@ -1742,7 +1742,8 @@ class Tosca:
                     order = self._final_function_result(port.get_property_value('order'), port)
                     dns_name = self._final_function_result(port.get_property_value('dns_name'), port)
                     additional_ip = self._final_function_result(port.get_property_value('additional_ip'), port)
-                    additional_dns_names = self._final_function_result(port.get_property_value('additional_dns_names'), port)
+                    additional_dns_names = self._final_function_result(port.get_property_value('additional_dns_names'),
+                                                                       port)
                     nets.append((link, ip, dns_name, additional_dns_names, order, additional_ip))
 
         return nets

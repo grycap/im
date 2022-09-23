@@ -563,13 +563,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
                 headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
                 url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
-                                                                                            domain[:-1],
-                                                                                            ip)
+                                                                                          domain[:-1],
+                                                                                          ip)
                 resp = requests.get(url, headers=headers)
                 resp.raise_for_status()
             else:
                 # TODO: https://docs.openstack.org/designate/latest/index.html
-                return False
+                raise NotImplementedError("Should have implemented this")
             return True
         except Exception as ex:
             self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
