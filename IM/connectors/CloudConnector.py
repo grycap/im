@@ -712,7 +712,7 @@ class CloudConnector(LoggerMixin):
                             self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
                         else:
                             raise Exception("Invalid DNS operation.")
-                    except NotImplementedError:
+                    except NotImplementedError as niex:
                         # Use EC2 as back up for all providers if EC2 credentials are available
                         # TODO: Change it to DyDNS when the full API is available
                         if auth_data.getAuthInfo("EC2"):
@@ -722,6 +722,8 @@ class CloudConnector(LoggerMixin):
                                 IM.connectors.EC2.EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
                             else:
                                 raise Exception("Invalid DNS operation.")
+                        else:
+                            raise niex
             return True
         except Exception as ex:
             self.error_messages += "Error in %s DNS entries %s.\n" % (op, str(ex))
