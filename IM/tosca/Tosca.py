@@ -473,8 +473,6 @@ class Tosca:
             system.setValue('net_interface.0.dns_name', dns_name)
         if additional_ip:
             system.setValue('net_interface.0.additional_ip', additional_ip)
-        if additional_dns_names:
-            system.setValue('net_interface.0.additional_dns_names', additional_dns_names)
 
         # Find associated Networks
         nets = self._get_bind_networks(node, nodetemplates)
@@ -566,6 +564,9 @@ class Tosca:
                     public_net.setValue("outports", outports)
 
                 system.setValue('net_interface.%d.connection' % num_net, public_net.id)
+                # allways add the additional_dns_names in the public interface
+                if additional_dns_names:
+                    system.setValue('net_interface.%d.additional_dns_names' % num_net, additional_dns_names)
 
             if net_provider_id:
                 if private_net:
