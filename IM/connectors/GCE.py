@@ -41,6 +41,7 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from IM.config import Config
+from IM.SSH import SSH
 
 
 class GCECloudConnector(LibCloudCloudConnector):
@@ -560,7 +561,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         if not public or not private:
             # We must generate them
             self.log_debug("No keys. Generating key pair.")
-            (public, private) = self.keygen()
+            (public, private) = SSH.keygen()
             system.setValue('disk.0.os.credentials.private_key', private)
 
         metadata = {}
@@ -709,7 +710,7 @@ class GCECloudConnector(LibCloudCloudConnector):
 
         if node:
             success = node.destroy()
-            self.del_dns_entries(vm, auth_data)
+            self.manage_dns_entries("del", vm, auth_data)
 
             if not success:
                 return (False, "Error destroying node: " + vm.id)
@@ -875,85 +876,67 @@ class GCECloudConnector(LibCloudCloudConnector):
                     public_ips.append(private_ip)
 
             vm.setIps(public_ips, private_ips)
-            self.add_dns_entries(vm, auth_data)
+            self.manage_dns_entries("add", vm, auth_data)
             self.addRouterInstance(vm, driver)
         else:
             vm.state = VirtualMachine.OFF
 
         return (True, vm)
 
-    def add_dns_entries(self, vm, auth_data):
-        """
-        Add the required entries in the Google DNS system
-
-        Arguments:
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-        """
+    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
-            dns_entries = self.get_dns_entries(vm)
-            if dns_entries:
-                driver = self.get_dns_driver(auth_data)
-                for hostname, domain, ip in dns_entries:
-                    zone = [z for z in driver.iterate_zones() if z.domain == domain]
-                    if not zone:
-                        self.log_info("Creating DNS zone %s" % domain)
-                        zone = driver.create_zone(domain)
-                    else:
-                        zone = zone[0]
-                        self.log_info("DNS zone %s exists. Do not create." % domain)
+            driver = self.get_dns_driver(auth_data)
 
-                    if zone:
-                        fqdn = hostname + "." + domain
-                        record = [r for r in driver.iterate_records(zone) if r.name == fqdn]
-                        if not record:
-                            self.log_info("Creating DNS record %s." % fqdn)
-                            driver.create_record(fqdn, zone, RecordType.A, dict(ttl=300, rrdatas=[ip]))
-                        else:
-                            self.log_info("DNS record %s exists. Do not create." % fqdn)
+            zone = [z for z in driver.iterate_zones() if z.domain == domain]
+            if not zone:
+                self.log_info("Creating DNS zone %s" % domain)
+                zone = driver.create_zone(domain)
+            else:
+                zone = zone[0]
+                self.log_info("DNS zone %s exists. Do not create." % domain)
+
+            if zone:
+                fqdn = hostname + "." + domain
+                record = [r for r in driver.iterate_records(zone) if r.name == fqdn]
+                if not record:
+                    self.log_info("Creating DNS record %s." % fqdn)
+                    driver.create_record(fqdn, zone, RecordType.A, dict(ttl=300, rrdatas=[ip]))
+                else:
+                    self.log_info("DNS record %s exists. Do not create." % fqdn)
 
             return True
         except Exception:
             self.log_exception("Error creating DNS entries")
             return False
 
-    def del_dns_entries(self, vm, auth_data):
-        """
-        Delete the added entries in the Google DNS system
-
-        Arguments:
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-        """
+    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
-            dns_entries = self.get_dns_entries(vm)
-            if dns_entries:
-                driver = self.get_dns_driver(auth_data)
-                for hostname, domain, ip in dns_entries:
-                    zone = [z for z in driver.iterate_zones() if z.domain == domain]
-                    if not zone:
-                        self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
-                    else:
-                        zone = zone[0]
-                        fqdn = hostname + "." + domain
-                        record = [r for r in driver.iterate_records(zone) if r.name == fqdn]
-                        if not record:
-                            self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
-                        else:
-                            record = record[0]
-                            if record.data['rrdatas'] != [ip]:
-                                self.log_info("DNS record %s mapped to unexpected IP: %s != %s."
-                                              "Do not delete." % (fqdn, record.data['rrdatas'], ip))
-                            else:
-                                self.log_info("Deleting DNS record %s." % fqdn)
-                                if not driver.delete_record(record):
-                                    self.log_error("Error deleting DNS record %s." % fqdn)
+            driver = self.get_dns_driver(auth_data)
 
-                        # if there are no records (except the NS and SOA auto added ones), delete the zone
-                        all_records = [r for r in driver.iterate_records(zone)
-                                       if r.type not in [RecordType.NS, RecordType.SOA]]
-                        if not all_records:
-                            driver.delete_zone(zone)
+            zone = [z for z in driver.iterate_zones() if z.domain == domain]
+            if not zone:
+                self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
+            else:
+                zone = zone[0]
+                fqdn = hostname + "." + domain
+                record = [r for r in driver.iterate_records(zone) if r.name == fqdn]
+                if not record:
+                    self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
+                else:
+                    record = record[0]
+                    if record.data['rrdatas'] != [ip]:
+                        self.log_info("DNS record %s mapped to unexpected IP: %s != %s."
+                                      "Do not delete." % (fqdn, record.data['rrdatas'], ip))
+                    else:
+                        self.log_info("Deleting DNS record %s." % fqdn)
+                        if not driver.delete_record(record):
+                            self.log_error("Error deleting DNS record %s." % fqdn)
+
+                # if there are no records (except the NS and SOA auto added ones), delete the zone
+                all_records = [r for r in driver.iterate_records(zone)
+                               if r.type not in [RecordType.NS, RecordType.SOA]]
+                if not all_records:
+                    driver.delete_zone(zone)
 
             return True
         except Exception:

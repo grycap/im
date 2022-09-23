@@ -32,6 +32,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
+from IM.SSH import SSH
 
 
 class CloudStackCloudConnector(LibCloudCloudConnector):
@@ -231,7 +232,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             else:
                 args["ex_keyname"] = keypair.name
         else:
-            public_key, private_key = self.keygen()
+            public_key, private_key = SSH.keygen()
             system.setUserKeyCredentials(system.getCredentials().username, None, private_key)
 
         user = system.getValue('disk.0.os.credentials.username')

@@ -930,48 +930,41 @@ class AzureCloudConnector(CloudConnector):
 
         # Update IP info
         self.setIPs(vm, virtual_machine.network_profile, credentials, subscription_id)
-        self.add_dns_entries(vm, credentials, subscription_id)
+        self.manage_dns_entries("add", vm, auth_data, extra_args={"group_name": group_name})
         return (True, vm)
 
-    def add_dns_entries(self, vm, credentials, subscription_id):
-        """
-        Add the required entries in the Azure DNS service
-
-        Arguments:
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - credentials, subscription_id: Authentication data to access cloud provider.
-        """
+    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
-            dns_entries = self.get_dns_entries(vm)
-            if dns_entries:
-                group_name = vm.id.split('/')[0]
-                dns_client = DnsManagementClient(credentials, subscription_id)
-                for hostname, domain, ip in dns_entries:
-                    domain = domain[:-1]
-                    zone = None
-                    try:
-                        zone = dns_client.zones.get(group_name, domain)
-                    except Exception:
-                        pass
-                    if not zone:
-                        self.log_info("Creating DNS zone %s" % domain)
-                        zone = dns_client.zones.create_or_update(group_name, domain,
-                                                                 {'location': 'global'})
-                    else:
-                        self.log_info("DNS zone %s exists. Do not create." % domain)
+            group_name = extra_args.get("group_name")
+            if not group_name:
+                raise Exception("No group name set in DNS creation.")
+            credentials, subscription_id = self.get_credentials(auth_data)
+            dns_client = DnsManagementClient(credentials, subscription_id)
 
-                    if zone:
-                        record = None
-                        try:
-                            record = dns_client.record_sets.get(group_name, domain, hostname, 'A')
-                        except Exception:
-                            pass
-                        if not record:
-                            self.log_info("Creating DNS record %s." % hostname)
-                            record_data = {"ttl": 300, "arecords": [{"ipv4_address": ip}]}
-                            dns_client.record_sets.create_or_update(group_name, domain, hostname, 'A', record_data)
-                        else:
-                            self.log_info("DNS record %s exists. Do not create." % hostname)
+            domain = domain[:-1]
+            zone = None
+            try:
+                zone = dns_client.zones.get(group_name, domain)
+            except Exception:
+                pass
+            if not zone:
+                self.log_info("Creating DNS zone %s" % domain)
+                zone = dns_client.zones.create_or_update(group_name, domain, {'location': 'global'})
+            else:
+                self.log_info("DNS zone %s exists. Do not create." % domain)
+
+            if zone:
+                record = None
+                try:
+                    record = dns_client.record_sets.get(group_name, domain, hostname, 'A')
+                except Exception:
+                    pass
+                if not record:
+                    self.log_info("Creating DNS record %s." % hostname)
+                    record_data = {"ttl": 300, "arecords": [{"ipv4_address": ip}]}
+                    dns_client.record_sets.create_or_update(group_name, domain, hostname, 'A', record_data)
+                else:
+                    self.log_info("DNS record %s exists. Do not create." % hostname)
 
             return True
         except Exception:
