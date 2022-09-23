@@ -408,10 +408,10 @@ class TestAzureConnector(TestCloudConnectorBase):
                          call('rg0', 'domain.com', {'location': 'global'}))
         self.assertEqual(dclient.record_sets.create_or_update.call_args_list[0],
                          call('rg0', 'domain.com', 'test', 'A',
-                               {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300}))
+                              {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300}))
         self.assertEqual(dclient.record_sets.create_or_update.call_args_list[1],
                          call('rg0', 'domain.com', 'some.test', 'A',
-                               {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300}))
+                              {'arecords': [{'ipv4_address': '13.0.0.1'}], 'ttl': 300}))
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         # Test using PRIVATE_NET_MASKS setting 10.0.0.0/8 as public net
