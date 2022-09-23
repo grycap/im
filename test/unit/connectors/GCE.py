@@ -256,6 +256,7 @@ class TestGCEConnector(TestCloudConnectorBase):
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.0.additional_dns_names = ['some.test@domain.com'] and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'gce://us-central1-a/centos-6' and
             disk.0.os.credentials.username = 'user'
@@ -297,12 +298,13 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
 
-        self.assertEqual(dns_driver.create_zone.call_count, 1)
-        self.assertEqual(dns_driver.create_record.call_count, 1)
+        self.assertEqual(dns_driver.create_zone.call_count, 2)
+        self.assertEqual(dns_driver.create_record.call_count, 2)
         self.assertEqual(dns_driver.create_zone.call_args_list[0], call('domain.com.'))
         self.assertEqual(dns_driver.create_record.call_args_list[0][0][0], 'test.domain.com.')
         self.assertEqual(dns_driver.create_record.call_args_list[0][0][2], 'A')
         self.assertEqual(dns_driver.create_record.call_args_list[0][0][3], {'rrdatas': ['158.42.1.1'], 'ttl': 300})
+        self.assertEqual(dns_driver.create_record.call_args_list[1][0][0], 'some.test.domain.com.')
         self.assertEqual(vm.info.systems[0].getValue('gpu.count'), 1)
         self.assertEqual(vm.info.systems[0].getValue('gpu.model'), 'nvidia-tesla-v100')
 

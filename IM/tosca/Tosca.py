@@ -415,6 +415,7 @@ class Tosca:
         # This is the solution using endpoints
         net_provider_id = None
         dns_name = None
+        additional_dns_names = []
         additional_ip = None
         ports = {}
         endpoints = self._get_node_endpoints(node, nodetemplates)
@@ -446,6 +447,8 @@ class Tosca:
                     net_provider_id = network_name
             if cap_props and "dns_name" in cap_props:
                 dns_name = self._final_function_result(cap_props["dns_name"].value, node)
+            if cap_props and "additional_dns_names" in cap_props:
+                additional_dns_names = self._final_function_result(cap_props["additional_dns_names"].value, node)
             if cap_props and "private_ip" in cap_props:
                 private_ip = self._final_function_result(cap_props["private_ip"].value, node)
             if cap_props and "ports" in cap_props:
@@ -470,6 +473,8 @@ class Tosca:
             system.setValue('net_interface.0.dns_name', dns_name)
         if additional_ip:
             system.setValue('net_interface.0.additional_ip', additional_ip)
+        if additional_dns_names:
+            system.setValue('net_interface.0.additional_dns_names', additional_dns_names)
 
         # Find associated Networks
         nets = self._get_bind_networks(node, nodetemplates)
@@ -477,7 +482,7 @@ class Tosca:
             # If there are network nodes, use it to define system network
             # properties
             port_net = None
-            for net_name, ip, dns_name, num, additional_ip in nets:
+            for net_name, ip, dns_name, additional_dns_names, num, additional_ip in nets:
                 net = radl.get_network_by_id(net_name)
                 if not net:
                     raise Exception("Node %s with a port binded to a non existing network: %s." % (node.name,
@@ -491,6 +496,8 @@ class Tosca:
                     system.setValue('net_interface.%d.dns_name' % num, dns_name)
                 if additional_ip:
                     system.setValue('net_interface.%d.additional_ip' % num, additional_ip)
+                if additional_dns_names:
+                    system.setValue('net_interface.%d.additional_dns_names' % num, additional_dns_names)
 
                 if net.isPublic():
                     port_net = net
@@ -1735,7 +1742,9 @@ class Tosca:
                     order = self._final_function_result(port.get_property_value('order'), port)
                     dns_name = self._final_function_result(port.get_property_value('dns_name'), port)
                     additional_ip = self._final_function_result(port.get_property_value('additional_ip'), port)
-                    nets.append((link, ip, dns_name, order, additional_ip))
+                    additional_dns_names = self._final_function_result(port.get_property_value('additional_dns_names'),
+                                                                       port)
+                    nets.append((link, ip, dns_name, additional_dns_names, order, additional_ip))
 
         return nets
 

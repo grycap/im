@@ -82,6 +82,7 @@ topology_template:
         endpoint:
           properties:
             dns_name: slurmserver
+            additional_dns_names: [test.some.com]
             network_name: { get_input: network_name }
             ports:
               http_port:

@@ -20,14 +20,11 @@ import time
 import yaml
 import uuid
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-
 from radl.radl import Feature, outport
 from IM.config import Config
 from IM.LoggerMixin import LoggerMixin
 from netaddr import IPNetwork, spanning_cidr
+import IM.connectors
 
 
 class CloudConnector(LoggerMixin):
@@ -360,25 +357,6 @@ class CloudConnector(LoggerMixin):
         """
         raise NotImplementedError("Should have implemented this")
 
-    @staticmethod
-    def keygen():
-        """
-        Generates a keypair using the cryptography lib and returns a tuple (public, private)
-        """
-        key = rsa.generate_private_key(public_exponent=65537, key_size=2048,
-                                       backend=default_backend())
-
-        private = key.private_bytes(encoding=serialization.Encoding.PEM,
-                                    format=serialization.PrivateFormat.TraditionalOpenSSL,
-                                    encryption_algorithm=serialization.NoEncryption()
-                                    ).decode()
-
-        public = key.public_key().public_bytes(encoding=serialization.Encoding.OpenSSH,
-                                               format=serialization.PublicFormat.OpenSSH
-                                               ).decode()
-
-        return (public, private)
-
     def delete_snapshots(self, vm, auth_data):
         """
         Delete the snapshots created with auto_delete option
@@ -609,8 +587,7 @@ class CloudConnector(LoggerMixin):
         else:
             return name
 
-    @staticmethod
-    def get_dns_entries(vm):
+    def get_dns_entries(self, vm):
         """
         Get the required entries in the to add in the Cloud provider DNS service
 
@@ -630,6 +607,21 @@ class CloudConnector(LoggerMixin):
                 if not domain.endswith("."):
                     domain += "."
                 res.append((hostname, domain, ip))
+
+            # Also add additional names
+            additional_dns_names = system.getValue('net_interface.%d.additional_dns_names' % num_conn)
+            if additional_dns_names:
+                for dns_name in additional_dns_names:
+                    dns_parts = dns_name.split("@")
+                    if len(dns_parts) != 2:
+                        self.log_error("Invalid format for additional name: %s." % dns_name)
+                        self.error_messages = "Invalid format for additional name: %s." % dns_name
+                    hostname = dns_parts[0]
+                    domain = dns_parts[1]
+                    if domain != "localdomain" and ip and hostname:
+                        if not domain.endswith("."):
+                            domain += "."
+                        res.append((hostname, domain, ip))
 
         return res
 
@@ -672,3 +664,68 @@ class CloudConnector(LoggerMixin):
             if 22 not in ports_list:
                 outports.append(outport(22, 22, 'tcp'))
         return outports
+
+    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
+        """
+        Add the required entriy in a DNS service
+
+        Arguments:
+           - hostname(str): hostname part of the fqdn
+           - domain(str): domain name part of the fqdn
+           - ip(str): ip to assing to the dns entry
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+           - extra_args(dict): dict with some extra fields needed in some particular Providers
+        """
+        raise NotImplementedError("Should have implemented this")
+
+    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
+        """
+        Del the required entriy in a DNS service
+
+        Arguments:
+           - hostname(str): hostname part of the fqdn
+           - domain(str): domain name part of the fqdn
+           - ip(str): ip to assing to the dns entry
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+           - extra_args(dict): dict with some extra fields needed in some particular Providers
+        """
+        raise NotImplementedError("Should have implemented this")
+
+    def manage_dns_entries(self, op, vm, auth_data, extra_args=None):
+        """
+        Add/Delete the required entries in a DNS service
+
+        Arguments:
+           - op(str): Operation to perform ('add' or 'del')
+           - vm(:py:class:`IM.VirtualMachine`): VM information.
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+           - extra_args(dict): dict with some extra fields needed in some particular Providers
+        """
+        try:
+            dns_entries = self.get_dns_entries(vm)
+            if dns_entries:
+                for hostname, domain, ip in dns_entries:
+                    try:
+                        if op == "add":
+                            self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
+                        elif op == "del":
+                            self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
+                        else:
+                            raise Exception("Invalid DNS operation.")
+                    except NotImplementedError as niex:
+                        # Use EC2 as back up for all providers if EC2 credentials are available
+                        # TODO: Change it to DyDNS when the full API is available
+                        if auth_data.getAuthInfo("EC2"):
+                            if op == "add":
+                                IM.connectors.EC2.EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
+                            elif op == "del":
+                                IM.connectors.EC2.EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+                            else:
+                                raise Exception("Invalid DNS operation.")
+                        else:
+                            raise niex
+            return True
+        except Exception as ex:
+            self.error_messages += "Error in %s DNS entries %s.\n" % (op, str(ex))
+            self.log_exception("Error in %s DNS entries" % op)
+            return False

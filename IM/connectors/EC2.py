@@ -35,6 +35,7 @@ from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
 from IM.config import Config
+from IM.SSH import SSH
 
 
 class InstanceTypeInfo:
@@ -677,7 +678,7 @@ class EC2CloudConnector(CloudConnector):
 
         if not public_key:
             # We must generate them
-            (public_key, private_key) = self.keygen()
+            (public_key, private_key) = SSH.keygen()
             system.setValue('disk.0.os.credentials.private_key', private_key)
 
         # We assume that if the name key is shorter than 128 is a keypair name
@@ -1213,7 +1214,7 @@ class EC2CloudConnector(CloudConnector):
             self.update_system_info_from_instance(vm.info.systems[0], instance_type)
 
             self.setIPsFromInstance(vm, instance)
-            self.add_dns_entries(vm, auth_data)
+            self.manage_dns_entries("add", vm, auth_data)
             self.addRouterInstance(vm, conn)
 
             try:
@@ -1229,74 +1230,53 @@ class EC2CloudConnector(CloudConnector):
 
         return (True, vm)
 
-    def add_dns_entries(self, vm, auth_data):
-        """
-        Add the required entries in the AWS Route53 service
-
-        Arguments:
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-        """
+    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
-            dns_entries = self.get_dns_entries(vm)
-            if dns_entries:
-                conn = self.get_route53_connection('universal', auth_data)
-                for hostname, domain, ip in dns_entries:
-                    zone = conn.get_zone(domain)
-                    if not zone:
-                        self.log_info("Creating DNS zone %s" % domain)
-                        zone = conn.create_zone(domain)
-                    else:
-                        self.log_info("DNS zone %s exists. Do not create." % domain)
+            conn = self.get_route53_connection('universal', auth_data)
+            zone = conn.get_zone(domain)
+            if not zone:
+                self.log_info("Creating DNS zone %s" % domain)
+                zone = conn.create_zone(domain)
+            else:
+                self.log_info("DNS zone %s exists. Do not create." % domain)
 
-                    if zone:
-                        fqdn = hostname + "." + domain
-                        record = zone.get_a(fqdn)
-                        if not record:
-                            self.log_info("Creating DNS record %s." % fqdn)
-                            changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
-                            change = changes.add_change("CREATE", fqdn, "A")
-                            change.add_value(ip)
-                            changes.commit()
-                        else:
-                            self.log_info("DNS record %s exists. Do not create." % fqdn)
-
+            if zone:
+                fqdn = hostname + "." + domain
+                record = zone.get_a(fqdn)
+                if not record:
+                    self.log_info("Creating DNS record %s." % fqdn)
+                    changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
+                    change = changes.add_change("CREATE", fqdn, "A")
+                    change.add_value(ip)
+                    changes.commit()
+                else:
+                    self.log_info("DNS record %s exists. Do not create." % fqdn)
             return True
         except Exception:
             self.log_exception("Error creating DNS entries")
             return False
 
-    def del_dns_entries(self, vm, auth_data):
-        """
-        Delete the added entries in the AWS Route53 service
+    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
+        conn = self.get_route53_connection('universal', auth_data)
+        zone = conn.get_zone(domain)
+        if not zone:
+            self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
+        else:
+            fqdn = hostname + "." + domain
+            record = zone.get_a(fqdn)
+            if not record:
+                self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
+            else:
+                self.log_info("Deleting DNS record %s." % fqdn)
+                changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
+                change = changes.add_change("DELETE", fqdn, "A")
+                change.add_value(ip)
+                changes.commit()
 
-        Arguments:
-           - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-        """
-        dns_entries = self.get_dns_entries(vm)
-        if dns_entries:
-            conn = self.get_route53_connection('universal', auth_data)
-            for hostname, domain, ip in dns_entries:
-                zone = conn.get_zone(domain)
-                if not zone:
-                    self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
-                else:
-                    fqdn = hostname + "." + domain
-                    record = zone.get_a(fqdn)
-                    if not record:
-                        self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
-                    else:
-                        self.log_info("Deleting DNS record %s." % fqdn)
-                        changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
-                        change = changes.add_change("DELETE", fqdn, "A")
-                        change.add_value(ip)
-                        changes.commit()
-
-                    # if there are no A records
-                    all_a_records = [r for r in conn.get_all_rrsets(zone.id) if r.type == "A"]
-                    if not all_a_records:
-                        conn.delete_hosted_zone(zone.id)
+            # if there are no A records
+            all_a_records = [r for r in conn.get_all_rrsets(zone.id) if r.type == "A"]
+            if not all_a_records:
+                conn.delete_hosted_zone(zone.id)
 
     def cancel_spot_requests(self, conn, vm):
         """
@@ -1391,7 +1371,7 @@ class EC2CloudConnector(CloudConnector):
 
         # Delete the DNS entries
         try:
-            self.del_dns_entries(vm, auth_data)
+            self.manage_dns_entries("del", vm, auth_data)
         except Exception as ex:
             self.log_exception("Error deleting DNS entries")
             error_msg += "Error deleting DNS entries: %s. " % ex

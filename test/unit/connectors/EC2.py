@@ -326,6 +326,7 @@ class TestEC2Connector(TestCloudConnectorBase):
             net_interface.0.connection = 'net' and
             net_interface.0.ip = '158.42.1.1' and
             net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.0.additional_dns_names = ['some.test@domain.com'] and
             net_interface.1.connection = 'net2' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'one://server.com/1' and
@@ -401,11 +402,12 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        self.assertEqual(dns_conn.create_zone.call_count, 1)
+        self.assertEqual(dns_conn.create_zone.call_count, 2)
         self.assertEqual(dns_conn.create_zone.call_args_list[0][0][0], "domain.com.")
-        self.assertEqual(changes.add_change.call_args_list, [call('CREATE', 'test.domain.com.', 'A')])
-        self.assertEqual(change.add_value.call_args_list, [call('158.42.1.1')])
-        self.assertEqual(conn.create_route.call_args_list, [call('routet-id', '10.0.10.0/24', instance_id='int-id')])
+        self.assertEqual(changes.add_change.call_args_list[0], call('CREATE', 'test.domain.com.', 'A'))
+        self.assertEqual(changes.add_change.call_args_list[1], call('CREATE', 'some.test.domain.com.', 'A'))
+        self.assertEqual(change.add_value.call_args_list[0], call('158.42.1.1'))
+        self.assertEqual(conn.create_route.call_args_list[0], call('routet-id', '10.0.10.0/24', instance_id='int-id'))
 
         # Test using PRIVATE_NET_MASKS setting 10.0.0.0/8 as public net
         old_priv = Config.PRIVATE_NET_MASKS

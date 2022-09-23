@@ -155,6 +155,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.0.additional_dns_names = ['some.test@domain.com'] and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'lin://linode/ubuntu' and
             disk.0.os.credentials.username = 'user' and
@@ -210,12 +211,13 @@ class TestLinodeConnector(TestCloudConnectorBase):
         self.assertEqual(driver.create_volume.call_args_list[0][0][1], 10)
         self.assertEqual(driver.create_volume.call_args_list[0][1]['node'], node)
 
-        self.assertEqual(dns_driver.create_zone.call_count, 1)
-        self.assertEqual(dns_driver.create_record.call_count, 1)
+        self.assertEqual(dns_driver.create_zone.call_count, 2)
+        self.assertEqual(dns_driver.create_record.call_count, 2)
         self.assertEqual(dns_driver.create_zone.call_args_list[0][0][0], 'domain.com')
         self.assertEqual(dns_driver.create_record.call_args_list[0][0][0], 'test')
         self.assertEqual(dns_driver.create_record.call_args_list[0][0][2], 'A')
         self.assertEqual(dns_driver.create_record.call_args_list[0][0][3], '8.8.8.8')
+        self.assertEqual(dns_driver.create_record.call_args_list[1][0][0], 'some.test')
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
