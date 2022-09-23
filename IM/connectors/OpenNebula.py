@@ -393,6 +393,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
             # Update network data
             self.setIPsFromTemplate(vm, res_vm.TEMPLATE)
+            self.manage_dns_entries("add", vm, auth_data)
 
             # Update disks data
             self.setDisksFromTemplate(vm, res_vm.TEMPLATE)
@@ -577,6 +578,8 @@ class OpenNebulaCloudConnector(CloudConnector):
             self.log_warn("No VM ID. Ignoring")
             err = ""
             success = True
+
+        self.manage_dns_entries("del", vm, auth_data)
 
         if last and success:
             one_ver = self.getONEVersion(auth_data)
