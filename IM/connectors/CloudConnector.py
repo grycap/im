@@ -31,7 +31,6 @@ from netaddr import IPNetwork, spanning_cidr
 import IM.connectors
 
 
-
 class CloudConnector(LoggerMixin):
     """
     Base class to all the Cloud connectors

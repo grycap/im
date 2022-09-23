@@ -390,7 +390,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                     record = record[0]
                     if record.data != ip:
                         self.log_info("DNS record %s mapped to unexpected IP: %s != %s."
-                                        "Do not delete." % (fqdn, record.data, ip))
+                                      "Do not delete." % (fqdn, record.data, ip))
                     else:
                         self.log_info("Deleting DNS record %s." % fqdn)
                         if not driver.delete_record(record):
@@ -398,7 +398,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
                 # if there are no records (except the NS and SOA auto added ones), delete the zone
                 all_records = [r for r in driver.list_records(zone)
-                                if r.type not in [RecordType.NS, RecordType.SOA]]
+                               if r.type not in [RecordType.NS, RecordType.SOA]]
                 if not all_records:
                     driver.delete_zone(zone)
 

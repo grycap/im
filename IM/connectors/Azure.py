@@ -949,8 +949,7 @@ class AzureCloudConnector(CloudConnector):
                 pass
             if not zone:
                 self.log_info("Creating DNS zone %s" % domain)
-                zone = dns_client.zones.create_or_update(group_name, domain,
-                                                            {'location': 'global'})
+                zone = dns_client.zones.create_or_update(group_name, domain, {'location': 'global'})
             else:
                 self.log_info("DNS zone %s exists. Do not create." % domain)
 
