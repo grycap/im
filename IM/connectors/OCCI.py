@@ -32,6 +32,7 @@ from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from IM.AppDB import AppDB
 from IM.config import Config
+from IM.SSH import SSH
 
 
 class OCCICloudConnector(CloudConnector):
@@ -764,7 +765,7 @@ class OCCICloudConnector(CloudConnector):
 
         if not public_key:
             # We must generate them
-            (public_key, private_key) = self.keygen()
+            (public_key, private_key) = SSH.keygen()
             system.setValue('disk.0.os.credentials.private_key', private_key)
 
         user = system.getValue('disk.0.os.credentials.username')

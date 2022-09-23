@@ -22,6 +22,7 @@ import tempfile
 import requests
 import base64
 from IM.CloudInfo import CloudInfo
+from IM.SSH import SSH
 
 try:
     from libcloud.common.exceptions import BaseHTTPError
@@ -1270,7 +1271,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         public_key = system.getValue("disk.0.os.credentials.public_key")
         if not public_key:
             # We must generate them
-            (public_key, private_key) = self.keygen()
+            (public_key, private_key) = SSH.keygen()
             system.setValue('disk.0.os.credentials.private_key', private_key)
 
         if "ssh_key" in driver.features.get("create_node", []):

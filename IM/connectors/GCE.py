@@ -41,6 +41,7 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from IM.config import Config
+from IM.SSH import SSH
 
 
 class GCECloudConnector(LibCloudCloudConnector):
@@ -560,7 +561,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         if not public or not private:
             # We must generate them
             self.log_debug("No keys. Generating key pair.")
-            (public, private) = self.keygen()
+            (public, private) = SSH.keygen()
             system.setValue('disk.0.os.credentials.private_key', private)
 
         metadata = {}
