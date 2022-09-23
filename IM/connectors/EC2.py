@@ -1230,7 +1230,7 @@ class EC2CloudConnector(CloudConnector):
 
         return (True, vm)
 
-    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args={}):
+    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
             conn = self.get_route53_connection('universal', auth_data)
             zone = conn.get_zone(domain)
@@ -1256,7 +1256,7 @@ class EC2CloudConnector(CloudConnector):
             self.log_exception("Error creating DNS entries")
             return False
 
-    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args={}):
+    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         conn = self.get_route53_connection('universal', auth_data)
         zone = conn.get_zone(domain)
         if not zone:

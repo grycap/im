@@ -348,7 +348,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 volumes.append(volume)
         return volumes
 
-    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args={}):
+    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
             driver = self.get_dns_driver(auth_data)
             domain = domain[:-1]
@@ -374,7 +374,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             self.log_exception("Error creating DNS entries")
             return False
 
-    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args={}):
+    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
             driver = self.get_dns_driver(auth_data)
             domain = domain[:-1]

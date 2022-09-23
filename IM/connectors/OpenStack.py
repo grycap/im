@@ -555,7 +555,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, vm)
 
-    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args={}):
+    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
             # Special case for EGI DyDNS
             # format of the hostname: dydns:secret@hostname
