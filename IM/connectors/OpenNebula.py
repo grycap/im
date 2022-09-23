@@ -37,6 +37,7 @@ from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
 from IM.tts.onetts import ONETTSClient
+from IM.SSH import SSH
 
 # Set of classes to parse the XML results of the ONE API
 
@@ -693,7 +694,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         public = system.getValue('disk.0.os.credentials.public_key')
 
         if not password and (not private or not public):
-            (public, private) = self.keygen()
+            (public, private) = SSH.keygen()
             system.setValue('disk.0.os.credentials.private_key', private)
 
         if (private and public) or ConfigOpenNebula.TEMPLATE_CONTEXT or Config.SSH_REVERSE_TUNNELS:

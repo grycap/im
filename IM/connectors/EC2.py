@@ -35,6 +35,7 @@ from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
 from IM.config import Config
+from IM.SSH import SSH
 
 
 class InstanceTypeInfo:
@@ -677,7 +678,7 @@ class EC2CloudConnector(CloudConnector):
 
         if not public_key:
             # We must generate them
-            (public_key, private_key) = self.keygen()
+            (public_key, private_key) = SSH.keygen()
             system.setValue('disk.0.os.credentials.private_key', private_key)
 
         # We assume that if the name key is shorter than 128 is a keypair name

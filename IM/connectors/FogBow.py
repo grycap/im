@@ -29,7 +29,8 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from radl.radl import Feature, outport
+from radl.radl import Feature
+from IM.SSH import SSH
 
 
 class FogBowCloudConnector(CloudConnector):
@@ -355,7 +356,7 @@ class FogBowCloudConnector(CloudConnector):
 
         if not public_key:
             # We must generate them
-            (public_key, private_key) = self.keygen()
+            (public_key, private_key) = SSH.keygen()
             system.setValue('disk.0.os.credentials.private_key', private_key)
 
         cpu = system.getValue('cpu.count')
