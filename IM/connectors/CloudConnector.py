@@ -717,10 +717,11 @@ class CloudConnector(LoggerMixin):
                         # Use EC2 as back up for all providers if EC2 credentials are available
                         # TODO: Change it to DyDNS when the full API is available
                         if auth_data.getAuthInfo("EC2"):
+                            from IM.connectors.EC2 import EC2CloudConnector
                             if op == "add":
-                                IM.connectors.EC2.EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
+                                EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
                             elif op == "del":
-                                IM.connectors.EC2.EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+                                EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
                             else:
                                 raise Exception("Invalid DNS operation.")
                         else:

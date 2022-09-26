@@ -556,26 +556,26 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         return (True, vm)
 
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        try:
-            # Special case for EGI DyDNS
-            # format of the hostname: dydns:secret@hostname
-            if hostname.startswith("dydns:") and "@" in hostname:
-                parts = hostname[6:].split("@")
-                auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
-                headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
-                url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
-                                                                                          domain[:-1],
-                                                                                          ip)
+        # Special case for EGI DyDNS
+        # format of the hostname: dydns:secret@hostname
+        if hostname.startswith("dydns:") and "@" in hostname:
+            parts = hostname[6:].split("@")
+            auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
+            headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
+            url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
+                                                                                        domain[:-1],
+                                                                                        ip)
+            try:
                 resp = requests.get(url, headers=headers)
                 resp.raise_for_status()
-            else:
-                # TODO: https://docs.openstack.org/designate/latest/index.html
-                raise NotImplementedError("Should have implemented this")
-            return True
-        except Exception as ex:
-            self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
-            self.log_exception("Error creating DNS entries")
-            return False
+            except Exception as ex:
+                self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
+                self.log_exception("Error creating DNS entries")
+                return False
+        else:
+            # TODO: https://docs.openstack.org/designate/latest/index.html
+            raise NotImplementedError("Should have implemented this")
+        return True
 
     @staticmethod
     def map_radl_ost_networks(vm, ost_nets):
@@ -1623,17 +1623,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             msgs.append(msg)
 
             try:
-                res = self.manage_dns_entries("del", vm, auth_data)
-                if not res:
-                    msg = "Error deleting DNS entries."
-            except Exception as ex:
-                res = False
-                msg = get_ex_error(ex)
-                msgs.append(msg)
-            success.append(res)
-            msgs.append(msg)
-
-            try:
                 for vol_id in vm.volumes:
                     volume = None
                     try:
@@ -1652,6 +1641,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_info("VM " + str(vm.id) + " successfully destroyed")
         else:
             self.log_warn("VM " + str(vm.id) + " not found.")
+
+        try:
+            res = self.manage_dns_entries("del", vm, auth_data)
+            if not res:
+                msg = "Error deleting DNS entries."
+        except Exception as ex:
+            res = False
+            msg = get_ex_error(ex)
+            msgs.append(msg)
+        success.append(res)
+        msgs.append(msg)
 
         driver = self.get_driver(auth_data)
 
