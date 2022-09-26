@@ -139,7 +139,7 @@
     - name: Install pyOpenSSL & cryptography & pyyaml & wheel
       pip:
         name:
-          - pyOpenSSL>20.0
+          - pyOpenSSL>20.0,<22.1.0
           - cryptography
           - wheel
           - pyyaml

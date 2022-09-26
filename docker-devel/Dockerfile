@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 python3
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity && \
-     pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.9.21&& \
+     pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==2.10.7&& \
      pip3 install git+https://github.com/openstack/tosca-parser && \
      pip3 install git+https://github.com/micafer/libcloud@micro && \
      pip3 install git+https://github.com/grycap/im@$BRANCH && \
