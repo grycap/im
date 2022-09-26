@@ -616,6 +616,7 @@ class CloudConnector(LoggerMixin):
                     if len(dns_parts) != 2:
                         self.log_error("Invalid format for additional name: %s." % dns_name)
                         self.error_messages = "Invalid format for additional name: %s." % dns_name
+                        break
                     hostname = dns_parts[0]
                     domain = dns_parts[1]
                     if domain != "localdomain" and ip and hostname:
