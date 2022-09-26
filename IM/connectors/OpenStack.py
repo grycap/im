@@ -1623,6 +1623,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             msgs.append(msg)
 
             try:
+                res = self.manage_dns_entries("del", vm, auth_data)
+                if not res:
+                    msg = "Error deleting DNS entries."
+            except Exception as ex:
+                res = False
+                msg = get_ex_error(ex)
+                msgs.append(msg)
+            success.append(res)
+            msgs.append(msg)
+
+            try:
                 for vol_id in vm.volumes:
                     volume = None
                     try:
