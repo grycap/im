@@ -78,7 +78,7 @@ class TestTosca(unittest.TestCase):
         lrms_server = radl.get_system_by_name('lrms_server')
         self.assertEqual(lrms_server.getValue('memory.size'), 1000000000)
         self.assertEqual(lrms_server.getValue('net_interface.0.dns_name'), 'slurmserver')
-        self.assertEqual(lrms_server.getValue('net_interface.0.additional_dns_names'), ['test.some.com'])
+        self.assertEqual(lrms_server.getValue('net_interface.1.additional_dns_names'), ['test.some.com'])
         if lrms_server.getValue("disk.1.size") == 10000000000:
             self.assertEqual(lrms_server.getValue("disk.1.mount_path"), "/mnt/disk2")
         else:

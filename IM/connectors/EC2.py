@@ -1232,7 +1232,18 @@ class EC2CloudConnector(CloudConnector):
 
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
-            conn = self.get_route53_connection('universal', auth_data)
+            # Workaround to use EC2 as the default case.
+            if self.type == "EC2":
+                conn = self.get_route53_connection('universal', auth_data)
+            else:
+                auths = auth_data.getAuthInfo("EC2")
+                if not auths:
+                    raise Exception("No auth data has been specified to EC2.")
+                else:
+                    auth = auths[0]
+                    conn = boto.route53.connect_to_region('universal',
+                                                          aws_access_key_id=auth['username'],
+                                                          aws_secret_access_key=auth['password'])
             zone = conn.get_zone(domain)
             if not zone:
                 self.log_info("Creating DNS zone %s" % domain)
@@ -1257,7 +1268,18 @@ class EC2CloudConnector(CloudConnector):
             return False
 
     def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        conn = self.get_route53_connection('universal', auth_data)
+        # Workaround to use EC2 as the default case.
+        if self.type == "EC2":
+            conn = self.get_route53_connection('universal', auth_data)
+        else:
+            auths = auth_data.getAuthInfo("EC2")
+            if not auths:
+                raise Exception("No auth data has been specified to EC2.")
+            else:
+                auth = auths[0]
+                conn = boto.route53.connect_to_region('universal',
+                                                      aws_access_key_id=auth['username'],
+                                                      aws_secret_access_key=auth['password'])
         zone = conn.get_zone(domain)
         if not zone:
             self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
