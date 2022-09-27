@@ -1648,6 +1648,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 msg = "Error deleting DNS entries."
             else:
                 msg = ""
+        except NotImplementedError:
+            self.log_warn("Trying to delete DNS entries on OST.")
         except Exception as ex:
             res = False
             msg = get_ex_error(ex)
