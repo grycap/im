@@ -337,6 +337,15 @@ class TestIM(unittest.TestCase):
             IM.DestroyInfrastructure(infId1, auth0)
         self.assertEqual(str(ex.exception),
                          "Access to this infrastructure not granted.")
+
+        Config.ADMIN_USER = {"username": "admin", "password": "adminpass"}
+        autha = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
+                                'username': 'admin', 'password': 'adminpass'}])
+        IM.GetInfrastructureInfo(infId0, autha)
+        IM.GetInfrastructureInfo(infId1, autha)
+
+        Config.ADMIN_USER = None
+
         IM.DestroyInfrastructure(infId0, auth0)
         IM.DestroyInfrastructure(infId1, auth1)
 
