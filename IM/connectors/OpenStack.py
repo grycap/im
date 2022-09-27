@@ -1646,6 +1646,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             res = self.manage_dns_entries("del", vm, auth_data)
             if not res:
                 msg = "Error deleting DNS entries."
+            else:
+                msg = ""
         except Exception as ex:
             res = False
             msg = get_ex_error(ex)
