@@ -605,7 +605,7 @@ class CloudConnector(LoggerMixin):
                                                           default_domain=Config.DEFAULT_DOMAIN)
             if not domain.endswith("."):
                 domain += "."
-            if domain != "localdomain." and ip and hostname and "%s.%s" % (hostname, domain) not in vm.dns_entries:
+            if domain != "localdomain." and ip and hostname:
                 res.append((hostname, domain, ip))
 
             # Also add additional names
@@ -621,8 +621,7 @@ class CloudConnector(LoggerMixin):
                     domain = dns_parts[1]
                     if not domain.endswith("."):
                         domain += "."
-                    if (domain != "localdomain." and ip and hostname and
-                            "%s.%s" % (hostname, domain) not in vm.dns_entries):
+                    if domain != "localdomain." and ip and hostname:
                         res.append((hostname, domain, ip))
 
         return res
@@ -706,18 +705,26 @@ class CloudConnector(LoggerMixin):
         try:
             if not hasattr(vm, 'dns_entries'):
                 vm.dns_entries = []
-            dns_entries = self.get_dns_entries(vm)
+            if op == "add":
+                dns_entries = [entry for entry in self.get_dns_entries(vm) if entry not in vm.dns_entries]
+                dns_entries = []
+                for entry in self.get_dns_entries(vm):
+                    if entry not in vm.dns_entries:
+                        dns_entries.append(entry)
+            else:
+                dns_entries = list(vm.dns_entries)
             if dns_entries:
-                for hostname, domain, ip in dns_entries:
+                for entry in dns_entries:
+                    hostname, domain, ip = entry
                     try:
                         if op == "add":
                             success = self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if success and "%s.%s" % (hostname, domain) not in vm.dns_entries:
-                                vm.dns_entries.append("%s.%s" % (hostname, domain))
+                            if success and entry not in vm.dns_entries:
+                                vm.dns_entries.append(entry)
                         elif op == "del":
                             self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if "%s.%s" % (hostname, domain) in vm.dns_entries:
-                                vm.dns_entries.remove("%s.%s" % (hostname, domain))
+                            if entry in vm.dns_entries:
+                                vm.dns_entries.remove(entry)
                         else:
                             raise Exception("Invalid DNS operation.")
                     except NotImplementedError as niex:
@@ -727,12 +734,12 @@ class CloudConnector(LoggerMixin):
                             from IM.connectors.EC2 import EC2CloudConnector
                             if op == "add":
                                 success = EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
-                                if success and "%s.%s" % (hostname, domain) not in vm.dns_entries:
-                                    vm.dns_entries.append("%s.%s" % (hostname, domain))
+                                if success and entry not in vm.dns_entries:
+                                    vm.dns_entries.append(entry)
                             elif op == "del":
                                 EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
-                                if "%s.%s" % (hostname, domain) in vm.dns_entries:
-                                    vm.dns_entries.remove("%s.%s" % (hostname, domain))
+                                if entry in vm.dns_entries:
+                                    vm.dns_entries.remove(entry)
                             else:
                                 raise Exception("Invalid DNS operation.")
                         else:
