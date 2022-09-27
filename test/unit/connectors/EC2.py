@@ -420,7 +420,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         Config.PRIVATE_NET_MASKS = old_priv
         self.assertEqual(vm.getPublicIP(), "10.0.0.1")
         self.assertEqual(vm.getPrivateIP(), None)
-        self.assertEqual(dns_conn.get_zone.call_count, 2)
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     def test_30_updateVMInfo_spot(self, get_connection):
@@ -632,6 +631,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         inf = MagicMock()
         inf.id = "1"
         vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
+        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1')]
 
         conn = MagicMock()
         get_connection.return_value = conn
