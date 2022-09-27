@@ -579,7 +579,10 @@ class OpenNebulaCloudConnector(CloudConnector):
             err = ""
             success = True
 
-        self.manage_dns_entries("del", vm, auth_data)
+        try:
+            self.manage_dns_entries("del", vm, auth_data)
+        except NotImplementedError as niex:
+            self.log_warn("Trying to delete DNS entries on ONE.")
 
         if last and success:
             one_ver = self.getONEVersion(auth_data)
