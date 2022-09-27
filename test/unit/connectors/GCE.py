@@ -398,6 +398,7 @@ class TestGCEConnector(TestCloudConnectorBase):
         inf = MagicMock()
         inf.id = "infid"
         vm = VirtualMachine(inf, "1", gce_cloud.cloud, radl, radl, gce_cloud, 1)
+        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1')]
 
         driver = MagicMock()
         get_driver.return_value = driver
