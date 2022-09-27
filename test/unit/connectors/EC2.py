@@ -403,6 +403,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         self.assertEqual(dns_conn.create_zone.call_count, 2)
+        self.assertEqual(dns_conn.get_zone.call_count, 2)
         self.assertEqual(dns_conn.create_zone.call_args_list[0][0][0], "domain.com.")
         self.assertEqual(changes.add_change.call_args_list[0], call('CREATE', 'test.domain.com.', 'A'))
         self.assertEqual(changes.add_change.call_args_list[1], call('CREATE', 'some.test.domain.com.', 'A'))
@@ -419,6 +420,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         Config.PRIVATE_NET_MASKS = old_priv
         self.assertEqual(vm.getPublicIP(), "10.0.0.1")
         self.assertEqual(vm.getPrivateIP(), None)
+        self.assertEqual(dns_conn.get_zone.call_count, 2)
 
     @patch('IM.connectors.EC2.EC2CloudConnector.get_connection')
     def test_30_updateVMInfo_spot(self, get_connection):
