@@ -572,6 +572,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         inf.id = "1"
         vm = VirtualMachine(inf, "rg0/vm0", azure_cloud.cloud, radl, radl, azure_cloud, 1)
         vm.disks = ["disk1"]
+        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1')]
 
         cclient = MagicMock()
         compute_client.return_value = cclient
