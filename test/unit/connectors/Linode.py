@@ -384,6 +384,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
 
         inf = MagicMock(['id'])
         vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud, 1)
+        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1')]
 
         driver = MagicMock(['ex_get_node', 'list_volumes'])
         get_driver.return_value = driver
