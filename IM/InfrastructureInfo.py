@@ -731,6 +731,11 @@ class InfrastructureInfo:
             for self_im_auth in self.auth.getAuthInfo("InfrastructureManager"):
                 if self._is_authorized(self_im_auth, auth):
                     return True
+                if Config.ADMIN_USER:
+                    admin_auth = dict(Config.ADMIN_USER)
+                    admin_auth["type"] = "InfrastructureManager"
+                    if self._is_authorized(admin_auth, auth):
+                        return True
 
             return False
         else:
