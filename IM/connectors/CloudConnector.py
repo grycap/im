@@ -587,7 +587,7 @@ class CloudConnector(LoggerMixin):
         else:
             return name
 
-    def get_dns_entries(self, vm):
+    def get_dns_entries(self, vm, current_entries):
         """
         Get the required entries in the to add in the Cloud provider DNS service
 
@@ -605,7 +605,7 @@ class CloudConnector(LoggerMixin):
                                                           default_domain=Config.DEFAULT_DOMAIN)
             if not domain.endswith("."):
                 domain += "."
-            if domain != "localdomain." and ip and hostname and "%s.%s" % (hostname, domain) not in vm.dns_entries:
+            if domain != "localdomain." and ip and hostname and "%s.%s" % (hostname, domain) not in current_entries:
                 res.append((hostname, domain, ip))
 
             # Also add additional names
@@ -622,7 +622,7 @@ class CloudConnector(LoggerMixin):
                     if not domain.endswith("."):
                         domain += "."
                     if (domain != "localdomain." and ip and hostname and
-                            "%s.%s" % (hostname, domain) not in vm.dns_entries):
+                            "%s.%s" % (hostname, domain) not in current_entries):
                         res.append((hostname, domain, ip))
 
         return res
@@ -706,7 +706,7 @@ class CloudConnector(LoggerMixin):
         try:
             if not hasattr(vm, 'dns_entries'):
                 vm.dns_entries = []
-            dns_entries = self.get_dns_entries(vm)
+            dns_entries = self.get_dns_entries(vm, [] if op == "del" else vm.dns_entries)
             if dns_entries:
                 for hostname, domain, ip in dns_entries:
                     try:
