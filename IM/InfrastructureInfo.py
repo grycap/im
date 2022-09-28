@@ -686,15 +686,6 @@ class InfrastructureInfo:
         res = False
         for other_im_auth in auth.getAuthInfo("InfrastructureManager"):
             res = True
-            for elem in ['username', 'password']:
-                if elem not in other_im_auth:
-                    res = False
-                    break
-                if elem not in self_im_auth:
-                    InfrastructureInfo.logger.error("Inf ID %s has not elem %s in the auth data" % (self.id, elem))
-                if self_im_auth[elem] != other_im_auth[elem]:
-                    res = False
-                    break
 
             if 'token' in self_im_auth:
                 if 'token' not in other_im_auth:
@@ -710,8 +701,23 @@ class InfrastructureInfo:
                     res = False
                     break
 
+                # Username must start with the defined prefix
+                if not other_im_auth['username'].startswith(InfrastructureInfo.OPENID_USER_PREFIX):
+                    res = False
+                    break
+
                 # In case of OIDC token update it in each call to get a fresh version
                 self_im_auth['token'] = other_im_auth['token']
+            else:
+                for elem in ['username', 'password']:
+                    if elem not in other_im_auth:
+                        res = False
+                        break
+                    if elem not in self_im_auth:
+                        InfrastructureInfo.logger.error("Inf ID %s has not elem %s in the auth data" % (self.id, elem))
+                    if self_im_auth[elem] != other_im_auth[elem]:
+                        res = False
+                        break
 
             if (self_im_auth['username'].startswith(InfrastructureInfo.OPENID_USER_PREFIX) and
                     'token' not in other_im_auth):
