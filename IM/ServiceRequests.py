@@ -58,6 +58,7 @@ class IMBaseRequest(AsyncRequest):
     GET_CLOUD_IMAGE_LIST = "GetCloudImageList"
     GET_CLOUD_QUOTAS = "GetCloudQuotas"
     CHANGE_INFRASTRUCTURE_AUTH = "ChangeInfrastructureAuth"
+    GET_INFRASTRUCTURE_OWNERS = "GetInfrastructureOwners"
 
     @staticmethod
     def create_request(function, arguments=()):
@@ -113,6 +114,8 @@ class IMBaseRequest(AsyncRequest):
             return Request_GetCloudQuotas(arguments)
         elif function == IMBaseRequest.CHANGE_INFRASTRUCTURE_AUTH:
             return Request_ChangeInfrastructureAuth(arguments)
+        elif function == IMBaseRequest.GET_INFRASTRUCTURE_OWNERS:
+            return Request_GetInfrastructureOwners(arguments)
         else:
             raise NotImplementedError("Function not Implemented")
 
@@ -445,3 +448,14 @@ class Request_ChangeInfrastructureAuth(IMBaseRequest):
                                                                                        Authentication(new_auth),
                                                                                        overwrite,
                                                                                        Authentication(auth_data))
+
+
+class Request_GetInfrastructureOwners(IMBaseRequest):
+    """
+    Request class for the GetInfrastructureOwners function
+    """
+
+    def _call_function(self):
+        self._error_mesage = "Error getting the Inf. owners"
+        (inf_id, auth_data) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.GetInfrastructureOwners(inf_id, Authentication(auth_data))

@@ -406,3 +406,13 @@ This is the list of method names:
    Change the authentication data of the infrastructure with ID ``infId``. using
    the ``newAuth`` provider. If ``overwrite`` is true, the authentication data will
    be overwrited otherwise it will be appended.
+
+.. _GetInfrastructureOwners-xmlrpc:
+
+``GetInfrastructureOwners``
+   :parameter 0: ``infId``: integer
+   :parameter 1: ``auth``: array of structs
+   :ok response: [true, list of strings]
+   :fail response: [false, ``error``: string]
+
+   Return the list of current owners of the infrastructure with ID ``infId``.

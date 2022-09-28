@@ -119,6 +119,7 @@ class Config:
     VM_TAG_INF_ID = None
     VM_TAG_IM_URL = None
     VM_TAG_IM = None
+    ADMIN_USER = None
 
 
 config = ConfigParser()

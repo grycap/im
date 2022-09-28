@@ -1780,3 +1780,27 @@ class InfrastructureManager:
             sel_inf.change_auth(new_auth, overwrite)
         IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         return ""
+
+    @staticmethod
+    def GetInfrastructureOwners(inf_id, auth):
+        """
+        Get the list of owners of an infrastructure.
+
+        Args:
+
+        - inf_id(str): infrastructure id.
+        - auth(Authentication): parsed authentication tokens.
+
+        Return: list of str
+        """
+        auth = InfrastructureManager.check_auth_data(auth)
+
+        InfrastructureManager.logger.info("Getting RADL of the Inf ID: " + str(inf_id))
+
+        sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+
+        res = []
+        for im_auth in sel_inf.auth.getAuthInfo("InfrastructureManager"):
+            res.append(im_auth['username'])
+
+        return res

@@ -1074,6 +1074,24 @@ class TestREST(unittest.TestCase):
                                                                                        "password": "new_pass"}])
         self.assertEqual(ChangeInfrastructureAuth.call_args_list[0][0][2], True)
 
+    @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureOwners")
+    @patch("bottle.request")
+    def test_GetInfrastructureOwners(self, bottle_request, GetInfrastructureOwners):
+        """Test REST StopInfrastructure."""
+        bottle_request.return_value = MagicMock()
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
+                                                    "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
+                                                    "username = user; password = pass")}
+
+        GetInfrastructureOwners.return_value = ["user1", "user2"]
+
+        res = RESTGetInfrastructureProperty("1", "owners")
+        self.assertEqual(res, 'user1\nuser2')
+
+        bottle_request.headers["Accept"] = "application/json"
+        res = RESTGetInfrastructureProperty("1", "owners")
+        self.assertEqual(res, '{"owners": ["user1", "user2"]}')
+
 
 if __name__ == "__main__":
     unittest.main()
