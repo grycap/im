@@ -1442,6 +1442,8 @@ configure step2 (
         """Try to access not owned Infs."""
         auth0, auth1, auth2 = self.getAuth([0]), self.getAuth([1]), self.getAuth([2])
         infId0 = IM.CreateInfrastructure("", auth0)
+        users = IM.GetInfrastructureOwners(infId0, auth0)
+        self.assertEqual(users, ['user0'])
         # Test append auth
         IM.ChangeInfrastructureAuth(infId0, auth1, False, auth0)
         IM.GetInfrastructureInfo(infId0, auth1)
@@ -1449,12 +1451,16 @@ configure step2 (
         with self.assertRaises(Exception) as ex:
             IM.GetInfrastructureInfo(infId0, auth2)
         self.assertEqual(str(ex.exception), "Access to this infrastructure not granted.")
+        users = IM.GetInfrastructureOwners(infId0, auth0)
+        self.assertEqual(users, ['user0', 'user1'])
         # Test overwrite auth
         IM.ChangeInfrastructureAuth(infId0, auth1, True, auth0)
         IM.GetInfrastructureInfo(infId0, auth1)
         with self.assertRaises(Exception) as ex:
             IM.GetInfrastructureInfo(infId0, auth0)
         self.assertEqual(str(ex.exception), "Access to this infrastructure not granted.")
+        users = IM.GetInfrastructureOwners(infId0, auth1)
+        self.assertEqual(users, ['user1'])
         # Test with invalid auth
         with self.assertRaises(Exception) as ex:
             IM.ChangeInfrastructureAuth(infId0, auth2, True, auth0)
