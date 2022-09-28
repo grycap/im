@@ -134,9 +134,9 @@ class TestIM(unittest.TestCase):
         return cloud
 
     @staticmethod
-    def gen_token(aud=None, exp=None):
+    def gen_token(aud=None, exp=None, user_sub="user_sub"):
         data = {
-            "sub": "user_sub",
+            "sub": user_sub,
             "iss": "https://iam-test.indigo-datacloud.eu/",
             "exp": 1465471354,
             "iat": 1465467755,
@@ -1166,14 +1166,14 @@ configure step2 (
         inf.id = "1"
         inf.auth = user_auth
         res = inf.is_authorized(user_auth)
-        self.assertEqual(res, False)
+        self.assertFalse(res)
 
         user_auth1 = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
                                       'username': im_auth['username'],
                                       'password': im_auth['password'],
                                       'token': im_auth['token']}])
         res = inf.is_authorized(user_auth1)
-        self.assertEqual(res, True)
+        self.assertTrue(res)
 
         inf.auth = user_auth1
         new_token = self.gen_token()
@@ -1182,8 +1182,19 @@ configure step2 (
                                       'password': im_auth['password'],
                                       'token': new_token}])
         res = inf.is_authorized(user_auth2)
-        self.assertEqual(res, True)
+        self.assertTrue(res)
         self.assertEqual(inf.auth.getAuthInfo("InfrastructureManager")[0]['token'], new_token)
+
+        inf.auth = user_auth1
+        Config.ADMIN_USER = {"username": "",
+                             "password": "https://iam-test.indigo-datacloud.eu/admin_user",
+                             "token": ""}
+        admin_auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
+                                      'username': InfrastructureInfo.OPENID_USER_PREFIX + "admin",
+                                      'password': "https://iam-test.indigo-datacloud.eu/admin_user",
+                                      'token': self.gen_token(user_sub="admin_user")}])
+        res = inf.is_authorized(admin_auth)
+        self.assertTrue(res)
 
     def test_db(self):
         """ Test DB data access."""
