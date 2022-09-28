@@ -134,9 +134,9 @@ class TestIM(unittest.TestCase):
         return cloud
 
     @staticmethod
-    def gen_token(aud=None, exp=None):
+    def gen_token(aud=None, exp=None, user_sub="user_sub"):
         data = {
-            "sub": "user_sub",
+            "sub": user_sub,
             "iss": "https://iam-test.indigo-datacloud.eu/",
             "exp": 1465471354,
             "iat": 1465467755,
@@ -337,6 +337,15 @@ class TestIM(unittest.TestCase):
             IM.DestroyInfrastructure(infId1, auth0)
         self.assertEqual(str(ex.exception),
                          "Access to this infrastructure not granted.")
+
+        Config.ADMIN_USER = {"username": "admin", "password": "adminpass"}
+        autha = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
+                                'username': 'admin', 'password': 'adminpass'}])
+        IM.GetInfrastructureInfo(infId0, autha)
+        IM.GetInfrastructureInfo(infId1, autha)
+
+        Config.ADMIN_USER = None
+
         IM.DestroyInfrastructure(infId0, auth0)
         IM.DestroyInfrastructure(infId1, auth1)
 
@@ -1157,14 +1166,14 @@ configure step2 (
         inf.id = "1"
         inf.auth = user_auth
         res = inf.is_authorized(user_auth)
-        self.assertEqual(res, False)
+        self.assertFalse(res)
 
         user_auth1 = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
                                       'username': im_auth['username'],
                                       'password': im_auth['password'],
                                       'token': im_auth['token']}])
         res = inf.is_authorized(user_auth1)
-        self.assertEqual(res, True)
+        self.assertTrue(res)
 
         inf.auth = user_auth1
         new_token = self.gen_token()
@@ -1173,8 +1182,19 @@ configure step2 (
                                       'password': im_auth['password'],
                                       'token': new_token}])
         res = inf.is_authorized(user_auth2)
-        self.assertEqual(res, True)
+        self.assertTrue(res)
         self.assertEqual(inf.auth.getAuthInfo("InfrastructureManager")[0]['token'], new_token)
+
+        inf.auth = user_auth1
+        Config.ADMIN_USER = {"username": "",
+                             "password": "https://iam-test.indigo-datacloud.eu/admin_user",
+                             "token": ""}
+        admin_auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
+                                      'username': InfrastructureInfo.OPENID_USER_PREFIX + "admin",
+                                      'password': "https://iam-test.indigo-datacloud.eu/admin_user",
+                                      'token': self.gen_token(user_sub="admin_user")}])
+        res = inf.is_authorized(admin_auth)
+        self.assertTrue(res)
 
     def test_db(self):
         """ Test DB data access."""
@@ -1422,6 +1442,8 @@ configure step2 (
         """Try to access not owned Infs."""
         auth0, auth1, auth2 = self.getAuth([0]), self.getAuth([1]), self.getAuth([2])
         infId0 = IM.CreateInfrastructure("", auth0)
+        users = IM.GetInfrastructureOwners(infId0, auth0)
+        self.assertEqual(users, ['user0'])
         # Test append auth
         IM.ChangeInfrastructureAuth(infId0, auth1, False, auth0)
         IM.GetInfrastructureInfo(infId0, auth1)
@@ -1429,12 +1451,16 @@ configure step2 (
         with self.assertRaises(Exception) as ex:
             IM.GetInfrastructureInfo(infId0, auth2)
         self.assertEqual(str(ex.exception), "Access to this infrastructure not granted.")
+        users = IM.GetInfrastructureOwners(infId0, auth0)
+        self.assertEqual(users, ['user0', 'user1'])
         # Test overwrite auth
         IM.ChangeInfrastructureAuth(infId0, auth1, True, auth0)
         IM.GetInfrastructureInfo(infId0, auth1)
         with self.assertRaises(Exception) as ex:
             IM.GetInfrastructureInfo(infId0, auth0)
         self.assertEqual(str(ex.exception), "Access to this infrastructure not granted.")
+        users = IM.GetInfrastructureOwners(infId0, auth1)
+        self.assertEqual(users, ['user1'])
         # Test with invalid auth
         with self.assertRaises(Exception) as ex:
             IM.ChangeInfrastructureAuth(infId0, auth2, True, auth0)

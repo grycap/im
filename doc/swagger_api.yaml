@@ -738,6 +738,50 @@ paths:
         '404':
           description: Not Found
 
+  /infrastructures/{InfId}/owners:
+    get:
+      tags:
+        - infrastructures
+      summary: Get the list of infrastructure owners.
+      security:
+        - IMAuth: []
+      description: >-
+        Return a list of strings with the set of users of the infrastructure
+        with ID InfId.
+      operationId: GetInfrastructureOwners
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/plain:
+              examples:
+                response:
+                  value: |
+                    user1
+                    user2
+            application/json:
+              examples:
+                response:
+                  value:
+                    owners:
+                      - user1
+                      - user2
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
   /infrastructures/{InfId}/authorization:
     post:
       tags:

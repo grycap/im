@@ -220,6 +220,12 @@ def ChangeInfrastructureAuth(inf_id, new_auth_data, overwrite, auth_data):
     return WaitRequest(request)
 
 
+def GetInfrastructureOwners(inf_id, auth_data):
+    request = IMBaseRequest.create_request(
+        IMBaseRequest.GET_INFRASTRUCTURE_OWNERS, (inf_id, auth_data))
+    return WaitRequest(request)
+
+
 def launch_daemon():
     """
     Launch the IM daemon
@@ -266,6 +272,7 @@ def launch_daemon():
     server.register_function(GetCloudImageList)
     server.register_function(GetCloudQuotas)
     server.register_function(ChangeInfrastructureAuth)
+    server.register_function(GetInfrastructureOwners)
 
     InfrastructureManager.logger.info(
         '************ Start Infrastructure Manager daemon (v.%s) ************' % version)
