@@ -78,6 +78,8 @@ topology_template:
 
     lrms_server:
       type: tosca.nodes.indigo.Compute
+      properties:
+        instance_name: myslurmserver
       capabilities:
         endpoint:
           properties:
