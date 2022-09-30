@@ -51,7 +51,7 @@ class Stats():
         stats = [("Inf ID.", "TOSCA", "User", "Creation Date", "Last Date")]
         db = DataBase(db_url)
         if db.connect():
-            res = db.select("SELECT data, date, id FROM inf_list WHERE date > '%s' order by rowid desc;" % date)
+            res = db.select("SELECT data, date, id FROM inf_list WHERE date > %s order by rowid desc;", (date,))
             for elem in res:
                 data = elem[0]
                 date = elem[1]
