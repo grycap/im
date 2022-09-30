@@ -1627,6 +1627,8 @@ class Tosca:
                     res.setValue("instance_tags", instance_tags)
                 else:
                     raise Exception("tags property must be a dictionary.")
+            elif prop.name == "instance_name" and prop.value:
+                res.setValue("instance_name", prop.value)
 
         property_map = {
             'architecture': 'cpu.arch',
