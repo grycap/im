@@ -47,7 +47,7 @@ Next tables summaries the resources and the HTTP methods available.
 |             | | associated to the machine ``vmId`` in ``infId``.   | | associated to the infrastructure ``infId``.        |
 |             | | It has one special property: ``contmsg``.          | | It has six properties: ``contmsg``, ``radl``,      |
 |             | |                                                    | | ``state``, ``outputs``, ``tosca``, ``data`` and    |
-|             | |                                                    | | ``owners``.                                        |
+|             | |                                                    | | ``authorization``.                                        |
 +-------------+------------------------------------------------------+------------------------------------------------------+
 | **POST**    |                                                      | | **Modify** the specified property ``property_name``|
 |             |                                                      | | associated to the infrastructure ``infId``.        |
@@ -174,7 +174,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
       :``data``: a string with the JSOMN serialized data of the infrastructure. In case of ``delete`` flag is set to 'yes',
                  'true' or '1' the data not only will be exported but also the infrastructure will be set deleted
                  (the virtual infrastructure will not be modified).
-      :``owners``: a list of strings with the current owners of the infrastructure. 
+      :``authorization``: a list of strings with the current owners of the infrastructure. 
       :``state``: a JSON object with two elements:
       
          :``state``: a string with the aggregated state of the infrastructure (see list of valid states in :ref:`IM-States`).
@@ -183,7 +183,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
    The result is JSON format has the following format::
    
     {
-      ["radl"|"tosca"|"state"|"contmsg"|"outputs"|"data"|"owners"]: <property_value>
+      ["radl"|"tosca"|"state"|"contmsg"|"outputs"|"data"|"authorization"]: <property_value>
     }
 
 POST ``http://imserver.com/infrastructures/<infId>/authorization``

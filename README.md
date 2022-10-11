@@ -50,20 +50,25 @@ for the IM database using the IM_DATA_DB environment variable and adding a
 volume::
 
 ```sh
-sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" -e IM_DATA_DB=/db/inf.dat --name im grycap/im
+sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" \ 
+                -e IM_DATA_DB=/db/inf.dat --name im grycap/im
 ```
 
 You can also specify an external MySQL server to store IM data using the
 IM_DATA_DB environment variable::
 
 ```sh
-sudo docker run -d -p 8899:8899 -p 8800:8800 -e IM_DATA_DB=mysql://username:password@server/db_name --name im grycap/im
+sudo docker run -d -p 8899:8899 -p 8800:8800 \
+                -e IM_DATA_DB=mysql://username:password@server/db_name \
+                --name im grycap/im
 ```
 
 Or you can also add a volume with all the IM configuration::
 
 ```sh
-sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
+sudo docker run -d -p 8899:8899 -p 8800:8800 \
+                -v "/some_local_path/im.cfg:/etc/im/im.cfg"
+                --name im grycap/im
 ```
 
 ## 2 Kubernetes Helm Chart
@@ -188,7 +193,9 @@ to connect with the Microsoft Azure platform. The easiest way is to install all
 the required packages with pip:
 
 ```sh
-pip install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity
+pip install msrest msrestazure azure-common azure-mgmt-storage \
+            azure-mgmt-compute azure-mgmt-network azure-mgmt-resource \
+            azure-mgmt-dns azure-identity
 ```
 
 The VMware vSphere API Python Bindings (<https://github.com/vmware/pyvmomi/>)
@@ -205,7 +212,8 @@ do::
 
 ```sh
 apt update
-apt install -y gcc python3-dev libffi-dev libssl-dev python3-pip sshpass default-libmysqlclient-dev
+apt install -y gcc python3-dev libffi-dev libssl-dev python3-pip sshpass \
+               default-libmysqlclient-dev
 ```
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
@@ -213,7 +221,8 @@ Fedora, etc.), do:
 
 ```sh
 yum install -y epel-release
-yum install -y which gcc python3-devel libffi-devel openssl-devel python3-pip sshpass
+yum install -y which gcc python3-devel libffi-devel openssl-devel \
+               python3-pip sshpass
 ```
 
 Then you only have to call the install command of the pip tool with the IM
