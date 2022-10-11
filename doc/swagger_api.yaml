@@ -738,7 +738,7 @@ paths:
         '404':
           description: Not Found
 
-  /infrastructures/{InfId}/owners:
+  /infrastructures/{InfId}/authorization:
     get:
       tags:
         - infrastructures
@@ -781,8 +781,6 @@ paths:
           description: Forbidden
         '404':
           description: Not Found
-
-  /infrastructures/{InfId}/authorization:
     post:
       tags:
         - infrastructures
