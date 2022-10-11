@@ -95,7 +95,6 @@ class QuickTestIM(unittest.TestCase):
                 if vm_state == VirtualMachine.UNCONFIGURED:
                     (success, cont_msg) = self.server.GetVMContMsg(
                         self.inf_id, vm_id, self.auth_data)
-                    print cont_msg
 
                 self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '" + vm_state +
                                  "' was obtained in the VM: " + str(vm_id) + " err_states = " + str(err_states))
