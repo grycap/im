@@ -471,7 +471,7 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
 
             data = InfrastructureManager.ExportInfrastructure(infid, delete, auth)
             return format_output(data, default_type="application/json", field_name="data")
-        elif prop == "owners":
+        elif prop == "authorization":
             res = InfrastructureManager.GetInfrastructureOwners(infid, auth)
         else:
             return return_error(404, "Incorrect infrastructure property")
