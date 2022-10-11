@@ -28,6 +28,9 @@ try:
 except ImportError:
     from xmlrpc.client import ServerProxy
 
+from defusedxml import xmlrpc
+xmlrpc.monkey_patch()
+
 sys.path.append("..")
 sys.path.append(".")
 
