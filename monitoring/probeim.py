@@ -424,8 +424,8 @@ if __name__ == '__main__':
         # In case of errors if delete the infra
         if im and INF_ID:
             im.delete_infrastructure(INF_ID)
-    except Exception as ex:
-        logging.info("Initializing --------------")
+    except Exception:
+        logging.exception("Error deleting the infra.")
 
     msg = "%s: %s" % (rc_status_map[rc], msg)
     if mean_time > 0:
