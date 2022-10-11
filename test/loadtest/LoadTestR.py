@@ -23,13 +23,13 @@ import sys
 import os
 import random
 import datetime
-try:
-    from xmlrpclib import ServerProxy
-except ImportError:
-    from xmlrpc.client import ServerProxy
-
 from defusedxml import xmlrpc
 xmlrpc.monkey_patch()
+
+try:
+    from xmlrpclib import ServerProxy  # nosec
+except ImportError:
+    from xmlrpc.client import ServerProxy
 
 sys.path.append("..")
 sys.path.append(".")
