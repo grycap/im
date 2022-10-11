@@ -26,6 +26,9 @@ import time
 import sys
 import os
 
+from defusedxml import xmlrpc
+xmlrpc.monkey_patch()
+
 sys.path.append("..")
 sys.path.append(".")
 
