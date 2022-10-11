@@ -1085,12 +1085,12 @@ class TestREST(unittest.TestCase):
 
         GetInfrastructureOwners.return_value = ["user1", "user2"]
 
-        res = RESTGetInfrastructureProperty("1", "owners")
+        res = RESTGetInfrastructureProperty("1", "authorization")
         self.assertEqual(res, 'user1\nuser2')
 
         bottle_request.headers["Accept"] = "application/json"
-        res = RESTGetInfrastructureProperty("1", "owners")
-        self.assertEqual(res, '{"owners": ["user1", "user2"]}')
+        res = RESTGetInfrastructureProperty("1", "authorization")
+        self.assertEqual(res, '{"authorization": ["user1", "user2"]}')
 
 
 if __name__ == "__main__":
