@@ -242,7 +242,7 @@ The main menu bar is located on top of the pages:
   and an avatar obtained from `Gravatar <https://www.gravatar.com/>`_. In this menu the user can access their 
   "Cloud Credentials" with the cloud providers, add his "SSH Keys" to be added to the VMs or logout the application.
 
-Cloud Crecentials
+Cloud Credentials
 ^^^^^^^^^^^^^^^^^^^
 
 This page enable the user to specify the credentials to access any cloud provider it has access to.
@@ -252,7 +252,7 @@ cloud credential.
 .. _figure_dash_cred_list:
 .. figure:: images/dash_cred_list.png
 
-   Fig 2. List of Cloud Crecentials.
+   Fig 2. List of Cloud Credentials.
 
 Editing or adding the credentials will show a modal form (:ref:`Fig. 3 <figure_dash_edit_cred>`) where the user has the 
 ability to specify all the parameters needed to access each cloud provider supported. In particular for
@@ -263,7 +263,7 @@ available from the sites and the list of VOs the user is member.
 .. _figure_dash_edit_cred:
 .. figure:: images/dash_edit_cred.png
 
-   Fig 3. Edit/Add a Crecential.
+   Fig 3. Edit/Add a Credential.
 
 SSH Keys
 ^^^^^^^^^
@@ -316,7 +316,7 @@ easier the input values selection.
 
 The final tab will be the "Cloud Provider Selection" (:ref:`Fig. 8 <figure_dash_site>`).
 In this tab the user has to select: first, one of the Cloud providers that has been previously added (and not disabled) 
-in the "Cloud Crecentials" page, then it has to select the base image used to deploy the VMs.
+in the "Cloud Credentials" page, then it has to select the base image used to deploy the VMs.
 In case of EGI Cloud Compute sites the user has two options, he can select an image from the list of images provided by the
 `EGI AppDB information system <https://appdb.egi.eu/>`_ or from the list provided directly by the Cloud site.
 Other providers will only show a dropdown list with the available images to use. Only in the case of AWS Cloud provider
