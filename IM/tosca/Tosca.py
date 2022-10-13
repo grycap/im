@@ -769,7 +769,7 @@ class Tosca:
                             script_content = resp.text
                             if resp.status_code != 200:
                                 raise Exception(resp.reason + "\n" + resp.text)
-                        except Exception as ex:
+                        except Exception:
                             raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' "
                                             "or in the artifacts remote url '%s'." % (implementation,
                                                                                       Tosca.ARTIFACTS_PATH,

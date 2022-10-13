@@ -17,8 +17,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+from defusedxml import xmlrpc
+xmlrpc.monkey_patch()
+
 try:
-    from xmlrpclib import ServerProxy
+    from xmlrpclib import ServerProxy  # nosec
 except ImportError:
     from xmlrpc.client import ServerProxy
 

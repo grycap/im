@@ -38,7 +38,7 @@ class DB14to15():
             else:
                 inf_list = DB14to15.get_data_from_db(Config.DATA_DB)
             return inf_list
-        except Exception, ex:
+        except Exception as ex:
             sys.stderr.write("ERROR loading data: " + str(ex) + ".\nCorrect or delete it!! ")
             sys.exit(-1)
 
