@@ -106,7 +106,7 @@ class LoadTest(unittest.TestCase):
         resp = self.create_request("GET", "/infrastructures/" + inf_id + "/state")
         self.assertEqual(
             resp.status_code, 200, msg="ERROR getting the infrastructure state:" + resp.text)
-        res = json.loads(resp.text)
+        # res = json.loads(resp.text)
         # state = res['state']['state']
         # vm_states = res['state']['vm_states']
 
