@@ -107,13 +107,13 @@ class LoadTest(unittest.TestCase):
         self.assertEqual(
             resp.status_code, 200, msg="ERROR getting the infrastructure state:" + resp.text)
         res = json.loads(resp.text)
-        state = res['state']['state']
-        vm_states = res['state']['vm_states']
+        # state = res['state']['state']
+        # vm_states = res['state']['vm_states']
 
     def print_response_times(self):
         total = 0.0
-        for time in self.response_times:
-            total += time
+        for rtime in self.response_times:
+            total += rtime
         print("Mean Time: %.4f" % (total / len(self.response_times)))
 
 

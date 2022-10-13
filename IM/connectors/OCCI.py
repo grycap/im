@@ -307,7 +307,7 @@ class OCCICloudConnector(CloudConnector):
         pools = []
         for line in lines:
             if 'http://schemas.openstack.org/network/floatingippool#' in line:
-                for elem in l.split(';'):
+                for elem in line.split(';'):
                     if elem.startswith('Category: '):
                         pools.append(elem[10:])
         if pools:

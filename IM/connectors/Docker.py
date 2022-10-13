@@ -162,7 +162,7 @@ class DockerCloudConnector(CloudConnector):
         svc_data = {}
         system = vm.info.systems[0]
 
-        cpu = int(system.getValue('cpu.count')) - 1
+        # cpu = int(system.getValue('cpu.count')) - 1
         memory = int(system.getFeature('memory.size').getValue('B'))
         name = system.getValue("disk.0.image.name")
         if not name:
@@ -241,7 +241,7 @@ class DockerCloudConnector(CloudConnector):
         cont_data = {}
         system = vm.info.systems[0]
 
-        cpu = int(system.getValue('cpu.count')) - 1
+        # cpu = int(system.getValue('cpu.count')) - 1
         memory = system.getFeature('memory.size').getValue('B')
         # name = system.getValue("disk.0.image.name")
 
