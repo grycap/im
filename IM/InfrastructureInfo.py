@@ -449,17 +449,17 @@ class InfrastructureInfo:
         # TODO: Do in a better way
         radl = self.radl.clone()
         deploys = []
-        for deploy in radl.deploys:
-            if not deploy.id.startswith(self.FAKE_SYSTEM):
-                deploys.append(deploy)
+        for dep in radl.deploys:
+            if not dep.id.startswith(self.FAKE_SYSTEM):
+                deploys.append(dep)
         radl.deploys = deploys
 
         # remove the F0000__FAKE_SYSTEM__ deploys
         # TODO: Do in a better way
         systems = []
-        for system in radl.systems:
-            if not system.name.startswith(self.FAKE_SYSTEM):
-                systems.append(system)
+        for syst in radl.systems:
+            if not syst.name.startswith(self.FAKE_SYSTEM):
+                systems.append(syst)
         radl.systems = systems
 
         return radl
