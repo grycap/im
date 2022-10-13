@@ -17,8 +17,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+
+from defusedxml import xmlrpc
+xmlrpc.monkey_patch()
+
 try:
-    from xmlrpclib import ServerProxy
+    from xmlrpclib import ServerProxy  # nosec
 except ImportError:
     from xmlrpc.client import ServerProxy
 import time
@@ -92,7 +96,6 @@ class QuickTestIM(unittest.TestCase):
                 if vm_state == VirtualMachine.UNCONFIGURED:
                     (success, cont_msg) = self.server.GetVMContMsg(
                         self.inf_id, vm_id, self.auth_data)
-                    print cont_msg
 
                 self.assertFalse(vm_state in err_states, msg="ERROR waiting for a state. '" + vm_state +
                                  "' was obtained in the VM: " + str(vm_id) + " err_states = " + str(err_states))

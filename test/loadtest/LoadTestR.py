@@ -23,8 +23,11 @@ import sys
 import os
 import random
 import datetime
+from defusedxml import xmlrpc
+xmlrpc.monkey_patch()
+
 try:
-    from xmlrpclib import ServerProxy
+    from xmlrpclib import ServerProxy  # nosec
 except ImportError:
     from xmlrpc.client import ServerProxy
 
@@ -108,8 +111,8 @@ class LoadTest(unittest.TestCase):
 
     def print_response_times(self):
         total = 0.0
-        for time in self.response_times:
-            total += time
+        for rtime in self.response_times:
+            total += rtime
         print("Mean Time: %.4f" % (total / len(self.response_times)))
 
 
