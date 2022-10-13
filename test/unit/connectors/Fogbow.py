@@ -79,7 +79,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
         resp = MagicMock()
         parts = urlparse(url)
         url = parts[2]
-        params = parts[4]
+        # params = parts[4]
 
         if method not in self.call_count:
             self.call_count[method] = {}

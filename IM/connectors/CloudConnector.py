@@ -24,7 +24,6 @@ from radl.radl import Feature, outport
 from IM.config import Config
 from IM.LoggerMixin import LoggerMixin
 from netaddr import IPNetwork, spanning_cidr
-import IM.connectors
 
 
 class CloudConnector(LoggerMixin):

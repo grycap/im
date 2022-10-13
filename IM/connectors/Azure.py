@@ -53,6 +53,7 @@ try:
 except Exception as ex:
     AZURE_IDENTITY_AVAILABLE = False
     print("WARN: Python azure-identity not installed. AzureCloudConnector may not work properly!.")
+    print(ex)
 
 
 class AzureInstanceTypeInfo:
@@ -888,7 +889,7 @@ class AzureCloudConnector(CloudConnector):
                 deleted, msg = self.delete_resource_group(inf, rg_name, resource_client, max_retries=1)
                 if not deleted:
                     self.log_warn("Error removing errored RG %s: %s" % (rg_name, msg))
-            except Exception as ex:
+            except Exception:
                 self.log_exception("Error removing errored RG: %s" % rg_name)
 
         if remaining_vms == 0:

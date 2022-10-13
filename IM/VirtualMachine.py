@@ -1009,7 +1009,7 @@ class VirtualMachine(LoggerMixin):
             # And process it
             self.process_ctxt_agent_out(ctxt_agent_out)
             msg = "Contextualization agent output processed successfully"
-        except IOError as ex:
+        except IOError:
             msg = "Error getting contextualization agent output " + \
                 remote_dir + "/ctxt_agent.out:  No such file."
             self.log_error(msg)

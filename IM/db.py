@@ -188,7 +188,7 @@ class DataBase:
                         self.connect()
                     else:
                         raise ex
-                except sqlite.IntegrityError as ex:
+                except sqlite.IntegrityError:
                     raise IntegrityError()
 
     def execute(self, sql, args=None):
