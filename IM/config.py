@@ -20,6 +20,7 @@ except ImportError:
     from configparser import ConfigParser
 import os
 import logging
+import json
 
 
 def parse_options(config, section_name, config_class):
@@ -34,6 +35,9 @@ def parse_options(config, section_name, config_class):
             elif isinstance(config_class.__dict__[option], list):
                 str_value = config.get(section_name, option)
                 setattr(config_class, option, str_value.split(','))
+            elif isinstance(config_class.__dict__[option], dict):
+                str_value = config.get(section_name, option)
+                setattr(config_class, option, json.loads(str_value))
             else:
                 setattr(config_class, option, config.get(section_name, option))
         else:
@@ -119,7 +123,7 @@ class Config:
     VM_TAG_INF_ID = None
     VM_TAG_IM_URL = None
     VM_TAG_IM = None
-    ADMIN_USER = None
+    ADMIN_USER = {}
 
 
 config = ConfigParser()
