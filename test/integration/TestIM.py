@@ -779,7 +779,7 @@ echo "Hello World" >> /tmp/data.txt
             memory.size>=1g and
             net_interface.0.connection = 'net' and
             disk.0.os.name='linux' and
-            disk.0.image.url = 'one://ramses.i3m.upv.es/476'
+            disk.0.image.url = 'one://ramses.i3m.upv.es/1396'
             )
 
             deploy test 1
