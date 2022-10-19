@@ -41,7 +41,7 @@ cpu.count>=2 and
 memory.size>=4g and
 net_interface.0.connection = 'privada' and
 disk.0.os.name='windows' and
-disk.0.image.url = 'one://ramses.i3m.upv.es/1357' and
+disk.0.image.url = 'one://ramses.i3m.upv.es/1654' and
 disk.0.os.credentials.username = 'winuser' and
 disk.0.os.credentials.password = 'grycap01'
 )
