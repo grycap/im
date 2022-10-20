@@ -39,25 +39,6 @@ distribution_id() {
     echo ${RETVAL}
 }
 
-distribution_major_version() {
-	if [ -f /etc/lsb-release ]; then
-		. /etc/lsb-release
-		echo ${DISTRIB_RELEASE} | sed -e 's|\([0-9]\+\)\([0-9.]*\).*|\1|'
-	else
-	    for RELEASE_FILE in /etc/system-release \
-	                        /etc/centos-release \
-	                        /etc/fedora-release \
-	                        /etc/redhat-release
-	    do
-	        if [ -e "${RELEASE_FILE}" ]; then
-	            RELEASE_VERSION=$(head -n1 ${RELEASE_FILE})
-	            break
-	        fi
-	    done
-	    echo ${RELEASE_VERSION} | sed -e 's|\(.\+\) release \([0-9]\+\)\([0-9.]*\).*|\2|'
-	fi
-}
-
 if [ $(which ansible-playbook) ]; then
     echo "Ansible installed. Do not install."
 else
@@ -69,17 +50,7 @@ else
             ;;
         ubuntu)
             apt update
-            if [ "$(distribution_major_version)" == "14"]
-            then
-                ls /usr/bin/python3.5 && rm -f /usr/bin/python3 && ln -s /usr/bin/python3.5 /usr/bin/python3
-                apt install -y --no-install-recommends python3.5 wget gcc python3.5-dev libffi-dev libssl-dev python3-pip wget python3-setuptools sshpass openssh-client unzip
-                rm -f /usr/bin/pip3
-                ln -s /usr/local/bin/pip3.5 /usr/bin/pip3
-                pip3 install cryptography==2.9.2
-                pip3 install urllib3 ndg-httpsclient pyasn1
-            else
-                apt install -y --no-install-recommends python3 python3-pip wget python3-setuptools sshpass openssh-client unzip
-            fi
+            apt install -y --no-install-recommends python3 python3-pip wget python3-setuptools sshpass openssh-client unzip
             ;;
         rhel)
             yum install -y epel-release wget
