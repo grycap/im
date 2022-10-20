@@ -25,6 +25,7 @@ import signal
 import subprocess
 import time
 import argparse
+import psutil
 
 from IM.request import Request, AsyncXMLRPCServer, get_system_queue
 from IM.config import Config
@@ -380,13 +381,10 @@ def im_stop():
 
 
 def get_childs(parent_id=None):
-    if parent_id is None:
-        parent_id = os.getpid()
-    ps_command = subprocess.Popen(["ps", "-o", "pid", "--ppid", "%d" % parent_id, "--noheaders"],
-                                  stdout=subprocess.PIPE)
-    ps_command.wait()
-    ps_output = str(ps_command.stdout.read())
-    childs = ps_output.strip().split("\n")[:-1]
+    childs = []
+    for proc in psutil.process_iter():
+        if not parent_id or parent_id == proc.ppid():
+            childs.append(proc.pid)
     if childs:
         res = childs
         for child in childs:
