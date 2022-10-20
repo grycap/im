@@ -46,22 +46,22 @@ else
     DISTRO=$(distribution_id)
     case $DISTRO in
         debian)
-            apt install -y --no-install-recommends python3 python3-pip wget python3-setuptools sshpass openssh-client unzip
+            apt install -y --no-install-recommends python3 python3-pip python3-psutil wget python3-setuptools sshpass openssh-client unzip
             ;;
         ubuntu)
             apt update
-            apt install -y --no-install-recommends python3 python3-pip wget python3-setuptools sshpass openssh-client unzip
+            apt install -y --no-install-recommends python3 python3-pip python3-psutilwget python3-setuptools sshpass openssh-client unzip
             ;;
         rhel)
             yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 python3-pip python3-setuptools sshpass openssh-clients
+            yum install -y python3 libselinux-python3 python3-pip python3-setuptools python3-psutil sshpass openssh-clients
             ;;
         centos)
             yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 python3-pip python3-setuptools sshpass openssh-clients
+            yum install -y python3 libselinux-python3 python3-pip python3-setuptools python3-psutil sshpass openssh-clients
             ;;
         fedora)
-            yum install -y wget python3 libselinux-python3 python3-pip python3-setuptools sshpass openssh-clients
+            yum install -y wget python3 libselinux-python3 python3-pip python3-psutil python3-setuptools sshpass openssh-clients
 
             ;;
     	*)
