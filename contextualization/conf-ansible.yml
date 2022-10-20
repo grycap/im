@@ -143,6 +143,7 @@
           - cryptography
           - wheel
           - pyyaml
+          - psutil
         executable: pip3
         extra_args: --prefer-binary
 
