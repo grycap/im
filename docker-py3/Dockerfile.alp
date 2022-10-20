@@ -34,7 +34,7 @@ RUN pip3 install pyOpenSSL \
 RUN pip3 install ansible==6.4.0
 
 RUN apk add --no-cache git &&\
-    pip3 install git+https://github.com/grycap/im@devel &&\
+    pip3 install IM==1.13.0 &&\
     apk del git
 
 # Copy a ansible.cfg with correct minimum values
