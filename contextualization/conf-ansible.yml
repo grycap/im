@@ -103,15 +103,15 @@
   ################### Install Ansible/pip requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
+      apt: name=python3-pip,wget,python3-setuptools,python3-psutil,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Yum install requisites RH 7/8 or Fedora
-      command: yum install -y python3-pip python3-setuptools sshpass openssh-clients
+      command: yum install -y python3-pip python3-setuptools python3-psutil sshpass openssh-clients
       when: ansible_os_family == "RedHat"
 
     - name: Zypper install requirements Suse
-      zypper: name=python3-pip,python3-setuptools,wget,python3-cryptography state=present
+      zypper: name=python3-pip,python3-setuptools,python3-psutil,wget,python3-cryptography state=present
       when: ansible_os_family == "Suse"
 
     - name: Install python-setuptools
@@ -143,7 +143,6 @@
           - cryptography
           - wheel
           - pyyaml
-          - psutil
         executable: pip3
         extra_args: --prefer-binary
 
