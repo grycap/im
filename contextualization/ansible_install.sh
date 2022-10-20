@@ -50,7 +50,7 @@ else
             ;;
         ubuntu)
             apt update
-            apt install -y --no-install-recommends python3 python3-pip python3-psutilwget python3-setuptools sshpass openssh-client unzip
+            apt install -y --no-install-recommends python3 python3-pip python3-psutil wget python3-setuptools sshpass openssh-client unzip
             ;;
         rhel)
             yum install -y epel-release wget
