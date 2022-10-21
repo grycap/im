@@ -568,8 +568,8 @@ class TestIM(unittest.TestCase):
              cpu.count>=1 and
              memory.size>=512m and
              net_interface.0.connection = 'net' and
-             disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='14.04'
+             disk.0.os.name='linux' and
+             disk.0.image.url = 'one://ramses.i3m.upv.es/1593'
             )
 
             deploy node 1
