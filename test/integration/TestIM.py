@@ -617,7 +617,7 @@ echo "Hello World" >> /tmp/data.txt
             system node (
              cpu.arch='x86_64' and
              cpu.count>=1 and
-             memory.size>=512m and
+             memory.size>=1g and
              net_interface.0.connection = 'publicnet' and
              net_interface.1.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
@@ -656,7 +656,7 @@ echo "Hello World" >> /tmp/data.txt
             system node (
              cpu.arch='x86_64' and
              cpu.count>=1 and
-             memory.size>=512m and
+             memory.size>=1g and
              net_interface.0.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
              disk.0.os.version>='20.04'
