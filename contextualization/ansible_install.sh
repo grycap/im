@@ -46,22 +46,22 @@ else
     DISTRO=$(distribution_id)
     case $DISTRO in
         debian)
-            apt install -y --no-install-recommends python3 python3-pip python3-psutil wget python3-setuptools sshpass openssh-client unzip
+            apt install -y --no-install-recommends python3 python3-pip python3-psutil python3-paramiko wget python3-setuptools sshpass openssh-client unzip
             ;;
         ubuntu)
             apt update
-            apt install -y --no-install-recommends python3 python3-pip python3-psutil wget python3-setuptools sshpass openssh-client unzip
+            apt install -y --no-install-recommends python3 python3-pip python3-psutil python3-paramiko wget python3-setuptools sshpass openssh-client unzip
             ;;
         rhel)
             yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 python3-pip python3-setuptools python3-psutil sshpass openssh-clients
+            yum install -y python3 libselinux-python3 python3-pip python3-setuptools python3-paramiko python3-psutil sshpass openssh-clients
             ;;
         centos)
             yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 python3-pip python3-setuptools python3-psutil sshpass openssh-clients
+            yum install -y python3 libselinux-python3 python3-pip python3-paramiko python3-setuptools python3-psutil sshpass openssh-clients
             ;;
         fedora)
-            yum install -y wget python3 libselinux-python3 python3-pip python3-psutil python3-setuptools sshpass openssh-clients
+            yum install -y wget python3 libselinux-python3 python3-pip python3-paramiko python3-psutil python3-setuptools sshpass openssh-clients
 
             ;;
     	*)
@@ -69,10 +69,10 @@ else
             ;;
     esac
 
-    pip3 install "pip>=9.0.3"
+    pip3 install "pip>=20.0"
     pip3 install -U setuptools
-    pip3 install pyOpenSSL pyyaml jmespath scp
-    pip3 install ansible==$ANSIBLE_VERSION
+    pip3 install pyOpenSSL pyyaml jmespath scp --prefer-binary
+    pip3 install ansible==$ANSIBLE_VERSION --prefer-binary
 fi
 
 # Create the config file
