@@ -381,6 +381,8 @@ def im_stop():
 
 
 def get_childs(parent_id=None):
+    if parent_id is None:
+        parent_id = os.getpid()
     childs = []
     for proc in psutil.process_iter():
         if not parent_id or parent_id == proc.ppid():
