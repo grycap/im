@@ -143,6 +143,7 @@
           - cryptography
           - wheel
           - pyyaml
+          - paramiko>=2.9.5
         executable: pip3
         extra_args: --prefer-binary
 
