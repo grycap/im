@@ -22,7 +22,6 @@ import logging.handlers
 import logging.config
 import os
 import signal
-import subprocess
 import time
 import argparse
 import psutil
