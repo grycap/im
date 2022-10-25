@@ -200,9 +200,16 @@ class Tosca:
                     Tosca.logger.debug("User requested %d instances of type %s and there"
                                        " are %s" % (num_instances, sys.name, current_num_instances))
 
-                    # TODO: Think about to check the IDs of the VMs
                     if num_instances < 0:
-                        all_removal_list.extend(removal_list[0:-num_instances])
+                        if removal_list:
+                            # TODO: Think about to check the IDs of the VMs
+                            all_removal_list.extend([int(vm_id) for vm_id in removal_list[0:-num_instances]])
+                        # if no removal list is set, delete the oldest VMs of this type
+                        elif inf_info:
+                            vm_list = inf_info.get_vm_list_by_system_name()
+                            if sys.name in vm_list:
+                                vms = sorted(vm_list[sys.name], key=lambda vm: vm.creation_date)
+                                all_removal_list = [vm.id for vm in vms[0:-num_instances]]
 
                     if num_instances > 0:
                         cloud_id = self._get_placement_property(sys.name, "cloud_id")
