@@ -14,13 +14,13 @@ configure node (
 ---
  - tasks:
      - fail: msg="Incorrect Ansible Version"
-       when: ansible_version.string != "2.6.20"
+       when: ansible_version.string != "2.8.19"
 
 @end
 )
 
 contextualize (
-  option ansible_version = '2.6.20'
+  option ansible_version = '2.8.19'
   system node configure node
 )
 
