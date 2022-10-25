@@ -767,11 +767,11 @@ echo "Hello World" >> /tmp/data.txt
         vm = radl_parse.parse_radl(vminfo)
         proxy_ip = vm.systems[0].getValue("net_interface.0.ip")
         proxy_user = vm.systems[0].getValue("disk.0.os.credentials.username")
-        proxy_pass = vm.systems[0].getValue("disk.0.os.credentials.password")
-        proxy_host = "%s:%s@%s" % (proxy_user, proxy_pass, proxy_ip)
+        proxy_key = vm.systems[0].getValue("disk.0.os.credentials.password")
+        proxy_host = "%s@%s" % (proxy_user, proxy_ip)
 
         radl = """
-            network net (proxy_host = '%s' and provider_id = '16')
+            network net (proxy_host = '%s' and provider_id = '16' and proxy_key='%s')
             system test (
             cpu.count>=1 and
             memory.size>=1g and
@@ -781,7 +781,7 @@ echo "Hello World" >> /tmp/data.txt
             )
 
             deploy test 1
-            """ % proxy_host
+            """ % (proxy_host, proxy_key)
         (success, inf_id2) = self.server.CreateInfrastructure(radl, self.auth_data)
         self.__class__.inf_id.append(inf_id2)
 
