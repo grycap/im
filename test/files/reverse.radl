@@ -27,7 +27,7 @@ memory.size>=1024m and
 net_interface.0.connection = 'privada2' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.image.url = 'one://ramses.i3m.upv.es/476'
+disk.0.image.url = 'one://ramses.i3m.upv.es/1396'
 )
 
 

@@ -271,7 +271,7 @@ class TestIM(unittest.TestCase):
                                               str(len(vm_ids)) + "). It must be 4"))
 
         all_configured = self.wait_inf_state(
-            self.inf_id, VirtualMachine.CONFIGURED, 900)
+            self.inf_id, VirtualMachine.CONFIGURED, 1200)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -336,7 +336,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
 
         all_configured = self.wait_inf_state(
-            self.inf_id, VirtualMachine.CONFIGURED, 600)
+            self.inf_id, VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -529,7 +529,7 @@ class TestIM(unittest.TestCase):
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             disk.0.os.flavour='ubuntu' and
-            disk.0.os.version>='16.04'
+            disk.0.os.version>='20.04'
             )
 
             deploy test 1
@@ -568,8 +568,8 @@ class TestIM(unittest.TestCase):
              cpu.count>=1 and
              memory.size>=512m and
              net_interface.0.connection = 'net' and
-             disk.0.os.flavour='ubuntu' and
-             disk.0.os.version>='14.04'
+             disk.0.os.name='linux' and
+             disk.0.image.url = 'one://ramses.i3m.upv.es/1593'
             )
 
             deploy node 1
@@ -617,7 +617,7 @@ echo "Hello World" >> /tmp/data.txt
             system node (
              cpu.arch='x86_64' and
              cpu.count>=1 and
-             memory.size>=512m and
+             memory.size>=1g and
              net_interface.0.connection = 'publicnet' and
              net_interface.1.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
@@ -656,7 +656,7 @@ echo "Hello World" >> /tmp/data.txt
             system node (
              cpu.arch='x86_64' and
              cpu.count>=1 and
-             memory.size>=512m and
+             memory.size>=1g and
              net_interface.0.connection = 'net' and
              disk.0.os.flavour='ubuntu' and
              disk.0.os.version>='20.04'
@@ -748,9 +748,7 @@ echo "Hello World" >> /tmp/data.txt
             net_interface.0.connection = 'net' and
             net_interface.1.connection = 'priv' and
             disk.0.os.name='linux' and
-            disk.0.image.url = 'one://ramses.i3m.upv.es/1452' and
-            disk.0.os.credentials.username = 'root' and
-            disk.0.os.credentials.password = 'grycap01'
+            disk.0.image.url = 'one://ramses.i3m.upv.es/1593'
             )
 
             deploy test 1
@@ -769,21 +767,21 @@ echo "Hello World" >> /tmp/data.txt
         vm = radl_parse.parse_radl(vminfo)
         proxy_ip = vm.systems[0].getValue("net_interface.0.ip")
         proxy_user = vm.systems[0].getValue("disk.0.os.credentials.username")
-        proxy_pass = vm.systems[0].getValue("disk.0.os.credentials.password")
-        proxy_host = "%s:%s@%s" % (proxy_user, proxy_pass, proxy_ip)
+        proxy_key = vm.systems[0].getValue("disk.0.os.credentials.private_key")
+        proxy_host = "%s@%s" % (proxy_user, proxy_ip)
 
         radl = """
-            network net (proxy_host = '%s' and provider_id = '16')
+            network net (proxy_host = '%s' and provider_id = '16' and proxy_key='%s')
             system test (
             cpu.count>=1 and
             memory.size>=1g and
             net_interface.0.connection = 'net' and
             disk.0.os.name='linux' and
-            disk.0.image.url = 'one://ramses.i3m.upv.es/476'
+            disk.0.image.url = 'one://ramses.i3m.upv.es/1396'
             )
 
             deploy test 1
-            """ % proxy_host
+            """ % (proxy_host, proxy_key)
         (success, inf_id2) = self.server.CreateInfrastructure(radl, self.auth_data)
         self.__class__.inf_id.append(inf_id2)
 

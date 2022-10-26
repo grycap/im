@@ -39,25 +39,6 @@ distribution_id() {
     echo ${RETVAL}
 }
 
-distribution_major_version() {
-	if [ -f /etc/lsb-release ]; then
-		. /etc/lsb-release
-		echo ${DISTRIB_RELEASE} | sed -e 's|\([0-9]\+\)\([0-9.]*\).*|\1|'
-	else
-	    for RELEASE_FILE in /etc/system-release \
-	                        /etc/centos-release \
-	                        /etc/fedora-release \
-	                        /etc/redhat-release
-	    do
-	        if [ -e "${RELEASE_FILE}" ]; then
-	            RELEASE_VERSION=$(head -n1 ${RELEASE_FILE})
-	            break
-	        fi
-	    done
-	    echo ${RELEASE_VERSION} | sed -e 's|\(.\+\) release \([0-9]\+\)\([0-9.]*\).*|\2|'
-	fi
-}
-
 if [ $(which ansible-playbook) ]; then
     echo "Ansible installed. Do not install."
 else
@@ -65,32 +46,22 @@ else
     DISTRO=$(distribution_id)
     case $DISTRO in
         debian)
-            apt install -y --no-install-recommends python3 python3-pip wget python3-setuptools sshpass openssh-client unzip
+            apt install -y --no-install-recommends python3 python3-pip python3-psutil wget python3-setuptools sshpass openssh-client unzip
             ;;
         ubuntu)
             apt update
-            if [ "$(distribution_major_version)" == "14"]
-            then
-                ls /usr/bin/python3.5 && rm -f /usr/bin/python3 && ln -s /usr/bin/python3.5 /usr/bin/python3
-                apt install -y --no-install-recommends python3.5 wget gcc python3.5-dev libffi-dev libssl-dev python3-pip wget python3-setuptools sshpass openssh-client unzip
-                rm -f /usr/bin/pip3
-                ln -s /usr/local/bin/pip3.5 /usr/bin/pip3
-                pip3 install cryptography==2.9.2
-                pip3 install urllib3 ndg-httpsclient pyasn1
-            else
-                apt install -y --no-install-recommends python3 python3-pip wget python3-setuptools sshpass openssh-client unzip
-            fi
+            apt install -y --no-install-recommends python3 python3-pip python3-psutil wget python3-setuptools sshpass openssh-client unzip
             ;;
         rhel)
             yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 python3-pip python3-setuptools sshpass openssh-clients
+            yum install -y python3 libselinux-python3 python3-pip python3-setuptools python3-psutil sshpass openssh-clients
             ;;
         centos)
             yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 python3-pip python3-setuptools sshpass openssh-clients
+            yum install -y python3 libselinux-python3 python3-pippython3-setuptools python3-psutil sshpass openssh-clients
             ;;
         fedora)
-            yum install -y wget python3 libselinux-python3 python3-pip python3-setuptools sshpass openssh-clients
+            yum install -y wget python3 libselinux-python3 python3-pip python3-psutil python3-setuptools sshpass openssh-clients
 
             ;;
     	*)
@@ -98,10 +69,10 @@ else
             ;;
     esac
 
-    pip3 install "pip>=9.0.3"
+    pip3 install "pip>=20.0"
     pip3 install -U setuptools
-    pip3 install pyOpenSSL pyyaml jmespath scp
-    pip3 install ansible==$ANSIBLE_VERSION
+    pip3 install pyOpenSSL pyyaml jmespath scp paramiko>=2.9.5 --prefer-binary
+    pip3 install ansible==$ANSIBLE_VERSION --prefer-binary
 fi
 
 # Create the config file
