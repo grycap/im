@@ -767,7 +767,7 @@ echo "Hello World" >> /tmp/data.txt
         vm = radl_parse.parse_radl(vminfo)
         proxy_ip = vm.systems[0].getValue("net_interface.0.ip")
         proxy_user = vm.systems[0].getValue("disk.0.os.credentials.username")
-        proxy_key = vm.systems[0].getValue("disk.0.os.credentials.password")
+        proxy_key = vm.systems[0].getValue("disk.0.os.credentials.private_key")
         proxy_host = "%s@%s" % (proxy_user, proxy_ip)
 
         radl = """
