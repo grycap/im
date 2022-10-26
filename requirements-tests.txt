@@ -29,3 +29,4 @@ azure-mgmt-dns
 azure-identity
 pyVmomi
 hvac
+psutil

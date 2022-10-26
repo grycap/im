@@ -8,10 +8,10 @@ memory.size>=1g and
 net_interface.1.connection = 'publica' and
 net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'front' and
-disk.0.os.flavour='centos' and
-disk.0.os.version>='7' and
 disk.0.os.name = 'linux' and
-disk.0.applications contains (name = 'ansible.modules.grycap.octave')
+disk.0.image.url = 'one://ramses.i3m.upv.es/1651' and
+disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.applications contains (name = 'ansible.modules.geerlingguy.ntp')
 )
 
 system wn (
@@ -20,7 +20,7 @@ cpu.count>=1 and
 memory.size>=1g and
 net_interface.0.connection = 'privada' and
 disk.0.os.name='linux' and
-disk.0.image.url = 'one://ramses.i3m.upv.es/1396' and
+disk.0.image.url = 'one://ramses.i3m.upv.es/1452' and
 disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
@@ -30,16 +30,17 @@ cpu.count>=2 and
 memory.size>=4g and
 net_interface.0.connection = 'privada' and
 disk.0.os.name='windows' and
-disk.0.image.url = 'one://ramses.i3m.upv.es/1357' and
+disk.0.image.url = 'one://ramses.i3m.upv.es/1660' and
 disk.0.os.credentials.username = 'winuser' and
 disk.0.os.credentials.password = 'grycap01'
 )
 
-configure octave (
+configure ntp (
 @begin
 ---
  - roles:
-   - { role: 'grycap.octave' }
+   - role: 'geerlingguy.ntp'
+     ntp_servers: ['ntp.upv.es', 'ntp.uv.es']
 @end
 )
 
@@ -69,7 +70,7 @@ deploy wn 2
 deploy windows 1
 
 contextualize (
-    system front configure octave step 1
+    system front configure ntp step 1
     system front configure test step 1
     system wn configure test step 1
     system windows configure win step 1

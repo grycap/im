@@ -343,6 +343,37 @@ class TestTosca(unittest.TestCase):
                                                           'token_type': 'password',
                                                           'user': 'oscar'}})
 
+    def test_tosca_remove(self):
+        tosca_data = read_file_as_string('../files/tosca_remove_no_list.yml')
+        tosca = Tosca(tosca_data)
+        inf_info = MagicMock()
+        vm1 = MagicMock()
+        system1 = system("web_server", [Feature("disk.0.image.url", "=", "ost://cloud1.com/image1"),
+                                        Feature("net_interface.0.connection", "=", "network1")])
+        vm1.info.systems = [system1]
+        vm1.creation_date = 0
+        vm1.id = 0
+        vm2 = MagicMock()
+        system2 = system("db_server", [Feature("disk.0.image.url", "=", "ost://cloud1.com/image1"),
+                                       Feature("net_interface.0.connection", "=", "network1")])
+        vm2.info.systems = [system2]
+        vm2.creation_date = 1
+        vm2.id = 1
+        vm3 = MagicMock()
+        system3 = system("db_server", [Feature("disk.0.image.url", "=", "ost://cloud1.com/image1"),
+                                       Feature("net_interface.0.connection", "=", "network1")])
+        vm3.info.systems = [system3]
+        vm3.creation_date = 2
+        vm3.id = 2
+        inf_info.get_vm_list_by_system_name.return_value = {"web_server": [vm1], "db_server": [vm2, vm3]}
+        remove_list, _ = tosca.to_radl(inf_info)
+        self.assertEqual(remove_list, [1])
+
+        tosca_data = read_file_as_string('../files/tosca_remove.yml')
+        tosca = Tosca(tosca_data)
+        remove_list, _ = tosca.to_radl(inf_info)
+        self.assertEqual(remove_list, [2])
+
 
 if __name__ == "__main__":
     unittest.main()

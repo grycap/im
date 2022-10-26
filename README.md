@@ -50,7 +50,7 @@ for the IM database using the IM_DATA_DB environment variable and adding a
 volume::
 
 ```sh
-sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" \ 
+sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" \
                 -e IM_DATA_DB=/db/inf.dat --name im grycap/im
 ```
 

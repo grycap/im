@@ -48,7 +48,6 @@ topology_template:
               http_port:
                 protocol: tcp
                 source: 80
-      capabilities:
         # Host container properties
         host:
          properties:
@@ -83,7 +82,6 @@ topology_template:
             inputs:
               db_name: { get_property: [ SELF, name ] }
               db_data: { get_artifact: [ SELF, db_content ] }
-              db_name: { get_property: [ SELF, name ] }
               db_user: { get_property: [ SELF, user ] }
 
     mysql:
