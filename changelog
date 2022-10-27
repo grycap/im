@@ -719,3 +719,4 @@ IM 1.13.0:
     * Add function to get the list of infrastructure owners.
     * Add an admin user.
     * Add additional_dns_names field.
+    * Enable to delete nodes using TOSCA without remove_list.
