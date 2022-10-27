@@ -767,7 +767,9 @@ def RESTAddResource(infid=None):
                 return return_error(415, "Unsupported Media Type %s" % content_type)
 
         if remove_list:
-            InfrastructureManager.RemoveResource(infid, remove_list, auth, context)
+            removed_vms = InfrastructureManager.RemoveResource(infid, remove_list, auth, context)
+            if len(remove_list) != removed_vms:
+                logger.error("Error deleting resources %s (removed %s)" % (remove_list, removed_vms))
 
         vm_ids = InfrastructureManager.AddResource(infid, radl_data, auth, context)
 
@@ -780,7 +782,10 @@ def RESTAddResource(infid=None):
         for vm_id in vm_ids:
             res.append(get_full_url("/infrastructures/" + str(infid) + "/vms/" + str(vm_id)))
 
-        return format_output(res, "text/uri-list", "uri-list", "uri")
+        if not vm_ids and remove_list and len(remove_list) != removed_vms:
+            return return_error(404, "Error deleting resources %s (removed %s)" % (remove_list, removed_vms))
+        else:
+            return format_output(res, "text/uri-list", "uri-list", "uri")
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error Adding resources: %s" % get_ex_error(ex))
     except IncorrectInfrastructureException as ex:
