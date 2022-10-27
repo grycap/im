@@ -210,6 +210,7 @@ class Tosca:
                             if sys.name in vm_list:
                                 vms = sorted(vm_list[sys.name], key=lambda vm: vm.creation_date)
                                 all_removal_list.extend([vm.im_id for vm in vms[0:-num_instances]])
+                        Tosca.logger.debug("List of VMs to delete: %s" % all_removal_list)
 
                     if num_instances > 0:
                         cloud_id = self._get_placement_property(sys.name, "cloud_id")
