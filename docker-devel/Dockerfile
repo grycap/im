@@ -1,42 +1,21 @@
 # Dockerfile to create a container with the IM service
-FROM alpine:3.16
-ARG BRANCH=devel
+FROM ubuntu:22.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
 LABEL version="1.13.0"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
-# Update and install all the necessary packages
-RUN apk add --no-cache \
-  python3 \
-  py3-pip \
-  py3-mysqlclient \
-  py3-psutil \
-  openssh-client \
-  sshpass \
-  vim
+# Ensure system is up to date with mandatory python packages installed
+RUN apt-get update && apt-get install --no-install-recommends -y python3 python3-distutils openssh-client sshpass vim libmysqlclient21 python3-mysqldb && \
+     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Install IM
-RUN pip3 install msrest \
-                 msrestazure \
-                 azure-common \
-                 azure-mgmt-storage \
-                 azure-mgmt-compute \
-                 azure-mgmt-network \
-                 azure-mgmt-resource \
-                 azure-mgmt-dns \
-                 azure-identity==1.8.0
-
-RUN pip3 install pyOpenSSL \
-                 cheroot \
-                 xmltodict \
-                 pymongo
-
-RUN pip3 install ansible==6.4.0
-
-RUN apk add --no-cache git &&\
-    pip3 install git+https://github.com/grycap/im@$BRANCH &&\
-    apk del git
+RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
+     pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
+     pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==6.4.0&& \
+     pip3 install git+https://github.com/grycap/im@$BRANCH && \
+     apt-get purge -y python3-pip git && \
+     apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Set the VM_NUM_USE_CTXT_DIST to 3 for the tests
 RUN sed -i -e 's/VM_NUM_USE_CTXT_DIST = 30/VM_NUM_USE_CTXT_DIST = 3/g' /etc/im/im.cfg
