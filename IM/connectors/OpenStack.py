@@ -922,7 +922,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 name = "im-%s" % (inf_id)
                 return driver.ex_create_router(name, description="IM created router",
                                                external_gateway_info=gateway_info)
-            except Exception as ex:
+            except Exception:
                 self.log_exception("Error creating public router.")
 
         return None
