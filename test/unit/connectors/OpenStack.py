@@ -323,6 +323,18 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertEqual(driver.ex_create_subnet.call_args_list[5][0][2], "10.0.2.0/24")
 
+        # Test router creation
+        driver.ex_list_routers.return_value = []
+        router = MagicMock()
+        router.id = "cid"
+        router.name = "cname"
+        driver.ex_create_router.return_value = router
+        res = ost_cloud.launch_with_retry(inf, radl, radl, 1, auth, 2, 1)
+        self.assertEqual(driver.ex_create_router.call_args_list[0][0][0], "im-%s" % inf.id)
+        self.assertEqual(driver.ex_create_router.call_args_list[0][1], {'description': 'IM created router',
+                                                                        'external_gateway_info':
+                                                                            {'network_id': 'net1id'}})
+
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     @patch('requests.get')
     def test_30_updateVMInfo(self, request, get_driver):
