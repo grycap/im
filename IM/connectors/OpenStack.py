@@ -878,7 +878,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return net_map
 
-    def get_router_public(self, driver, radl, inf_id):
+    def get_router_public(self, driver, radl, inf_id, create=False):
         try:
             # Get the public net provider id
             pub_net_provider_id = None
@@ -916,7 +916,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_exception("Error getting public router.")
 
         # try to create a router
-        if pub_nets:
+        if create and pub_nets:
             try:
                 gateway_info = {'network_id': list(pub_nets.keys())[0]}
                 name = "im-%s" % (inf_id)
@@ -941,7 +941,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         Delete created OST networks
         """
-        router = self.get_router_public(driver, inf.radl, inf.id)
+        router = self.get_router_public(driver, inf.radl, inf.id, create=False)
         msg = ""
         res = True
         for ost_net in driver.ex_list_networks():
@@ -967,11 +967,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.log_info("Deleting net %s." % ost_net.name)
                     driver.ex_delete_network(ost_net)
 
-                    router_name = "im-%s" % inf.id
-                    routers = [router.name for router in driver.ex_list_routers()]
-                    if router_name in routers:
-                        self.log_info("Deleting router %s." % router_name)
-                        driver.ex_delete_router(router_name)
+        if router and router.name == "im-%s" % inf.id:
+            driver.ex_delete_router(router.name)
 
         return res, msg
 
@@ -981,7 +978,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         try:
             i = 0
-            router = self.get_router_public(driver, radl, inf.id)
+            router = self.get_router_public(driver, radl, inf.id, create=True)
 
             while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
                 net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
@@ -1061,6 +1058,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 self.delete_networks(driver, inf)
             except Exception:
                 self.log_exception("Error deleting networks.")
+
             raise Exception("Error creating networks: %s" % ext.args[0])
 
         return True
@@ -1347,6 +1345,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     driver.ex_delete_security_group(sg)
                 except Exception as ex:
                     self.log_exception("Error deleting security group: %s." % get_ex_error(ex))
+                self.log_info("Deleting networks.")
+                try:
+                    self.delete_networks(driver, inf)
+                except Exception:
+                    self.log_exception("Error deleting networks.")
 
         return res
 
