@@ -1,5 +1,5 @@
 # IM - Infrastructure Manager
-# Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
+# Copyright (C) 2022 - GRyCAP - Universitat Politecnica de Valencia
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@ import tempfile
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from scar.providers.aws.controller import AWS
+from scar.providers.aws.lambdafunction import Lambda, ClientError
 try:
     from urlparse import urlparse
 except ImportError:
@@ -72,8 +73,10 @@ class LambdaCloudConnector(CloudConnector):
             os.environ["AWS_SECRET_ACCESS_KEY"] = auth['password']
             tempf = tempfile.NamedTemporaryFile(delete=False)
             os.environ['SCAR_TMP_CFG'] = tempf.name
-            tempf.write(yaml.safe_dump(self._get_function_args(system)).encode())
+            func_args = self._get_function_args(system)
+            tempf.write(yaml.safe_dump(func_args).encode())
             tempf.close()
+            return func_args
         else:
             self.log_error("No correct auth data has been specified to Lambda: username and password (Access Key and Secret Key)")
             raise Exception("No correct auth data has been specified to Lambda: username and password (Access Key and Secret Key)")
@@ -90,13 +93,15 @@ class LambdaCloudConnector(CloudConnector):
             "runtime": "image",
             "execution_mode": "lambda",
             "region": "us-east-1",
-            "supervisor": {"version": "latest"}
+            "supervisor": {"version": "latest"},
+            "timeout": 900,
+            "description": "IM generated lambda function",
             }
 
         if radl_system.getValue("name"):
             func["name"] = radl_system.getValue("name")
         if radl_system.getValue("memory.size"):
-            func["memory"] = "%g" % radl_system.getFeature('memory.size').getValue('M')
+            func["memory"] = radl_system.getFeature('memory.size').getValue('M')
         if radl_system.getValue("script"):
             func["script"] = radl_system.getValue("script")
 
@@ -109,8 +114,8 @@ class LambdaCloudConnector(CloudConnector):
                 image = url_image[2]
             else:
                 raise Exception("Invalid image protocol: lambda, docker or empty are supported.")
-            func["container"] = {"image": image, "create_image": "false"}
-            func["ecr"] = {"delete_image": "false"}
+            func["container"] = {"image": image, "create_image": False}
+            func["ecr"] = {"delete_image": False}
 
         for elem in ["input", "output"]:
             ioelems = []
@@ -150,7 +155,15 @@ class LambdaCloudConnector(CloudConnector):
         if storage_providers:
             func["storage_providers"] = storage_providers
 
-        return {"functions": {"aws": [{"lambda": func}]}}
+        env_vars = {}
+        for elem in radl_system.getValue("environment.variables", []):
+            parts = elem.split(":")
+            env_vars[parts[0]] = parts[1]
+        if env_vars:
+            func["environment"] = {"Variables": env_vars}
+
+        role = "arn:aws:iam::974349055189:role/lambda-scar-role"
+        return {"functions": {"aws": [{"iam": {"role": role}, "lambda": func}]}}
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         res = []
@@ -173,7 +186,7 @@ class LambdaCloudConnector(CloudConnector):
             vm.destroy = False
             vm.state = VirtualMachine.RUNNING
             res.append((True, vm))
-        except Exception as ex:
+        except (Exception, SystemExit) as ex:
             self.log_exception("Error creating Lambda function: %s." % ex)
             res.append((False, "%s" % ex))
 
@@ -184,7 +197,7 @@ class LambdaCloudConnector(CloudConnector):
             self._set_scar_env(vm.info.systems[0], auth_data)
             AWS("rm")
             self._free_scar_env()
-        except Exception as ex:
+        except (Exception, SystemExit) as ex:
             self.log_exception("Error deletting Lambda function: %s." % ex)
             return False, "%s" % ex
 
@@ -192,11 +205,16 @@ class LambdaCloudConnector(CloudConnector):
 
     def updateVMInfo(self, vm, auth_data):
         try:
-            self._set_scar_env(vm.info.systems[0], auth_data)
-            aws = AWS()
-            aws._get_all_functions(aws.aws_resources[0])
+            aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
+            func_conf = Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
             self._free_scar_env()
             return True, ""
-        except Exception as ex:
+        except ClientError as ce:
+            # Function not found
+            if ce.response['Error']['Code'] == 'ResourceNotFoundException':
+                return False, "Function not found"
+            vm.state = VirtualMachine.OFF
+            return True, vm
+        except (Exception, SystemExit) as ex:
             self.log_exception("Error getting Lambda function: %s." % ex)
             return False, "%s" % ex

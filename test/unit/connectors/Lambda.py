@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 #
 # IM - Infrastructure Manager
-# Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
+# Copyright (C) 2022 - GRyCAP - Universitat Politecnica de Valencia
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -72,28 +72,24 @@ class TestLambdaConnector(TestCloudConnectorBase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('scar.providers.aws.controller._get_owner')
-    @patch('IM.connectors.Lambda.AWS.init')
+#    @patch('scar.providers.aws.controller._get_owner')
+#    @patch('IM.connectors.Lambda.AWS.init')
+#    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+#    def test_20_launch(self, get_owner, aws_init, save_data):
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    def test_20_launch(self, get_owner, aws_init, save_data):
+    def test_20_launch(self, save_data):
         radl_data = """
             system test (
                 name = 'plants' and
-                memory.size = 2G and
-                cpu.count = 1.0 and
+                memory.size = 512M and
                 disk.0.image.url = '000000000000.dkr.ecr.us-east-1.amazonaws.com/scar-function' and
                 script = 'plants.sh' and
-                environment.variables = ['a:b'] and
-                input.0.provider = 'minio_id' and
-                input.0.path = '/input' and
+                environment.variables = ['some_var:some_value'] and
+                input.0.provider = 's3' and
+                input.0.path = 'plants/input' and
                 input.0.suffix = ['*.txt'] and
-                output.0.provider = 'minio_id' and
-                output.0.path = '/output' and
-                minio.0.id = 'minio_id' and
-                minio.0.endpoint = 'https://minio.com' and
-                minio.0.region = 'mregion' and
-                minio.0.access_key = 'AK' and
-                minio.0.secret_key = 'SK'
+                output.0.provider = 's3' and
+                output.0.path = 'plants/output'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -104,7 +100,7 @@ class TestLambdaConnector(TestCloudConnectorBase):
         inf = MagicMock(["id", "_lock", "add_vm"])
         inf.id = "infid"
 
-        get_owner.return_value = "owner"
+        #get_owner.return_value = "owner"
 
         res = lambda_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]

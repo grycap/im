@@ -1,5 +1,5 @@
 # IM - Infrastructure Manager
-# Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
+# Copyright (C) 2022 - GRyCAP - Universitat Politecnica de Valencia
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -265,7 +265,10 @@ class OSCARCloudConnector(CloudConnector):
             url = "%s/system/services/%s" % (self.cloud.get_url(), vm.id)
             headers = {"Authorization": self._get_auth_header(auth_data)}
             response = requests.request("PUT", url, data=json.dumps(service), headers=headers, verify=self.verify_ssl)
-            if response.status_code != 204:
+            if response.status_code == 404:
+                vm.state = VirtualMachine.OFF
+                return True, vm
+            elif response.status_code != 204:
                 msg = "Error code %d: %s" % (response.status_code, response.text)
                 return False, msg
             else:
