@@ -30,3 +30,4 @@ azure-identity
 pyVmomi
 hvac
 psutil
+scar
