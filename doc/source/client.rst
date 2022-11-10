@@ -222,13 +222,13 @@ The available keys are:
 * ``type`` indicates the service that refers the credential. The services
   supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
   ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``,
-  ``Kubernetes``, ``vSphere``, ``Linode``, ``Orange``, ``EGI`` and ``Vault``.
+  ``Kubernetes``, ``vSphere``, ``Linode``, ``Orange``, ``EGI``, ``Vault`` and ``Lambda``.
 
-* ``username`` indicates the user name associated to the credential. In EC2
+* ``username`` indicates the user name associated to the credential. In EC2 and Lambda
   it refers to the *Access Key ID*. In GCE it refers to *Service Account’s Email Address*. 
   In CloudStack and Linode refers to Api Key value.
 
-* ``password`` indicates the password associated to the credential. In EC2
+* ``password`` indicates the password associated to the credential. In EC2 and Lambda
   it refers to the *Secret Access Key*. In GCE it refers to *Service  Private Key*
   (either in JSON or PKCS12 formats). See how to get it and how to extract the private key file from
   `here info <https://cloud.google.com/storage/docs/authentication#service_accounts>`_).
@@ -283,8 +283,10 @@ The available keys are:
 * ``path`` indicates the Vault path to read user credentials credential. This field is used in the Vault type.
   This field is optional with default value ``credentials/``.
 
-* ``role`` indicates the Vault role to read user credentials credential. This field is used in the Vault type.
-  This field is optional with default value ``im``.
+* ``role`` indicates the Vault role to read user credentials credential. This field is used in the Vault and 
+  Lambda types. In case of Vault this field is optional with default value ``im``. In case of Lambda is 
+  mandatory and it indicates the arn of the IAM role created to correcly execute Lambda functions (see
+  `here <https://scar.readthedocs.io/en/latest/configuration.html#iam-role>`_ how to configure it). 
 
 Vault Credentials support
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -464,7 +466,10 @@ An example of the auth file::
    id = egi; type = EGI; host = SITE_NAME; vo = vo_name; token = egi_aai_token_value
    #  EGI auth data command
    id = egi; type = EGI; host = SITE_NAME; vo = vo_name; token = command(oidc-token OIDC_ACCOUNT)
-
+   #  OSCAR auth data command
+   id = oscar; type = OSCAR; host = http://oscar.com; username = oscar; password = oscar123
+   # Lambda auth data
+   id = lambda; type = Lambda; username = ACCESS_KEY; password = SECRET_KEY; role = arn:aws:iam::000000000000:role/lambda-role-name
 
 IM Server does not store the credentials used in the creation of
 infrastructures. Then the user has to provide them in every call of
