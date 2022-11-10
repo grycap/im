@@ -187,6 +187,46 @@ class TestLambdaConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: deleting a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    @patch("scar.providers.aws.clients.lambdafunction.LambdaClient.update_function_configuration")
+    def test_50_alterVM(self, ufc):
+        radl_data = """
+            system test (
+                name = 'micafer-plants' and
+                memory.size = 512M and
+                disk.0.image.url = '000000000000.dkr.ecr.us-east-1.amazonaws.com/scar-function' and
+                script = 'plants.sh' and
+                environment.variables = ['some_var:some_value'] and
+                input.0.provider = 's3' and
+                input.0.path = 'micafer/input' and
+                input.0.suffix = ['*.txt'] and
+                output.0.provider = 's3' and
+                output.0.path = 'micafer/output'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+
+        new_radl_data = """
+            system test (
+                memory.size = 1024m
+            )"""
+        new_radl = radl_parse.parse_radl(new_radl_data)
+        new_radl.check()
+
+        auth = Authentication([{'id': 'lam', 'type': 'Lambda', 'username': 'AK',
+                                'password': 'SK', 'role': 'arn:aws:iam::000000000000:role/lambda-role-name'}])
+        lambda_cloud = self.get_lambda_cloud()
+
+        inf = MagicMock()
+        inf.id = "infid"
+        vm = VirtualMachine(inf, "micafer-plants", lambda_cloud.cloud, radl, radl, lambda_cloud, 1)
+
+        success, new_vm = lambda_cloud.alterVM(vm, new_radl, auth)
+
+        self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(new_vm.info.systems[0].getFeature("memory.size").getValue("M"), 1024)
+        self.assertEqual(ufc.call_args_list[0][1], {'MemorySize': 1024, 'FunctionName': 'micafer-plants'})
+
 
 if __name__ == '__main__':
     unittest.main()

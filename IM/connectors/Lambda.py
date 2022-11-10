@@ -236,3 +236,28 @@ class LambdaCloudConnector(CloudConnector):
         except (Exception, SystemExit) as ex:
             self.log_exception("Error getting Lambda function: %s." % ex)
             return False, "%s" % ex
+
+    def alterVM(self, vm, radl, auth_data):
+        memory = vm.info.systems[0].getFeature('memory.size').getValue('M')
+        new_memory = radl.systems[0].getFeature('memory.size').getValue('M')
+
+        if new_memory and new_memory != memory:
+            try:
+                aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
+                # Set a version higher than 1.5.0
+                aws_resources["functions"]["aws"][0]["lambda"]["supervisor"]["version"] = "1.5.4"
+                Lambda(aws_resources["functions"]["aws"][0]).client.update_function_configuration(
+                    MemorySize=new_memory, FunctionName=vm.id)
+                self.update_system_info_from_function_conf(vm.info.systems[0], {"MemorySize": new_memory})
+                self._free_scar_env()
+                return True, vm
+            except ClientError as ce:
+                # Function not found
+                if ce.response['Error']['Code'] == 'ResourceNotFoundException':
+                    vm.state = VirtualMachine.OFF
+                    return True, vm
+                else:
+                    return False, "%s" % ce
+            except (Exception, SystemExit) as ex:
+                self.log_exception("Error updating Lambda function: %s." % ex)
+                return False, "%s" % ex
