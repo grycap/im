@@ -126,7 +126,7 @@ class TestLambdaConnector(TestCloudConnectorBase):
                                                'storage_provider': 's3'}],
                                    'region': 'us-east-1',
                                    'runtime': 'image',
-                                   'script': 'plants.sh',
+                                   'init_script': 'plants.sh',
                                    'supervisor': {'version': '1.5.4'},
                                    'timeout': 900}}
         self.assertEqual(clf.call_args_list[0][0][0], expected_res)
