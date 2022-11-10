@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import re
 import yaml
 import tempfile
 from IM.VirtualMachine import VirtualMachine
@@ -59,7 +60,7 @@ class LambdaCloudConnector(CloudConnector):
         else:
             return None
 
-    def _set_scar_env(self, system, auth_data):
+    def _set_scar_env(self, system, auth_data, supervisor_version="latest"):
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
             raise Exception("No auth data has been specified to Lambda.")
@@ -75,7 +76,7 @@ class LambdaCloudConnector(CloudConnector):
             os.environ["AWS_SECRET_ACCESS_KEY"] = auth['password']
             tempf = tempfile.NamedTemporaryFile(delete=False)
             os.environ['SCAR_TMP_CFG'] = tempf.name
-            func_args = self._get_function_args(system)
+            func_args = self._get_function_args(system, supervisor_version)
             tempf.write(yaml.safe_dump(func_args).encode())
             tempf.close()
             return func_args
@@ -92,12 +93,16 @@ class LambdaCloudConnector(CloudConnector):
         os.unlink(os.environ['SCAR_TMP_CFG'])
         del os.environ['SCAR_TMP_CFG']
 
-    def _get_function_args(self, radl_system):
+    def _get_region_from_image(self, image_url):
+        result = re.search(r".+dkr\.ecr\.(.+)\.amazonaws\.com.+", image_url)
+        return result.group(1)
+
+    def _get_function_args(self, radl_system, supervisor_version="latest"):
         func = {
             "runtime": "image",
             "execution_mode": "lambda",
             "region": "us-east-1",
-            "supervisor": {"version": "latest"},
+            "supervisor": {"version": supervisor_version},
             "timeout": 900,
             "description": "IM generated lambda function",
             }
@@ -120,6 +125,12 @@ class LambdaCloudConnector(CloudConnector):
                 raise Exception("Invalid image protocol: lambda, docker or empty are supported.")
             func["container"] = {"image": image, "create_image": False}
             func["ecr"] = {"delete_image": False}
+
+        if image:
+            region = self._get_region_from_image(image)
+            func["region"] = region
+        else:
+            region = "us-east-1"
 
         for elem in ["input", "output"]:
             ioelems = []
@@ -163,10 +174,16 @@ class LambdaCloudConnector(CloudConnector):
         for elem in radl_system.getValue("environment.variables", []):
             parts = elem.split(":")
             env_vars[parts[0]] = parts[1]
-        if env_vars:
-            func["environment"] = {"Variables": env_vars}
+        func["environment"] = {"Variables": env_vars}
 
-        return {"functions": {"aws": [{"api_gateway": {}, "iam": {"role": self.auth['role']}, "lambda": func}]}}
+        res = {"functions": {"aws": [{"api_gateway": {},
+                                      "iam": {"role": self.auth['role']},
+                                      "lambda": func,
+                                      "cloudwatch": {
+                                          "region": region,
+                                          "log_retention_policy_in_days": 30
+                                          }}]}}
+        return res
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         res = []
@@ -197,9 +214,14 @@ class LambdaCloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         try:
-            self._set_scar_env(vm.info.systems[0], auth_data)
+            self._set_scar_env(vm.info.systems[0], auth_data, "1.5.4")
             AWS("rm")
             self._free_scar_env()
+        except ClientError as ce:
+            # Function not found
+            if ce.response['Error']['Code'] == 'ResourceNotFoundException':
+                return True, ""
+            return False, "%s" % ce
         except (Exception, SystemExit) as ex:
             self.log_exception("Error deletting Lambda function: %s." % ex)
             return False, "%s" % ex
@@ -219,9 +241,7 @@ class LambdaCloudConnector(CloudConnector):
 
     def updateVMInfo(self, vm, auth_data):
         try:
-            aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
-            # Set a version higher than 1.5.0
-            aws_resources["functions"]["aws"][0]["lambda"]["supervisor"]["version"] = "1.5.4"
+            aws_resources = self._set_scar_env(vm.info.systems[0], auth_data, "1.5.4")
             func_conf = Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
             self.update_system_info_from_function_conf(vm.info.systems[0], func_conf)
             self._free_scar_env()
@@ -243,9 +263,7 @@ class LambdaCloudConnector(CloudConnector):
 
         if new_memory and new_memory != memory:
             try:
-                aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
-                # Set a version higher than 1.5.0
-                aws_resources["functions"]["aws"][0]["lambda"]["supervisor"]["version"] = "1.5.4"
+                aws_resources = self._set_scar_env(vm.info.systems[0], auth_data, "1.5.4")
                 Lambda(aws_resources["functions"]["aws"][0]).client.update_function_configuration(
                     MemorySize=new_memory, FunctionName=vm.id)
                 self.update_system_info_from_function_conf(vm.info.systems[0], {"MemorySize": new_memory})
