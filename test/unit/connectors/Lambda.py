@@ -110,6 +110,7 @@ class TestLambdaConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         expected_res = {'iam': {'role': 'arn:aws:iam::000000000000:role/lambda-role-name'},
+                        'api_gateway': {},
                         'lambda': {'container': {'create_image': False,
                                                  'image': '000000000000.dkr.ecr.us-east-1.amazonaws.com/scar-function'},
                                    'description': 'IM generated lambda function',

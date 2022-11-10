@@ -166,7 +166,7 @@ class LambdaCloudConnector(CloudConnector):
         if env_vars:
             func["environment"] = {"Variables": env_vars}
 
-        return {"functions": {"aws": [{"iam": {"role": self.auth['role']}, "lambda": func}]}}
+        return {"functions": {"aws": [{"api_gateway": {}, "iam": {"role": self.auth['role']}, "lambda": func}]}}
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         res = []
