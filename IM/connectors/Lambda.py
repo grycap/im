@@ -93,7 +93,8 @@ class LambdaCloudConnector(CloudConnector):
         os.unlink(os.environ['SCAR_TMP_CFG'])
         del os.environ['SCAR_TMP_CFG']
 
-    def _get_region_from_image(self, image_url):
+    @staticmethod
+    def _get_region_from_image(image_url):
         result = re.search(r".+dkr\.ecr\.(.+)\.amazonaws\.com.+", image_url)
         return result.group(1)
 
@@ -104,8 +105,8 @@ class LambdaCloudConnector(CloudConnector):
             "region": "us-east-1",
             "supervisor": {"version": supervisor_version},
             "timeout": 900,
-            "description": "IM generated lambda function",
-            }
+            "description": "IM generated lambda function"
+        }
 
         if radl_system.getValue("name"):
             func["name"] = radl_system.getValue("name")
@@ -181,8 +182,7 @@ class LambdaCloudConnector(CloudConnector):
                                       "lambda": func,
                                       "cloudwatch": {
                                           "region": region,
-                                          "log_retention_policy_in_days": 30
-                                          }}]}}
+                                          "log_retention_policy_in_days": 30}}]}}
         return res
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
@@ -228,7 +228,8 @@ class LambdaCloudConnector(CloudConnector):
 
         return True, ""
 
-    def update_system_info_from_function_conf(self, system, func_conf):
+    @staticmethod
+    def update_system_info_from_function_conf(system, func_conf):
         if "MemorySize" in func_conf and func_conf["MemorySize"]:
             system.addFeature(Feature("memory.size", "=", func_conf["MemorySize"], "M"),
                               conflict="other", missing="other")
