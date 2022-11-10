@@ -18,6 +18,7 @@ import os
 import yaml
 import tempfile
 from IM.VirtualMachine import VirtualMachine
+from radl.radl import Feature
 from .CloudConnector import CloudConnector
 from scar.providers.aws.controller import AWS
 from scar.providers.aws.lambdafunction import Lambda, ClientError
@@ -50,7 +51,8 @@ class LambdaCloudConnector(CloudConnector):
         # but the system must have the name and script properties
         if ((radl_system.getValue('name') and radl_system.getValue('script')) and
                 (not radl_system.getValue('provider.type') or radl_system.getValue('provider.type') == "lambda") and
-                ((protocol in ["docker", "lambda"] and "dkr.ecr" in src_host) or protocol  == '' and "dkr.ecr" in url[2] )):
+                ((protocol in ["docker", "lambda"] and "dkr.ecr" in src_host) or
+                 protocol == '' and "dkr.ecr" in url[2])):
             res_system = radl_system.clone()
             res_system.setValue('disk.0.os.credentials.username', 'lambda')
             return res_system
@@ -68,7 +70,7 @@ class LambdaCloudConnector(CloudConnector):
         if self.auth is None:
             self.auth = auth
 
-        if 'username' in auth and 'password' in auth:
+        if 'username' in auth and 'password' in auth and 'role' in auth:
             os.environ["AWS_ACCESS_KEY_ID"] = auth['username']
             os.environ["AWS_SECRET_ACCESS_KEY"] = auth['password']
             tempf = tempfile.NamedTemporaryFile(delete=False)
@@ -78,8 +80,10 @@ class LambdaCloudConnector(CloudConnector):
             tempf.close()
             return func_args
         else:
-            self.log_error("No correct auth data has been specified to Lambda: username and password (Access Key and Secret Key)")
-            raise Exception("No correct auth data has been specified to Lambda: username and password (Access Key and Secret Key)")
+            self.log_error("No correct auth data has been specified to Lambda: "
+                           "username and password (Access Key and Secret Key)")
+            raise Exception("No correct auth data has been specified to Lambda: "
+                            "username and password (Access Key and Secret Key)")
 
     @staticmethod
     def _free_scar_env():
@@ -162,8 +166,7 @@ class LambdaCloudConnector(CloudConnector):
         if env_vars:
             func["environment"] = {"Variables": env_vars}
 
-        role = "arn:aws:iam::974349055189:role/lambda-scar-role"
-        return {"functions": {"aws": [{"iam": {"role": role}, "lambda": func}]}}
+        return {"functions": {"aws": [{"iam": {"role": self.auth['role']}, "lambda": func}]}}
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         res = []
@@ -203,18 +206,33 @@ class LambdaCloudConnector(CloudConnector):
 
         return True, ""
 
+    def update_system_info_from_function_conf(self, system, func_conf):
+        if "MemorySize" in func_conf and func_conf["MemorySize"]:
+            system.addFeature(Feature("memory.size", "=", func_conf["MemorySize"], "M"),
+                              conflict="other", missing="other")
+        if "FunctionArn" in func_conf and func_conf["FunctionArn"]:
+            system.addFeature(Feature("function.arn", "=", func_conf["FunctionArn"]),
+                              conflict="other", missing="other")
+        if "Timeout" in func_conf and func_conf["Timeout"]:
+            system.addFeature(Feature("function.timeout", "=", func_conf["Timeout"]),
+                              conflict="other", missing="other")
+
     def updateVMInfo(self, vm, auth_data):
         try:
             aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
+            # Set a version higher than 1.5.0
+            aws_resources["functions"]["aws"][0]["lambda"]["supervisor"]["version"] = "1.5.4"
             func_conf = Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
+            self.update_system_info_from_function_conf(vm.info.systems[0], func_conf)
             self._free_scar_env()
-            return True, ""
+            return True, vm
         except ClientError as ce:
             # Function not found
             if ce.response['Error']['Code'] == 'ResourceNotFoundException':
-                return False, "Function not found"
-            vm.state = VirtualMachine.OFF
-            return True, vm
+                vm.state = VirtualMachine.OFF
+                return True, vm
+            else:
+                return False, "%s" % ce
         except (Exception, SystemExit) as ex:
             self.log_exception("Error getting Lambda function: %s." % ex)
             return False, "%s" % ex
