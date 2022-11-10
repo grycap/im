@@ -107,7 +107,7 @@ class LambdaCloudConnector(CloudConnector):
         if radl_system.getValue("memory.size"):
             func["memory"] = radl_system.getFeature('memory.size').getValue('M')
         if radl_system.getValue("script"):
-            func["script"] = radl_system.getValue("script")
+            func["init_script"] = radl_system.getValue("script")
 
         if radl_system.getValue("disk.0.image.url"):
             url_image = urlparse(radl_system.getValue("disk.0.image.url"))
