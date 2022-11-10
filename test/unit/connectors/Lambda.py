@@ -111,10 +111,8 @@ class TestLambdaConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         expected_res = {'iam': {'role': 'arn:aws:iam::000000000000:role/lambda-role-name'},
                         'api_gateway': {},
-                        "cloudwatch": {
-                                        "region": "us-east-1",
-                                        "log_retention_policy_in_days": 30
-                                    },
+                        "cloudwatch": {"region": "us-east-1",
+                                       "log_retention_policy_in_days": 30},
                         'lambda': {'container': {'create_image': False,
                                                  'image': '000000000000.dkr.ecr.us-east-1.amazonaws.com/scar-function'},
                                    'description': 'IM generated lambda function',
