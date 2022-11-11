@@ -177,7 +177,7 @@ class LambdaCloudConnector(CloudConnector):
             env_vars[parts[0]] = parts[1]
         func["environment"] = {"Variables": env_vars}
 
-        res = {"functions": {"aws": [{"api_gateway": {},
+        res = {"functions": {"aws": [{"api_gateway": {"name": "api-%s" % func["name"], "region": region},
                                       "iam": {"role": self.auth['role']},
                                       "lambda": func,
                                       "cloudwatch": {
@@ -243,8 +243,17 @@ class LambdaCloudConnector(CloudConnector):
     def updateVMInfo(self, vm, auth_data):
         try:
             aws_resources = self._set_scar_env(vm.info.systems[0], auth_data, "1.5.4")
-            func_conf = Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
+            lam = Lambda(aws_resources["functions"]["aws"][0])
+            func_conf = lam.get_function_configuration(vm.id)
             self.update_system_info_from_function_conf(vm.info.systems[0], func_conf)
+            # Try to get API GATEWAY url
+            try:
+                api_url = lam._get_api_gateway_url()
+            except Exception:
+                api_url = None
+            if api_url:
+                vm.info.systems[0].addFeature(Feature("function.api_url", "=", api_url),
+                                              conflict="other", missing="other")
             self._free_scar_env()
             return True, vm
         except ClientError as ce:
