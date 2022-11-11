@@ -21,6 +21,7 @@ import tempfile
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from .CloudConnector import CloudConnector
+import scar.logger
 from scar.providers.aws.controller import AWS
 from scar.providers.aws.lambdafunction import Lambda, ClientError
 try:
@@ -37,7 +38,15 @@ class LambdaCloudConnector(CloudConnector):
     type = "Lambda"
     """str with the name of the provider."""
 
+    # Function to store scar error messages
+    def store_error_message(self, msg):
+        self.scar_errors.append(str(msg))
+
     def __init__(self, cloud_info, inf):
+        # workaround to store scar error messages
+        self.scar_errors = []
+        scar.logger.exception = self.store_error_message
+
         self.auth = None
         if cloud_info.path and cloud_info.path.endswith("/"):
             cloud_info.path = cloud_info.path[:-1]
@@ -60,7 +69,9 @@ class LambdaCloudConnector(CloudConnector):
         else:
             return None
 
-    def _set_scar_env(self, system, auth_data, supervisor_version="latest"):
+    def _set_scar_env(self, system, auth_data, supervisor_version="1.5.4"):
+        # clean previous error messages
+        self.scar_errors = []
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
             raise Exception("No auth data has been specified to Lambda.")
@@ -98,7 +109,7 @@ class LambdaCloudConnector(CloudConnector):
         result = re.search(r".+dkr\.ecr\.(.+)\.amazonaws\.com.+", image_url)
         return result.group(1)
 
-    def _get_function_args(self, radl_system, supervisor_version="latest"):
+    def _get_function_args(self, radl_system, supervisor_version="1.5.4"):
         func = {
             "runtime": "image",
             "execution_mode": "lambda",
@@ -177,7 +188,7 @@ class LambdaCloudConnector(CloudConnector):
             env_vars[parts[0]] = parts[1]
         func["environment"] = {"Variables": env_vars}
 
-        res = {"functions": {"aws": [{"api_gateway": {"name": "api-%s" % func["name"], "region": region},
+        res = {"functions": {"aws": [{"api_gateway": {},
                                       "iam": {"role": self.auth['role']},
                                       "lambda": func,
                                       "cloudwatch": {
@@ -206,9 +217,13 @@ class LambdaCloudConnector(CloudConnector):
             vm.destroy = False
             vm.state = VirtualMachine.RUNNING
             res.append((True, vm))
-        except (Exception, SystemExit) as ex:
+        except Exception as ex:
             self.log_exception("Error creating Lambda function: %s." % ex)
             res.append((False, "%s" % ex))
+        except SystemExit:
+            error_msgs = "\n".join(self.scar_errors)
+            self.log_exception("Error creating Lambda function: %s." % error_msgs)
+            res.append((False, "%s" % error_msgs))
 
         return res
 
@@ -222,9 +237,13 @@ class LambdaCloudConnector(CloudConnector):
             if ce.response['Error']['Code'] == 'ResourceNotFoundException':
                 return True, ""
             return False, "%s" % ce
-        except (Exception, SystemExit) as ex:
+        except Exception as ex:
             self.log_exception("Error deletting Lambda function: %s." % ex)
             return False, "%s" % ex
+        except SystemExit:
+            error_msgs = "\n".join(self.scar_errors)
+            self.log_exception("Error deletting Lambda function: %s." % error_msgs)
+            return False, error_msgs
 
         return True, ""
 
@@ -243,17 +262,8 @@ class LambdaCloudConnector(CloudConnector):
     def updateVMInfo(self, vm, auth_data):
         try:
             aws_resources = self._set_scar_env(vm.info.systems[0], auth_data, "1.5.4")
-            lam = Lambda(aws_resources["functions"]["aws"][0])
-            func_conf = lam.get_function_configuration(vm.id)
+            func_conf = Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
             self.update_system_info_from_function_conf(vm.info.systems[0], func_conf)
-            # Try to get API GATEWAY url
-            try:
-                api_url = lam._get_api_gateway_url()
-            except Exception:
-                api_url = None
-            if api_url:
-                vm.info.systems[0].addFeature(Feature("function.api_url", "=", api_url),
-                                              conflict="other", missing="other")
             self._free_scar_env()
             return True, vm
         except ClientError as ce:
@@ -263,9 +273,13 @@ class LambdaCloudConnector(CloudConnector):
                 return True, vm
             else:
                 return False, "%s" % ce
-        except (Exception, SystemExit) as ex:
+        except Exception as ex:
             self.log_exception("Error getting Lambda function: %s." % ex)
             return False, "%s" % ex
+        except SystemExit:
+            error_msgs = "\n".join(self.scar_errors)
+            self.log_exception("Error getting Lambda function: %s." % error_msgs)
+            return False, error_msgs
 
     def alterVM(self, vm, radl, auth_data):
         memory = vm.info.systems[0].getFeature('memory.size').getValue('M')
@@ -286,6 +300,10 @@ class LambdaCloudConnector(CloudConnector):
                     return True, vm
                 else:
                     return False, "%s" % ce
-            except (Exception, SystemExit) as ex:
+            except Exception as ex:
                 self.log_exception("Error updating Lambda function: %s." % ex)
                 return False, "%s" % ex
+            except SystemExit:
+                error_msgs = "\n".join(self.scar_errors)
+                self.log_exception("Error updating Lambda function: %s." % error_msgs)
+                return False, error_msgs
