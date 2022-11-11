@@ -79,12 +79,10 @@ class TestLambdaConnector(TestCloudConnectorBase):
     @patch('IM.connectors.Lambda.AWS._create_lambda_function')
     @patch('IM.connectors.Lambda.AWS._create_log_group')
     @patch('IM.connectors.Lambda.AWS._create_s3_buckets')
-    @patch('IM.connectors.Lambda.AWS._create_api_gateway')
-    @patch('IM.connectors.Lambda.AWS._add_api_gateway_permissions')
     @patch('scar.providers.aws.controller._check_preheat_function')
     @patch('scar.providers.aws.controller.SupervisorUtils')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    def test_20_launch(self, save_data, su, cpf, aagp, cag, csb, clg, clf, adwp, cfd):
+    def test_20_launch(self, save_data, su, cpf, csb, clg, clf, adwp, cfd):
         radl_data = """
             system test (
                 name = 'micafer-plants' and
@@ -115,7 +113,7 @@ class TestLambdaConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         expected_res = {'iam': {'role': 'arn:aws:iam::000000000000:role/lambda-role-name'},
-                        'api_gateway': {"name": "api-micafer-plants", "region": "us-east-1"},
+                        'api_gateway': {},
                         "cloudwatch": {"region": "us-east-1",
                                        "log_retention_policy_in_days": 30},
                         'lambda': {'container': {'create_image': False,
