@@ -135,7 +135,7 @@ class LambdaCloudConnector(CloudConnector):
                 image = url_image[2]
             else:
                 raise Exception("Invalid image protocol: lambda, docker or empty are supported.")
-            func["container"] = {"image": image, "create_image": False}
+            func["container"] = {"image": image, "create_image": False, "timeout_threshold": 10}
             func["ecr"] = {"delete_image": False}
 
         if image:
