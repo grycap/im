@@ -118,6 +118,7 @@ class TestLambdaConnector(TestCloudConnectorBase):
                                        "log_retention_policy_in_days": 30},
                         "batch": {"region": "us-east-1"},
                         'lambda': {'container': {'create_image': False,
+                                                 'timeout_threshold': 10,
                                                  'image': '000000000000.dkr.ecr.us-east-1.amazonaws.com/scar-function'},
                                    'description': 'IM generated lambda function',
                                    'ecr': {'delete_image': False},
