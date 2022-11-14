@@ -116,6 +116,7 @@ class TestLambdaConnector(TestCloudConnectorBase):
                         'api_gateway': {},
                         "cloudwatch": {"region": "us-east-1",
                                        "log_retention_policy_in_days": 30},
+                        "batch": {"region": "us-east-1"},
                         'lambda': {'container': {'create_image': False,
                                                  'image': '000000000000.dkr.ecr.us-east-1.amazonaws.com/scar-function'},
                                    'description': 'IM generated lambda function',
@@ -163,10 +164,11 @@ class TestLambdaConnector(TestCloudConnectorBase):
         self.assertEqual(new_vm.info.systems[0].getFeature('memory.size').getValue('M'), 2048)
         self.assertEqual(new_vm.info.systems[0].getValue('function.timeout'), 243)
 
+    @patch("IM.connectors.Lambda.Lambda.get_function_configuration")
     @patch('scar.providers.aws.controller._check_function_not_defined')
     @patch('scar.providers.aws.controller._add_extra_aws_properties')
     @patch('IM.connectors.Lambda.AWS._delete_resources')
-    def test_40_finalize(self, dr, aeap, cfnd):
+    def test_40_finalize(self, dr, aeap, cfnd, gfc):
         radl_data = """
             system test (
                 name = 'micafer-plants' and

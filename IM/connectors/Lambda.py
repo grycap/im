@@ -191,6 +191,7 @@ class LambdaCloudConnector(CloudConnector):
         res = {"functions": {"aws": [{"api_gateway": {},
                                       "iam": {"role": self.auth['role']},
                                       "lambda": func,
+                                      "batch": {"region": region},
                                       "cloudwatch": {
                                           "region": region,
                                           "log_retention_policy_in_days": 30}}]}}
@@ -229,7 +230,8 @@ class LambdaCloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         try:
-            self._set_scar_env(vm.info.systems[0], auth_data, "1.5.4")
+            aws_resources = self._set_scar_env(vm.info.systems[0], auth_data, "1.5.4")
+            Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
             AWS("rm")
             self._free_scar_env()
         except ClientError as ce:
