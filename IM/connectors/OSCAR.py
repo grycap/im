@@ -78,45 +78,8 @@ class OSCARCloudConnector(CloudConnector):
             self.log_error("No correct auth data has been specified to OSCAR: username and password or token")
             raise Exception("No correct auth data has been specified to OSCAR: username and password or token")
 
-    def _get_service_json(self, radl_system):
-        service = {}
-
-        if radl_system.getValue("name"):
-            service["name"] = radl_system.getValue("name")
-        if radl_system.getValue("memory.size"):
-            service["memory"] = "%gMi" % radl_system.getFeature('memory.size').getValue('M')
-        if radl_system.getValue("cpu.count"):
-            service["cpu"] = "%g" % radl_system.getValue("cpu.count")
-        if radl_system.getValue("script"):
-            service["script"] = radl_system.getValue("script")
-        if radl_system.getValue("alpine"):
-            service["alpine"] = True
-        if radl_system.getValue("image_pull_secrets"):
-            secrets = radl_system.getValue("image_pull_secrets")
-            if not isinstance(secrets, list):
-                secrets = [secrets]
-            service["image_pull_secrets"] = secrets
-
-        if radl_system.getValue("disk.0.image.url"):
-            url_image = urlparse(radl_system.getValue("disk.0.image.url"))
-            image = ""
-            if url_image.scheme == "docker":
-                image = "%s%s" % (url_image[1], url_image[2])
-            elif url_image.scheme == "":
-                image = url_image[2]
-            elif url_image.scheme == "oscar":
-                image = url_image[2][1:]
-            else:
-                raise Exception("Invalid image protocol: oscar, docker or empty are supported.")
-            service["image"] = image
-
-        env_vars = {}
-        for elem in radl_system.getValue("environment.variables", []):
-            parts = elem.split(":")
-            env_vars[parts[0]] = parts[1]
-        if env_vars:
-            service["environment"] = {"Variables": env_vars}
-
+    @staticmethod
+    def _get_storage_info(radl_system, service):
         for elem in ["input", "output"]:
             ioelems = []
             i = 0
@@ -154,6 +117,53 @@ class OSCARCloudConnector(CloudConnector):
 
         if storage_providers:
             service["storage_providers"] = storage_providers
+
+    @staticmethod
+    def _get_env_variables(radl_system):
+        env_vars = {}
+        for elem in radl_system.getValue("environment.variables", []):
+            parts = elem.split(":")
+            env_vars[parts[0]] = parts[1]
+        return env_vars
+
+    @staticmethod
+    def _get_service_json(radl_system):
+        service = {}
+
+        if radl_system.getValue("name"):
+            service["name"] = radl_system.getValue("name")
+        if radl_system.getValue("memory.size"):
+            service["memory"] = "%gMi" % radl_system.getFeature('memory.size').getValue('M')
+        if radl_system.getValue("cpu.count"):
+            service["cpu"] = "%g" % radl_system.getValue("cpu.count")
+        if radl_system.getValue("script"):
+            service["script"] = radl_system.getValue("script")
+        if radl_system.getValue("alpine"):
+            service["alpine"] = True
+        if radl_system.getValue("image_pull_secrets"):
+            secrets = radl_system.getValue("image_pull_secrets")
+            if not isinstance(secrets, list):
+                secrets = [secrets]
+            service["image_pull_secrets"] = secrets
+
+        if radl_system.getValue("disk.0.image.url"):
+            url_image = urlparse(radl_system.getValue("disk.0.image.url"))
+            image = ""
+            if url_image.scheme == "docker":
+                image = "%s%s" % (url_image[1], url_image[2])
+            elif url_image.scheme == "":
+                image = url_image[2]
+            elif url_image.scheme == "oscar":
+                image = url_image[2][1:]
+            else:
+                raise Exception("Invalid image protocol: oscar, docker or empty are supported.")
+            service["image"] = image
+
+        env_vars = OSCARCloudConnector._get_env_variables(radl_system)
+        if env_vars:
+            service["environment"] = {"Variables": env_vars}
+
+        OSCARCloudConnector._get_storage_info(radl_system, service)
 
         return service
 
