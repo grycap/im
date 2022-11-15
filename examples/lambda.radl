@@ -1,0 +1,15 @@
+system test (
+    name = 'micafer-test' and
+    memory.size = 1G and
+    disk.0.image.url = '974349055189.dkr.ecr.us-east-1.amazonaws.com/micafer-darknet' and
+    script = 'yolo.sh' and
+    input.0.provider = 's3' and
+    input.0.path = 'scar-micafer/input' and
+    input.0.suffix = ['*'] and
+    output.0.provider = 's3' and
+    output.0.path = 'scar-micafer/output'
+)
+
+configure plants ()
+
+deploy test 1
