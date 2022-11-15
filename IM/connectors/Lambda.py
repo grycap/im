@@ -22,6 +22,7 @@ from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from .CloudConnector import CloudConnector
 import scar.logger
+from IM.connectors.OSCAR import OSCARCloudConnector
 from scar.providers.aws.controller import AWS
 from scar.providers.aws.lambdafunction import Lambda, ClientError
 try:
@@ -87,15 +88,15 @@ class LambdaCloudConnector(CloudConnector):
             os.environ["AWS_SECRET_ACCESS_KEY"] = auth['password']
             tempf = tempfile.NamedTemporaryFile(delete=False)
             os.environ['SCAR_TMP_CFG'] = tempf.name
-            func_args = self._get_function_args(system, supervisor_version)
+            func_args = self._get_function_args(system, auth['role'], supervisor_version)
             tempf.write(yaml.safe_dump(func_args).encode())
             tempf.close()
             return func_args
         else:
             self.log_error("No correct auth data has been specified to Lambda: "
-                           "username and password (Access Key and Secret Key)")
+                           "username and password (Access Key, Secret Key and Role)")
             raise Exception("No correct auth data has been specified to Lambda: "
-                            "username and password (Access Key and Secret Key)")
+                            "username and password (Access Key, Secret Key and Role)")
 
     @staticmethod
     def _free_scar_env():
@@ -109,7 +110,8 @@ class LambdaCloudConnector(CloudConnector):
         result = re.search(r".+dkr\.ecr\.(.+)\.amazonaws\.com.+", image_url)
         return result.group(1)
 
-    def _get_function_args(self, radl_system, supervisor_version="1.5.4"):
+    @staticmethod
+    def _get_function_args(radl_system, role_arn, supervisor_version):
         func = {
             "runtime": "image",
             "execution_mode": "lambda",
@@ -139,57 +141,16 @@ class LambdaCloudConnector(CloudConnector):
             func["ecr"] = {"delete_image": False}
 
         if image:
-            region = self._get_region_from_image(image)
+            region = LambdaCloudConnector._get_region_from_image(image)
             func["region"] = region
         else:
             region = "us-east-1"
 
-        for elem in ["input", "output"]:
-            ioelems = []
-            i = 0
-            while radl_system.getValue("%s.%d.provider" % (elem, i)):
-                ioelem = {
-                    "storage_provider": radl_system.getValue("%s.%d.provider" % (elem, i)),
-                    "path": radl_system.getValue("%s.%d.path" % (elem, i))
-                }
-                if radl_system.getValue("%s.%d.suffix" % (elem, i)):
-                    ioelem['suffix'] = radl_system.getValue("%s.%d.suffix" % (elem, i))
-                if radl_system.getValue("%s.%d.prefix" % (elem, i)):
-                    ioelem['prefix'] = radl_system.getValue("%s.%d.prefix" % (elem, i))
-                ioelems.append(ioelem)
-                i += 1
-
-            if ioelems:
-                func[elem] = ioelems
-
-        storage_providers = {}
-        cont = {"minio": 0, "s3": 0, "onedata": 0}
-        for provider_type in ["minio", "s3", "onedata"]:
-            provider_pref = "%s.0" % provider_type
-            while radl_system.getValue("%s.id" % provider_pref):
-                sid = radl_system.getValue("%s.id" % provider_pref)
-                if provider_type not in storage_providers:
-                    storage_providers[provider_type] = {sid: {}}
-                for elem in ['access_key', 'secret_key', 'region', 'endpoint',
-                             'verify', 'oneprovider_host', 'token', 'space']:
-                    value = radl_system.getValue("%s.%s" % (provider_pref, elem))
-                    if value:
-                        storage_providers[provider_type][sid][elem] = value
-
-                cont[provider_type] += 1
-                provider_pref = "%s.%d" % (provider_type, cont[provider_type])
-
-        if storage_providers:
-            func["storage_providers"] = storage_providers
-
-        env_vars = {}
-        for elem in radl_system.getValue("environment.variables", []):
-            parts = elem.split(":")
-            env_vars[parts[0]] = parts[1]
-        func["environment"] = {"Variables": env_vars}
+        OSCARCloudConnector._get_storage_info(radl_system, func)
+        func["environment"] = {"Variables": OSCARCloudConnector._get_env_variables(radl_system)}
 
         res = {"functions": {"aws": [{"api_gateway": {},
-                                      "iam": {"role": self.auth['role']},
+                                      "iam": {"role": role_arn},
                                       "lambda": func,
                                       "batch": {"region": region},
                                       "cloudwatch": {
@@ -230,7 +191,7 @@ class LambdaCloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         try:
-            aws_resources = self._set_scar_env(vm.info.systems[0], auth_data, "1.5.4")
+            aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
             Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
             AWS("rm")
             self._free_scar_env()
@@ -263,7 +224,7 @@ class LambdaCloudConnector(CloudConnector):
 
     def updateVMInfo(self, vm, auth_data):
         try:
-            aws_resources = self._set_scar_env(vm.info.systems[0], auth_data, "1.5.4")
+            aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
             func_conf = Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
             self.update_system_info_from_function_conf(vm.info.systems[0], func_conf)
             self._free_scar_env()
@@ -289,7 +250,7 @@ class LambdaCloudConnector(CloudConnector):
 
         if new_memory and new_memory != memory:
             try:
-                aws_resources = self._set_scar_env(vm.info.systems[0], auth_data, "1.5.4")
+                aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
                 Lambda(aws_resources["functions"]["aws"][0]).client.update_function_configuration(
                     MemorySize=new_memory, FunctionName=vm.id)
                 self.update_system_info_from_function_conf(vm.info.systems[0], {"MemorySize": new_memory})
