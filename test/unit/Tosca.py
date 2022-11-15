@@ -313,7 +313,8 @@ class TestTosca(unittest.TestCase):
         inf = InfrastructureInfo()
 
         cloud_info = MagicMock(["getCloudConnector", "get_url"])
-        cloud_con = MagicMock(["cloud", "auth"])
+        cloud_con = MagicMock(["cloud", "auth", "type"])
+        cloud_con.type = "OSCAR"
         cloud_con.cloud = cloud_info
         cloud_con.auth = {"username": "oscar_user", "password": "oscar_pass"}
         cloud_info.getCloudConnector.return_value = cloud_con
