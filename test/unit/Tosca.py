@@ -354,7 +354,8 @@ class TestTosca(unittest.TestCase):
         tosca_data = yaml.safe_dump(tosca_yaml)
 
         tosca = Tosca(tosca_data)
-        _, radl = tosca.to_radl()
+        remove_list, radl = tosca.to_radl()
+        self.assertEqual(remove_list, [])
         radl = parse_radl(str(radl))
         radl.check()
         node = radl.get_configure_by_name('oscar_plants')
@@ -388,10 +389,6 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(remove_list, [1])
         radl = parse_radl(str(radl))
         radl.check()
-        conf = radl.get_configure_by_name('plants')
-        self.assertEqual(conf.recipes, None)
-        self.assertEqual(radl.deploys[0].id, "plants")
-        self.assertEqual(radl.deploys[0].vm_number, 0)
 
     def test_tosca_remove(self):
         tosca_data = read_file_as_string('../files/tosca_remove_no_list.yml')

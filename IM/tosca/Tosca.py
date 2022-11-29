@@ -179,12 +179,6 @@ class Tosca:
                 else:
                     # if not create a system
                     oscar_sys = self._gen_oscar_system(node)
-                    radl.systems.append(oscar_sys)
-                    conf = configure(node.name, None)
-                    radl.configures.append(conf)
-                    level = Tosca._get_dependency_level(node)
-                    cont_items.append(contextualize_item(node.name, conf.name, level))
-                    cloud_id = self._get_placement_property(oscar_sys.name, "cloud_id")
 
                     current_num_instances = self._get_current_num_instances(oscar_sys.name, inf_info)
                     num_instances = num_instances - current_num_instances
@@ -196,9 +190,15 @@ class Tosca:
                         if vm_ids:
                             all_removal_list.extend(vm_ids)
                             Tosca.logger.debug("List of FaaS to delete: %s" % vm_ids)
-
-                    dep = deploy(oscar_sys.name, num_instances if num_instances > 0 else 0, cloud_id)
-                    radl.deploys.append(dep)
+                    else:
+                        radl.systems.append(oscar_sys)
+                        conf = configure(node.name, None)
+                        radl.configures.append(conf)
+                        level = Tosca._get_dependency_level(node)
+                        cont_items.append(contextualize_item(node.name, conf.name, level))
+                        cloud_id = self._get_placement_property(oscar_sys.name, "cloud_id")
+                        dep = deploy(oscar_sys.name, 1, cloud_id)
+                        radl.deploys.append(dep)
             else:
                 if root_type == "tosca.nodes.Compute":
                     # Add the system RADL element
