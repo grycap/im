@@ -302,6 +302,7 @@ class TestTosca(unittest.TestCase):
         conf = radl.get_configure_by_name('plants')
         self.assertEqual(conf.recipes, None)
         self.assertEqual(radl.deploys[0].id, "plants")
+        self.assertEqual(radl.deploys[0].vm_number, 1)
 
     def test_tosca_oscar_get_attribute(self):
         """Test TOSCA OSCAR get_attributes function"""
@@ -343,6 +344,54 @@ class TestTosca(unittest.TestCase):
                                    'oscar_service_cred': {'token': 'oscar_password',
                                                           'token_type': 'password',
                                                           'user': 'oscar'}})
+
+    def test_tosca_oscar_delete(self):
+        """Test TOSCA RADL deletion with OSCAR functions"""
+        tosca_data = read_file_as_string('../files/tosca_oscar_host.yml')
+        tosca_yaml = yaml.safe_load(tosca_data)
+        tosca_yaml["topology_template"]["node_templates"]["plants"]["capabilities"] = \
+            {"scalable": {"properties": {"count": 0}}}
+        tosca_data = yaml.safe_dump(tosca_yaml)
+
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        radl.check()
+        node = radl.get_configure_by_name('oscar_plants')
+        epected_res = """
+  - tasks:
+    - include_tasks: utils/tasks/del_oscar_function.yml
+      vars:
+        oscar_endpoint: "https://cluster.oscar.com"
+        oscar_username: "oscar"
+        oscar_password: "oscar_password"
+        oscar_service_name: 'plants'
+"""
+        self.assertIn(epected_res, node.recipes)
+
+        tosca_data = read_file_as_string('../files/tosca_oscar.yml')
+        tosca_yaml = yaml.safe_load(tosca_data)
+        tosca_yaml["topology_template"]["node_templates"]["plants"]["capabilities"] = \
+            {"scalable": {"properties": {"count": 0}}}
+        tosca_data = yaml.safe_dump(tosca_yaml)
+
+        vm1 = MagicMock()
+        system1 = system("plants", [Feature("disk.0.image.url", "=", "grycap/image")])
+        vm1.info.systems = [system1]
+        vm1.creation_date = 1
+        vm1.im_id = 1
+        inf_info = MagicMock()
+        inf_info.get_vm_list_by_system_name.return_value = {"plants": [vm1]}
+
+        tosca = Tosca(tosca_data)
+        remove_list, radl = tosca.to_radl(inf_info)
+        self.assertEqual(remove_list, [1])
+        radl = parse_radl(str(radl))
+        radl.check()
+        conf = radl.get_configure_by_name('plants')
+        self.assertEqual(conf.recipes, None)
+        self.assertEqual(radl.deploys[0].id, "plants")
+        self.assertEqual(radl.deploys[0].vm_number, 0)
 
     def test_tosca_remove(self):
         tosca_data = read_file_as_string('../files/tosca_remove_no_list.yml')
