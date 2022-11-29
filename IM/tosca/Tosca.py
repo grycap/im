@@ -136,6 +136,11 @@ class Tosca:
                             Tosca.logger.warn("Unknown tyoe of token %s. Ignoring." % token_type)
                 radl.ansible_hosts = [ansible_host]
             elif root_type == "tosca.nodes.aisprint.FaaS.Function":
+                min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(node)
+                num_instances = self._get_num_instances(count, default_instances, min_instances)
+                if num_instances not in [0, 1]:
+                    raise Exception("Scalability values of %s only allows 0 or 1." % root_type)
+
                 oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
                                                      "tosca.nodes.SoftwareComponent")
                 oscar_compute = self._find_host_compute(node, self.tosca.nodetemplates)
@@ -150,13 +155,22 @@ class Tosca:
                     service_password = self._final_function_result(oscar_host.get_property_value('password'),
                                                                    oscar_host)
 
-                    recipe = '  - tasks:\n'
-                    recipe += '    - include_tasks: utils/tasks/oscar_function.yml\n'
-                    recipe += '      vars:\n'
-                    recipe += '        oscar_endpoint: "%s"\n' % service_endpoint
-                    recipe += '        oscar_username: "oscar"\n'
-                    recipe += '        oscar_password: "%s"\n' % service_password
-                    recipe += "        oscar_service_json: '%s'\n" % service_json
+                    if num_instances <= 0:
+                        recipe = '  - tasks:\n'
+                        recipe += '    - include_tasks: utils/tasks/del_oscar_function.yml\n'
+                        recipe += '      vars:\n'
+                        recipe += '        oscar_endpoint: "%s"\n' % service_endpoint
+                        recipe += '        oscar_username: "oscar"\n'
+                        recipe += '        oscar_password: "%s"\n' % service_password
+                        recipe += "        oscar_service_name: '%s'\n" % service_json["name"]
+                    else:
+                        recipe = '  - tasks:\n'
+                        recipe += '    - include_tasks: utils/tasks/oscar_function.yml\n'
+                        recipe += '      vars:\n'
+                        recipe += '        oscar_endpoint: "%s"\n' % service_endpoint
+                        recipe += '        oscar_username: "oscar"\n'
+                        recipe += '        oscar_password: "%s"\n' % service_password
+                        recipe += "        oscar_service_json: '%s'\n" % json.dumps(service_json)
 
                     conf = configure("oscar_%s" % node.name, recipe)
                     radl.configures.append(conf)
@@ -171,7 +185,19 @@ class Tosca:
                     level = Tosca._get_dependency_level(node)
                     cont_items.append(contextualize_item(node.name, conf.name, level))
                     cloud_id = self._get_placement_property(oscar_sys.name, "cloud_id")
-                    dep = deploy(oscar_sys.name, 1, cloud_id)
+
+                    current_num_instances = self._get_current_num_instances(oscar_sys.name, inf_info)
+                    num_instances = num_instances - current_num_instances
+                    Tosca.logger.debug("User requested %d instances of type %s and there"
+                                       " are %s" % (num_instances, oscar_sys.name, current_num_instances))
+
+                    if num_instances < 0:
+                        vm_ids = self._get_vm_ids_to_remove(removal_list, num_instances, inf_info, oscar_sys)
+                        if vm_ids:
+                            all_removal_list.extend(vm_ids)
+                            Tosca.logger.debug("List of FaaS to delete: %s" % vm_ids)
+
+                    dep = deploy(oscar_sys.name, num_instances if num_instances > 0 else 0, cloud_id)
                     radl.deploys.append(dep)
             else:
                 if root_type == "tosca.nodes.Compute":
@@ -184,33 +210,17 @@ class Tosca:
                     # Add the deploy element for this system
                     min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(
                         node)
-                    if count is not None:
-                        # we must check the correct number of instances to
-                        # deploy
-                        num_instances = count
-                    elif default_instances is not None:
-                        num_instances = default_instances
-                    elif min_instances is not None:
-                        num_instances = min_instances
-                    else:
-                        num_instances = 1
-
-                    current_num_instances = self._get_num_instances(sys.name, inf_info)
+                    num_instances = self._get_num_instances(count, default_instances, min_instances)
+                    current_num_instances = self._get_current_num_instances(sys.name, inf_info)
                     num_instances = num_instances - current_num_instances
                     Tosca.logger.debug("User requested %d instances of type %s and there"
                                        " are %s" % (num_instances, sys.name, current_num_instances))
 
                     if num_instances < 0:
-                        if removal_list:
-                            # TODO: Think about to check the IDs of the VMs
-                            all_removal_list.extend([int(vm_id) for vm_id in removal_list[0:-num_instances]])
-                        # if no removal list is set, delete the oldest VMs of this type
-                        elif inf_info:
-                            vm_list = inf_info.get_vm_list_by_system_name()
-                            if sys.name in vm_list:
-                                vms = sorted(vm_list[sys.name], key=lambda vm: vm.creation_date)
-                                all_removal_list.extend([vm.im_id for vm in vms[0:-num_instances]])
-                        Tosca.logger.debug("List of VMs to delete: %s" % all_removal_list)
+                        vm_ids = self._get_vm_ids_to_remove(removal_list, num_instances, inf_info, sys)
+                        if vm_ids:
+                            all_removal_list.extend(vm_ids)
+                            Tosca.logger.debug("List of VMs to delete: %s" % vm_ids)
 
                     if num_instances > 0:
                         cloud_id = self._get_placement_property(sys.name, "cloud_id")
@@ -245,6 +255,32 @@ class Tosca:
         self._check_private_networks(radl, inf_info)
 
         return all_removal_list, self._complete_radl_networks(radl)
+
+    @staticmethod
+    def _get_num_instances(count, default_instances, min_instances):
+        # we must check the correct number of instances to deploy
+        if count is not None:
+            num_instances = count
+        elif default_instances is not None:
+            num_instances = default_instances
+        elif min_instances is not None:
+            num_instances = min_instances
+        else:
+            num_instances = 1
+        return num_instances
+
+    @staticmethod
+    def _get_vm_ids_to_remove(removal_list, num_instances, inf_info, sys):
+        if removal_list:
+            # TODO: Think about to check the IDs of the VMs
+            return [int(vm_id) for vm_id in removal_list[0:-num_instances]]
+        # if no removal list is set, delete the oldest VMs of this type
+        elif inf_info:
+            vm_list = inf_info.get_vm_list_by_system_name()
+            if sys.name in vm_list:
+                vms = sorted(vm_list[sys.name], key=lambda vm: vm.creation_date)
+                return [vm.im_id for vm in vms[0:-num_instances]]
+        return None
 
     @staticmethod
     def _check_private_networks(radl, inf_info):
@@ -336,7 +372,7 @@ class Tosca:
         radl.deploys = fe + wn + priv
 
     @staticmethod
-    def _get_num_instances(sys_name, inf_info):
+    def _get_current_num_instances(sys_name, inf_info):
         """
         Get the current number of instances of system type name sys_name
         """
@@ -2003,4 +2039,4 @@ class Tosca:
                     # this should never happen
                     Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
 
-        return json.dumps(res)
+        return res
