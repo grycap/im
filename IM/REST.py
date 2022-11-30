@@ -773,6 +773,10 @@ def RESTAddResource(infid=None):
 
         vm_ids = InfrastructureManager.AddResource(infid, radl_data, auth, context)
 
+        # If there are no changes in the infra, launch a reconfigure
+        if not remove_list and not vm_ids and context:
+            InfrastructureManager.Reconfigure(infid, "", auth)
+
         # Replace the TOSCA document
         if tosca_data:
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
