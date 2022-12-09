@@ -8,6 +8,9 @@ description: >
   a single front-end that will be in change of managing the elasticity
   using the specified LRMS (torque, sge, slurm and condor) workload.
 
+metadata:
+  infra_name: Some Infra Name
+
 topology_template:
 
   inputs:
