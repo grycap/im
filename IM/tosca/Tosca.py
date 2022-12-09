@@ -23,7 +23,7 @@ from toscaparser.functions import Function, is_function, get_function, GetAttrib
 from toscaparser.elements.scalarunit import ScalarUnit_Size
 from IM.ansible_utils import merge_recipes
 from radl.radl import (system, deploy, network, Feature, Features, configure,
-                       contextualize_item, RADL, contextualize, ansible)
+                       contextualize_item, RADL, contextualize, ansible, description)
 
 
 class Tosca:
@@ -253,6 +253,11 @@ class Tosca:
         self._order_deploys(radl)
 
         self._check_private_networks(radl, inf_info)
+
+        infra_name = self.tosca.tpl.get('metadata', {}).get('infra_name')
+        if infra_name:
+            radl.description = description('desc')
+            radl.description.setValue('name', infra_name)
 
         return all_removal_list, self._complete_radl_networks(radl)
 

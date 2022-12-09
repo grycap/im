@@ -52,6 +52,7 @@ class TestTosca(unittest.TestCase):
         _, radl = tosca.to_radl()
         radl.check()
         radl = parse_radl(str(radl))
+        self.assertEqual(radl.description.getValue("name"), "Some Infra Name")
         net = radl.get_network_by_id('public_net')
         net1 = radl.get_network_by_id('public_net_1')
         net2 = radl.get_network_by_id('private_net')
