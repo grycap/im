@@ -279,6 +279,7 @@ class TestEGIConnector(TestCloudConnectorBase):
                                {'type': 'InfrastructureManager', 'username': 'user',
                                 'password': 'pass'}])
         egi_cloud.get_driver(auth)
+        self.assertEqual(appdb.get_site_url.call_count, 1)
 
 
 if __name__ == '__main__':

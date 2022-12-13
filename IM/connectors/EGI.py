@@ -35,6 +35,7 @@ class EGICloudConnector(OpenStackCloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.egi_auth = None
+        self.ost_auth = None
         OpenStackCloudConnector.__init__(self, cloud_info, inf)
 
     def get_egi_auth(self, auths):
@@ -55,6 +56,35 @@ class EGICloudConnector(OpenStackCloudConnector):
                 return auth
 
         raise Exception("No compatible EGI auth data has been specified (check VO).")
+
+    def get_ost_auth(self, auth):
+        if self.ost_auth:
+            return self.ost_auth
+        else:
+            if 'host' in auth and 'vo' in auth and 'token' in auth:
+                ost_auth = {'id': auth['id'], 'type': 'OpenStack', 'username': 'egi.eu', 'tenant': 'openid',
+                            'password': auth['token'], 'auth_version': '3.x_oidc_access_token', 'vo': auth['vo']}
+                site_id = AppDB.get_site_id(auth["host"], stype="openstack")
+                site_url = AppDB.get_site_url(site_id)
+                if not site_url:
+                    raise Exception("Invalid site name '%s'. Not found at AppDB." % auth['host'])
+                ost_auth['host'] = site_url
+                projects = AppDB.get_project_ids(site_id)
+                # If the VO does not appear in the project IDs
+                if auth['vo'] in projects:
+                    ost_auth['domain'] = projects[auth['vo']]
+                else:
+                    # let's use the VO name directly
+                    ost_auth['domain'] = auth['vo']
+
+                if 'api_version' in auth:
+                    ost_auth['api_version'] = auth['api_version']
+
+                self.ost_auth = ost_auth
+                return ost_auth
+            else:
+                self.log_error("No correct auth data has been specified to EGI: host, vo, and token")
+                return None
 
     def get_driver(self, auth_data):
         """
@@ -77,25 +107,7 @@ class EGICloudConnector(OpenStackCloudConnector):
             self.egi_auth = auth_data
 
             if 'host' in auth and 'vo' in auth and 'token' in auth:
-                ost_auth = {'id': auth['id'], 'type': 'OpenStack', 'username': 'egi.eu', 'tenant': 'openid',
-                            'password': auth['token'], 'auth_version': '3.x_oidc_access_token', 'vo': auth['vo']}
-                site_id = AppDB.get_site_id(auth["host"], stype="openstack")
-                site_url = AppDB.get_site_url(site_id)
-                if not site_url:
-                    raise Exception("Invalid site name '%s'. Not found at AppDB." % auth['host'])
-                ost_auth['host'] = site_url
-                projects = AppDB.get_project_ids(site_id)
-                # If the VO does not appear in the project IDs
-                if auth['vo'] in projects:
-                    ost_auth['domain'] = projects[auth['vo']]
-                else:
-                    # let's use the VO name directly
-                    ost_auth['domain'] = auth['vo']
-
-                if 'api_version' in auth:
-                    ost_auth['api_version'] = auth['api_version']
-
-                new_auth = Authentication([ost_auth])
+                new_auth = Authentication([self.get_ost_auth(auth)])
 
                 orig_cloud = self.cloud
                 self.cloud = CloudInfo.get_cloud_list(new_auth)[0]
