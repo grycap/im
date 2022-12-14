@@ -1472,6 +1472,20 @@ configure step2 (
         self.assertEqual(str(ex.exception), ("Invalid new infrastructure data provided: No credentials"
                                              " provided for the InfrastructureManager."))
 
+    @patch('IM.InfrastructureManager.AppDB')
+    def test_translate_egi_to_ost(self, appdb):
+        appdb.get_site_id.return_value = 'site_id'
+        appdb.get_site_url.return_value = 'https://ostsite.com:5000'
+        appdb.get_project_ids.return_value = {'vo_name': 'projectid'}
+
+        auth = Authentication([{'id': 'egi', 'type': 'EGI', 'host': 'SITE_NAME', 'vo': 'vo_name', 'token': 'atoken'},
+                               {'type': 'InfrastructureManager', 'token': 'atoken'}])
+        res = IM.translate_egi_to_ost(auth)
+        self.assertIn({'id': 'egi', 'type': 'OpenStack', 'username': 'egi.eu', 'password': 'atoken',
+                       'tenant': 'openid', 'auth_version': '3.x_oidc_access_token', 'vo': 'vo_name',
+                       'host': 'https://ostsite.com:5000', 'domain': 'projectid'}, res.auth_list)
+        self.assertIn({'type': 'InfrastructureManager', 'token': 'atoken'}, res.auth_list)
+
 
 if __name__ == "__main__":
     unittest.main()
