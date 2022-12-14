@@ -97,6 +97,8 @@ class EGICloudConnector(OpenStackCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
+            # If there are no EGI credentials
+            # Try with the equivalent OpenStack ones
             if self.ost_auth:
                 ost_auth = Authentication([self.ost_auth])
                 ost_cloud = CloudInfo.get_cloud_list(ost_auth)[0]
