@@ -281,6 +281,15 @@ class TestEGIConnector(TestCloudConnectorBase):
         egi_cloud.get_driver(auth)
         self.assertEqual(appdb.get_site_url.call_count, 1)
 
+        egi_cloud.driver = None
+        auth = Authentication([{'id': 'ost1', 'type': 'OpenStack', 'host': 'https://site.com:5000',
+                                'username': 'egi.eu', 'password': 'access_token', 'tenant': 'openid',
+                                'domain': 'projectid', 'auth_version': '3.x_oidc_access_token'},
+                               {'type': 'InfrastructureManager', 'username': 'user',
+                                'password': 'pass'}])
+        egi_cloud.get_driver(auth)
+        self.assertEqual(appdb.get_site_url.call_count, 1)
+
 
 if __name__ == '__main__':
     unittest.main()

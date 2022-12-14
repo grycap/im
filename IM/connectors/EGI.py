@@ -97,7 +97,21 @@ class EGICloudConnector(OpenStackCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            raise Exception("No auth data has been specified to EGI.")
+            if self.ost_auth:
+                ost_auth = Authentication([self.ost_auth])
+                ost_cloud = CloudInfo.get_cloud_list(ost_auth)[0]
+                auths = auth_data.getAuthInfo(OpenStackCloudConnector.type, ost_cloud.server)
+            if not auths:
+                raise Exception("No auth data has been specified to EGI.")
+            else:
+                orig_cloud = self.cloud
+                self.cloud = ost_cloud
+                auth = self.get_auth(auths)
+                self.type = OpenStackCloudConnector.type
+                driver = OpenStackCloudConnector.get_driver(self, ost_auth)
+                self.type = EGICloudConnector.type
+                self.cloud = orig_cloud
+                return driver
         else:
             auth = self.get_egi_auth(auths)
 
