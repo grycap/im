@@ -366,7 +366,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             if self.auth and self.auth.get("vo"):
                 res_system.addFeature(Feature("provider.vo", "=", self.auth.get("vo")),
-                                        conflict="other", missing="other")
+                                      conflict="other", missing="other")
 
             return res_system
         else:
