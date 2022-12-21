@@ -364,6 +364,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if not username:
                 res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
 
+            auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+            if auths:
+                auth = self.get_auth(auths)
+                if auth.get("vo"):
+                    res_system.addFeature(Feature("provider.vo", "=", auth.get("vo")),
+                                          conflict="other", missing="other")
+
             return res_system
         else:
             return None
