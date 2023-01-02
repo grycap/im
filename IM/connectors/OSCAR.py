@@ -167,6 +167,22 @@ class OSCARCloudConnector(CloudConnector):
 
         return service
 
+    def wait_for_dependencies(self, radl, inf):
+        deps = radl.systems[0].getValue("dependencies")
+        if deps:
+            vm_deps = {}
+            for elem in deps:
+                for vm in inf.get_vm_list():
+                    if vm.info.systems[0].name == elem:
+                        vm_deps[elem] = vm.is_configured()
+                        break
+                if elem not in vm_deps:
+                    self.log_warn("Dependency '%s' not found in VMs." % elem)
+                    vm_deps[elem] = False
+            return not all(vm_deps.values())
+        else:
+            return False
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         res = []
 
@@ -181,26 +197,35 @@ class OSCARCloudConnector(CloudConnector):
         vm.info.systems[0].setValue('instance_id', str(vm_id))
         inf.add_vm(vm)
 
-        try:
-            url = "%s/system/services" % self.cloud.get_url()
-            service = self._get_service_json(radl.systems[0])
-            headers = {"Authorization": self._get_auth_header(auth_data)}
-            response = requests.request("POST", url, data=json.dumps(service),
-                                        headers=headers, verify=self.verify_ssl)
-            if response.status_code == 201:
-                vm.destroy = False
-                vm.state = VirtualMachine.RUNNING
-                res.append((True, vm))
-            else:
-                msg = "Error code %d: %s" % (response.status_code, response.text)
-                res.append((False, msg))
-        except Exception as ex:
-            self.log_exception("Error creating OSCAR function: %s." % ex)
-            res.append((False, "%s" % ex))
+        if self.wait_for_dependencies(radl, inf):
+            vm.destroy = False
+            vm.state = VirtualMachine.PENDING
+            res.append((True, vm))
+        else:
+            try:
+                url = "%s/system/services" % self.cloud.get_url()
+                service = self._get_service_json(radl.systems[0])
+                headers = {"Authorization": self._get_auth_header(auth_data)}
+                response = requests.request("POST", url, data=json.dumps(service),
+                                            headers=headers, verify=self.verify_ssl)
+                if response.status_code == 201:
+                    vm.destroy = False
+                    vm.state = VirtualMachine.RUNNING
+                    res.append((True, vm))
+                else:
+                    msg = "Error code %d: %s" % (response.status_code, response.text)
+                    res.append((False, msg))
+            except Exception as ex:
+                self.log_exception("Error creating OSCAR function: %s." % ex)
+                res.append((False, "%s" % ex))
 
         return res
 
     def finalize(self, vm, last, auth_data):
+        if vm.state == VirtualMachine.PENDING:
+            vm.state = VirtualMachine.OFF
+            return True, ""
+
         try:
             url = "%s/system/services/%s" % (self.cloud.get_url(), vm.id)
             headers = {"Authorization": self._get_auth_header(auth_data)}
@@ -251,23 +276,45 @@ class OSCARCloudConnector(CloudConnector):
         # TODO: Complete with all fields
 
     def updateVMInfo(self, vm, auth_data):
-        try:
-            url = "%s/system/services/%s" % (self.cloud.get_url(), vm.id)
-            headers = {"Authorization": self._get_auth_header(auth_data)}
-            response = requests.request("GET", url, headers=headers, verify=self.verify_ssl)
-            if response.status_code == 404:
-                vm.state = VirtualMachine.OFF
-                self.log_warn("OSCAR function '%s' does not exist. Set as OFF." % vm.id)
-                return True, vm
-            elif response.status_code != 200:
-                msg = "Error code %d: %s" % (response.status_code, response.text)
-                return False, msg
+        if vm.state == VirtualMachine.PENDING:
+            if self.wait_for_dependencies(vm.info, vm.inf):
+                self.log_info("OSCAR function '%s' waiting for dependencies." % vm.id)
+                return False, vm
             else:
-                self.update_system_info_from_service_info(vm.info.systems[0], response.json())
+                try:
+                    url = "%s/system/services" % self.cloud.get_url()
+                    service = self._get_service_json(vm.info.systems[0])
+                    headers = {"Authorization": self._get_auth_header(auth_data)}
+                    response = requests.request("POST", url, data=json.dumps(service),
+                                                headers=headers, verify=self.verify_ssl)
+                    if response.status_code == 201:
+                        vm.state = VirtualMachine.RUNNING
+                    else:
+                        vm.state = VirtualMachine.FAILED
+                        vm.error_msg = response.text
+                except Exception as ex:
+                    vm.state = VirtualMachine.FAILED
+                    vm.error_msg = "%s" % ex
+
                 return True, vm
-        except Exception as ex:
-            self.log_exception("Error getting OSCAR function: %s." % ex)
-            return False, "%s" % ex
+        else:
+            try:
+                url = "%s/system/services/%s" % (self.cloud.get_url(), vm.id)
+                headers = {"Authorization": self._get_auth_header(auth_data)}
+                response = requests.request("GET", url, headers=headers, verify=self.verify_ssl)
+                if response.status_code == 404:
+                    vm.state = VirtualMachine.OFF
+                    self.log_warn("OSCAR function '%s' does not exist. Set as OFF." % vm.id)
+                    return True, vm
+                elif response.status_code != 200:
+                    msg = "Error code %d: %s" % (response.status_code, response.text)
+                    return False, msg
+                else:
+                    self.update_system_info_from_service_info(vm.info.systems[0], response.json())
+                    return True, vm
+            except Exception as ex:
+                self.log_exception("Error getting OSCAR function: %s." % ex)
+                return False, "%s" % ex
 
     def alterVM(self, vm, radl, auth_data):
         try:
