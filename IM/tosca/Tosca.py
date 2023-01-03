@@ -2033,7 +2033,7 @@ class Tosca:
                 elif prop.name == 'memory':
                     if not value.endswith("B"):
                         value += "B"
-                    res[prop.name] = "%gMi" % ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
+                    res[prop.name] = "%dMi" % ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
                 elif prop.name == 'image':
                     if value.startswith('oscar://'):
                         url_image = urlparse(value)
