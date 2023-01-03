@@ -316,6 +316,7 @@ class OSCARCloudConnector(CloudConnector):
                     msg = "Error code %d: %s" % (response.status_code, response.text)
                     return False, msg
                 else:
+                    vm.state = VirtualMachine.RUNNING
                     self.update_system_info_from_service_info(vm.info.systems[0], response.json())
                     return True, vm
             except Exception as ex:
