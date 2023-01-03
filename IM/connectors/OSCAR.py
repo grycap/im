@@ -279,7 +279,7 @@ class OSCARCloudConnector(CloudConnector):
         if vm.state == VirtualMachine.PENDING:
             if self.wait_for_dependencies(vm.info, vm.inf):
                 self.log_info("OSCAR function '%s' waiting for dependencies." % vm.id)
-                return False, vm
+                return True, vm
             else:
                 try:
                     url = "%s/system/services" % self.cloud.get_url()
