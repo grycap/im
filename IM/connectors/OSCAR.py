@@ -282,6 +282,7 @@ class OSCARCloudConnector(CloudConnector):
                 return True, vm
             else:
                 try:
+                    self.log_info("OSCAR function '%s' dependencies fullfiled. Creating." % vm.id)
                     url = "%s/system/services" % self.cloud.get_url()
                     service = self._get_service_json(vm.info.systems[0])
                     headers = {"Authorization": self._get_auth_header(auth_data)}
@@ -290,9 +291,11 @@ class OSCARCloudConnector(CloudConnector):
                     if response.status_code == 201:
                         vm.state = VirtualMachine.RUNNING
                     else:
+                        self.log_error("Error creating OSCAR function: %s." % response.text)
                         vm.state = VirtualMachine.FAILED
                         vm.error_msg = response.text
                 except Exception as ex:
+                    self.log_exception("Error creating OSCAR function.")
                     vm.state = VirtualMachine.FAILED
                     vm.error_msg = "%s" % ex
 
