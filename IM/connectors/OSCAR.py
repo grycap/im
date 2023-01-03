@@ -303,8 +303,11 @@ class OSCARCloudConnector(CloudConnector):
                 headers = {"Authorization": self._get_auth_header(auth_data)}
                 response = requests.request("GET", url, headers=headers, verify=self.verify_ssl)
                 if response.status_code == 404:
-                    vm.state = VirtualMachine.OFF
-                    self.log_warn("OSCAR function '%s' does not exist. Set as OFF." % vm.id)
+                    if vm.state == VirtualMachine.PENDING:
+                        self.log_warn("OSCAR function '%s' does not exist. Maintain it as PENDING." % vm.id)
+                    else:
+                        vm.state = VirtualMachine.OFF
+                        self.log_warn("OSCAR function '%s' does not exist. Set as OFF." % vm.id)
                     return True, vm
                 elif response.status_code != 200:
                     msg = "Error code %d: %s" % (response.status_code, response.text)
