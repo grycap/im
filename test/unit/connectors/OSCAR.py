@@ -155,7 +155,6 @@ class TestOSCARConnector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
-        print(requests.call_args_list[0][1]['data'])
         self.maxDiff = None
         expected_res = {"name": "plants", "memory": "2048Mi",
                         "cpu": "1", "script": "plants.sh",
@@ -172,6 +171,20 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.assertEqual(json.loads(requests.call_args_list[0][1]['data']), expected_res)
         self.assertEqual(requests.call_args_list[0][1]['headers']['Authorization'], "Basic dXNlcjpwYXNz")
 
+        radl.systems[0].setValue("dependencies", ["other_func"])
+        inf2 = MagicMock(["id", "_lock", "add_vm", "get_vm_list"])
+        inf2.id = "infid"
+        vm1 = MagicMock(["info"])
+        vm1.info = radl.clone()
+        vm2 = MagicMock(["info", "is_configured"])
+        vm2.info = radl.clone()
+        vm2.info.systems[0].name = "other_func"
+        vm2.is_configured.return_value = False
+        inf2.get_vm_list.return_value = [vm1, vm2]
+        res = oscar_cloud.launch(inf2, radl, radl, 1, auth)
+        self.assertEqual(res[0][1].state, VirtualMachine.PENDING)
+        self.assertEqual(requests.call_count, 1)
+
     @patch('requests.request')
     def test_30_updateVMInfo(self, requests):
         radl_data = """
@@ -187,6 +200,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         inf = MagicMock()
         inf.id = "infid"
         vm = VirtualMachine(inf, "fname", oscar_cloud.cloud, radl, radl, oscar_cloud, 1)
+        vm.state = VirtualMachine.RUNNING
 
         requests.side_effect = self.get_response
 
@@ -197,6 +211,47 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.assertEqual(requests.call_args_list[0][0][0], "GET")
         self.assertEqual(requests.call_args_list[0][0][1], "http://oscar.com:80/system/services/fname")
         self.assertEqual(vm.info.systems[0].getValue("token"), "service_token")
+
+        radl_data2 = """
+            system test (
+                name = 'plants' and
+                memory.size = 2G and
+                cpu.count = 1.0 and
+                disk.0.image.url = 'grycap/oscar-theano-plants' and
+                script = 'plants.sh' and
+                environment.variables = ['a:b'] and
+                input.0.provider = 'minio_id' and
+                input.0.path = '/input' and
+                input.0.suffix = ['*.txt'] and
+                output.0.provider = 'minio_id' and
+                output.0.path = '/output' and
+                minio.0.id = 'minio_id' and
+                minio.0.endpoint = 'https://minio.com' and
+                minio.0.region = 'mregion' and
+                minio.0.access_key = 'AK' and
+                minio.0.secret_key = 'SK' and
+                dependencies = ['other_func']
+            )"""
+        radl2 = radl_parse.parse_radl(radl_data2)
+
+        inf2 = MagicMock(["id", "_lock", "add_vm", "get_vm_list"])
+        inf2.id = "infid"
+        vm1 = VirtualMachine(inf2, "fname", oscar_cloud.cloud, radl2, radl2, oscar_cloud, 1)
+        vm1.state = VirtualMachine.PENDING
+        vm2 = MagicMock(["info", "is_configured"])
+        vm2.info = radl2.clone()
+        vm2.info.systems[0].name = "other_func"
+        vm2.is_configured.return_value = False
+        inf2.get_vm_list.return_value = [vm1, vm2]
+        success, vm = oscar_cloud.updateVMInfo(vm1, auth)
+        self.assertEqual(vm.state, VirtualMachine.PENDING)
+        self.assertEqual(requests.call_count, 1)
+
+        vm2.is_configured.return_value = True
+        success, vm = oscar_cloud.updateVMInfo(vm1, auth)
+        self.assertEqual(vm.state, VirtualMachine.RUNNING)
+        self.assertEqual(requests.call_args_list[1][0][0], "POST")
+        self.assertEqual(requests.call_args_list[1][0][1], "http://oscar.com:80/system/services")
 
     @patch('requests.request')
     def test_55_alter(self, requests):
@@ -255,6 +310,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         inf = MagicMock()
         inf.id = "infid"
         vm = VirtualMachine(inf, "fname", oscar_cloud.cloud, "", "", oscar_cloud, 1)
+        vm.state = VirtualMachine.RUNNING
 
         requests.side_effect = self.get_response
 
