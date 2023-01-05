@@ -2008,6 +2008,15 @@ class Tosca:
                     # this should never happen
                     Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
 
+            if node.requirements:
+                deps = []
+                for r, n in node.relationships.items():
+                    if Tosca._is_derived_from(r, [r.DEPENDSON]):
+                        node_compute = self._find_host_compute(n, self.tosca.nodetemplates)
+                        deps.append(node_compute.name)
+                if deps:
+                    res.setValue('dependencies', deps)
+
         return res
 
     def _get_oscar_service_json(self, node):
