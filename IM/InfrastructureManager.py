@@ -387,16 +387,20 @@ class InfrastructureManager:
         return concrete_system, score
 
     @staticmethod
-    def search_vm(sel_inf, radl_sys, auth):
+    def search_vm(inf, radl_sys, auth):
+        # If an images is already set do not search
+        if radl_sys.getValue("disk.0.image.url"):
+            return []
+
         dist = radl_sys.getValue('disk.0.os.flavour')
         version = radl_sys.getValue('disk.0.os.version')
         res = []
         for c in CloudInfo.get_cloud_list(auth):
-            cloud_site = c.getCloudConnector(sel_inf)
+            cloud_site = c.getCloudConnector(inf)
             for image in cloud_site.list_images(auth):
                 if ((dist is None or dist.lower() in image["name"].lower()) and
                         (version is None or version.lower() in image["name"].lower())):
-                    new_sys = system()
+                    new_sys = system(radl_sys.name)
                     new_sys.setValue("disk.0.image.url", image["uri"])
                     res.append(new_sys)
         return res
