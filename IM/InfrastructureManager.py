@@ -28,6 +28,7 @@ import IM.InfrastructureList
 
 from IM.VMRC import VMRC
 from IM.AppDBIS import AppDBIS
+from IM.AppDB import AppDB
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from IM.recipe import Recipe
@@ -1465,6 +1466,40 @@ class InfrastructureManager:
         return auth
 
     @staticmethod
+    def translate_egi_to_ost(auth):
+        # Gen OST auth for all EGI auth sent
+        res = []
+        for auth_item in auth.auth_list:
+            if auth_item.get('type') == "EGI":
+                if 'host' in auth_item and 'vo' in auth_item and 'token' in auth_item:
+                    ost_auth = {'id': auth_item['id'], 'type': 'OpenStack', 'username': 'egi.eu', 'tenant': 'openid',
+                                'password': auth_item['token'], 'auth_version': '3.x_oidc_access_token',
+                                'vo': auth_item['vo']}
+                    site_id = AppDB.get_site_id(auth_item["host"], stype="openstack")
+                    site_url = AppDB.get_site_url(site_id)
+                    if not site_url:
+                        InfrastructureManager.logger.error("Site name '%s' not found at AppDB." % auth_item['host'])
+                        continue
+                    ost_auth['host'] = site_url
+                    projects = AppDB.get_project_ids(site_id)
+                    # If the VO does not appear in the project IDs
+                    if auth_item['vo'] in projects:
+                        ost_auth['domain'] = projects[auth_item['vo']]
+                    else:
+                        # let's use the VO name directly
+                        ost_auth['domain'] = auth_item['vo']
+
+                    if 'api_version' in auth_item:
+                        ost_auth['api_version'] = auth_item['api_version']
+
+                    res.append(ost_auth)
+            else:
+                res.append(auth_item)
+
+        auth.auth_list = res
+        return auth
+
+    @staticmethod
     def check_auth_data(auth):
         # First check if it is configured to check the users from a list
         im_auth = auth.getAuthInfo("InfrastructureManager")
@@ -1505,6 +1540,7 @@ class InfrastructureManager:
         # We have to check if TTS is needed for other auth item
         auth = InfrastructureManager.get_auth_from_vault(auth)
         auth = InfrastructureManager.gen_auth_from_appdb(auth)
+        auth = InfrastructureManager.translate_egi_to_ost(auth)
         return auth
 
     @staticmethod

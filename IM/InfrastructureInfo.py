@@ -357,6 +357,9 @@ class InfrastructureInfo:
 
         with self._lock:
             original_radl = self.radl.clone()
+            # Add the description field
+            if radl.description:
+                self.radl.add(radl.description.clone(), "replace")
             # Add new networks ad ansible_hosts only
             for s in radl.networks + radl.ansible_hosts:
                 if not self.radl.add(s.clone(), "ignore") and warn:
