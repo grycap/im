@@ -364,6 +364,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if not username:
                 res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
 
+            auths = auth_data.getAuthInfo(self.type, self.cloud.server)
+            if auths:
+                auth = self.get_auth(auths)
+                if auth.get("vo"):
+                    res_system.addFeature(Feature("provider.vo", "=", auth.get("vo")),
+                                          conflict="other", missing="other")
+
             return res_system
         else:
             return None
@@ -2023,7 +2030,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         return images
 
     @staticmethod
-    def _get_tenant_id(driver, auth):
+    def _get_tenant_id(auth):
         """
         Workaround function to get tenant id from tenant name
         """
@@ -2039,7 +2046,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
     def get_quotas(self, auth_data):
         driver = self.get_driver(auth_data)
-        tenant_id = self._get_tenant_id(driver, auth_data.getAuthInfo(self.type, self.cloud.server)[0])
+        tenant_id = self._get_tenant_id(auth_data.getAuthInfo(self.type, self.cloud.server)[0])
         quotas = driver.ex_get_quota_set(tenant_id)
         try:
             net_quotas = driver.ex_get_network_quotas(tenant_id)
