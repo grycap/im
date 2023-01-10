@@ -36,7 +36,7 @@ from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
 
 from radl import radl_parse
-from radl.radl import Feature, RADL
+from radl.radl import Feature, RADL, system
 from radl.radl_json import dump_radl as dump_radl_json
 
 from IM.openid.JWT import JWT
@@ -388,6 +388,26 @@ class InfrastructureManager:
         return concrete_system, score
 
     @staticmethod
+    def search_vm(inf, radl_sys, auth):
+        # If an images is already set do not search
+        if radl_sys.getValue("disk.0.image.url"):
+            return []
+
+        dist = radl_sys.getValue('disk.0.os.flavour')
+        version = radl_sys.getValue('disk.0.os.version')
+        res = []
+        for c in CloudInfo.get_cloud_list(auth):
+            cloud_site = c.getCloudConnector(inf)
+            for image in cloud_site.list_images(auth):
+                if ((dist is None or dist.lower() in image["name"].lower()) and
+                        (version is None or version.lower() in image["name"].lower())):
+                    new_sys = system(radl_sys.name)
+                    new_sys.setValue("disk.0.image.url", image["uri"])
+                    res.append(new_sys)
+                    break
+        return res
+
+    @staticmethod
     def systems_with_iis(sel_inf, radl, auth):
         """
         Concrete systems using Image Information Systems.
@@ -412,9 +432,6 @@ class InfrastructureManager:
         for system_id in set([d.id for d in radl.deploys if d.vm_number > 0]):
             s = radl.get_system_by_name(system_id)
 
-            if not s.getValue("disk.0.image.url") and len(vmrc_list + appdbis_list) == 0:
-                raise Exception("No correct VMRC or AppDBIS auth data provided nor image URL")
-
             if Config.SINGLE_SITE:
                 image_id = os.path.basename(s.getValue("disk.0.image.url"))
                 url_prefix = Config.SINGLE_SITE_IMAGE_URL_PREFIX
@@ -436,13 +453,14 @@ class InfrastructureManager:
 
             vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
             appdbis_res = [s0 for appdbis in appdbis_list for s0 in appdbis.search_vm(s)]
+            local_res = InfrastructureManager.search_vm(sel_inf, s, auth)
             # Check that now the image URL is in the RADL
-            if not s.getValue("disk.0.image.url") and not vmrc_res and not appdbis_res:
-                sel_inf.add_cont_msg("No VMI obtained from VMRC nor AppDBIS to system: " + system_id)
-                raise Exception("No VMI obtained from VMRC nor AppDBIS to system: " + system_id)
+            if not s.getValue("disk.0.image.url") and not vmrc_res and not appdbis_res and not local_res:
+                sel_inf.add_cont_msg("No VMI obtained from VMRC nor AppDBIS nor Sites to system: " + system_id)
+                raise Exception("No VMI obtained from VMRC nor AppDBIS not Sites to system: " + system_id)
 
             n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
-                 for s0 in (vmrc_res + appdbis_res)]
+                 for s0 in (vmrc_res + appdbis_res + local_res)]
             systems_with_vmrc[system_id] = n if n else [s_without_apps]
 
         return systems_with_vmrc

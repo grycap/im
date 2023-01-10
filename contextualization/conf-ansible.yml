@@ -140,7 +140,7 @@
       pip:
         name:
           - pyOpenSSL>20.0,<22.1.0
-          - cryptography
+          - cryptography<39.0.0
           - wheel
           - pyyaml
           - paramiko>=2.9.5
