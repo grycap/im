@@ -720,3 +720,9 @@ IM 1.13.0:
     * Add an admin user.
     * Add additional_dns_names field.
     * Enable to delete nodes using TOSCA without remove_list.
+
+IM 1.13.1:
+    * Enable to delete FaaS functions using TOSCA.
+    * Enable to create public router in openstack.
+    * Enable to define dependencies in OSCAR conn.
+    * Search VM Images in sites using name.
