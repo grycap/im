@@ -403,6 +403,7 @@ class InfrastructureManager:
                     new_sys = system(radl_sys.name)
                     new_sys.setValue("disk.0.image.url", image["uri"])
                     res.append(new_sys)
+                    break
         return res
 
     @staticmethod
@@ -451,7 +452,7 @@ class InfrastructureManager:
 
             vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
             appdbis_res = [s0 for appdbis in appdbis_list for s0 in appdbis.search_vm(s)]
-            local_res = InfrastructureManager.search_vm(sel_inf, radl, auth)
+            local_res = InfrastructureManager.search_vm(sel_inf, s, auth)
             # Check that now the image URL is in the RADL
             if not s.getValue("disk.0.image.url") and not vmrc_res and not appdbis_res and not local_res:
                 sel_inf.add_cont_msg("No VMI obtained from VMRC nor AppDBIS nor Sites to system: " + system_id)

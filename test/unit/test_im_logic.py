@@ -1481,13 +1481,15 @@ configure step2 (
         dummy = MagicMock(["list_images"])
         dummycc.return_value = dummy
         dummy.list_images.side_effect = [[{"name": "ubuntu-20.04-raw", "uri": "imageuri"}],
-                                         [{"name": "ubuntu-20.04-raw", "uri": "imageuri2"}]]
+                                         [{"name": "ubuntu-22.04-raw", "uri": "imageuri2"},
+                                          {"name": "ubuntu-20.04-raw", "uri": "imageuri3"},
+                                          {"name": "ubuntu-20.04-raw", "uri": "imageuri4"}]]
         res = IM.search_vm(inf, radl_sys, auth)
         self.assertEqual(len(res), 2)
         self.assertEqual(res[0].name, "s0")
         self.assertEqual(res[0].getValue("disk.0.image.url"), "imageuri")
         self.assertEqual(res[1].name, "s0")
-        self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri2")
+        self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri3")
 
 
 if __name__ == "__main__":
