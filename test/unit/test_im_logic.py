@@ -1472,6 +1472,25 @@ configure step2 (
         self.assertEqual(str(ex.exception), ("Invalid new infrastructure data provided: No credentials"
                                              " provided for the InfrastructureManager."))
 
+    @patch("IM.connectors.Dummy.DummyCloudConnector")
+    def test_search_vm(self, dummycc):
+        auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 0)])
+        radl_sys = system("s0", [Feature("disk.0.os.flavour", "=", "Ubuntu"),
+                                 Feature("disk.0.os.version", "=", "20.04")])
+        inf = MagicMock()
+        dummy = MagicMock(["list_images"])
+        dummycc.return_value = dummy
+        dummy.list_images.side_effect = [[{"name": "ubuntu-20.04-raw", "uri": "imageuri"}],
+                                         [{"name": "ubuntu-22.04-raw", "uri": "imageuri2"},
+                                          {"name": "ubuntu-20.04-raw", "uri": "imageuri3"},
+                                          {"name": "ubuntu-20.04-raw", "uri": "imageuri4"}]]
+        res = IM.search_vm(inf, radl_sys, auth)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(res[0].name, "s0")
+        self.assertEqual(res[0].getValue("disk.0.image.url"), "imageuri")
+        self.assertEqual(res[1].name, "s0")
+        self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri3")
+
     @patch('IM.InfrastructureManager.AppDB')
     def test_translate_egi_to_ost(self, appdb):
         appdb.get_site_id.return_value = 'site_id'
