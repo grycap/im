@@ -24,6 +24,8 @@ Basic structure
 
 An RADL document has the next general structure::
 
+   description <desc_id> (<features>)
+
    ansible <ansible_host_id> (<features>)
    
    network <network_id> (<features>)
@@ -40,6 +42,16 @@ An RADL document has the next general structure::
 
    deploy <system_id> <num> [<cloud_id>] 
 
+The ``description`` optional keyword can only appear once. It is an special keyword
+to add some medatada to the RADL. The list of features is free excepting the ``name``
+field that is used to the a name to the infrastructure. For instance::
+
+   description desc (
+      name = 'Infrastructure Name' and
+      some_other = 'Othe infra metadata'
+   )
+
+
 The keywords ``ansible``, ``network``, ``system`` and ``configure`` assign some *features*
 or *recipes* to an identity ``<id>``. The features are a list of constrains
 separated by ``and``, and a constrain is form by
@@ -54,10 +66,10 @@ this RADL defines a *system* with the feature ``memory.size`` greater or equal
 than ``1024M`` and with the feature ``disk.0.applications`` containing an
 element with ``name`` ``tomcat``.
 
-The ``network`` keyword enables to represent different networks so that the 
+The ``network`` keyword enables representing different networks so that the 
 VMs can be attached to them.
 
-The ``ansible`` keyword enables to specify external nodes that will act as the
+The ``ansible`` keyword enables the specification of external nodes that will act as the
 ansible master node to configure the VMs. These nodes must be connected in a
 network connected will all the VMs of the infrastructure.
 

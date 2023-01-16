@@ -23,6 +23,17 @@ In case of using the SSL secured version of the XMLRPC API the SpringPython fram
 Installing
 ^^^^^^^^^^
 
+Docker image
+++++++++++++
+
+A Docker image named grycap/im-client has been created. Information about this image can be found here:
+https://hub.docker.com/r/grycap/im-client/. It is also available in Github Container registry
+ghcr.io/grycap/im-client: https://github.com/grycap/im-client/pkgs/container/im-client.
+
+How to launch the IM client using docker::
+
+   docker run --rm -ti -v "$PWD:/im-client" grycap/im-client list
+
 From pip
 ++++++++
 
@@ -76,18 +87,37 @@ The :program:`im_client` is called like this::
 .. option:: -v|--verify-ssl
 
    Verify the certificates of the SSL connection.
-   The default value is `False`,
+   The default value is `False`.
 
 .. option:: -a|--auth_file filename
 
    Path to the authorization file, see :ref:`auth-file`.
    This option is compulsory.
 
+.. option:: -f|--force
+
+   Force the deletion of the infrastructure. Only for destroy operation.
+   The default value is `False`.
+
+.. option:: -q|--quiet
+
+   Work in quiet mode. Avoid all unnecessary prints.
+   The default value is `False`.
+
+.. option:: -n|--name
+
+   Show/use Infrastructure name in the selected operation.
+   In case of list operation it will show the name of each infrastructure (if available).
+   In other operations if this flag is set the user should specify the name of the infrastructure
+   instead of the ID.
+   The default value is `False`.
+
 .. option:: operation
 
    ``list filter``
       List the infrastructure IDs created by the user. The ``filter`` parameter is
       optional and is a regex that will be used to filter the list of infrastructures.
+      This regex will be used with the RADL or TOSCA of the infrastructure.
 
    ``create inputfile async_flag``
       Create an infrastructure using RADL/TOSCA specified in the file with path
