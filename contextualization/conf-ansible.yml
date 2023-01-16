@@ -133,8 +133,11 @@
         executable: pip3
       when: ansible_python_version is version('3.7', '>=')
 
+    # Version 66 (#2497) fails
     - name: Upgrade setuptools with Pip
-      pip: name=setuptools state=latest executable=pip3
+      pip:
+        name: setuptools<66.0.0
+        executable: pip3
 
     - name: Install pyOpenSSL & cryptography & pyyaml & wheel
       pip:
