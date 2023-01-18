@@ -584,6 +584,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             raise NotImplementedError("Should have implemented this")
         return True
 
+    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
+        # Special case for EGI DyDNS
+        # format of the hostname: dydns:secret@hostname
+        if hostname.startswith("dydns:") and "@" in hostname:
+            self.log_info("DYDNS entry. Cannot be deleted.")
+        else:
+            # TODO: https://docs.openstack.org/designate/latest/index.html
+            raise NotImplementedError("Should have implemented this")
+        return True
+
     @staticmethod
     def map_radl_ost_networks(vm, ost_nets):
         """
