@@ -432,6 +432,7 @@ class InfrastructureInfo:
         """
         radl = self.radl.clone()
         res_radl = RADL()
+        res_radl.description = res_radl.description
         res_radl.systems = radl.systems
         res_radl.networks = radl.networks
         res_radl.deploys = radl.deploys

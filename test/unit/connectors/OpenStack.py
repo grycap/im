@@ -787,6 +787,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_remove_security_group_from_node.return_value = True
 
         vm.volumes = ['volid']
+        vm.dns_entries = [('dydns:secret@test', 'domain.com.', '8.8.8.8')]
         success, _ = ost_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
