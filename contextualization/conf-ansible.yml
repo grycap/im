@@ -142,8 +142,8 @@
     - name: Install pyOpenSSL & cryptography & pyyaml & wheel
       pip:
         name:
-          - pyOpenSSL>20.0,<22.1.0
           - cryptography<39.0.0
+          - pyOpenSSL>20.0,<22.1.0
           - wheel
           - pyyaml
           - paramiko>=2.9.5
