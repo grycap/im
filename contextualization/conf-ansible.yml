@@ -139,10 +139,10 @@
         name: setuptools<66.0.0
         executable: pip3
 
-    - name: Install pyOpenSSL & cryptography & pyyaml & wheel
+    - name: Install cryptography & pyOpenSSL & pyyaml & wheel
       pip:
         name:
-          - cryptography<39.0.0
+          - cryptography>36.0.0,<39.0.0
           - pyOpenSSL>20.0,<22.1.0
           - wheel
           - pyyaml
