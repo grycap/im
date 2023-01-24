@@ -186,8 +186,10 @@ class EC2CloudConnector(CloudConnector):
                 if 'username' in auth and 'password' in auth:
                     region = boto.ec2.get_region(region_name)
                     if region:
+                        token = auth.get('token')
                         conn = boto.vpc.VPCConnection(aws_access_key_id=auth['username'],
                                                       aws_secret_access_key=auth['password'],
+                                                      security_token=token,
                                                       region=region)
                     else:
                         raise Exception(
