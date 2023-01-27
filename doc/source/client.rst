@@ -370,6 +370,8 @@ OpenStack has a set of additional fields to access a cloud site:
 
 * ``tenant_domain_id`` tenant domain id to set to the identity service. Some cloud providers require the tenant 
   domain id to be provided at authentication time. Others will use a default tenant domain id if none is provided.
+  
+* ``microversion`` set the microversion of the API to interact with OpenStack. Only valid in case of api_version >= 2.0.
 
 OpenID Connect OpenStack sites
 ++++++++++++++++++++++++++++++
