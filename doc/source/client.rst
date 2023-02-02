@@ -306,7 +306,8 @@ The available keys are:
 
 * ``token`` indicates the OpenID token associated to the credential. This field is used in the EGI, OCCI plugins
   and also to authenticate with the InfrastructureManager. To refer to the output of a command you must
-  use the function "command(command)" as shown in the examples.
+  use the function "command(command)" as shown in the examples. It can be also used in the EC2 connector
+  to specify the security token associated with temporary credentials issued by STS.
 
 * ``vo`` indicates the VO name associated to the credential. This field is used in the EGI plugin. 
 
@@ -369,6 +370,8 @@ OpenStack has a set of additional fields to access a cloud site:
 
 * ``tenant_domain_id`` tenant domain id to set to the identity service. Some cloud providers require the tenant 
   domain id to be provided at authentication time. Others will use a default tenant domain id if none is provided.
+  
+* ``microversion`` set the microversion of the API to interact with OpenStack. Only valid in case of api_version >= 2.0.
 
 OpenID Connect OpenStack sites
 ++++++++++++++++++++++++++++++

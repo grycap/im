@@ -48,16 +48,17 @@ class Stats():
 
     @staticmethod
     def get_stats(db_url, date):
-        stats = [("Inf ID.", "TOSCA", "User", "Creation Date", "Last Date")]
+        stats = [("Inf ID.", "TOSCA", "User", "EC3", "Creation Date", "Last Date")]
         db = DataBase(db_url)
         if db.connect():
             res = db.select("SELECT data, date, id FROM inf_list WHERE date > %s order by rowid desc;", (date,))
             for elem in res:
-                data = elem[0]
+                data = elem[0].decode()
                 date = elem[1]
                 inf_id = elem[2]
-                icon, im_user, creation_date = Stats.get_data(data.decode())
-                stats.append((inf_id, icon, im_user, str(creation_date), str(date)))
+                icon, im_user, creation_date = Stats.get_data(data)
+                ec3 = "1" if "ec3_max_instances" in data else "0"
+                stats.append((inf_id, icon, im_user, ec3, str(creation_date), str(date)))
 
             db.close()
             return stats
