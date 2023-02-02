@@ -726,3 +726,8 @@ IM 1.13.1:
     * Enable to create public router in openstack.
     * Enable to define dependencies in OSCAR conn.
     * Search VM Images in sites using name.
+
+IM 1.13.2:
+    * Enable use STS security token in EC2 connector.
+    * Fix error with OpenSSL in contextualization.
+    * Fix error deleting OST infras with dydns name.
