@@ -48,7 +48,7 @@ field that is used to the a name to the infrastructure. For instance::
 
    description desc (
       name = 'Infrastructure Name' and
-      some_other = 'Othe infra metadata'
+      some_other = 'Other infra metadata'
    )
 
 
