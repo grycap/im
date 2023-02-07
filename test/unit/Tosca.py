@@ -275,6 +275,7 @@ class TestTosca(unittest.TestCase):
         service_json = json.loads(conf[0]["tasks"][0]["vars"]["oscar_service_json"])
         expected_json = {'alpine': False,
                          'cpu': "0.5",
+                         "enable_gpu": False,
                          'image': 'grycap/image',
                          'input': [{'path': 'input', 'storage_provider': 'minio.default'}],
                          'memory': '488Mi',
@@ -296,6 +297,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("script"), '#!/bin/bash\necho "Hola"\n')
         self.assertEqual(node.getValue("memory.size"), 512000000)
         self.assertEqual(node.getValue("alpine"), 0)
+        self.assertEqual(node.getValue("gpu.count"), 1)
         self.assertEqual(node.getValue("input.0.path"), 'input')
         self.assertEqual(node.getValue("output.0.path"), 'output')
         self.assertEqual(node.getValue("onedata.0.id"), 'my_onedata')
