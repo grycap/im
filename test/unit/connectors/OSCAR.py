@@ -126,6 +126,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                 name = 'plants' and
                 memory.size = 2G and
                 cpu.count = 1.0 and
+                gpu.count = 1 and
                 disk.0.image.url = 'grycap/oscar-theano-plants' and
                 script = 'plants.sh' and
                 environment.variables = ['a:b'] and
@@ -158,6 +159,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.maxDiff = None
         expected_res = {"name": "plants", "memory": "2048Mi",
                         "cpu": "1", "script": "plants.sh",
+                        "enable_gpu": True,
                         "image": "grycap/oscar-theano-plants",
                         "environment": {"Variables": {"a": "b"}},
                         "input": [{"storage_provider": "minio_id",

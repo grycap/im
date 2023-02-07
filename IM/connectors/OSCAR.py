@@ -136,6 +136,8 @@ class OSCARCloudConnector(CloudConnector):
             service["memory"] = "%dMi" % radl_system.getFeature('memory.size').getValue('M')
         if radl_system.getValue("cpu.count"):
             service["cpu"] = "%g" % radl_system.getValue("cpu.count")
+        if radl_system.getValue("gpu.count"):
+            service["enable_gpu"] = 1
         if radl_system.getValue("script"):
             service["script"] = radl_system.getValue("script")
         if radl_system.getValue("alpine"):
