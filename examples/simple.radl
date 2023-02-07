@@ -1,3 +1,8 @@
+description desc (
+name = 'SimpleRADL' and
+long = 'Simple RADL example'
+)
+
 network publica (outbound = 'yes')
 
 system node (

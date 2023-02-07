@@ -1974,6 +1974,9 @@ class Tosca:
                     res.setValue(property_map[prop.name], value)
                 elif prop.name == 'alpine':
                     res.setValue('alpine', 1 if value else 0)
+                elif prop.name == 'enable_gpu':
+                    if value:
+                        res.setValue('gpu.count', 1)
                 elif prop.name == 'memory':
                     if not value.endswith("B"):
                         value += "B"
@@ -2026,7 +2029,7 @@ class Tosca:
         for prop in node.get_properties_objects():
             value = self._final_function_result(prop.value, node)
             if value not in [None, [], {}]:
-                if prop.name in ['name', 'script', 'alpine', 'input', 'output', 'storage_providers']:
+                if prop.name in ['name', 'script', 'alpine', 'input', 'output', 'storage_providers', 'enable_gpu']:
                     res[prop.name] = value
                 elif prop.name == 'cpu':
                     res['cpu'] = "%g" % value
