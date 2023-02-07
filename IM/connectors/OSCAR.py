@@ -137,7 +137,7 @@ class OSCARCloudConnector(CloudConnector):
         if radl_system.getValue("cpu.count"):
             service["cpu"] = "%g" % radl_system.getValue("cpu.count")
         if radl_system.getValue("gpu.count"):
-            service["enable_gpu"] = 1
+            service["enable_gpu"] = True
         if radl_system.getValue("script"):
             service["script"] = radl_system.getValue("script")
         if radl_system.getValue("alpine"):
