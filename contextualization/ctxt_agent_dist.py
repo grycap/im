@@ -327,6 +327,10 @@ class CtxtAgent(CtxtAgentBase):
                             self.logger.info("Copy ansible roles to: %s" % ctxt_vm['ip'])
                             ssh_client.sftp_mkdir(general_conf_data['conf_dir'] + "/roles")
                             ssh_client.sftp_put_dir("/etc/ansible/roles", general_conf_data['conf_dir'] + "/roles")
+
+                            self.logger.info("Copy ansible collections to: %s" % ctxt_vm['ip'])
+                            ssh_client.sftp_mkdir(general_conf_data['conf_dir'] + "/collections")
+                            ssh_client.sftp_put_dir("/etc/ansible/ansible_collections", general_conf_data['conf_dir'] + "/collections")
                         except Exception:
                             self.logger.exception("Error copying cache to VM: " + ctxt_vm['ip'])
                     else:
