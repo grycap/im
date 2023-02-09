@@ -202,7 +202,6 @@ class Authentication:
                 auth = {}
                 tokens = Authentication.split_line(line, maintain_quotes=True)
                 for token in tokens:
-                    key_value1 = token.split(" = ")
                     key_value = Authentication.split_line(token, "=")
                     if len(key_value) != 2:
                         break
