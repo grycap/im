@@ -300,9 +300,11 @@ class TestCtxtAgent(unittest.TestCase):
         pos = yaml_data[0]['tasks'][0]['copy'].find('content="')
         copy_content = yaml_data[0]['tasks'][0]['copy'][pos + 9:-2]
         self.assertEqual(copy_content, "{collections: [{name: ns.collection, version: '1.0'}]}")
-        self.assertEqual(yaml_data[0]['tasks'][1]['command'][:64], "ansible-galaxy collection install -c -r /tmp/galaxy_collections_")
+        self.assertEqual(yaml_data[0]['tasks'][1]['command'][:64],
+                         "ansible-galaxy collection install -c -r /tmp/galaxy_collections_")
 
         os.unlink(res)
+
 
 if __name__ == '__main__':
     unittest.main()
