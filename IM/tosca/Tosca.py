@@ -1638,9 +1638,11 @@ class Tosca:
 
     def _add_ansible_roles(self, node, nodetemplates, system):
         """
-        Find all the roles to be applied to this node and
-        add them to the system as ansible.modules.* in 'disk.0.applications'
+        Find all the roles and collections to be applied to this node and
+        add them to the system as ansible.modules.* or ansible.collections.* 
+        in 'disk.0.applications'
         """
+        collections = []
         roles = []
         for other_node in nodetemplates:
             root_type = Tosca._get_root_parent_type(other_node).type
@@ -1659,6 +1661,16 @@ class Tosca:
                             'file' in artifact and artifact['file']):
                         if artifact['file'] not in roles:
                             roles.append(artifact['file'])
+                    if ('type' in artifact and artifact['type'] == 'tosca.artifacts.AnsibleGalaxy.collection' and
+                            'file' in artifact and artifact['file']):
+                        if artifact['file'] not in roles:
+                            collections.append(artifact['file'])
+
+        for collection in collections:
+            app_features = Features()
+            app_features.addFeature(Feature('name', '=', 'ansible.collections.' + collection))
+            feature = Feature('disk.0.applications', 'contains', app_features)
+            system.addFeature(feature)
 
         for role in roles:
             app_features = Features()
