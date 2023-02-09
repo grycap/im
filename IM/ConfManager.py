@@ -1439,7 +1439,8 @@ class ConfManager(LoggerMixin, threading.Thread):
 
                     recipe_out.write("\n    - name: Delete the %s collection\n" % galaxy_name)
                     galaxy_name = galaxy_name.replace(".", "/")
-                    recipe_out.write("      file: state=absent path=/etc/ansible/ansible_collections/%s\n" % galaxy_name)
+                    recipe_out.write("      file: state=absent path=/etc/ansible/ansible_collections/%s\n" %
+                                     galaxy_name)
 
                     recipe_out.close()
 

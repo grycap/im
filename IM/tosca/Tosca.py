@@ -1639,7 +1639,7 @@ class Tosca:
     def _add_ansible_roles(self, node, nodetemplates, system):
         """
         Find all the roles and collections to be applied to this node and
-        add them to the system as ansible.modules.* or ansible.collections.* 
+        add them to the system as ansible.modules.* or ansible.collections.*
         in 'disk.0.applications'
         """
         collections = []
