@@ -392,7 +392,7 @@ class VirtualMachine(LoggerMixin):
         to_install = []
         for req_app in requested:
             # discard the ansible modules
-            if not req_app.getValue("name").startswith("ansible.modules"):
+            if not req_app.getValue("name").startswith("ansible."):
                 is_installed = False
                 for inst_app in installed:
                     if inst_app.isNewerThan(req_app):
@@ -400,21 +400,6 @@ class VirtualMachine(LoggerMixin):
                 if not is_installed:
                     to_install.append(req_app)
 
-        return to_install
-
-    def getModulesToInstall(self):
-        """
-        Get a list of ansible modules to install in the VM
-
-        Arguments:
-           - vm_(:py:class:`IM.VirtualMachine`): VMs to check the modules.
-        Returns: list of str with the name of the galaxy roles (i.e.: micafer.hadoop)
-        """
-        requested = self.getRequestedApplications()
-        to_install = []
-        for req_app in requested:
-            if req_app.getValue("name").startswith("ansible.modules."):
-                to_install.append(req_app.getValue("name")[16:])
         return to_install
 
     def getRemoteAccessPort(self):
