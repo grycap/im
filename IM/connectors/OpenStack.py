@@ -321,7 +321,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         epc_size = radl.getFeature('cpu.sgx.epc_size')
 
         # get the node size with the lowest price, vcpus, memory and disk
-        sizes.sort(key=lambda x: (x.price, x.vcpus, x.ram, x.disk, x.extra['pci_devices']))
+        sizes.sort(key=lambda x: (x.price, x.extra['pci_devices'], x.vcpus, x.ram, x.disk))
         for size in sizes:
             comparison = cpu_op(size.vcpus, cpu)
             comparison = comparison and memory_op(size.ram, memory)
