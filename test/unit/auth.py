@@ -31,8 +31,8 @@ class TestAuth(unittest.TestCase):
     def test_auth_read(self):
         auth_lines = ["""id = a1; type = InfrastructureManager; username = someuser; password = somepass """,
                       """id = a2; type = VMRC; username = someuser; password = somepass; """,
-                      """id = a3; type = OpenNebula; username = someuser; password = "some;'pass" """,
-                      """id = a4; type = EC2; username = someuser; password = 'some;"pass' """]
+                      """id = a3; type = OpenNebula; username = someuser; password   =   "some;'pass" """,
+                      """id = a4; type = EC2; username =someuser; password='some;"pass' """]
         auth = Authentication.read_auth_data(auth_lines)
         self.assertEqual(auth, [{'id': 'a1', 'password': "somepass",
                                  'type': 'InfrastructureManager', 'username': 'someuser'},
