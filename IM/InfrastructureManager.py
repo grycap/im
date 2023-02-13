@@ -311,6 +311,8 @@ class InfrastructureManager:
 
                 # The user has new applications
                 curr_apps = system.getValue("disk.0.applications")
+                if curr_apps is None:
+                    curr_apps = {}
                 curr_apps_names = {}
                 if curr_apps:
                     for app_name in curr_apps.keys():

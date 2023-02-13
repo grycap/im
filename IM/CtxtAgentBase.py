@@ -412,7 +412,8 @@ class CtxtAgentBase:
 
     def install_ansible_modules(self, general_conf_data, playbook):
         new_playbook = playbook
-        if 'ansible_modules' in general_conf_data and general_conf_data['ansible_modules']:
+        if (('ansible_modules' in general_conf_data and general_conf_data['ansible_modules']) or
+                ('ansible_collections' in general_conf_data and general_conf_data['ansible_collections'])):
             play_dir = os.path.dirname(playbook)
             play_filename = os.path.basename(playbook)
             new_playbook = os.path.join(play_dir, "mod_" + play_filename)
@@ -420,31 +421,66 @@ class CtxtAgentBase:
             with open(playbook) as f:
                 yaml_data = yaml.safe_load(f)
 
+            # First add collections
+            galaxy_collections = []
+            if 'ansible_collections' in general_conf_data and general_conf_data['ansible_collections']:
+                for galaxy_name in general_conf_data['ansible_collections']:
+                    if galaxy_name:
+                        self.logger.debug("Install %s collection with ansible-galaxy.", galaxy_name)
+
+                        parts = galaxy_name.split(",")
+                        if len(parts) > 1:
+                            name = parts[0]
+                            version = parts[1]
+                            dep = {"name": name, "version": version}
+                        else:
+                            dep = {"name": galaxy_name}
+
+                        galaxy_collections.append(dep)
+
+            if galaxy_collections:
+                now = str(int(time.time() * 100))
+                filename = "/tmp/galaxy_collections_%s.yml" % now
+                yaml_deps = yaml.safe_dump({"collections": galaxy_collections}, default_flow_style=True)
+                self.logger.debug("Galaxy collections file: %s" % yaml_deps)
+                task = {"copy": 'dest=%s content="%s"' % (filename, yaml_deps)}
+                task["name"] = "Create YAML file to install the collections with ansible-galaxy"
+                yaml_data[0]['tasks'].append(task)
+
+                task = {"command": "ansible-galaxy collection install -c -r %s" % filename}
+                task["name"] = "Install galaxy collections"
+                task["become"] = "yes"
+                # Some times ansible is installed at /usr/local/bin and it is not in root path
+                task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"}]
+                yaml_data[0]['tasks'].append(task)
+
+            # and then add roles
             galaxy_dependencies = []
             needs_git = False
-            for galaxy_name in general_conf_data['ansible_modules']:
-                if galaxy_name:
-                    self.logger.debug("Install %s with ansible-galaxy.", galaxy_name)
+            if 'ansible_modules' in general_conf_data and general_conf_data['ansible_modules']:
+                for galaxy_name in general_conf_data['ansible_modules']:
+                    if galaxy_name:
+                        self.logger.debug("Install %s with ansible-galaxy.", galaxy_name)
 
-                    if galaxy_name.startswith("git"):
-                        needs_git = True
+                        if galaxy_name.startswith("git"):
+                            needs_git = True
 
-                    parts = galaxy_name.split("|")
-                    if len(parts) > 1:
-                        url = parts[0]
-                        rolename = parts[1]
-                        dep = {"src": url, "name": rolename}
-                    else:
-                        url = rolename = galaxy_name
-                        dep = {"src": url}
+                        parts = galaxy_name.split("|")
+                        if len(parts) > 1:
+                            url = parts[0]
+                            rolename = parts[1]
+                            dep = {"src": url, "name": rolename}
+                        else:
+                            url = rolename = galaxy_name
+                            dep = {"src": url}
 
-                    parts = url.split(",")
-                    if len(parts) > 1:
-                        url = parts[0]
-                        version = parts[1]
-                        dep = {"src": url, "version": version}
+                        parts = url.split(",")
+                        if len(parts) > 1:
+                            url = parts[0]
+                            version = parts[1]
+                            dep = {"src": url, "version": version}
 
-                    galaxy_dependencies.append(dep)
+                        galaxy_dependencies.append(dep)
 
             if needs_git:
                 task = {"package": "name=git state=present"}
