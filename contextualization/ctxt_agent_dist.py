@@ -330,7 +330,8 @@ class CtxtAgent(CtxtAgentBase):
 
                             self.logger.info("Copy ansible collections to: %s" % ctxt_vm['ip'])
                             ssh_client.sftp_mkdir("/etc/ansible/ansible_collections")
-                            ssh_client.sftp_put_dir("/etc/ansible/ansible_collections", "/etc/ansible/ansible_collections")
+                            ssh_client.sftp_put_dir("/etc/ansible/ansible_collections",
+                                                    "/etc/ansible/ansible_collections")
                         except Exception:
                             self.logger.exception("Error copying cache to VM: " + ctxt_vm['ip'])
                     else:
