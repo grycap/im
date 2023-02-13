@@ -1405,13 +1405,17 @@ class ConfManager(LoggerMixin, threading.Thread):
             shutil.copy(Config.CONTEXTUALIZATION_DIR + "/" +
                         ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 
-            # Add all the modules specified in the RADL
+            # Add all the ansible roles and collections specified in the RADL
             modules = []
+            collections = []
             for s in self.inf.radl.systems:
                 for req_app in s.getApplications():
                     if req_app.getValue("name").startswith("ansible.modules."):
                         # Get the modules specified by the user in the RADL
                         modules.append(req_app.getValue("name")[16:])
+                    elif req_app.getValue("name").startswith("ansible.collections."):
+                        # Get the modules specified by the user in the RADL
+                        collections.append(req_app.getValue("name")[20:])
                     else:
                         # Get the info about the apps from the recipes DB
                         vm_modules, _ = Recipe.getInfoApps([req_app])
@@ -1419,11 +1423,26 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             # avoid duplicates
             modules = set(modules)
+            collections = set(collections)
 
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o777)
             ssh.sftp_mkdir(Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/", 0o700)
+
+            for galaxy_name in collections:
+                if galaxy_name:
+                    self.log_debug("Install " + galaxy_name + " collection with ansible-galaxy.")
+                    self.inf.add_cont_msg("Galaxy collection " + galaxy_name + " detected setting to install.")
+
+                    recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
+
+                    recipe_out.write("\n    - name: Delete the %s collection\n" % galaxy_name)
+                    galaxy_name = galaxy_name.replace(".", "/")
+                    recipe_out.write("      file: state=absent path=/etc/ansible/ansible_collections/%s\n" %
+                                     galaxy_name)
+
+                    recipe_out.close()
 
             for galaxy_name in modules:
                 if galaxy_name:
@@ -1479,8 +1498,9 @@ class ConfManager(LoggerMixin, threading.Thread):
         """
         Create the configuration file needed by the contextualization agent
         """
-        # Add all the modules specified in the RADL
+        # Add all the roles and collections specified in the RADL
         modules = []
+        collections = []
         for s in self.inf.radl.systems:
             for req_app in s.getApplications():
                 if req_app.getValue("name").startswith("ansible.modules."):
@@ -1489,6 +1509,12 @@ class ConfManager(LoggerMixin, threading.Thread):
                     if req_app.getValue("version"):
                         app_name += ",%s" % req_app.getValue("version")
                     modules.append(app_name)
+                elif req_app.getValue("name").startswith("ansible.collections."):
+                    # Get the modules specified by the user in the RADL
+                    app_name = req_app.getValue("name")[20:]
+                    if req_app.getValue("version"):
+                        app_name += ",%s" % req_app.getValue("version")
+                    collections.append(app_name)
                 else:
                     # Get the info about the apps from the recipes DB
                     vm_modules, _ = Recipe.getInfoApps([req_app])
@@ -1496,9 +1522,11 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         # avoid duplicates
         modules = list(set(modules))
+        collections = list(set(collections))
 
         conf_data = {}
 
+        conf_data['ansible_collections'] = collections
         conf_data['ansible_modules'] = modules
         conf_data['playbook_retries'] = Config.PLAYBOOK_RETRIES
         conf_data['vms'] = []

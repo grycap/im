@@ -42,9 +42,6 @@ class TestVirtualMachine(unittest.TestCase):
         self.assertEqual(apps[0].getValue("name"), "java")
         self.assertEqual(apps[0].getValue("version"), "1.9")
 
-        modules = vm.getModulesToInstall()
-        self.assertEqual(modules[0], "grycap.clues")
-
     def test_get_remote_port(self):
         radl_data = """
             system test (

@@ -281,6 +281,30 @@ class TestCtxtAgent(unittest.TestCase):
 
         os.unlink(res)
 
+    def test_99_install_ansible_collections(self):
+        ctxt_agent = CtxtAgent("")
+        ctxt_agent.logger = self.logger
+        general_conf_data = self.gen_general_conf()
+        general_conf_data['ansible_collections'] = ["ns.collection,1.0"]
+
+        with open("/tmp/playbook.yaml", 'w') as f:
+            f.write("- tasks: []")
+
+        res = ctxt_agent.install_ansible_modules(general_conf_data, "/tmp/playbook.yaml")
+        self.assertEqual(res, "/tmp/mod_playbook.yaml")
+
+        with open("/tmp/mod_playbook.yaml", 'r') as f:
+            data = f.read()
+        yaml_data = yaml.safe_load(data)
+        self.assertEqual(yaml_data[0]['tasks'][0]['copy'][:29], "dest=/tmp/galaxy_collections_")
+        pos = yaml_data[0]['tasks'][0]['copy'].find('content="')
+        copy_content = yaml_data[0]['tasks'][0]['copy'][pos + 9:-2]
+        self.assertEqual(copy_content, "{collections: [{name: ns.collection, version: '1.0'}]}")
+        self.assertEqual(yaml_data[0]['tasks'][1]['command'][:64],
+                         "ansible-galaxy collection install -c -r /tmp/galaxy_collections_")
+
+        os.unlink(res)
+
 
 if __name__ == '__main__':
     unittest.main()
