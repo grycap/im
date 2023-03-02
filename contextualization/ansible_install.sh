@@ -89,6 +89,8 @@ fact_caching_connection = /var/tmp/facts_cache
 fact_caching_timeout = 86400
 interpreter_python = /usr/bin/python3
 gathering = smart
+roles_path = /etc/ansible/roles
+collections_paths = /etc/ansible
 [paramiko_connection]
 record_host_keys=False
 [ssh_connection]
