@@ -410,14 +410,15 @@ machine.  The supported features are:
    can be installed during the contextualization of the virtual machine if it
    is not installed.
    
-   There are a **special** type of application that starts with ``ansible.modules.``.
-   These applications installs `ansible roles <https://docs.ansible.com/playbooks_roles.html>`_
+   There are some **special** type of application that starts with ``ansible.modules.`` or ``ansible.collections.``.
+   These applications installs `ansible roles <https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_reuse_roles.html>`_ or 
+   `ansible collections <https://docs.ansible.com/ansible/latest/collections_guide/index.html>`_
    that can be used in the ``configure`` sections of the RADL.
-   These roles will be installed with the ``ansible-galaxy`` tool so the format of the string
-   after ``ansible.modules.`` must follow one of the supported formats of this tool (see 
+   These roles/collections will be installed with the ``ansible-galaxy`` tool so the format of the string
+   after ``ansible.xxxx.`` must follow one of the supported formats of this tool (see 
    `Ansible Galaxy docs <https://galaxy.ansible.com/intro>`_ for more info):
    
-   There are three type of ansible modules:
+   There are three type of ansible modules/roles:
    
    * `Ansible Galaxy <https://galaxy.ansible.com/>`_ roles: ``ansible.modules.micafer.hadoop``: The user
      specifies the name of the galaxy role afther the string ``ansible.modules.``
