@@ -450,6 +450,10 @@ class CtxtAgentBase:
                 task = {"command": "ansible-galaxy collection install -c -r %s" % filename}
                 task["name"] = "Install galaxy collections"
                 task["become"] = "yes"
+                task["register"] = "collections_install"
+                task["until"] = "collections_install is not failed"
+                task["retries"] = "5"
+                task["delay"] = "10"
                 # Some times ansible is installed at /usr/local/bin and it is not in root path
                 task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"}]
                 yaml_data[0]['tasks'].append(task)
@@ -500,6 +504,10 @@ class CtxtAgentBase:
                 task = {"command": "ansible-galaxy install -c -r %s" % filename}
                 task["name"] = "Install galaxy roles"
                 task["become"] = "yes"
+                task["register"] = "roles_install"
+                task["until"] = "roles_install is not failed"
+                task["retries"] = "5"
+                task["delay"] = "10"
                 # Some times ansible is installed at /usr/local/bin and it is not in root path
                 task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"}]
                 yaml_data[0]['tasks'].append(task)
