@@ -44,7 +44,7 @@
     "developmentStatus": "5 - Production/Stable",
     "programmingLanguage": "Python 2, Python 2.6, Python 2.7, Python 3, Python 3.6, Python 3.7, Python 3.8, Python 3.9",
     "applicationCategory": "System, Utilities",
-    "codeRepository": "https://github.com/grycap/imr",
+    "codeRepository": "https://github.com/grycap/im",
     "releaseNotes": "https://github.com/grycap/im/blob/master/changelog",
     "citation": "https://doi.org/10.1007/s10723-014-9296-5",
     "contributor": [
