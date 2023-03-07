@@ -588,8 +588,8 @@ the virtual machine.
    want to use it on other VMs you have to prepare them installing jmespath in a previous step.
 
 
-Including roles of Ansible Galaxy
----------------------------------
+Including roles or collections of Ansible Galaxy
+-------------------------------------------------
 
 To include a role available in Ansible Galaxy a special application requirement
 must be added: it must start with: "ansible.modules" as shown in the following
@@ -621,6 +621,15 @@ documentation. In the particular case of the "micafer.hadoop" role is the follow
 You can request an specific version/tag/branch of a galaxy role using the following format::
 
 	disk.0.applications contains (name="ansible.modules.micafer.hadoop,v1.0.0")
+
+Similarly, to include a collection available in Ansible Galaxy it must start with:
+"ansible.collections" as shown in the following example. In this case the Ansible Galaxy 
+collection called "community.crypto" will be installed and can be used in any of the configuration recipes::
+
+   system node_ubuntu (
+      ...
+      disk.0.applications contains (name="ansible.collections.community.crypto")
+   )
 
 Disable Contextualization
 -------------------------
