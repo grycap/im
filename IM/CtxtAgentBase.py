@@ -95,9 +95,10 @@ class CtxtAgentBase:
         success = False
         res = None
         if not quiet:
-            self.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
             if proxy_host:
-                self.logger.debug("Via proxy host: %s" % proxy_host.host)
+                self.logger.debug("Testing SSH access to VM: %s:%s (via: %s)" % (vm_ip, remote_port, proxy_host.host))
+            else:
+                self.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
         try:
             ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], remote_port, proxy_host=proxy_host)
             success = ssh_client.test_connectivity(delay)
