@@ -240,7 +240,8 @@ class CtxtAgentBase:
         private_key = vm['private_key']
         if pk_file:
             private_key = pk_file
-        return SSH(vm['ctxt_ip'], vm['user'], vm['passwd'], private_key, vm['ctxt_port'])
+        return SSH(vm.get('ctxt_ip', vm.get('ip')), vm['user'], vm['passwd'],
+                   private_key, vm.get('ctxt_port', vm.get('remote_port')))
 
     def removeRequiretty(self, vm, pk_file, changed_pass=None):
         """
