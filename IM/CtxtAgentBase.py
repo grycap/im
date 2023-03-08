@@ -96,6 +96,8 @@ class CtxtAgentBase:
         res = None
         if not quiet:
             self.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
+            if proxy_host:
+                self.logger.debug("Via proxy host: %s" % proxy_host.host)
         try:
             ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], remote_port, proxy_host=proxy_host)
             success = ssh_client.test_connectivity(delay)
@@ -178,16 +180,16 @@ class CtxtAgentBase:
                         success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
 
                 # if not use the reverse port
-                if not success and 'reverse_port' in vm:
-                    vm_ip = '127.0.0.1'
-                    remote_port = vm['reverse_port']
-                    success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
+#                if not success and 'reverse_port' in vm:
+#                    vm_ip = '127.0.0.1'
+#                    remote_port = vm['reverse_port']
+#                    success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
 
                 # In case os using a proxy host
                 if not success and 'proxy_host' in vm:
                     proxy = vm['proxy_host']
                     proxy_host = SSH(proxy['host'], proxy['user'], proxy['passwd'], proxy['private_key'], proxy['port'])
-                    success, res = self.test_ssh(vm, vm['private_ip'], vm['remote_port'], quiet, proxy_host=proxy_host)
+                    success, res = self.test_ssh(vm, vm['ip'], vm['remote_port'], quiet, proxy_host=proxy_host)
                     return "proxy_host"
 
             wait += delay
@@ -278,7 +280,7 @@ class CtxtAgentBase:
         proxy = vm_data['proxy_host']
         if proxy['private_key']:
             # we must create it in the localhost to use it later with ansible
-            priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (proxy['username'],
+            priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (proxy['user'],
                                                            vm_data['user'],
                                                            vm_data['ip'])
             with open(priv_key_filename, 'w') as f:
@@ -288,13 +290,13 @@ class CtxtAgentBase:
             cmd = "ssh -W %%h:%%p -i %s -p %d %s %s@%s" % (priv_key_filename,
                                                            proxy['port'],
                                                            "-o StrictHostKeyChecking=no",
-                                                           proxy['username'],
+                                                           proxy['user'],
                                                            proxy['host'])
         else:
             cmd = "sshpass -p %s ssh -W %%h:%%p -p %d %s %s@%s" % (proxy['password'],
                                                                    proxy['port'],
                                                                    "-o StrictHostKeyChecking=no",
-                                                                   proxy['username'],
+                                                                   proxy['user'],
                                                                    proxy['host'])
         proxy_command = "ansible_ssh_extra_args=\" -oProxyCommand='%s'\"" % cmd
 
