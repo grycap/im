@@ -87,7 +87,7 @@ class CtxtAgentBase:
                 wait += delay
                 time.sleep(delay)
 
-    def test_ssh(self, vm, vm_ip, remote_port, quiet, delay=10):
+    def test_ssh(self, vm, vm_ip, remote_port, quiet, delay=10, proxy_host=None):
         """
          Test the SSH access to the VM
          return: init, new or pk_file or None if it fails
@@ -97,7 +97,7 @@ class CtxtAgentBase:
         if not quiet:
             self.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
         try:
-            ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], remote_port)
+            ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], remote_port, proxy_host=proxy_host)
             success = ssh_client.test_connectivity(delay)
             res = 'init'
         except AuthenticationException:
@@ -110,7 +110,8 @@ class CtxtAgentBase:
                     self.logger.debug("Error connecting with SSH with initial credentials with: " +
                                       vm_ip + ". Try to use new ones.")
                 try:
-                    ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], remote_port)
+                    ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'],
+                                     remote_port, proxy_host=proxy_host)
                     success = ssh_client.test_connectivity()
                     res = "new"
                 except AuthenticationException:
@@ -127,7 +128,7 @@ class CtxtAgentBase:
                     self.logger.debug("Error connecting with SSH with initial credentials with: " +
                                       vm_ip + ". Try to ansible_key.")
                 try:
-                    ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgentBase.PK_FILE, remote_port)
+                    ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgentBase.PK_FILE, remote_port, proxy_host=proxy_host)
                     success = ssh_client.test_connectivity()
                     res = 'pk_file'
                 except Exception:
@@ -159,7 +160,7 @@ class CtxtAgentBase:
                 success, res = self.test_ssh(vm, vm['ctxt_ip'], vm['ctxt_port'], quiet)
             else:
                 # First test the private one
-                if 'private_ip' in vm:
+                if not success and 'private_ip' in vm:
                     vm_ip = vm['private_ip']
                     remote_port = vm['remote_port']
                     success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
@@ -176,11 +177,18 @@ class CtxtAgentBase:
                         remote_port = 22
                         success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
 
-                # if not use the default one
+                # if not use the reverse port
                 if not success and 'reverse_port' in vm:
                     vm_ip = '127.0.0.1'
                     remote_port = vm['reverse_port']
                     success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
+
+                # In case os using a proxy host
+                if not success and 'proxy_host' in vm:
+                    proxy = vm['proxy_host']
+                    proxy_host = SSH(proxy['host'], proxy['user'], proxy['passwd'], proxy['private_key'], proxy['port'])
+                    success, res = self.test_ssh(vm, vm['private_ip'], vm['remote_port'], quiet, proxy_host=proxy_host)
+                    return "proxy_host"
 
             wait += delay
 
@@ -258,6 +266,49 @@ class CtxtAgentBase:
                 return False
         else:
             return True
+
+    def add_proxy_host_line(self, vm_data):
+        """
+        Add the ProxyHost SSH command to the VM in the inventory file
+        """
+        with open(self.conf_data_filename) as f:
+            general_conf_data = json.load(f)
+        filename = general_conf_data['conf_dir'] + "/hosts"
+
+        proxy = vm_data['proxy_host']
+        if proxy['private_key']:
+            # we must create it in the localhost to use it later with ansible
+            priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (proxy['username'],
+                                                           vm_data['user'],
+                                                           vm_data['ip'])
+            with open(priv_key_filename, 'w') as f:
+                f.write(proxy['private_key'])
+            os.chmod(priv_key_filename, 0o600)
+
+            cmd = "ssh -W %%h:%%p -i %s -p %d %s %s@%s" % (priv_key_filename,
+                                                           proxy['port'],
+                                                           "-o StrictHostKeyChecking=no",
+                                                           proxy['username'],
+                                                           proxy['host'])
+        else:
+            cmd = "sshpass -p %s ssh -W %%h:%%p -p %d %s %s@%s" % (proxy['password'],
+                                                                   proxy['port'],
+                                                                   "-o StrictHostKeyChecking=no",
+                                                                   proxy['username'],
+                                                                   proxy['host'])
+        proxy_command = "ansible_ssh_extra_args=\" -oProxyCommand='%s'\"" % cmd
+
+        with open(filename) as f:
+            inventoy_data = ""
+            for line in f:
+                if line.startswith("%s_%s " % (vm_data['ip'], vm_data['id'])):
+                    line = re.sub(" ansible_host=%s " % vm_data['ip'],
+                                  " ansible_host=%s %s " % (vm_data['ip'], proxy_command), line)
+
+                inventoy_data += line
+
+        with open(filename, 'w+') as f:
+            f.write(inventoy_data)
 
     def replace_vm_ip(self, vm_data, rep=False):
         """
