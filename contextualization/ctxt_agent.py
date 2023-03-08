@@ -107,6 +107,10 @@ class CtxtAgent(CtxtAgentBase):
                             res_data['SSH_WAIT'] = True
                             self.logger.info("Remote access to VM: " + vm['ip'] + " Open!")
 
+                        # We need to use a proxy host, set it in the ansible inventory
+                        if cred_used == 'proxy_host':
+                            self.add_proxy_host_line(vm)
+
                         # the IP has changed public for private
                         if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
                             # update the ansible inventory

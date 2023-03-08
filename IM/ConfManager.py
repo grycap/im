@@ -1553,6 +1553,11 @@ class ConfManager(LoggerMixin, threading.Thread):
                     vm_conf_data['private_ip'] = vm.getPrivateIP()
                 vm_conf_data['remote_port'] = vm.getRemoteAccessPort()
                 vm_conf_data['reverse_port'] = vm.getSSHReversePort()
+                if vm.getProxyHost():
+                    proxy = vm.getProxyHost()
+                    vm_conf_data['proxy_host'] = {"host": proxy.host, "port": proxy.port,
+                                                  "user": proxy.username, "passwd": proxy.password,
+                                                  "private_key": proxy.private_key}
                 creds = vm.getCredentialValues()
                 new_creds = vm.getCredentialValues(new=True)
                 (vm_conf_data['user'], vm_conf_data['passwd'],
