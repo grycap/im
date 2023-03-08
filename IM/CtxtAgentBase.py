@@ -180,10 +180,10 @@ class CtxtAgentBase:
                         success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
 
                 # if not use the reverse port
-#                if not success and 'reverse_port' in vm:
-#                    vm_ip = '127.0.0.1'
-#                    remote_port = vm['reverse_port']
-#                    success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
+                if not success and 'reverse_port' in vm:
+                    vm_ip = '127.0.0.1'
+                    remote_port = vm['reverse_port']
+                    success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
 
                 # In case os using a proxy host
                 if not success and 'proxy_host' in vm:
