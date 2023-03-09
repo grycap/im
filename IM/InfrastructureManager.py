@@ -1423,6 +1423,7 @@ class InfrastructureManager:
                 vault_host = None
                 vault_path = None
                 vault_role = None
+                vault_mount_point = None
                 if "host" in vault_auth[0]:
                     vault_host = vault_auth[0]["host"]
                 else:
@@ -1430,9 +1431,11 @@ class InfrastructureManager:
                     return auth
                 if "path" in vault_auth[0]:
                     vault_path = vault_auth[0]["path"]
+                if "mount_point" in vault_auth[0]:
+                    vault_mount_point = vault_auth[0]["mount_point"]
                 if "role" in vault_auth[0]:
                     vault_role = vault_auth[0]["role"]
-                vault = VaultCredentials(vault_host, vault_path, vault_role, Config.VERIFI_SSL)
+                vault = VaultCredentials(vault_host, vault_mount_point, vault_path, vault_role, Config.VERIFI_SSL)
                 creds = vault.get_creds(vault_auth[0]["token"])
                 creds.extend(auth.auth_list)
                 creds.remove(vault_auth[0])
