@@ -12,7 +12,7 @@ net_interface.0.dns_name = 'glusterfe' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
 disk.0.os.version>='18.04' and
-disk.0.applications contains (name='ansible.modules.geerlingguy.glusterfs')
+disk.0.applications contains (name='ansible.roles.geerlingguy.glusterfs')
 )
 
 system wn (

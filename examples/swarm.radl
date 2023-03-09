@@ -9,7 +9,7 @@ net_interface.1.connection = 'privada' and
 net_interface.0.dns_name = 'swarmmanager' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.applications contains (name='ansible.modules.grycap.swarm')
+disk.0.applications contains (name='ansible.roles.grycap.swarm')
 )
 
 system wn (
