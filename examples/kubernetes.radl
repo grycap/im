@@ -12,8 +12,8 @@ net_interface.1.dns_name = 'kubeserverpublic' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
 disk.0.os.version>='16.04' and
-disk.0.applications contains (name='ansible.modules.grycap.kubernetes') and
-disk.0.applications contains (name='ansible.modules.grycap.nfs')
+disk.0.applications contains (name='ansible.roles.grycap.kubernetes') and
+disk.0.applications contains (name='ansible.roles.grycap.nfs')
 )
 
 system wn (

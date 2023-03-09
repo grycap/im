@@ -33,7 +33,7 @@ class TestVirtualMachine(unittest.TestCase):
     def test_apps_to_install(self):
         radl_data = """
             system test (
-            disk.0.applications contains (name = 'ansible.modules.grycap.clues') and
+            disk.0.applications contains (name = 'ansible.roles.grycap.clues') and
             disk.0.applications contains (name = 'java' and version='1.9')
             )"""
         radl = radl_parse.parse_radl(radl_data)
