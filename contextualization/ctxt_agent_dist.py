@@ -251,6 +251,8 @@ class CtxtAgent(CtxtAgentBase):
 
             # We need to use a proxy host, set it in the ansible inventory
             if cred_used == 'proxy_host':
+                self.logger.info("Settinng proxy %s to the IP %s." % (vm['proxy_host']['host'],
+                                                                      vm['ip']))
                 self.add_proxy_host_line(vm)
 
             # the IP has changed public for private
