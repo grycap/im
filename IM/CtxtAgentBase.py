@@ -233,24 +233,28 @@ class CtxtAgentBase:
             return "ERROR: Exception msg: " + str(ex)
 
     @staticmethod
-    def get_ssh(vm, pk_file, changed_pass=None):
+    def get_ssh(vm, pk_file, changed_pass=None, use_proxy=False):
         """
         Get VM ssh connection
         """
         private_key = vm['private_key']
         if pk_file:
             private_key = pk_file
+        proxy_host = None
+        if use_proxy and 'proxy_host' in vm:
+            proxy = vm['proxy_host']
+            proxy_host = SSH(proxy['host'], proxy['user'], proxy['passwd'], proxy['private_key'], proxy['port'])
         return SSH(vm.get('ctxt_ip', vm.get('ip')), vm['user'], vm['passwd'],
-                   private_key, vm.get('ctxt_port', vm.get('remote_port')))
+                   private_key, vm.get('ctxt_port', vm.get('remote_port')), proxy_host=proxy_host)
 
-    def removeRequiretty(self, vm, pk_file, changed_pass=None):
+    def removeRequiretty(self, vm, pk_file, changed_pass=None, use_proxy=False):
         """
         Remove requiretty option from sudoers
         """
         if not vm['master']:
             self.logger.info("Removing requiretty to VM: " + vm['ip'])
             try:
-                ssh_client = self.get_ssh(vm, pk_file, changed_pass)
+                ssh_client = self.get_ssh(vm, pk_file, changed_pass, use_proxy=use_proxy)
                 # Activate tty mode to avoid some problems with sudo in REL
                 ssh_client.tty = True
                 sudo_pass = ""
@@ -352,7 +356,7 @@ class CtxtAgentBase:
         with open(filename, 'w+') as f:
             f.write(inventoy_data)
 
-    def changeVMCredentials(self, vm, pk_file):
+    def changeVMCredentials(self, vm, pk_file, use_proxy=False):
         """
         Update VM credentials
         """
@@ -399,7 +403,7 @@ class CtxtAgentBase:
             if 'passwd' in vm and vm['passwd'] and 'new_passwd' in vm and vm['new_passwd']:
                 self.logger.info("Changing password to VM: " + vm['ip'])
                 try:
-                    ssh_client = self.get_ssh(vm, pk_file, False)
+                    ssh_client = self.get_ssh(vm, pk_file, False, use_proxy=use_proxy)
 
                     sudo_pass = ""
                     if ssh_client.password:
@@ -421,7 +425,7 @@ class CtxtAgentBase:
             if 'new_public_key' in vm and vm['new_public_key'] and 'new_private_key' in vm and vm['new_private_key']:
                 self.logger.info("Changing public key to VM: " + vm['ip'])
                 try:
-                    ssh_client = self.get_ssh(vm, pk_file, False)
+                    ssh_client = self.get_ssh(vm, pk_file, False, use_proxy=use_proxy)
                     (out, err, code) = ssh_client.execute_timeout('echo ' + vm['new_public_key'] +
                                                                   ' >> .ssh/authorized_keys', 5)
                 except Exception:

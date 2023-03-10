@@ -148,7 +148,7 @@ class CtxtAgent(CtxtAgentBase):
 
                     # First remove requiretty in the node
                     if ctxt_vm['os'] != "windows" and not change_creds:
-                        success = self.removeRequiretty(ctxt_vm, pk_file)
+                        success = self.removeRequiretty(ctxt_vm, pk_file, use_proxy=cred_used=='proxy_host')
                         if success:
                             self.logger.info("Requiretty successfully removed")
                         else:
@@ -158,7 +158,7 @@ class CtxtAgent(CtxtAgentBase):
                     # Do not change it on the master. It must be changed only by
                     # the ConfManager
                     if not ctxt_vm['master'] and not change_creds:
-                        change_creds = self.changeVMCredentials(ctxt_vm, pk_file)
+                        change_creds = self.changeVMCredentials(ctxt_vm, pk_file, use_proxy=cred_used=='proxy_host')
                         res_data['CHANGE_CREDS'] = change_creds
 
                     if ctxt_vm['os'] != "windows":
