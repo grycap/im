@@ -26,10 +26,11 @@ import json
 
 class VaultCredentials():
 
-    def __init__(self, vault_url, vault_path=None, role=None, ssl_verify=False):
-        self.vault_path = "credentials/"
-        if vault_path:
-            self.vault_path = vault_path
+    def __init__(self, vault_url, vault_mount_point=None, vault_path=None, role=None, ssl_verify=False):
+        self.mount_point = "credentials/"
+        if vault_mount_point:
+            self.mount_point = vault_mount_point
+        self.path = vault_path
         self.role = role
         self.client = None
         self.ssl_verify = ssl_verify
@@ -62,9 +63,12 @@ class VaultCredentials():
     def get_creds(self, token):
         vault_entity_id = self._login(token)
         data = []
+        path = self.path
+        if not path:
+            path = vault_entity_id
 
         try:
-            creds = self.client.secrets.kv.v1.read_secret(path=vault_entity_id, mount_point=self.vault_path)
+            creds = self.client.secrets.kv.v1.read_secret(path=path, mount_point=self.mount_point)
             for cred_json in creds["data"].values():
                 new_item = json.loads(cred_json)
                 if 'enabled' not in new_item or new_item['enabled']:

@@ -11,7 +11,7 @@ net_interface.0.dns_name = 'front' and
 disk.0.os.name = 'linux' and
 disk.0.image.url = 'one://ramses.i3m.upv.es/1651' and
 disk.0.os.credentials.new.password = 'Tututu+01' and
-disk.0.applications contains (name = 'ansible.modules.geerlingguy.ntp')
+disk.0.applications contains (name = 'ansible.roles.geerlingguy.ntp')
 )
 
 system wn (
