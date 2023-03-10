@@ -305,7 +305,7 @@ class CtxtAgentBase:
         with open(filename) as f:
             inventoy_data = ""
             for line in f:
-                if line.startswith("%s_%s " % (vm_data['ip'], vm_data['id'])):
+                if line.startswith("%s_%s " % (vm_data['ip'], vm_data['id'])) and "ProxyCommand" not in line:
                     line = re.sub(" ansible_host=%s " % vm_data['ip'],
                                   " ansible_host=%s %s " % (vm_data['ip'], proxy_command), line)
 
