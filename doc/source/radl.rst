@@ -410,7 +410,8 @@ machine.  The supported features are:
    can be installed during the contextualization of the virtual machine if it
    is not installed.
    
-   There are some **special** type of application that starts with ``ansible.modules.`` or ``ansible.collections.``.
+   There are some **special** type of application that starts with ``ansible.roles.``
+   (``ansible.modules.`` in < IM 1.14 ) or ``ansible.collections.``.
    These applications installs `ansible roles <https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_reuse_roles.html>`_ or 
    `ansible collections <https://docs.ansible.com/ansible/latest/collections_guide/index.html>`_
    that can be used in the ``configure`` sections of the RADL.
@@ -420,14 +421,14 @@ machine.  The supported features are:
    
    There are three type of ansible modules/roles:
    
-   * `Ansible Galaxy <https://galaxy.ansible.com/>`_ roles: ``ansible.modules.micafer.hadoop``: The user
-     specifies the name of the galaxy role afther the string ``ansible.modules.``
-   * HTTP URL: ``ansible.modules.https://github.com/micafer/ansible-role-hadoop/archive/master.tar.gz|hadoop``: The user 
-     specifies an HTTP URL afther the string ``ansible.modules.``. The file must be compressed. 
+   * `Ansible Galaxy <https://galaxy.ansible.com/>`_ roles: ``ansible.roles.micafer.hadoop``: The user
+     specifies the name of the galaxy role afther the string ``ansible.roles.``
+   * HTTP URL: ``ansible.roles.https://github.com/micafer/ansible-role-hadoop/archive/master.tar.gz|hadoop``: The user 
+     specifies an HTTP URL afther the string ``ansible.roles.``. The file must be compressed. 
      It must contain the ansible role content. Furthermore the user can specify the rolename using 
      a ``|`` afther the url, as shown in the example.
-   * Git Repo: ``ansible.modules.git+https://github.com/micafer/ansible-role-hadoop|hadoop``: The user specifies a Git repo
-     (using the git scheme in the URL) afther the string ``ansible.modules.``. Furthermore the 
+   * Git Repo: ``ansible.roles.git+https://github.com/micafer/ansible-role-hadoop|hadoop``: The user specifies a Git repo
+     (using the git scheme in the URL) afther the string ``ansible.roles.``. Furthermore the 
      user can specify the rolename using a ``|`` afther the url, as shown in the example.
 
 ``nat_instance = yes|no``
@@ -592,7 +593,7 @@ Including roles or collections of Ansible Galaxy
 -------------------------------------------------
 
 To include a role available in Ansible Galaxy a special application requirement
-must be added: it must start with: "ansible.modules" as shown in the following
+must be added: it must start with: "ansible.roles" as shown in the following
 example. In this case the Ansible Galaxy role called "micafer.hadoop" will be installed::
 
    network net (outbound = 'yes')
@@ -603,7 +604,7 @@ example. In this case the Ansible Galaxy role called "micafer.hadoop" will be in
       net_interface.0.connection = "net" and
       disk.0.os.name = "linux" and
       disk.0.os.flavour = "ubuntu" and
-      disk.0.applications contains (name="ansible.modules.micafer.hadoop")
+      disk.0.applications contains (name="ansible.roles.micafer.hadoop")
    )
 
 Then the configuration section of the RADL can use the role as described in the role's
@@ -620,7 +621,7 @@ documentation. In the particular case of the "micafer.hadoop" role is the follow
 
 You can request an specific version/tag/branch of a galaxy role using the following format::
 
-	disk.0.applications contains (name="ansible.modules.micafer.hadoop,v1.0.0")
+	disk.0.applications contains (name="ansible.roles.micafer.hadoop,v1.0.0")
 
 Similarly, to include a collection available in Ansible Galaxy it must start with:
 "ansible.collections" as shown in the following example. In this case the Ansible Galaxy 

@@ -1639,7 +1639,7 @@ class Tosca:
     def _add_ansible_roles(self, node, nodetemplates, system):
         """
         Find all the roles and collections to be applied to this node and
-        add them to the system as ansible.modules.* or ansible.collections.*
+        add them to the system as ansible.roles.* or ansible.collections.*
         in 'disk.0.applications'
         """
         collections = []
@@ -1654,7 +1654,7 @@ class Tosca:
 
             if compute and compute.name == node.name:
                 # Get the artifacts to see if there is a ansible galaxy role
-                # and add it as an "ansible.modules" app requirement in RADL
+                # and add it as an "ansible.roles" app requirement in RADL
                 artifacts = self._get_node_artifacts(other_node)
                 for _, artifact in artifacts.items():
                     if ('type' in artifact and artifact['type'] == 'tosca.artifacts.AnsibleGalaxy.role' and
@@ -1674,7 +1674,7 @@ class Tosca:
 
         for role in roles:
             app_features = Features()
-            app_features.addFeature(Feature('name', '=', 'ansible.modules.' + role))
+            app_features.addFeature(Feature('name', '=', 'ansible.roles.' + role))
             feature = Feature('disk.0.applications', 'contains', app_features)
             system.addFeature(feature)
 
