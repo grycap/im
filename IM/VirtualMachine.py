@@ -391,7 +391,7 @@ class VirtualMachine(LoggerMixin):
 
         to_install = []
         for req_app in requested:
-            # discard the ansible modules
+            # discard the ansible roles or collections
             if not req_app.getValue("name").startswith("ansible."):
                 is_installed = False
                 for inst_app in installed:
