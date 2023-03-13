@@ -107,6 +107,12 @@ class CtxtAgent(CtxtAgentBase):
                             res_data['SSH_WAIT'] = True
                             self.logger.info("Remote access to VM: " + vm['ip'] + " Open!")
 
+                        # We need to use a proxy host, set it in the ansible inventory
+                        if cred_used == 'proxy_host':
+                            self.logger.info("Settinng proxy %s to the IP %s." % (vm['proxy_host']['host'],
+                                                                                  vm['ip']))
+                            self.add_proxy_host_line(vm)
+
                         # the IP has changed public for private
                         if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
                             # update the ansible inventory
@@ -142,7 +148,7 @@ class CtxtAgent(CtxtAgentBase):
 
                     # First remove requiretty in the node
                     if ctxt_vm['os'] != "windows" and not change_creds:
-                        success = self.removeRequiretty(ctxt_vm, pk_file)
+                        success = self.removeRequiretty(ctxt_vm, pk_file, use_proxy=(cred_used == 'proxy_host'))
                         if success:
                             self.logger.info("Requiretty successfully removed")
                         else:
@@ -152,7 +158,7 @@ class CtxtAgent(CtxtAgentBase):
                     # Do not change it on the master. It must be changed only by
                     # the ConfManager
                     if not ctxt_vm['master'] and not change_creds:
-                        change_creds = self.changeVMCredentials(ctxt_vm, pk_file)
+                        change_creds = self.changeVMCredentials(ctxt_vm, pk_file, use_proxy=(cred_used == 'proxy_host'))
                         res_data['CHANGE_CREDS'] = change_creds
 
                     if ctxt_vm['os'] != "windows":
