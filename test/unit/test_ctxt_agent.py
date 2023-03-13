@@ -255,17 +255,17 @@ class TestCtxtAgent(unittest.TestCase):
             data = f.read()
         self.assertIn(" ansible_host=%s ansible_ssh_host=%s \n" % (vm_data['ctxt_ip'], vm_data['ctxt_ip']), data)
 
-    def test_95_install_ansible_modules(self):
+    def test_95_install_ansible_roles(self):
         ctxt_agent = CtxtAgent("")
         ctxt_agent.logger = self.logger
         general_conf_data = self.gen_general_conf()
-        general_conf_data['ansible_modules'] = ["ansible_role",
-                                                "git+https://github.com/micafer/ansible-role-hadoop|hadoop"]
+        general_conf_data['ansible_roles'] = ["ansible_role",
+                                              "git+https://github.com/micafer/ansible-role-hadoop|hadoop"]
 
         with open("/tmp/playbook.yaml", 'w') as f:
             f.write("- tasks: []")
 
-        res = ctxt_agent.install_ansible_modules(general_conf_data, "/tmp/playbook.yaml")
+        res = ctxt_agent.install_ansible_roles(general_conf_data, "/tmp/playbook.yaml")
         self.assertEqual(res, "/tmp/mod_playbook.yaml")
 
         with open("/tmp/mod_playbook.yaml", 'r') as f:
@@ -290,7 +290,7 @@ class TestCtxtAgent(unittest.TestCase):
         with open("/tmp/playbook.yaml", 'w') as f:
             f.write("- tasks: []")
 
-        res = ctxt_agent.install_ansible_modules(general_conf_data, "/tmp/playbook.yaml")
+        res = ctxt_agent.install_ansible_roles(general_conf_data, "/tmp/playbook.yaml")
         self.assertEqual(res, "/tmp/mod_playbook.yaml")
 
         with open("/tmp/mod_playbook.yaml", 'r') as f:
