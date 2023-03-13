@@ -604,7 +604,7 @@ class TestIM(unittest.TestCase):
             disk.0.image.url = 'mock0://linux.for.ev.er' and
             disk.0.os.credentials.username = 'ubuntu' and
             disk.0.os.credentials.password = 'pass' and
-            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop')
+            disk.0.applications contains (name = 'ansible.roles.micafer.hadoop')
             )
             deploy front 1"""
         radl = parse_radl(radl_str)
@@ -638,7 +638,7 @@ class TestIM(unittest.TestCase):
             disk.0.image.url = 'mock0://linux.for.ev.er' and
             disk.0.os.credentials.username = 'ubuntu' and
             disk.0.os.credentials.password = 'pass' and
-            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop')
+            disk.0.applications contains (name = 'ansible.roles.micafer.hadoop')
             )
             deploy front 1"""
         radl = parse_radl(radl_str)
@@ -654,23 +654,23 @@ class TestIM(unittest.TestCase):
 
         reconf_radl = """"
             system front (
-            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop,version') and
-            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop1')
+            disk.0.applications contains (name = 'ansible.roles.micafer.hadoop,version') and
+            disk.0.applications contains (name = 'ansible.roles.micafer.hadoop1')
             )"""
         IM.Reconfigure(infId, reconf_radl, auth0)
         inf = IM.get_infrastructure(infId, auth0)
-        self.assertIn("ansible.modules.micafer.hadoop,version", inf.radl.systems[0].getValue("disk.0.applications"))
-        self.assertIn("ansible.modules.micafer.hadoop1", inf.radl.systems[0].getValue("disk.0.applications"))
+        self.assertIn("ansible.roles.micafer.hadoop,version", inf.radl.systems[0].getValue("disk.0.applications"))
+        self.assertIn("ansible.roles.micafer.hadoop1", inf.radl.systems[0].getValue("disk.0.applications"))
 
         reconf_radl = """"
             system front (
-            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop,version') and
-            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop1')
+            disk.0.applications contains (name = 'ansible.roles.micafer.hadoop,version') and
+            disk.0.applications contains (name = 'ansible.roles.micafer.hadoop1')
             )"""
         IM.Reconfigure(infId, reconf_radl, auth0)
         inf = IM.get_infrastructure(infId, auth0)
-        self.assertIn("ansible.modules.micafer.hadoop,version", inf.radl.systems[0].getValue("disk.0.applications"))
-        self.assertIn("ansible.modules.micafer.hadoop1", inf.radl.systems[0].getValue("disk.0.applications"))
+        self.assertIn("ansible.roles.micafer.hadoop,version", inf.radl.systems[0].getValue("disk.0.applications"))
+        self.assertIn("ansible.roles.micafer.hadoop1", inf.radl.systems[0].getValue("disk.0.applications"))
 
         IM.DestroyInfrastructure(infId, auth0)
 
@@ -938,7 +938,7 @@ class TestIM(unittest.TestCase):
             disk.1.device='hdb' and
             disk.1.fstype='ext4' and
             disk.1.mount_path='/mnt/disk' and
-            disk.0.applications contains (name = 'ansible.modules.micafer.hadoop') and
+            disk.0.applications contains (name = 'ansible.roles.micafer.hadoop') and
             disk.0.applications contains (name='gmetad') and
             disk.0.applications contains (name='wget')
             )

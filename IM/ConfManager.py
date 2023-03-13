@@ -1411,8 +1411,12 @@ class ConfManager(LoggerMixin, threading.Thread):
             for s in self.inf.radl.systems:
                 for req_app in s.getApplications():
                     if req_app.getValue("name").startswith("ansible.modules."):
+                        # Mantain it for compatibility
                         # Get the modules specified by the user in the RADL
                         modules.append(req_app.getValue("name")[16:])
+                    elif req_app.getValue("name").startswith("ansible.roles."):
+                        # Get the roles specified by the user in the RADL
+                        modules.append(req_app.getValue("name")[14:])
                     elif req_app.getValue("name").startswith("ansible.collections."):
                         # Get the modules specified by the user in the RADL
                         collections.append(req_app.getValue("name")[20:])
@@ -1504,8 +1508,15 @@ class ConfManager(LoggerMixin, threading.Thread):
         for s in self.inf.radl.systems:
             for req_app in s.getApplications():
                 if req_app.getValue("name").startswith("ansible.modules."):
+                    # Mantain it for compatibility
                     # Get the modules specified by the user in the RADL
                     app_name = req_app.getValue("name")[16:]
+                    if req_app.getValue("version"):
+                        app_name += ",%s" % req_app.getValue("version")
+                    modules.append(app_name)
+                elif req_app.getValue("name").startswith("ansible.roles."):
+                    # Get the roles specified by the user in the RADL
+                    app_name = req_app.getValue("name")[14:]
                     if req_app.getValue("version"):
                         app_name += ",%s" % req_app.getValue("version")
                     modules.append(app_name)
