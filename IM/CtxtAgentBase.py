@@ -87,7 +87,7 @@ class CtxtAgentBase:
                 wait += delay
                 time.sleep(delay)
 
-    def test_ssh(self, vm, vm_ip, remote_port, quiet, delay=10):
+    def test_ssh(self, vm, vm_ip, remote_port, quiet, delay=10, proxy_host=None):
         """
          Test the SSH access to the VM
          return: init, new or pk_file or None if it fails
@@ -95,9 +95,12 @@ class CtxtAgentBase:
         success = False
         res = None
         if not quiet:
-            self.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
+            if proxy_host:
+                self.logger.debug("Testing SSH access to VM: %s:%s (via: %s)" % (vm_ip, remote_port, proxy_host.host))
+            else:
+                self.logger.debug("Testing SSH access to VM: %s:%s" % (vm_ip, remote_port))
         try:
-            ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], remote_port)
+            ssh_client = SSH(vm_ip, vm['user'], vm['passwd'], vm['private_key'], remote_port, proxy_host=proxy_host)
             success = ssh_client.test_connectivity(delay)
             res = 'init'
         except AuthenticationException:
@@ -110,7 +113,8 @@ class CtxtAgentBase:
                     self.logger.debug("Error connecting with SSH with initial credentials with: " +
                                       vm_ip + ". Try to use new ones.")
                 try:
-                    ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'], remote_port)
+                    ssh_client = SSH(vm_ip, vm['user'], vm['new_passwd'], vm['private_key'],
+                                     remote_port, proxy_host=proxy_host)
                     success = ssh_client.test_connectivity()
                     res = "new"
                 except AuthenticationException:
@@ -127,7 +131,7 @@ class CtxtAgentBase:
                     self.logger.debug("Error connecting with SSH with initial credentials with: " +
                                       vm_ip + ". Try to ansible_key.")
                 try:
-                    ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgentBase.PK_FILE, remote_port)
+                    ssh_client = SSH(vm_ip, vm['user'], None, CtxtAgentBase.PK_FILE, remote_port, proxy_host=proxy_host)
                     success = ssh_client.test_connectivity()
                     res = 'pk_file'
                 except Exception:
@@ -159,7 +163,7 @@ class CtxtAgentBase:
                 success, res = self.test_ssh(vm, vm['ctxt_ip'], vm['ctxt_port'], quiet)
             else:
                 # First test the private one
-                if 'private_ip' in vm:
+                if not success and 'private_ip' in vm:
                     vm_ip = vm['private_ip']
                     remote_port = vm['remote_port']
                     success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
@@ -176,11 +180,18 @@ class CtxtAgentBase:
                         remote_port = 22
                         success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
 
-                # if not use the default one
+                # if not use the reverse port
                 if not success and 'reverse_port' in vm:
                     vm_ip = '127.0.0.1'
                     remote_port = vm['reverse_port']
                     success, res = self.test_ssh(vm, vm_ip, remote_port, quiet)
+
+                # In case os using a proxy host
+                if not success and 'proxy_host' in vm:
+                    proxy = vm['proxy_host']
+                    proxy_host = SSH(proxy['host'], proxy['user'], proxy['passwd'], proxy['private_key'], proxy['port'])
+                    success, res = self.test_ssh(vm, vm['ip'], vm['remote_port'], quiet, proxy_host=proxy_host)
+                    return "proxy_host"
 
             wait += delay
 
@@ -222,23 +233,28 @@ class CtxtAgentBase:
             return "ERROR: Exception msg: " + str(ex)
 
     @staticmethod
-    def get_ssh(vm, pk_file, changed_pass=None):
+    def get_ssh(vm, pk_file, changed_pass=None, use_proxy=False):
         """
         Get VM ssh connection
         """
         private_key = vm['private_key']
         if pk_file:
             private_key = pk_file
-        return SSH(vm['ctxt_ip'], vm['user'], vm['passwd'], private_key, vm['ctxt_port'])
+        proxy_host = None
+        if use_proxy and 'proxy_host' in vm:
+            proxy = vm['proxy_host']
+            proxy_host = SSH(proxy['host'], proxy['user'], proxy['passwd'], proxy['private_key'], proxy['port'])
+        return SSH(vm.get('ctxt_ip', vm.get('ip')), vm['user'], vm['passwd'],
+                   private_key, vm.get('ctxt_port', vm.get('remote_port')), proxy_host=proxy_host)
 
-    def removeRequiretty(self, vm, pk_file, changed_pass=None):
+    def removeRequiretty(self, vm, pk_file, changed_pass=None, use_proxy=False):
         """
         Remove requiretty option from sudoers
         """
         if not vm['master']:
             self.logger.info("Removing requiretty to VM: " + vm['ip'])
             try:
-                ssh_client = self.get_ssh(vm, pk_file, changed_pass)
+                ssh_client = self.get_ssh(vm, pk_file, changed_pass, use_proxy=use_proxy)
                 # Activate tty mode to avoid some problems with sudo in REL
                 ssh_client.tty = True
                 sudo_pass = ""
@@ -258,6 +274,49 @@ class CtxtAgentBase:
                 return False
         else:
             return True
+
+    def add_proxy_host_line(self, vm_data):
+        """
+        Add the ProxyHost SSH command to the VM in the inventory file
+        """
+        with open(self.conf_data_filename) as f:
+            general_conf_data = json.load(f)
+        filename = general_conf_data['conf_dir'] + "/hosts"
+
+        proxy = vm_data['proxy_host']
+        if proxy['private_key']:
+            # we must create it in the localhost to use it later with ansible
+            priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (proxy['user'],
+                                                           vm_data['user'],
+                                                           vm_data['ip'])
+            with open(priv_key_filename, 'w') as f:
+                f.write(proxy['private_key'])
+            os.chmod(priv_key_filename, 0o600)
+
+            cmd = "ssh -W %%h:%%p -i %s -p %d %s %s@%s" % (priv_key_filename,
+                                                           proxy['port'],
+                                                           "-o StrictHostKeyChecking=no",
+                                                           proxy['user'],
+                                                           proxy['host'])
+        else:
+            cmd = "sshpass -p %s ssh -W %%h:%%p -p %d %s %s@%s" % (proxy['password'],
+                                                                   proxy['port'],
+                                                                   "-o StrictHostKeyChecking=no",
+                                                                   proxy['user'],
+                                                                   proxy['host'])
+        proxy_command = "ansible_ssh_extra_args=\" -oProxyCommand='%s'\"" % cmd
+
+        with open(filename) as f:
+            inventoy_data = ""
+            for line in f:
+                if line.startswith("%s_%s " % (vm_data['ip'], vm_data['id'])) and "ProxyCommand" not in line:
+                    line = re.sub(" ansible_host=%s " % vm_data['ip'],
+                                  " ansible_host=%s %s " % (vm_data['ip'], proxy_command), line)
+
+                inventoy_data += line
+
+        with open(filename, 'w+') as f:
+            f.write(inventoy_data)
 
     def replace_vm_ip(self, vm_data, rep=False):
         """
@@ -297,7 +356,7 @@ class CtxtAgentBase:
         with open(filename, 'w+') as f:
             f.write(inventoy_data)
 
-    def changeVMCredentials(self, vm, pk_file):
+    def changeVMCredentials(self, vm, pk_file, use_proxy=False):
         """
         Update VM credentials
         """
@@ -344,7 +403,7 @@ class CtxtAgentBase:
             if 'passwd' in vm and vm['passwd'] and 'new_passwd' in vm and vm['new_passwd']:
                 self.logger.info("Changing password to VM: " + vm['ip'])
                 try:
-                    ssh_client = self.get_ssh(vm, pk_file, False)
+                    ssh_client = self.get_ssh(vm, pk_file, False, use_proxy=use_proxy)
 
                     sudo_pass = ""
                     if ssh_client.password:
@@ -366,7 +425,7 @@ class CtxtAgentBase:
             if 'new_public_key' in vm and vm['new_public_key'] and 'new_private_key' in vm and vm['new_private_key']:
                 self.logger.info("Changing public key to VM: " + vm['ip'])
                 try:
-                    ssh_client = self.get_ssh(vm, pk_file, False)
+                    ssh_client = self.get_ssh(vm, pk_file, False, use_proxy=use_proxy)
                     (out, err, code) = ssh_client.execute_timeout('echo ' + vm['new_public_key'] +
                                                                   ' >> .ssh/authorized_keys', 5)
                 except Exception:

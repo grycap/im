@@ -249,6 +249,12 @@ class CtxtAgent(CtxtAgentBase):
         if vm['os'] != "windows" and not vm['master']:
             cred_used = self.wait_ssh_access(vm, quiet=True)
 
+            # We need to use a proxy host, set it in the ansible inventory
+            if cred_used == 'proxy_host':
+                self.logger.info("Settinng proxy %s to the IP %s." % (vm['proxy_host']['host'],
+                                                                      vm['ip']))
+                self.add_proxy_host_line(vm)
+
             # the IP has changed public for private
             if 'ctxt_ip' in vm and vm['ctxt_ip'] != vm['ip']:
                 with lock:
