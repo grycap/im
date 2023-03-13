@@ -260,7 +260,7 @@ class TestCtxtAgent(unittest.TestCase):
         ctxt_agent.logger = self.logger
         general_conf_data = self.gen_general_conf()
         general_conf_data['ansible_roles'] = ["ansible_role",
-                                                "git+https://github.com/micafer/ansible-role-hadoop|hadoop"]
+                                              "git+https://github.com/micafer/ansible-role-hadoop|hadoop"]
 
         with open("/tmp/playbook.yaml", 'w') as f:
             f.write("- tasks: []")
