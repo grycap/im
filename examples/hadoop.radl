@@ -13,7 +13,7 @@ disk.0.os.flavour='ubuntu' and
 disk.0.os.version='12.04'and
 #disk.0.os.flavour='scientific' and
 #disk.0.os.version>='6' and
-disk.0.applications contains (name='ansible.modules.micafer.hadoop')
+disk.0.applications contains (name='ansible.roles.micafer.hadoop')
 )
 
 system wn (
