@@ -296,21 +296,21 @@ class InfrastructureManager:
         sel_inf.radl.add(radl.contextualize)
 
         # Check if the user want to set a new password to any system:
-        for system in sel_inf.radl.systems:
-            new_system = radl.get_system_by_name(system.name)
+        for radl_system in sel_inf.radl.systems:
+            new_system = radl.get_system_by_name(radl_system.name)
             if new_system:
                 new_creds = new_system.getCredentialValues(new=True)
                 # The user has specified a credential:
                 if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] is not None:
-                    creds = system.getCredentialValues()
+                    creds = radl_system.getCredentialValues()
                     if new_creds != creds:
                         # The credentials have changed
                         (_, password, public_key, private_key) = new_creds
-                        system.setCredentialValues(
+                        radl_system.setCredentialValues(
                             password=password, public_key=public_key, private_key=private_key, new=True)
 
                 # The user has new applications
-                curr_apps = system.getValue("disk.0.applications")
+                curr_apps = radl_system.getValue("disk.0.applications")
                 if curr_apps is None:
                     curr_apps = {}
                 curr_apps_names = {}
@@ -567,9 +567,9 @@ class InfrastructureManager:
             InfrastructureManager.logger.exception("Inf ID: " + sel_inf.id + " error parsing RADL")
             raise ex
 
-        for system in radl.systems:
+        for radl_system in radl.systems:
             # Add apps requirements to the RADL
-            apps_to_install = system.getApplications()
+            apps_to_install = radl_system.getApplications()
             for app_to_install in apps_to_install:
                 for app_avail, _, _, _, requirements in Recipe.getInstallableApps():
                     if requirements and app_avail.isNewerThan(app_to_install):
@@ -577,7 +577,7 @@ class InfrastructureManager:
                         # requirements
                         try:
                             requirements_radl = radl_parse.parse_radl(requirements).systems[0]
-                            system.applyFeatures(requirements_radl, conflict="other", missing="other")
+                            radl_system.applyFeatures(requirements_radl, conflict="other", missing="other")
                         except Exception:
                             InfrastructureManager.logger.exception(
                                 "Inf ID: " + sel_inf.id + ": Error in the requirements of the app: " +
@@ -1423,6 +1423,7 @@ class InfrastructureManager:
                 vault_host = None
                 vault_path = None
                 vault_role = None
+                vault_mount_point = None
                 if "host" in vault_auth[0]:
                     vault_host = vault_auth[0]["host"]
                 else:
@@ -1430,9 +1431,11 @@ class InfrastructureManager:
                     return auth
                 if "path" in vault_auth[0]:
                     vault_path = vault_auth[0]["path"]
+                if "mount_point" in vault_auth[0]:
+                    vault_mount_point = vault_auth[0]["mount_point"]
                 if "role" in vault_auth[0]:
                     vault_role = vault_auth[0]["role"]
-                vault = VaultCredentials(vault_host, vault_path, vault_role, Config.VERIFI_SSL)
+                vault = VaultCredentials(vault_host, vault_mount_point, vault_path, vault_role, Config.VERIFI_SSL)
                 creds = vault.get_creds(vault_auth[0]["token"])
                 creds.extend(auth.auth_list)
                 creds.remove(vault_auth[0])

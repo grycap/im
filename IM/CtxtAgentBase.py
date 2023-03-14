@@ -410,9 +410,9 @@ class CtxtAgentBase:
 
         return new_playbook
 
-    def install_ansible_modules(self, general_conf_data, playbook):
+    def install_ansible_roles(self, general_conf_data, playbook):
         new_playbook = playbook
-        if (('ansible_modules' in general_conf_data and general_conf_data['ansible_modules']) or
+        if (('ansible_roles' in general_conf_data and general_conf_data['ansible_roles']) or
                 ('ansible_collections' in general_conf_data and general_conf_data['ansible_collections'])):
             play_dir = os.path.dirname(playbook)
             play_filename = os.path.basename(playbook)
@@ -450,6 +450,10 @@ class CtxtAgentBase:
                 task = {"command": "ansible-galaxy collection install -c -r %s" % filename}
                 task["name"] = "Install galaxy collections"
                 task["become"] = "yes"
+                task["register"] = "collections_install"
+                task["until"] = "collections_install is not failed"
+                task["retries"] = "5"
+                task["delay"] = "10"
                 # Some times ansible is installed at /usr/local/bin and it is not in root path
                 task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"}]
                 yaml_data[0]['tasks'].append(task)
@@ -457,8 +461,8 @@ class CtxtAgentBase:
             # and then add roles
             galaxy_dependencies = []
             needs_git = False
-            if 'ansible_modules' in general_conf_data and general_conf_data['ansible_modules']:
-                for galaxy_name in general_conf_data['ansible_modules']:
+            if 'ansible_roles' in general_conf_data and general_conf_data['ansible_roles']:
+                for galaxy_name in general_conf_data['ansible_roles']:
                     if galaxy_name:
                         self.logger.debug("Install %s with ansible-galaxy.", galaxy_name)
 
@@ -500,6 +504,10 @@ class CtxtAgentBase:
                 task = {"command": "ansible-galaxy install -c -r %s" % filename}
                 task["name"] = "Install galaxy roles"
                 task["become"] = "yes"
+                task["register"] = "roles_install"
+                task["until"] = "roles_install is not failed"
+                task["retries"] = "5"
+                task["delay"] = "10"
                 # Some times ansible is installed at /usr/local/bin and it is not in root path
                 task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"}]
                 yaml_data[0]['tasks'].append(task)

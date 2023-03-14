@@ -9,9 +9,9 @@ net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'slurmserver' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.applications contains (name='ansible.modules.indigo-dc.slurm') and
-disk.0.applications contains (name='ansible.modules.indigo-dc.nfs') and
-disk.0.applications contains (name='ansible.modules.grycap.galaxy')
+disk.0.applications contains (name='ansible.roles.indigo-dc.slurm') and
+disk.0.applications contains (name='ansible.roles.indigo-dc.nfs') and
+disk.0.applications contains (name='ansible.roles.grycap.galaxy')
 )
 
 system wn (

@@ -1054,7 +1054,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             contextualizes = self.inf.radl.contextualize.get_contextualize_items_by_step({1: ctxts})
 
             # create the files for the configure sections that appears in the contextualization steps
-            # and add the ansible information and modules
+            # and add the ansible information and roles
             for ctxt_num in contextualizes.keys():
                 for ctxt_elem in contextualizes[ctxt_num]:
                     if ctxt_elem.system in vm_group and ctxt_elem.get_ctxt_tool() == "Ansible":
@@ -1406,23 +1406,27 @@ class ConfManager(LoggerMixin, threading.Thread):
                         ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 
             # Add all the ansible roles and collections specified in the RADL
-            modules = []
+            roles = []
             collections = []
             for s in self.inf.radl.systems:
                 for req_app in s.getApplications():
                     if req_app.getValue("name").startswith("ansible.modules."):
+                        # Mantain it for compatibility
                         # Get the modules specified by the user in the RADL
-                        modules.append(req_app.getValue("name")[16:])
+                        roles.append(req_app.getValue("name")[16:])
+                    elif req_app.getValue("name").startswith("ansible.roles."):
+                        # Get the roles specified by the user in the RADL
+                        roles.append(req_app.getValue("name")[14:])
                     elif req_app.getValue("name").startswith("ansible.collections."):
-                        # Get the modules specified by the user in the RADL
+                        # Get the collections specified by the user in the RADL
                         collections.append(req_app.getValue("name")[20:])
                     else:
                         # Get the info about the apps from the recipes DB
-                        vm_modules, _ = Recipe.getInfoApps([req_app])
-                        modules.extend(vm_modules)
+                        vm_roles, _ = Recipe.getInfoApps([req_app])
+                        roles.extend(vm_roles)
 
             # avoid duplicates
-            modules = set(modules)
+            roles = set(roles)
             collections = set(collections)
 
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
@@ -1444,7 +1448,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
                     recipe_out.close()
 
-            for galaxy_name in modules:
+            for galaxy_name in roles:
                 if galaxy_name:
                     self.log_debug("Install " + galaxy_name + " with ansible-galaxy.")
                     self.inf.add_cont_msg("Galaxy role " + galaxy_name + " detected setting to install.")
@@ -1499,35 +1503,42 @@ class ConfManager(LoggerMixin, threading.Thread):
         Create the configuration file needed by the contextualization agent
         """
         # Add all the roles and collections specified in the RADL
-        modules = []
+        roles = []
         collections = []
         for s in self.inf.radl.systems:
             for req_app in s.getApplications():
                 if req_app.getValue("name").startswith("ansible.modules."):
+                    # Mantain it for compatibility
                     # Get the modules specified by the user in the RADL
                     app_name = req_app.getValue("name")[16:]
                     if req_app.getValue("version"):
                         app_name += ",%s" % req_app.getValue("version")
-                    modules.append(app_name)
+                    roles.append(app_name)
+                elif req_app.getValue("name").startswith("ansible.roles."):
+                    # Get the roles specified by the user in the RADL
+                    app_name = req_app.getValue("name")[14:]
+                    if req_app.getValue("version"):
+                        app_name += ",%s" % req_app.getValue("version")
+                    roles.append(app_name)
                 elif req_app.getValue("name").startswith("ansible.collections."):
-                    # Get the modules specified by the user in the RADL
+                    # Get the collections specified by the user in the RADL
                     app_name = req_app.getValue("name")[20:]
                     if req_app.getValue("version"):
                         app_name += ",%s" % req_app.getValue("version")
                     collections.append(app_name)
                 else:
                     # Get the info about the apps from the recipes DB
-                    vm_modules, _ = Recipe.getInfoApps([req_app])
-                    modules.extend(vm_modules)
+                    vm_roles, _ = Recipe.getInfoApps([req_app])
+                    roles.extend(vm_roles)
 
         # avoid duplicates
-        modules = list(set(modules))
+        roles = list(set(roles))
         collections = list(set(collections))
 
         conf_data = {}
 
         conf_data['ansible_collections'] = collections
-        conf_data['ansible_modules'] = modules
+        conf_data['ansible_roles'] = roles
         conf_data['playbook_retries'] = Config.PLAYBOOK_RETRIES
         conf_data['vms'] = []
         for vm in vm_list:
