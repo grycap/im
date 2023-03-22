@@ -255,6 +255,10 @@ class GCECloudConnector(LibCloudCloudConnector):
                 if comparison:
                     if not instance_type_name or size.name == instance_type_name:
                         res = size
+                    if instance_type_name and "*" in instance_type_name:
+                        instance_type_re = re.escape(instance_type_name).replace("\\*", ".*")
+                        if re.match(instance_type_re, size.name):
+                            res = size
 
         if res is None and (not instance_type_name or instance_type_name.startswith("custom")):
             name = "custom-%s-%s" % (cpu, memory)
