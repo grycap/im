@@ -104,6 +104,27 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(concrete[0].getValue("instance_type"), "small")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            instance_type = 'g.*' and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'ost://server.com/ami-id' and
+            disk.0.os.credentials.username = 'user'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl_system = radl.systems[0]
+
+        concrete = ost_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+        self.assertEqual(concrete[0].getValue("instance_type"), "g.small")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
     @patch('IM.AppDB.AppDB.get_site_id')
     @patch('IM.AppDB.AppDB.get_site_url')
     @patch('IM.AppDB.AppDB.get_image_id')
