@@ -16,6 +16,7 @@
 
 import time
 import requests
+import re
 from netaddr import IPNetwork, IPAddress, spanning_cidr
 
 try:
@@ -316,6 +317,10 @@ class EC2CloudConnector(CloudConnector):
                 if comparison:
                     if not instance_type_name or instace_type.name == instance_type_name:
                         res = instace_type
+                    if instance_type_name and "*" in instance_type_name:
+                        instance_type_re = re.escape(instance_type_name).replace("\\*", ".*")
+                        if re.match(instance_type_re, instace_type.name):
+                            res = instace_type
 
         if res is None:
             self.get_instance_type_by_name(self.INSTANCE_TYPE)
