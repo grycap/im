@@ -1583,7 +1583,7 @@ class EC2CloudConnector(CloudConnector):
         while cont < retries and not data:
             cont += 1
             try:
-                info_url = "https://raw.githubusercontent.com/grycap/im/devel/scripts/instances.json"
+                info_url = "https://raw.githubusercontent.com/grycap/im/master/scripts/instances.json"
                 resp = requests.get(info_url)
                 if resp.status_code == 200:
                     data = resp.json()
