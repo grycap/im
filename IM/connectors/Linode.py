@@ -19,6 +19,7 @@ import random
 import string
 import time
 import os.path
+import re
 
 try:
     from libcloud.compute.base import NodeImage, NodeLocation
@@ -164,6 +165,10 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             if comparison:
                 if not instance_type_name or size.id == instance_type_name:
                     return size
+                if instance_type_name and "*" in instance_type_name:
+                    instance_type_re = re.escape(instance_type_name).replace("\\*", ".*")
+                    if re.match(instance_type_re, size.id):
+                        return size
 
         self.log_error("No compatible size found")
         return None

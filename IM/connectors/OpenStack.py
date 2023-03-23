@@ -21,6 +21,7 @@ import os.path
 import tempfile
 import requests
 import base64
+import re
 from IM.CloudInfo import CloudInfo
 from IM.SSH import SSH
 
@@ -334,6 +335,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if comparison:
                 if not instance_type_name or size.name == instance_type_name:
                     return size
+                if instance_type_name and "*" in instance_type_name:
+                    instance_type_re = re.escape(instance_type_name).replace("\\*", ".*")
+                    if re.match(instance_type_re, size.name):
+                        return size
 
         self.log_error("No compatible size found")
         return None

@@ -98,6 +98,26 @@ class TestAzureConnector(TestCloudConnectorBase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            instance_type = 'Standard_*' and
+            memory.size>=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'azr://image-id' and
+            disk.0.os.credentials.username = 'user'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl_system = radl.systems[0]
+
+        concrete = azure_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
     def wait(self):
         """
         Wait VMs returning error only first time

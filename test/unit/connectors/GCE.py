@@ -78,6 +78,28 @@ class TestGCEConnector(TestCloudConnectorBase):
         gce_cloud = self.get_gce_cloud()
         concrete = gce_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
+        self.assertEqual(concrete[0].getValue("instance_type"), "small")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            instance_type = 'me*' and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'gce://us-central1-a/centos-6' and
+            disk.0.os.credentials.username = 'user'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl_system = radl.systems[0]
+
+        concrete = gce_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+        self.assertEqual(concrete[0].getValue("instance_type"), "medium")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         radl_data = """

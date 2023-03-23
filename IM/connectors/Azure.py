@@ -18,6 +18,7 @@ import uuid
 import random
 import string
 import base64
+import re
 try:
     from urlparse import urlparse
 except ImportError:
@@ -89,6 +90,8 @@ class AzureInstanceTypeInfo:
                 self.gpu_model = "Tesla P100"
             elif self.name.endswith('v3'):
                 self.gpu_model = "Tesla V100"
+            elif self.name.endswith('A100_v4'):
+                self.gpu_model = "A100"
             else:
                 self.gpu_model = "Tesla K80"
         elif self.name.startswith('Standard_NCasT4'):
@@ -98,12 +101,16 @@ class AzureInstanceTypeInfo:
             self.gpu_vendor = "NVIDIA"
             if self.name.endswith('v2'):
                 self.gpu_model = "Tesla V100"
+            elif self.name.endswith('A100_v4'):
+                self.gpu_model = "A100"
             else:
                 self.gpu_model = "Tesla P40"
         elif self.name.startswith('Standard_NV'):
             self.gpu_vendor = "NVIDIA"
             if self.name.endswith('v3'):
                 self.gpu_model = "Tesla M60"
+            if self.name.endswith('A10_v5'):
+                self.gpu_model = "A10"
             elif self.name.endswith('v4'):
                 self.gpu_vendor = "AMD"
                 self.gpu_model = "Radeon instinto MI25"
@@ -279,6 +286,10 @@ class AzureCloudConnector(CloudConnector):
             if comparison:
                 if not instance_type_name or instace_type.name == instance_type_name:
                     return instace_type
+                if instance_type_name and "*" in instance_type_name:
+                    instance_type_re = re.escape(instance_type_name).replace("\\*", ".*")
+                    if re.match(instance_type_re, instace_type.name):
+                        return instace_type
 
         return default
 
