@@ -74,11 +74,40 @@ class TestLinodeConnector(TestCloudConnectorBase):
         node_size.price = 1
         node_size.disk = 1
         node_size.extra = {'vcpus': 1}
-        node_size.name = "small"
-        driver.list_sizes.return_value = [node_size]
+        node_size.name = "Linude 512M"
+        node_size.id = "small"
+        node_size2 = MagicMock(['ram', 'name', 'id', 'price', 'disk', 'extra'])
+        node_size2.ram = 1024
+        node_size2.price = 2
+        node_size2.disk = 1
+        node_size2.extra = {'vcpus': 2}
+        node_size2.name = "Linude 1G"
+        node_size2.id = "medium"
+        driver.list_sizes.return_value = [node_size, node_size2]
 
         concrete = linode_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
+        self.assertEqual(concrete[0].getValue('instance_type'), "small")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            instance_type = 'me*' and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'lin://linode/ubuntu' and
+            disk.0.os.credentials.username = 'user'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl_system = radl.systems[0]
+        concrete = linode_cloud.concreteSystem(radl_system, auth)
+        self.assertEqual(len(concrete), 1)
+        self.assertEqual(concrete[0].getValue('instance_type'), "medium")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')
