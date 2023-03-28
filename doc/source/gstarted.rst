@@ -1,16 +1,10 @@
 Quick Start
 ===========
 
-Public IM Endpoints at UPV
---------------------------
+UPV already offers **:ref:`endpoints`**. Therefore there is no need for end users to deploy the IM server.
 
-UPV offers an IM endpoint deployed in H.A. mode over a kubernetes cluster on it premises. 
-
-This service exposes the **web-based GUIs and REST API** in the following URLs:
-
-* IM Dashboard: `https://im.egi.eu <https://im.egi.eu>`_.
-* IM REST API: `https://im.egi.eu/im/ <https://im.egi.eu/im/>`_.
-* IM web portal: `https://appsgrycap.i3m.upv.es/im-web/ <https://appsgrycap.i3m.upv.es/im-web/>`_.
+Instead, consider using the **:ref:`dashboard`**, for easier deployment of virtual infrastructures or the
+**:ref:`client`**, for a fully-featured functionality.
 
 Launch IM Service
 -----------------

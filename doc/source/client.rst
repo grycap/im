@@ -1,3 +1,5 @@
+.. _client:
+
 IM Command-line Interface (CLI)
 ===============================
 
