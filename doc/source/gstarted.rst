@@ -18,7 +18,9 @@ To launch the IM service using docker::
 
   $ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
 
-More information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im/ <https://registry.hub.docker.com/u/grycap/im/>`_.
+More information about this image can be found here: 
+`https://registry.hub.docker.com/u/grycap/im <https://registry.hub.docker.com/u/grycap/im>`_ and
+`https://github.com/grycap/im/pkgs/container/im <https://github.com/grycap/im/pkgs/container/im>`_.
 
 IM Client tools
 ---------------
