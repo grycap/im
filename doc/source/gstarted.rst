@@ -1,10 +1,10 @@
 Quick Start
 ===========
 
-UPV already offers **:ref:`endpoints`**. Therefore there is no need for end users to deploy the IM server.
+UPV already offers :ref:`endpoints`. Therefore there is no need for end users to deploy the IM server.
 
-Instead, consider using the **:ref:`dashboard`**, for easier deployment of virtual infrastructures or the
-**:ref:`client`**, for a fully-featured functionality.
+Instead, consider using the :ref:`dashboard`, for easier deployment of virtual infrastructures or the
+:ref:`client`, for a fully-featured functionality.
 
 Launch IM Service
 -----------------
