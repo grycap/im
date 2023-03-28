@@ -1,3 +1,5 @@
+.. _dashboard:
+
 =============
 IM Dashboard
 =============
