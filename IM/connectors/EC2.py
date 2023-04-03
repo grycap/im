@@ -720,8 +720,9 @@ class EC2CloudConnector(CloudConnector):
                                                                                      delete_on_termination=True)
 
                 volumes = self.get_volumes(conn, vm)
-                for device, (size, snapshot_id, disk_type) in volumes.items():
+                for device, (size, snapshot_id, volume_id, disk_type) in volumes.items():
                     bdm[device] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=snapshot_id,
+                                                                              volume_id=volume_id,
                                                                               volume_type=disk_type,
                                                                               size=size, delete_on_termination=True)
 
@@ -876,16 +877,23 @@ class EC2CloudConnector(CloudConnector):
 
             disk_size = None
             snapshot_id = None
+            volume_id = None
             if disk_url:
                 _, elem_id = EC2CloudConnector.getAMIData(disk_url)
                 if elem_id.startswith('snap-'):
                     snapshot_id = conn.get_all_snapshots([elem_id])[0].id
+                elif elem_id.startswith('vol-'):
+                    volume_id = conn.get_all_volumes([elem_id])[0].id
                 else:
                     snapshot = conn.get_all_snapshots(filters={'tag:Name': elem_id})
                     if snapshot:
                         snapshot_id = snapshot[0].id
                     else:
-                        raise Exception("No snapshot found with name: %s" % elem_id)
+                        volume = conn.get_all_volumes(filters={'tag:Name': elem_id})
+                        if volume:
+                            volume_id = volume[0].id
+                        else:
+                            raise Exception("No snapshot/volume found with name: %s" % elem_id)
             else:
                 disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
 
@@ -894,7 +902,7 @@ class EC2CloudConnector(CloudConnector):
                 disk_type = "standard"
                 vm.info.systems[0].setValue("disk." + str(cont) + ".type", disk_type)
 
-            res["/dev/" + disk_device] = (disk_size, snapshot_id, disk_type)
+            res["/dev/" + disk_device] = (disk_size, snapshot_id, volume_id, disk_type)
             cont += 1
 
         return res
