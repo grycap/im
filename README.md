@@ -42,16 +42,15 @@ defined by the [EOSC-Synergy](https://www.eosc-synergy.eu) project.
 ## 1 DOCKER IMAGE (Recommended Option)
 
 The recommended option to use the Infrastructure Manager service is using the
-available docker image. A Docker image named `grycap/im` has been created to
-make easier the deployment of an IM service using the default configuration.
-Information about this image can be found here: <https://hub.docker.com/r/grycap/im/>.
-It is also available in Github Container registry `ghcr.io/grycap/im`:
-<https://github.com/grycap/im/pkgs/container/im>.
+available docker image. A Docker image named `ghcr.io/grycap/im` has been
+created to make easier the deployment of an IM service using the default
+configuration. It is available in the IM
+[Github Container registry](https://github.com/grycap/im/pkgs/container/im).
 
 How to launch the IM service using docker::
 
 ```sh
-sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
+sudo docker run -d -p 8899:8899 -p 8800:8800 --name im ghcr.io/grycap/im
 ```
 
 To make the IM data persistent you also have to specify a persistent location
@@ -60,7 +59,7 @@ volume::
 
 ```sh
 sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/db:/db" \
-                -e IM_DATA_DB=/db/inf.dat --name im grycap/im
+                -e IM_DATA_DB=/db/inf.dat --name im ghcr.io/grycap/im
 ```
 
 You can also specify an external MySQL server to store IM data using the
@@ -69,7 +68,7 @@ IM_DATA_DB environment variable::
 ```sh
 sudo docker run -d -p 8899:8899 -p 8800:8800 \
                 -e IM_DATA_DB=mysql://username:password@server/db_name \
-                --name im grycap/im
+                --name im ghcr.io/grycap/im
 ```
 
 Or you can also add a volume with all the IM configuration::
@@ -77,7 +76,7 @@ Or you can also add a volume with all the IM configuration::
 ```sh
 sudo docker run -d -p 8899:8899 -p 8800:8800 \
                 -v "/some_local_path/im.cfg:/etc/im/im.cfg"
-                --name im grycap/im
+                --name im ghcr.io/grycap/im
 ```
 
 ## 2 Kubernetes Helm Chart

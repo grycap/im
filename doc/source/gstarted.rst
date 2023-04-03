@@ -1,17 +1,26 @@
 Quick Start
 ===========
 
+UPV already offers :ref:`production-ready IM server endpoints <endpoints>`.
+Therefore there is no need for end users to deploy the IM server.
+
+Instead, consider using the :ref:`dashboard`, for easier deployment of virtual infrastructures
+or the :ref:`client`, for a fully-featured functionality.
+
 Launch IM Service
 -----------------
 
-To launch an instance of the Infrastructure Manager the easiest solution is to use the Docker image named 
-`grycap/im` that has been created using the default configuration. 
+If you need to launch your own instance of the IM, the easiest solution is to use
+the Docker image named `grycap/im` (or `ghcr.io/grycap/im`) that has been created
+using the default configuration. 
 
 To launch the IM service using docker::
 
   $ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
 
-More information about this image can be found here: `https://registry.hub.docker.com/u/grycap/im/ <https://registry.hub.docker.com/u/grycap/im/>`_.
+More information about this image can be found here: 
+`https://registry.hub.docker.com/u/grycap/im <https://registry.hub.docker.com/u/grycap/im>`_ and
+`https://github.com/grycap/im/pkgs/container/im <https://github.com/grycap/im/pkgs/container/im>`_.
 
 IM Client tools
 ---------------
