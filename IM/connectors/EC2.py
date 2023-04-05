@@ -1311,9 +1311,9 @@ class EC2CloudConnector(CloudConnector):
                 changes.commit()
 
             # if there are no A records
-            all_a_records = [r for r in conn.get_all_rrsets(zone.id) if r.type == "A"]
-            if not all_a_records:
-                conn.delete_hosted_zone(zone.id)
+            # all_a_records = [r for r in conn.get_all_rrsets(zone.id) if r.type == "A"]
+            # if not all_a_records:
+            #    conn.delete_hosted_zone(zone.id)
 
     def cancel_spot_requests(self, conn, vm):
         """
