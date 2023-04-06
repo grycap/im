@@ -824,6 +824,8 @@ class InfrastructureManager:
             InfrastructureManager.logger.debug(
                 "Inf ID: " + str(inf_id) + ": " +
                 "Information not updated. Using last information retrieved")
+        else:
+            IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
         if json_res:
             return dump_radl_json(vm.get_vm_info())
@@ -1038,6 +1040,7 @@ class InfrastructureManager:
         if sel_inf.deleting:
             state = VirtualMachine.DELETING
 
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
         InfrastructureManager.logger.info("Inf ID: " + str(inf_id) + " is in state: " + state)
         return {'state': state, 'vm_states': vm_states}
 
