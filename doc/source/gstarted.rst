@@ -6,7 +6,9 @@ Therefore **there is no need for end users to deploy the IM server**. But if you
 need it, please read the manual with the :ref:`instructions to launch the IM service <launch_im>`.
 
 Instead, consider using the :ref:`dashboard`, for easier deployment of virtual infrastructures
-or the :ref:`client`, for a fully-featured functionality.
+(you need an `EGI Checkin OIDC <https://www.egi.eu/services/check-in/>`_ account.)
+or the :ref:`client`, for a fully-featured functionality (no registration needed).
+
 
 IM Client tool
 ---------------
@@ -22,7 +24,8 @@ Authentication file
 ^^^^^^^^^^^^^^^^^^^
 To access the IM service an authentication file must be created. It must have one line per authentication element.
 **It must have at least one line with the authentication data for the IM service** and another one for the Cloud/s
-provider/s the user want to access.
+provider/s the user want to access. In case of InfrastructureManager credentials you can use any user/password 
+pair as the service is free to use by default).
 
 An example to access an OpenNebula and/or an OpenStack site::
 
