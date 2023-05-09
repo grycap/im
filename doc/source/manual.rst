@@ -1,3 +1,5 @@
+.. _launch_im:
+
 IM Docker Image (Recommended Option)
 ====================================
 
@@ -111,7 +113,7 @@ First you need to install pip tool and some packages needed to compile some of t
 To install them in Debian and Ubuntu based distributions, do::
 
     $ apt update
-    $ apt install gcc python3-dev libffi-dev libssl-dev python3-pip sshpass python-pysqlite2 python-requests
+    $ apt install gcc python3-dev libffi-dev libssl-dev python3-pip sshpass python3-requests
 
 In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
 Fedora, etc.), do::

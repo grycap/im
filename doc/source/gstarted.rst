@@ -2,47 +2,21 @@ Quick Start
 ===========
 
 UPV already offers :ref:`production-ready IM server endpoints <endpoints>`.
-Therefore there is no need for end users to deploy the IM server.
+Therefore **there is no need for end users to deploy the IM server**. But if you
+need it, please read the manual with the :ref:`instructions to launch the IM service <launch_im>`.
 
 Instead, consider using the :ref:`dashboard`, for easier deployment of virtual infrastructures
 or the :ref:`client`, for a fully-featured functionality.
 
-Launch IM Service
------------------
-
-If you need to launch your own instance of the IM, the easiest solution is to use
-the Docker image named `grycap/im` (or `ghcr.io/grycap/im`) that has been created
-using the default configuration. 
-
-To launch the IM service using docker::
-
-  $ sudo docker run -d -p 8899:8899 -p 8800:8800 --name im grycap/im
-
-More information about this image can be found here: 
-`https://registry.hub.docker.com/u/grycap/im <https://registry.hub.docker.com/u/grycap/im>`_ and
-`https://github.com/grycap/im/pkgs/container/im <https://github.com/grycap/im/pkgs/container/im>`_.
-
-IM Client tools
+IM Client tool
 ---------------
 
-To access the IM service two client tools can be used (apart from the two APIs):
-
-* The IM client: You only have to call the install command of the pip tool with the IM-client package::
+In these examples we will use the IM-client tool to create, manage and finally destroy a single VM.
+You only have to call the install command of the pip tool with the IM-client package::
 
 	$ pip install IM-client
 
   See full reference in IM Client :ref:`inv-client`.
-
-* The IM web: To launch the IM Web portal in the same machine where we have previously launched the IM service use
-  the followiing docker command::
-
-    $ sudo docker run -d -p 80:80 --name im-web --link im:im grycap/im-web
-
-  Then you can access the im-web interface using the following url: `http://localhost/im-web`.
-  
-  See full manual in IM Web :ref:`use-web`.
-
-In this first examples we will use the IM-client tool to create, manage and finally destroy a single VM.
 
 Authentication file
 ^^^^^^^^^^^^^^^^^^^
@@ -60,6 +34,7 @@ See all the options of the auth file are describe in section :ref:`auth-file`.
 
 RADL basic example
 ^^^^^^^^^^^^^^^^^^^
+
 Then the user must describe in a input file the cloud topology. It can be done in the IM native language (RADL) or
 the TOSCA standard. In this first example we will so how to launch a single VM using RADL::
 
@@ -142,26 +117,25 @@ the IM client::
     $ im_client.py -a auth.dat create input_file
 
 By default this command expects the IM to be hosted on the `localhost` machine. If the server is located at other
-host you must specify the `-u` or `-r` parameters to set the URL of the XML-RPC API or REST API respectively::
+host you must specify the `-r` parameters to set the URL of the REST API::
 
-    $ im_client.py -a auth.dat create input_file -r http://imhost.com:8800
-    $ im_client.py -a auth.dat create input_file -u http://imhost.com:8899
+    $ im_client.py -a auth.dat create input_file -r https://im.egi.eu/im
 
-To avoid putting this parameters on all the IM Cleint calls you can create an `im_client.cfg` file with the
+To avoid putting this parameters on all the IM Cleint calls, create/edit the `im_client.cfg` file with the
 default options to use. See all the options at the client manual page: :ref:`inv-client`.
 
 In this moment the IM client with contact the IM service to start the creation of the infrastructure. It will require
 some time depending on the number of VMs or the cloud provider. Finally when all the VMs are created it will retun a
 message like that::
 
-    Connected with: http://locahost:8899
+    Connected with: https://im.egi.eu/im
     Infrastructure successfully created with ID: 573c4b0a-67d9-11e8-b75f-0a580af401da
 
 In case of error in the creation of all the VMs it will return an error message describing the errors raised.
 If only some of them fails it will return the ID and the user must check the status of the VMs and take the
 corresponding decissions. To get the state of of the infrastructure call the `getstate` option of the client::
 
-    $ im_client.py -a auth.dat getstate 573c4b0a-67d9-11e8-b75f-0a580af401da
+    $ im_client.py getstate 573c4b0a-67d9-11e8-b75f-0a580af401da
 
     The infrastructure is in state: running
     VM ID: 0 is in state: running.
@@ -169,7 +143,7 @@ corresponding decissions. To get the state of of the infrastructure call the `ge
 You have to wait untill your infrastructure is the state `configured`. In the meanwhile you can get the output
 of the contextualization process to follow the status::
 
-    $ im_client.py -a auth.dat getcontmsg 573c4b0a-67d9-11e8-b75f-0a580af401da
+    $ im_client.py getcontmsg 573c4b0a-67d9-11e8-b75f-0a580af401da
 
     Msg Contextualizator: 
 
@@ -182,13 +156,13 @@ of the contextualization process to follow the status::
 This message will show all the steps made by the IM to fully configure the VM including the outputs of all
 Ansible processes. Then you can access via SSH the created VM with the command::
 
-    $ im_client.py -a auth.dat ssh 573c4b0a-67d9-11e8-b75f-0a580af401da
+    $ im_client.py ssh 573c4b0a-67d9-11e8-b75f-0a580af401da
 
 And Enjoy you customized VM!!
 
 Finally to destroy the infrastructure and all the related resources call the `destroy` operation::
 
-    $ im_client.py -a auth.dat destroy 573c4b0a-67d9-11e8-b75f-0a580af401da
+    $ im_client.py destroy 573c4b0a-67d9-11e8-b75f-0a580af401da
 
     Connected with: http://locahost:8899
     Infrastructure successfully destroyed
