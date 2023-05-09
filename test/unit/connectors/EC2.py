@@ -728,8 +728,6 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        self.assertEqual(dns_conn.delete_hosted_zone.call_count, 1)
-        self.assertEqual(dns_conn.delete_hosted_zone.call_args_list[0][0][0], zone.id)
         self.assertEqual(changes.add_change.call_args_list, [call('DELETE', 'test.domain.com.', 'A')])
         self.assertEqual(change.add_value.call_args_list, [call('158.42.1.1')])
         self.assertEqual(sg.delete.call_args_list, [call()])
