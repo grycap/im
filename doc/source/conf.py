@@ -1,10 +1,10 @@
 # General information about the project.
 project = 'IM Documentation'
-copyright = '2015, I3M-GRyCAP'
+copyright = '2023, I3M-GRyCAP'
 author = 'micafer'
 
-version = '1.0'
-release = '1.0'
+version = '1.14'
+release = '1.14.0'
 
 master_doc = 'index'
 
