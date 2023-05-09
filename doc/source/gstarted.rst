@@ -1,9 +1,7 @@
 Quick Start
 ===========
 
-
-
-UPV already offers production-ready IM server endpoints (see `Public IM Endpoints at UPV`_).
+UPV already offers :ref:`production-ready IM server endpoints <endpoints>`.
 Therefore **there is no need for end users to deploy the IM server**. But if you
 need it, please read the manual with the :ref:`instructions to launch the IM service <launch_im>`.
 
