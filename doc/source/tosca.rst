@@ -3,8 +3,7 @@
 TOSCA
 ======
 
-The Infrastructure Manager supports the definition of Cloud topologies using 
- `OASIS TOSCA Simple Profile in YAML Version 1.0 <http://docs.oasis-open.org/tosca/TOSCA-Simple-Profile-YAML/v1.0/TOSCA-Simple-Profile-YAML-v1.0.html>`_.
+The Infrastructure Manager supports the definition of Cloud topologies using `OASIS TOSCA Simple Profile in YAML Version 1.0 <http://docs.oasis-open.org/tosca/TOSCA-Simple-Profile-YAML/v1.0/TOSCA-Simple-Profile-YAML-v1.0.html>`_.
 
 The TOSCA support has been developed under de framework of the `INDIGO DataCloud EU project <http://http://www.indigo-datacloud.eu>`_.
 You can see some input examples at 
@@ -151,7 +150,7 @@ link the networks with the Compute nodes::
 
     ...
 
- Port types have a set of additional properties (some of them are not normative):
+Port types have a set of additional properties (some of them are not normative):
 
   * ip_address: Set a specific IP address.
   * order: Network interface order.
