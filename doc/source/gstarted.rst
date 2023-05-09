@@ -72,8 +72,6 @@ See full information about RADL language at :ref:`RADL section <radl>`
  More RADL examples are available at the IM GitHub repo
 `examples folder <https://github.com/grycap/im/tree/master/examples>`_.
 
-
-
 TOSCA basic example
 ^^^^^^^^^^^^^^^^^^^
 

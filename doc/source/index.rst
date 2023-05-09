@@ -16,6 +16,7 @@ Contents:
    videos
    manual
    radl
+   tosca
    xmlrpc
    REST
    client

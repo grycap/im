@@ -164,6 +164,8 @@ The supported features are:
 ``credentials.private_key = '<private_key>'``
    Indicate the SSH private key.
 
+.. _radl_network:
+
 Network Features
 ----------------
 
@@ -239,6 +241,8 @@ The supported features are:
    Set the private key to connect with the proxy host. If it is specified it overrides the
    password set in the ``proxy_host`` url.
    The default value is ``''``.
+
+.. _radl_system:
 
 System Features
 ---------------
