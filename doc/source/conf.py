@@ -6,11 +6,16 @@ author = 'micafer'
 version = '1.0'
 release = '1.0'
 
+master_doc = 'index'
+
 # -- General configuration
 
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.mathjax',
+    'sphinx.ext.viewcode',
+    'sphinx.ext.graphviz'
 ]
 
 intersphinx_mapping = {
