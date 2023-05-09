@@ -16,7 +16,7 @@ You only have to call the install command of the pip tool with the IM-client pac
 
 	$ pip install IM-client
 
-See full reference in IM Client :ref:`inv-client`.
+See full reference in :ref:`IM client manual page <inv-client>`.
 
 Authentication file
 ^^^^^^^^^^^^^^^^^^^
@@ -122,7 +122,9 @@ host you must specify the `-r` parameters to set the URL of the REST API::
     $ im_client.py -a auth.dat create input_file -r https://im.egi.eu/im
 
 To avoid putting this parameters on all the IM Cleint calls, create/edit the `im_client.cfg` file with the
-default options to use. See all the options at the client manual page: :ref:`inv-client`.
+default options to use. See all the options at the :ref:`IM client manual page <inv-client>`.
+
+
 
 In this moment the IM client with contact the IM service to start the creation of the infrastructure. It will require
 some time depending on the number of VMs or the cloud provider. Finally when all the VMs are created it will retun a
