@@ -80,7 +80,7 @@ TOSCA basic example
 In case you want to use a TOSCA file to define a similar example to the previous RADL one, the file
 will look like this::
 
-    #toscaExample.tosca
+    #toscaExample.yaml
     tosca_definitions_version: tosca_simple_yaml_1_0
 
     imports:
