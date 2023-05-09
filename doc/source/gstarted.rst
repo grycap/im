@@ -1,7 +1,9 @@
 Quick Start
 ===========
 
-UPV already offers :ref:`production-ready IM server endpoints <endpoints>`.
+
+
+UPV already offers production-ready IM server endpoints (see `Public IM Endpoints at UPV`_).
 Therefore **there is no need for end users to deploy the IM server**. But if you
 need it, please read the manual with the :ref:`instructions to launch the IM service <launch_im>`.
 
@@ -16,7 +18,7 @@ You only have to call the install command of the pip tool with the IM-client pac
 
 	$ pip install IM-client
 
-  See full reference in IM Client :ref:`inv-client`.
+See full reference in IM Client :ref:`inv-client`.
 
 Authentication file
 ^^^^^^^^^^^^^^^^^^^
