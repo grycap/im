@@ -46,7 +46,7 @@ the TOSCA standard. In this first example we will so how to launch a single VM u
       cpu.count >= 2 and
       memory.size >= 2G and
       net_interface.0.connection = 'net' and
-      disk.0.image.url = 'one://someserver.com/123'
+      disk.0.image.url = 'one://osenserver/image-id'
    )
    deploy node 1
 
@@ -60,15 +60,17 @@ Cloud providers:
    * **aws://<region>/<ami-id>**, for Amazon Web Service;
    * **gce://<region>/<image-id>**, for Google Cloud;
    * **azr://<publisher>/<offer>/<sku>/<version>**, for Microsoft Azure; and
-   * **<fedcloud_endpoint_url>/<image_id>**, for FedCloud OCCI connector.
-   * **appdb://<site_name>/<apc_name>?<vo_name>**, for FedCloud OCCI, EGI or OpenStack connector using AppDB info.
+   * **appdb://<site_name>/<apc_name>?<vo_name>**, for EGI or OpenStack connector using AppDB info.
    * **docker://<docker_image>**, for Docker images.
    * **fbw://<fns_server>/<image-id>**, for FogBow images.
    * **lin://linode/<image-id>**, for Linode images.
    * **ora://<region>/<image-id>**, for Orange Flexible Engine images.
 
-See full information about RADL language at :ref:`radl`. More RADL examples are available at the IM GitHub repo
+See full information about RADL language at :ref:`RADL section <radl>`
+ More RADL examples are available at the IM GitHub repo
 `examples folder <https://github.com/grycap/im/tree/master/examples>`_.
+
+
 
 TOSCA basic example
 ^^^^^^^^^^^^^^^^^^^
@@ -126,8 +128,6 @@ host you must specify the `-r` parameters to set the URL of the REST API::
 
 To avoid putting this parameters on all the IM Cleint calls, create/edit the `im_client.cfg` file with the
 default options to use. See all the options at the :ref:`IM client manual page <inv-client>`.
-
-
 
 In this moment the IM client with contact the IM service to start the creation of the infrastructure. It will require
 some time depending on the number of VMs or the cloud provider. Finally when all the VMs are created it will retun a
