@@ -200,8 +200,10 @@ The supported features are:
    
 ``provider_id = <string>``
    Indicate the name of the network in a specific Cloud provider.
+   If not set the IM will try to select the "default" option in the Cloud provider.
    In case of setting this field in a public network in an **OpenStack** deployment
-   it specifies the name of floating ip pool to get the external floating IP.
+   it specifies the name of floating ip pool to get the external floating IP. In case of
+   **Amazon EC2** this field follows the format ``vpc-id.subnet-id``.
    The default value is ``''``.
 
 ``create = 'yes|no'``
