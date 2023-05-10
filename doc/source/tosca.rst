@@ -12,8 +12,8 @@ You can see some input examples at
 Basic example
 ^^^^^^^^^^^^^
 
-This TOSCA file describes a cloud topology with 1 VM with at least 2 CPUs and 2 GB of RAM connected with a public IP.
-As outputs the TOSCA files will return the public IP of the VM and the SSH credentials to access it::
+This TOSCA file describes a cloud topology with 2 VM with at least 2 CPUs and 2 GB of RAM connected with a public IP,
+using an Ubuntu 20.04 image. As outputs the TOSCA files will return the public IP of the VM and the SSH credentials to access it::
 
     tosca_definitions_version: tosca_simple_yaml_1_0
 
@@ -26,6 +26,9 @@ As outputs the TOSCA files will return the public IP of the VM and the SSH crede
     
         simple_node:
           type: tosca.nodes.Compute
+          scalable:
+            properties:
+              count: 2
           capabilities:
             endpoint:
               properties:
@@ -34,6 +37,11 @@ As outputs the TOSCA files will return the public IP of the VM and the SSH crede
               properties:
                 num_cpus: 2
                 mem_size: 2 GB
+            os:
+              properties:
+                type: linux
+                distribution: ubuntu
+                version: 20.04
 
       outputs:
         node_ip:
@@ -46,9 +54,9 @@ Setting VMI URI
 
 As in RADL you can set an specific URI identifying the VMI to use in the VM.
 The URI format is the same used in RADL (:ref:`radl_system`). In this case
-the type must be changed to `tosca.nodes.indigo.Compute` (the Compute normative
-type does not support the `os image` property), and the image property must
-be added in the `os`capability::
+the type must be changed to ``tosca.nodes.indigo.Compute`` (the Compute normative
+type does not support the ``os image`` property), and the image property must
+be added in the ``os`` capability::
 
     ...
 
@@ -68,9 +76,32 @@ be added in the `os`capability::
 
     ...
 
+Advanced Compute host properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``tosca.nodes.indigo.Compute`` custom type add a new set of advanced features to the
+host properties, enabling the request of GPUs and
+`Intel SGX <https://www.intel.com/content/www/us/en/architecture-and-technology/software-guard-extensions.html>`_ CPU support
+in the compute node::
+
+    ...
+
+    simple_node:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        host:
+          properties:
+            num_cpus: 2
+            mem_size: 2 GB
+            num_gpus: 1
+            gpu_vendor: nvidia
+            gpu_model: Tesla V100
+            sgx: false
+
+    ...
+
 Network properties
 ^^^^^^^^^^^^^^^^^^
-
 
 Basic properties
 -----------------
@@ -88,8 +119,9 @@ Using the endpoint capability properties::
 
 Possible network_name values:
 
-  * PUBLIC
-  * PRIVATE
+  * PRIVATE: The Compute node does not requires a public IP. **This is the default behavior if no
+    endpoint capability is defined**.
+  * PUBLIC: The Compute node requires a public IP.
   * Network provider ID: As the `provider_id` network property in RADL
     It specifies the name of the network in a specific Cloud provider
     (see :ref:`_radl_network`):
