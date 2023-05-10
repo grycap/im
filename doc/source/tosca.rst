@@ -15,8 +15,6 @@ Basic example
 This TOSCA file describes a cloud topology with 1 VM with at least 2 CPUs and 2 GB of RAM connected with a public IP.
 As outputs the TOSCA files will return the public IP of the VM and the SSH credentials to access it::
 
-.. code-block:: yaml
-
     tosca_definitions_version: tosca_simple_yaml_1_0
 
     imports:
@@ -79,7 +77,6 @@ Basic properties
 
 Using the endpoint capability properties::
 
-.. code-block:: yaml
     ...
         simple_node:
           type: tosca.nodes.Compute
@@ -100,8 +97,6 @@ Possible network_name values:
 Furthermore the endpoint capability has a set of additional properties
 to set the DNS name of the VM or the set of ports to be accesible from
 outside::
-
-.. code-block:: yaml
 
     ...
 
@@ -124,8 +119,6 @@ Advanced properties
 Using ``tosca.nodes.network.Network`` and ``tosca.nodes.network.Port``. In this case
 the network definition is detailed setting the set of networks to use and the ports to 
 link the networks with the Compute nodes::
-
-.. code-block:: yaml
 
     ...
 
@@ -173,8 +166,6 @@ IM enable to use Ansible playbooks as implementation scripts. Furthermore it ena
 Ansible roles (``tosca.artifacts.AnsibleGalaxy.role``) and collections (``tosca.artifacts.AnsibleGalaxy.collections``)
 to be installed and used in the playbooks::
 
-.. code-block:: yaml
-
     ...
 
     software:
@@ -199,9 +190,8 @@ Storage
 
 IM enables the definition of BlockStorage volumes to be attached to the compute nodes.
 In this example we can see how to define a volume of 10GB to be attached to the compute node
-and mounted in the path /mnt/disk::
-
-.. code-block:: yaml
+and mounted in the path /mnt/disk. The device parameter is optional and it is only needed in
+some cloud providers, in general is better not to add it::
 
     ...
 
@@ -234,8 +224,6 @@ For example, in the following code we assume that we have defined three computes
 We can create a placement group with two of them (compute_one and compute_two) and then set a placement policy with a cloud_id
 (that must be defined in the :ref:`auth-file`), and create a second placement policy where we can set a different cloud provider
 and, optionally, an availability zone::
-
-.. code-block:: yaml
 
     ...
 
