@@ -15,6 +15,8 @@ Basic example
 This TOSCA file describes a cloud topology with 1 VM with at least 2 CPUs and 2 GB of RAM connected with a public IP.
 As outputs the TOSCA files will return the public IP of the VM and the SSH credentials to access it::
 
+.. code-block:: yaml
+
     tosca_definitions_version: tosca_simple_yaml_1_0
 
     imports:
@@ -77,6 +79,7 @@ Basic properties
 
 Using the endpoint capability properties::
 
+.. code-block:: yaml
     ...
         simple_node:
           type: tosca.nodes.Compute
@@ -97,6 +100,8 @@ Possible network_name values:
 Furthermore the endpoint capability has a set of additional properties
 to set the DNS name of the VM or the set of ports to be accesible from
 outside::
+
+.. code-block:: yaml
 
     ...
 
@@ -119,6 +124,8 @@ Advanced properties
 Using ``tosca.nodes.network.Network`` and ``tosca.nodes.network.Port``. In this case
 the network definition is detailed setting the set of networks to use and the ports to 
 link the networks with the Compute nodes::
+
+.. code-block:: yaml
 
     ...
 
@@ -157,3 +164,95 @@ Port types have a set of additional properties (some of them are not normative):
   * dns_name: Primary DNS name.
   * additional_ip: (OpenStack specific)
   * additional_dns_names: Additional DNS names.
+
+
+Software Components
+^^^^^^^^^^^^^^^^^^^
+
+IM enable to use Ansible playbooks as implementation scripts. Furthermore it enables to specify
+Ansible roles (``tosca.artifacts.AnsibleGalaxy.role``) and collections (``tosca.artifacts.AnsibleGalaxy.collections``)
+to be installed and used in the playbooks::
+
+.. code-block:: yaml
+
+    ...
+
+    software:
+      type: tosca.nodes.SoftwareComponent
+      artifacts:
+        docker_role:
+          file: grycap.docker
+          type: tosca.artifacts.AnsibleGalaxy.role
+      requirements:
+        - host: simple_node 
+      interfaces:
+        Standard:
+          configure:
+            implementation: https://raw.githubusercontent.com/grycap/ec3/tosca/tosca/artifacts/dummy.yml
+            inputs:
+              some_input: { get_input: some_input }
+
+    ...
+
+Storage
+^^^^^^^
+
+IM enables the definition of BlockStorage volumes to be attached to the compute nodes.
+In this example we can see how to define a volume of 10GB to be attached to the compute node
+and mounted in the path /mnt/disk::
+
+.. code-block:: yaml
+
+    ...
+
+    simple_node:
+      type: tosca.nodes.Compute
+
+      ...
+
+      requirements:
+        - local_storage:
+            node: my_storage
+            relationship:
+              type: AttachesTo
+              properties:
+                location: /mnt/disk
+                device: hdb # optional
+
+    my_storage:
+      type: tosca.nodes.BlockStorage
+      properties:
+        size: 10GB
+
+    ...
+
+Policies & groups
+^^^^^^^^^^^^^^^^^
+
+IM enables the definition of the specific cloud provider where the Compute nodes will be deployed in an hybrid deployment.
+For example, in the following code we assume that we have defined three computes nodes (compute_one, compute_two and compute_three).
+We can create a placement group with two of them (compute_one and compute_two) and then set a placement policy with a cloud_id
+(that must be defined in the :ref:`auth-file`), and create a second placement policy where we can set a different cloud provider
+and, optionally, an availability zone::
+
+.. code-block:: yaml
+
+    ...
+
+    groups:
+      my_placement_group:
+        type: tosca.groups.Root
+        members: [ compute_one, compute_two ]
+
+    policies:
+      - deploy_group_on_cloudid:
+        type: tosca.policies.Placement
+        properties: { cloud_id: cloudid1 }
+        targets: [ my_placement_group ]
+
+      - deploy_on_cloudid:
+        type: tosca.policies.Placement
+        properties: { cloud_id: cloudid2, availability_zone: some_zone }
+        targets: [ compute_three ]
+
+    ...
