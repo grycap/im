@@ -106,7 +106,8 @@ Network properties
 Basic properties
 -----------------
 
-Using the endpoint capability properties::
+The easiest way to specify network requirements of the Compute node is sing the endpoint capability properties.
+For example the following example the compute node requests for a public IP::
 
     ...
         simple_node:
@@ -117,18 +118,17 @@ Using the endpoint capability properties::
                 network_name: PUBLIC
     ...
 
-Possible network_name values:
+Possible values of the ``network_name`` endpoint property:
 
   * PRIVATE: The Compute node does not requires a public IP. **This is the default behavior if no
     endpoint capability is defined**.
   * PUBLIC: The Compute node requires a public IP.
   * Network provider ID: As the `provider_id` network property in RADL
-    It specifies the name of the network in a specific Cloud provider
+    It defines the name of the network in a specific Cloud provider
     (see :ref:`_radl_network`):
 
 Furthermore the endpoint capability has a set of additional properties
-to set the DNS name of the VM or the set of ports to be accesible from
-outside::
+to set the DNS name of the node or the set of ports to be externally accesible::
 
     ...
 
@@ -148,8 +148,9 @@ outside::
 Advanced properties
 -------------------
 
-Using ``tosca.nodes.network.Network`` and ``tosca.nodes.network.Port``. In this case
-the network definition is detailed setting the set of networks to use and the ports to 
+In case that you need a more detailed definition of the networks, you can use the 
+``tosca.nodes.network.Network`` and ``tosca.nodes.network.Port`` TOSCA normative types.
+In this way you can define the set of networks needed in your topology using the ports to 
 link the networks with the Compute nodes::
 
     ...
@@ -163,6 +164,7 @@ link the networks with the Compute nodes::
       type: tosca.nodes.network.Port
       properties:
         order: 1
+        ip_address: X.X.X.X # optional to request specific IP
       requirements:
         - binding: simple_node
         - link: pub_network
@@ -182,12 +184,11 @@ link the networks with the Compute nodes::
 
     ...
 
-Port types have a set of additional properties (some of them are not normative):
 
-  * ip_address: Set a specific IP address.
-  * order: Network interface order.
-  * dns_name: Primary DNS name.
-  * additional_ip: (OpenStack specific)
+Custom defined Port type ``tosca.nodes.indigo.network.Port`` has a set of additional properties:
+
+  * dns_name: DNS name to assing to the network interface.
+  * additional_ip: (OpenStack specific) Additional IP to be allowed to the network interface.
   * additional_dns_names: Additional DNS names.
 
 
