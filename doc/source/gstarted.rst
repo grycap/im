@@ -69,10 +69,7 @@ Cloud providers:
    * **ora://<region>/<image-id>**, for Orange Flexible Engine images.
 
 See full information about RADL language at :ref:`RADL section <radl>`
- More RADL examples are available at the IM GitHub repo
-`examples folder <https://github.com/grycap/im/tree/master/examples>`_.
-
-
+ More RADL examples are available at the IM GitHub repo `examples folder <https://github.com/grycap/im/tree/master/examples>`_.
 
 TOSCA basic example
 ^^^^^^^^^^^^^^^^^^^
@@ -110,11 +107,8 @@ will look like this::
         node_creds:
           value: { get_attribute: [ simple_node, endpoint, credential, 0 ] }
 
-For more information about TOSCA see the 
-`OASIS TOSCA Simple Profile in YAML Version 1.0 <http://docs.oasis-open.org/tosca/TOSCA-Simple-Profile-YAML/v1.0/TOSCA-Simple-Profile-YAML-v1.0.html>`_.
-The TOSCA support has been developed under de framework of the `INDIGO DataCloud EU project <http://http://www.indigo-datacloud.eu>`_.
-You can see some input examples at 
-`https://github.com/indigo-dc/tosca-types/tree/master/examples <https://github.com/indigo-dc/tosca-types/tree/master/examples>`_.
+
+For more information about TOSCA see the :ref:`tosca` section.
 
 Basic IM Client usage
 ^^^^^^^^^^^^^^^^^^^^^
@@ -130,7 +124,14 @@ host you must specify the `-r` parameters to set the URL of the REST API::
     $ im_client.py -a auth.dat create input_file -r https://im.egi.eu/im
 
 To avoid putting this parameters on all the IM Client calls, create/edit the `im_client.cfg` file with the
-default options to use. See all the options at the :ref:`IM client manual page <inv-client>`.
+default options to use (see all the options at the :ref:`IM client manual page <inv-client>`). Create a file
+named im_client.cfg in the current directory with the following contents::
+
+	[im_client]
+	restapi_url=https://im.egi.eu/im
+	auth_file=auth.dat
+
+From now on, you can omit the ``-a`` and ``-r`` parameters since they are read from this config file.
 
 In this moment the IM client will contact the IM service to start the creation of the infrastructure. It will require
 some time depending on the number of VMs or the Cloud provider. Finally when all the VMs are created it will return a
