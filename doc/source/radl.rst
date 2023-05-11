@@ -164,6 +164,8 @@ The supported features are:
 ``credentials.private_key = '<private_key>'``
    Indicate the SSH private key.
 
+.. _radl_network:
+
 Network Features
 ----------------
 
@@ -200,8 +202,10 @@ The supported features are:
    
 ``provider_id = <string>``
    Indicate the name of the network in a specific Cloud provider.
+   If not set the IM will try to select the "default" option in the Cloud provider.
    In case of setting this field in a public network in an **OpenStack** deployment
-   it specifies the name of floating ip pool to get the external floating IP.
+   it specifies the name of floating ip pool to get the external floating IP. In case of
+   **Amazon EC2** this field follows the format ``vpc-id.subnet-id``.
    The default value is ``''``.
 
 ``create = 'yes|no'``
@@ -237,6 +241,8 @@ The supported features are:
    Set the private key to connect with the proxy host. If it is specified it overrides the
    password set in the ``proxy_host`` url.
    The default value is ``''``.
+
+.. _radl_system:
 
 System Features
 ---------------
