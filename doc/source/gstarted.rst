@@ -107,11 +107,8 @@ will look like this::
         node_creds:
           value: { get_attribute: [ simple_node, endpoint, credential, 0 ] }
 
-For more information about TOSCA see the 
-`OASIS TOSCA Simple Profile in YAML Version 1.0 <http://docs.oasis-open.org/tosca/TOSCA-Simple-Profile-YAML/v1.0/TOSCA-Simple-Profile-YAML-v1.0.html>`_.
-The TOSCA support has been developed under de framework of the `INDIGO DataCloud EU project <http://http://www.indigo-datacloud.eu>`_.
-You can see some input examples at 
-`https://github.com/indigo-dc/tosca-types/tree/master/examples <https://github.com/indigo-dc/tosca-types/tree/master/examples>`_.
+
+For more information about TOSCA see the :ref:`tosca` section.
 
 Basic IM Client usage
 ^^^^^^^^^^^^^^^^^^^^^
