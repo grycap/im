@@ -128,7 +128,14 @@ host you must specify the `-r` parameters to set the URL of the REST API::
     $ im_client.py -a auth.dat create input_file -r https://im.egi.eu/im
 
 To avoid putting this parameters on all the IM Client calls, create/edit the `im_client.cfg` file with the
-default options to use. See all the options at the :ref:`IM client manual page <inv-client>`.
+default options to use (see all the options at the :ref:`IM client manual page <inv-client>`). Create a file
+named im_client.cfg in the current directory with the following contents::
+
+	[im_client]
+	restapi_url=https://im.egi.eu/im
+	auth_file=auth.dat
+
+From now on, you can omit the -a and -r parameters as they are read from this config file.
 
 In this moment the IM client will contact the IM service to start the creation of the infrastructure. It will require
 some time depending on the number of VMs or the Cloud provider. Finally when all the VMs are created it will return a
