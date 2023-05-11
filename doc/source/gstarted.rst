@@ -69,8 +69,7 @@ Cloud providers:
    * **ora://<region>/<image-id>**, for Orange Flexible Engine images.
 
 See full information about RADL language at :ref:`RADL section <radl>`
- More RADL examples are available at the IM GitHub repo
-`examples folder <https://github.com/grycap/im/tree/master/examples>`_.
+ More RADL examples are available at the IM GitHub repo `examples folder <https://github.com/grycap/im/tree/master/examples>`_.
 
 TOSCA basic example
 ^^^^^^^^^^^^^^^^^^^
@@ -135,7 +134,7 @@ named im_client.cfg in the current directory with the following contents::
 	restapi_url=https://im.egi.eu/im
 	auth_file=auth.dat
 
-From now on, you can omit the -a and -r parameters as they are read from this config file.
+From now on, you can omit the -a and -r parameters since they are read from this config file.
 
 In this moment the IM client will contact the IM service to start the creation of the infrastructure. It will require
 some time depending on the number of VMs or the Cloud provider. Finally when all the VMs are created it will return a
