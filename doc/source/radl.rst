@@ -71,7 +71,7 @@ VMs can be attached to them.
 
 The ``ansible`` keyword enables the specification of external nodes that will act as the
 ansible master node to configure the VMs. These nodes must be connected in a
-network connected will all the VMs of the infrastructure.
+network with all the VMs of the infrastructure.
 
 The sentences under the keyword ``contextualize`` indicate the recipes that
 will be executed during the deployment of the virtual machine.
