@@ -43,8 +43,8 @@ An RADL document has the next general structure::
    deploy <system_id> <num> [<cloud_id>] 
 
 The ``description`` optional keyword can only appear once. It is an special keyword
-to add some medatada to the RADL. The list of features is free excepting the ``name``
-field that is used to the a name to the infrastructure. For instance::
+to add some medatada to the RADL. All features on the list are free, except for the ``name`` field. 
+The ``name`` field is a predefined but optional field used to assign a name to the infrastructure. For instance::
 
    description desc (
       name = 'Infrastructure Name' and
@@ -54,7 +54,7 @@ field that is used to the a name to the infrastructure. For instance::
 
 The keywords ``ansible``, ``network``, ``system`` and ``configure`` assign some *features*
 or *recipes* to an identity ``<id>``. The features are a list of constrains
-separated by ``and``, and a constrain is form by
+separated by ``and``, and a constrain is formed by
 ``<feature name> <operator> <value>``. For instance::
 
    system tomcat_node (
@@ -71,7 +71,7 @@ VMs can be attached to them.
 
 The ``ansible`` keyword enables the specification of external nodes that will act as the
 ansible master node to configure the VMs. These nodes must be connected in a
-network connected will all the VMs of the infrastructure.
+network with all the VMs of the infrastructure.
 
 The sentences under the keyword ``contextualize`` indicate the recipes that
 will be executed during the deployment of the virtual machine.
@@ -84,7 +84,7 @@ Use Cases
 ---------
 
 RADL is not limited to deploy different configurations of virtual machines
-easily. In many applications infrastructures need management during their life
+easily. In many applications, infrastructures need management during their life
 cycle, like deploying virtual machines with new features, changing the
 features of already deployed virtual machine and undeploying some of them.
 Next we detail valid RADL examples for every use.
@@ -153,7 +153,7 @@ master node with SSH.
 The supported features are:
 
 ``host = '<ip or hostname>'``
-   Indicate the hostname or IP to of the ansible node. 
+   Indicate the hostname or IP of the ansible node. 
    
 ``credentials.username = '<username>'``
    Indicate the SSH username. 
