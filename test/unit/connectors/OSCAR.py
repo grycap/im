@@ -129,7 +129,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                 gpu.count = 1 and
                 disk.0.image.url = 'grycap/oscar-theano-plants' and
                 script = 'plants.sh' and
-                environment.variables = ['a:b'] and
+                environment.variables = ['a:b', 'VAR:https://server'] and
                 input.0.provider = 'minio_id' and
                 input.0.path = '/input' and
                 input.0.suffix = ['*.txt'] and
@@ -161,7 +161,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                         "cpu": "1", "script": "plants.sh",
                         "enable_gpu": True,
                         "image": "grycap/oscar-theano-plants",
-                        "environment": {"Variables": {"a": "b"}},
+                        "environment": {"Variables": {"a": "b", "VAR": "https://server"}},
                         "input": [{"storage_provider": "minio_id",
                                   "path": "/input", "suffix": ["*.txt"]}],
                         "output": [{"storage_provider": "minio_id",

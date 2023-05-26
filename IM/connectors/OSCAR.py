@@ -123,7 +123,7 @@ class OSCARCloudConnector(CloudConnector):
         env_vars = {}
         for elem in radl_system.getValue("environment.variables", []):
             parts = elem.split(":")
-            env_vars[parts[0]] = parts[1]
+            env_vars[parts[0]] = ":".join(parts[1:])
         return env_vars
 
     @staticmethod
