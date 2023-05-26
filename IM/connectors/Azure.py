@@ -72,7 +72,7 @@ class AzureInstanceTypeInfo:
     """
 
     def __init__(self, name="", cpu=1, mem=0, os_disk_space=0, res_disk_space=0,
-                 gpu=0, gpu_model=None, gpu_vendor=None):
+                 gpu=0, gpu_model=None, gpu_vendor=None, sgx=False):
         self.name = name
         self.cpu = cpu
         self.mem = mem
@@ -81,6 +81,13 @@ class AzureInstanceTypeInfo:
         self.gpu = gpu
         self.gpu_model = gpu_model
         self.gpu_vendor = gpu_vendor
+        self.sgx = sgx
+
+    def set_sgx(self):
+        """Guess SGX from instance name"""
+        # https://learn.microsoft.com/en-us/azure/confidential-computing/virtual-machine-solutions-sgx
+        if self.name.startswith('Standard_DC'):
+            self.sgx = True
 
     def set_gpu_models(self):
         """Guess GPU models from instance name"""
@@ -134,6 +141,7 @@ class AzureInstanceTypeInfo:
                 gpu = int(elem.value)
         instance_type = AzureInstanceTypeInfo(sku.name, cpu, mem, os_disk_space, res_disk_space, gpu)
         instance_type.set_gpu_models()
+        instance_type.set_sgx()
         return instance_type
 
 
@@ -263,6 +271,7 @@ class AzureCloudConnector(CloudConnector):
         num_gpus = system.getValue('gpu.count')
         gpu_model = system.getValue('gpu.model')
         gpu_vendor = system.getValue('gpu.vendor')
+        sgx = system.getValue('cpu.sgx')
 
         instace_types = self.get_instance_type_list(credentials, subscription_id, location)
 
@@ -282,6 +291,8 @@ class AzureCloudConnector(CloudConnector):
                     return False
                 if gpu_model and gpu_model.lower() != instace_type.gpu_model.lower():
                     return False
+            if sgx == "yes" and not instace_type.sgx:
+                return False
 
             if comparison:
                 if not instance_type_name or instace_type.name == instance_type_name:
