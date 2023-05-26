@@ -1494,6 +1494,9 @@ class EC2CloudConnector(CloudConnector):
         if (instance is not None):
             instance.update()
             instance.stop()
+        else:
+            self.log_warn("Instance %s not found. Not stopping it." % instance_id)
+            return (False, "Instance %s not found." % instance_id)
 
         return (True, "")
 
@@ -1505,6 +1508,9 @@ class EC2CloudConnector(CloudConnector):
         if (instance is not None):
             instance.update()
             instance.start()
+        else:
+            self.log_warn("Instance %s not found. Not starting it." % instance_id)
+            return (False, "Instance %s not found." % instance_id)
 
         return (True, "")
 
@@ -1516,6 +1522,9 @@ class EC2CloudConnector(CloudConnector):
         if (instance is not None):
             instance.update()
             instance.reboot()
+        else:
+            self.log_warn("Instance %s not found. Not rebooting it." % instance_id)
+            return (False, "Instance %s not found." % instance_id)
 
         return (True, "")
 
