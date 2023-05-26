@@ -271,7 +271,7 @@ class AzureCloudConnector(CloudConnector):
         num_gpus = system.getValue('gpu.count')
         gpu_model = system.getValue('gpu.model')
         gpu_vendor = system.getValue('gpu.vendor')
-        sgx = radl.getValue('cpu.sgx')
+        sgx = system.getValue('cpu.sgx')
 
         instace_types = self.get_instance_type_list(credentials, subscription_id, location)
 
