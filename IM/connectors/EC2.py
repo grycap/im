@@ -720,6 +720,8 @@ class EC2CloudConnector(CloudConnector):
                 disk_type = "standard"
                 if system.getValue("disk.0.type"):
                     disk_type = system.getValue("disk.0.type")
+                    if disk_type == "SSD":
+                        disk_type = "gp3"
                 if system.getValue("disk.0.size"):
                     size = system.getFeature("disk.0.size").getValue('G')
                 bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type=disk_type,
