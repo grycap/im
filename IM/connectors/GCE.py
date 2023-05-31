@@ -488,7 +488,8 @@ class GCECloudConnector(LibCloudCloudConnector):
             boot_disk['initializeParams']['diskSizeGb'] = str(boot_disk_size)
         boot_disk_type = radl.systems[0].getValue("disk.0.type")
         if boot_disk_type and boot_disk_type != 'pd-standard':
-            boot_disk['initializeParams']['diskSizeGb'] = driver.ex_get_disktype('pd-standard', zone=location).extra['selfLink']
+            boot_disk['initializeParams']['diskSizeGb'] = driver.ex_get_disktype('pd-standard',
+                                                                                 zone=location).extra['selfLink']
 
         res = [boot_disk]
         cont = 1

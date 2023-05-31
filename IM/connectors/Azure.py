@@ -599,11 +599,11 @@ class AzureCloudConnector(CloudConnector):
                 raise Exception("Incorrect image url: it must be snapshot or disk.")
 
             os_disk_properties = {
-                    'location': location,
-                    'creation_data': {
-                        'create_option': DiskCreateOption.COPY,
-                        'source_resource_id': managed_disk.id
-                    }
+                'location': location,
+                'creation_data': {
+                    'create_option': DiskCreateOption.COPY,
+                    'source_resource_id': managed_disk.id
+                }
             }
 
             if boot_disk_size:
