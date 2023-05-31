@@ -595,16 +595,22 @@ class AzureCloudConnector(CloudConnector):
             else:
                 raise Exception("Incorrect image url: it must be snapshot or disk.")
 
+            os_disk_properties = {
+                'location': location,
+                'creation_data': {
+                    'create_option': DiskCreateOption.COPY,
+                    'source_resource_id': managed_disk.id
+                }
+            }
+
+            if system.getFeature("disk.0.size"):
+                boot_disk_size = system.getFeature("disk.0.size").getValue('G')
+                os_disk_properties['disk_size_gb'] = boot_disk_size
+
             async_creation = compute_client.disks.begin_create_or_update(
                 group_name,
                 os_disk_name,
-                {
-                    'location': location,
-                    'creation_data': {
-                        'create_option': DiskCreateOption.COPY,
-                        'source_resource_id': managed_disk.id
-                    }
-                }
+                os_disk_properties
             )
 
             self.log_info("Creating OS disk %s of type %s from disk: %s/%s/%s." % (os_disk_name,
