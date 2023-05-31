@@ -1040,10 +1040,10 @@ class Tosca:
                     ansible_task_name = "%s_%d" % (ansible_task_name, num)
                 ctxt_task[task_name]['tasks'][ansible_task_name] = {'state': None, 'output': None}
 
-                state_search = re.search("\n([a-z]+): \[.*\]", atask)
+                state_search = re.search(r"\n([a-z]+): \[.*\]", atask)
                 if state_search:
                     ctxt_task[task_name]['tasks'][ansible_task_name]['state'] = state_search.group(1)
-                output_search = re.search("\n[a-z]+: \[.*\] => \{", atask)
+                output_search = re.search(r"\n[a-z]+: \[.*\] => \{", atask)
                 if output_search:
                     output_endpos = atask.find("}\n", output_search.end(0))
                     output = atask[output_search.end(0) - 1:output_endpos + 1]
@@ -1709,6 +1709,7 @@ class Tosca:
             'credential': 'disk.0.os.credentials',
             'num_cpus': 'cpu.count',
             'disk_size': 'disk.0.size',
+            'disk_type': 'disk.0.type',
             'mem_size': 'memory.size',
             'cpu_frequency': 'cpu.performance',
             'instance_type': 'instance_type',
