@@ -585,6 +585,9 @@ class AzureCloudConnector(CloudConnector):
 
         os_type = system.getValue("disk.0.os.name")
         os_type = os_type if os_type else "Linux"
+        boot_disk_size = None
+        if system.getFeature("disk.0.size"):
+            boot_disk_size = system.getFeature("disk.0.size").getValue('G')
 
         if len(image_values) == 3:
             os_disk_name = "osdisk-" + str(uuid.uuid1())
@@ -595,16 +598,21 @@ class AzureCloudConnector(CloudConnector):
             else:
                 raise Exception("Incorrect image url: it must be snapshot or disk.")
 
+            os_disk_properties = {
+                'location': location,
+                'creation_data': {
+                    'create_option': DiskCreateOption.COPY,
+                    'source_resource_id': managed_disk.id
+                }
+            }
+
+            if boot_disk_size:
+                os_disk_properties['disk_size_gb'] = boot_disk_size
+
             async_creation = compute_client.disks.begin_create_or_update(
                 group_name,
                 os_disk_name,
-                {
-                    'location': location,
-                    'creation_data': {
-                        'create_option': DiskCreateOption.COPY,
-                        'source_resource_id': managed_disk.id
-                    }
-                }
+                os_disk_properties
             )
 
             self.log_info("Creating OS disk %s of type %s from disk: %s/%s/%s." % (os_disk_name,
@@ -640,6 +648,10 @@ class AzureCloudConnector(CloudConnector):
                     'delete_option': DeleteOptions.DELETE
                 }
             }
+
+            if boot_disk_size:
+                vm['storage_profile']['os_disk']['disk_size_gb'] = boot_disk_size
+
             vm['os_profile'] = {
                 'computer_name': vm_name,
                 'admin_username': user_credentials.username,
