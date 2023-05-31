@@ -483,8 +483,8 @@ class GCECloudConnector(LibCloudCloudConnector):
             }
         }
 
-        boot_disk_size = radl.systems[0].getFeature("disk.0.size").getValue('G')
-        if boot_disk_size:
+        if radl.systems[0].getFeature("disk.0.size"):
+            boot_disk_size = radl.systems[0].getFeature("disk.0.size").getValue('G')
             boot_disk['initializeParams']['diskSizeGb'] = str(boot_disk_size)
         boot_disk_type = radl.systems[0].getValue("disk.0.type")
         if boot_disk_type and boot_disk_type != 'pd-standard':
