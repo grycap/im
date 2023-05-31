@@ -305,7 +305,7 @@ class AppDBIS:
 
         res_systems = []
         for image in images:
-            app_name_reg = ".*%s.* \[%s\/%s\/.*]" % (name.lower(), distribution.lower(), version)
+            app_name_reg = r".*%s.* \[%s\/%s\/.*]" % (name.lower(), distribution.lower(), version)
             if not re.search(app_name_reg, image['entityName'].lower()):
                 continue
 
@@ -359,7 +359,7 @@ class AppDBIS:
 
         res = []
         for image in images:
-            app_name_reg = ".*%s.* \[%s\/%s\/.*]" % (app.lower(), distribution.lower(), version)
+            app_name_reg = r".*%s.* \[%s\/%s\/.*]" % (app.lower(), distribution.lower(), version)
             if not re.search(app_name_reg, image['entityName'].lower()):
                 continue
 
