@@ -1709,6 +1709,7 @@ class Tosca:
             'credential': 'disk.0.os.credentials',
             'num_cpus': 'cpu.count',
             'disk_size': 'disk.0.size',
+            'disk_type': 'disk.0.type',
             'mem_size': 'memory.size',
             'cpu_frequency': 'cpu.performance',
             'instance_type': 'instance_type',
