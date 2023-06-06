@@ -178,7 +178,7 @@ The :program:`im_client` is called like this::
       associated to the infrastructure with ID ``vmId``, using the RADL
       specification in file with path ``radlfile``.
 
-   ``reconfigure radl_file infId vm_list``
+   ``reconfigure infId radl_file vm_list``
       Reconfigure the infrastructure with ID ``infId`` and also update the
       configuration data specified in the optional ``radl_file``. The last  ``vm_list`` 
       parameter is optional and is a list integers specifying the IDs of the VMs to reconfigure.
