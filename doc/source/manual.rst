@@ -25,6 +25,24 @@ Or you can also add a volume with all the IM configuration::
 
   $ sudo docker run -d -p 8899:8899 -p 8800:8800 -v "/some_local_path/im.cfg:/etc/im/im.cfg" --name im grycap/im
 
+
+Kubernetes Helm Chart
+=====================
+
+The IM service and web interface can be installed on top of Kubernetes using Helm.
+
+How to install the IM chart:
+
+First add the GRyCAP repo::
+
+  $ helm repo add grycap https://grycap.github.io/helm-charts/
+
+Then install the IM chart (with Helm v3)::
+
+  $ helm install --namespace=im --create-namespace im  grycap/IM
+
+All the information about this chart is available at the `IM chart README <https://github.com/grycap/helm-charts/blob/master/IM/README.md>`_.
+
 IM Service Installation
 =======================
 
