@@ -635,18 +635,21 @@ class CloudConnector(LoggerMixin):
         Returns: an RADL system or None if no changes are made
         """
         orig_system = vm.info.systems[0].clone()
-        new_cpu = radl.systems[0].getValue('cpu.count')
+        new_cpu = radl.systems[0].getFeature('cpu.count')
         if new_cpu:
-            orig_system.setValue('cpu.count', new_cpu)
-        new_memory = radl.systems[0].getValue('memory.size')
+            orig_system.delValue('cpu.count')
+            orig_system.addFeature(new_cpu)
+        new_memory = radl.systems[0].getFeature('memory.size')
         if new_memory:
-            orig_system.setValue('memory.size', new_memory)
+            orig_system.delValue('memory.size')
+            orig_system.addFeature(new_memory)
         instance_type = radl.systems[0].getValue('instance_type')
         if instance_type is not None:
             orig_system.setValue('instance_type', instance_type)
-        new_gpu = radl.systems[0].getValue('gpu.count')
+        new_gpu = radl.systems[0].getFeature('gpu.count')
         if new_gpu:
-            orig_system.setValue('gpu.count', new_gpu)
+            orig_system.delValue('gpu.count')
+            orig_system.addFeature(new_gpu)
 
         if any([new_cpu, new_memory, instance_type, new_gpu]):
             return orig_system
