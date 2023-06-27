@@ -1,0 +1,269 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+imports:
+  - ec3_custom_types: https://raw.githubusercontent.com/grycap/ec3/tosca/tosca/custom_types.yaml
+
+description: Launch full Radiomics workflow as OSCAR functions
+
+topology_template:
+  inputs:
+    os_image:
+      type: string
+      description: OS Image
+      default: "one://ramses.i3m.upv.es/1396"
+
+    cluster_name:
+      type: string
+      description: Cluster Name
+      default: "oscar-radiomics"
+    domain_name:
+      type: string
+      description: Domain Name
+      default: "im.grycap.net"
+
+    wn_num:
+      type: integer
+      description: Number of WNs in the oscar cluster
+      default: 4
+      required: yes
+
+    fe_cpus:
+      type: integer
+      description: Number of CPUs for the front-end node
+      default: 4
+      required: yes
+    fe_mem:
+      type: scalar-unit.size
+      description: Amount of Memory for the front-end node
+      default: 4 GB
+      required: yes
+    fe_instance_type:
+      type: string
+      description: Flavor name of the front-end node. Only required in case of special flavors (i.e. with GPUs)
+      default: ""
+    wn_cpus:
+      type: integer
+      description: Number of CPUs for the WNs
+      default: 8
+      required: yes
+    wn_mem:
+      type: scalar-unit.size
+      description: Amount of Memory for the WNs
+      default: 8 GB
+      required: yes
+    wn_instance_type:
+      type: string
+      description: Flavor name of the WN node. Only required in case of special flavors (i.e. with GPUs)
+      default: ""
+
+    storage_size:
+      type: string
+      description: Size of the extra HD added to the instance
+      default: 30 GB
+      required: yes
+
+    admin_token:
+      type: string
+      description: Access Token for the Kubernetes admin user
+      default: xxxxxxxxxx
+    oscar_password:
+      type: string
+      description: OSCAR password
+      default: xxxxxxxxxx
+    minio_password:
+      type: string
+      description: MinIO password (8 characters min.)
+      default: xxxxxxxxxx
+      constraints:
+        - min_length: 8
+    cert_user_email:
+      type: string
+      description: Email to be used in the Let's Encrypt issuer
+      default: "xxxx@xxxx.xxx"
+
+
+  node_templates:
+
+    radiomicsanon_service:
+      type: tosca.nodes.aisprint.FaaS.Function
+      properties:
+        name: radiomicsanon
+        memory: 128 MB
+        script: |
+          FILE_NAME=$(basename $INPUT_FILE_PATH)
+          OUTPUT_FILE=$TMP_OUTPUT_DIR/A_$FILE_NAME
+          python anonymise.py -i $INPUT_FILE_PATH -o $OUTPUT_FILE
+        cpu: 1
+        image: grycap/radiomics:anonymise_arm64_v2
+        input:
+          - storage_provider: minio.default
+            path: radiomicsin
+        output:
+          - storage_provider: minio.oscar-radiomics
+            path: anonymise
+        storage_providers:
+          minio:
+            oscar-radiomics:
+              access_key: minio
+              endpoint: https://minio.oscar-radiomics.im.grycap.net
+              region: us-east-1
+              secret_key: xxxxxxxxxx
+
+    radiomicsprep_service:
+      type: tosca.nodes.aisprint.FaaS.Function
+      properties:
+        name: radiomicsprep
+        memory: 0.9 GB
+        script: |
+          FILE_NAME=$(basename $INPUT_FILE_PATH)
+          OUTPUT_FILE=$TMP_OUTPUT_DIR/P_$FILE_NAME
+          python doppler_segmentation.py -i $INPUT_FILE_PATH -o $OUTPUT_FILE
+        cpu: 1
+        image: grycap/radiomics:preparation
+        input:
+          - storage_provider: minio.default
+            path: anonymise
+        output:
+          - storage_provider: s3.scar
+            path: scar-micafer/input
+        storage_providers:
+          s3:
+            scar:
+              access_key: AK
+              region: us-east-1
+              secret_key: xxxxxxxxxx
+      requirements:
+        - host: oscar
+  
+    radiomicsanalysis_service:
+      type: tosca.nodes.aisprint.FaaS.Function
+      properties:
+        name: micafer-radiomics
+        memory: 1 GB
+        script: script.sh
+        image: 974349055189.dkr.ecr.us-east-1.amazonaws.com/scar-radiomics-analysis
+        input:
+          - storage_provider: s3
+            path: scar-micafer/input
+        output:
+          - storage_provider: s3
+            path: scar-micafer/output
+
+    oscar:
+      type: tosca.nodes.indigo.OSCAR
+      properties:
+        minio_secretkey: { get_input: minio_password }
+        password: { get_input: oscar_password }
+        dns_host: { concat: [ get_input: cluster_name, '.', get_input: domain_name ] }
+        minio_dns_host: { concat: [ "minio.", get_input: cluster_name, '.', get_input: domain_name ] }
+        minio_dns_host_console: { concat: [ "console.minio.", get_input: cluster_name, '.', get_input: domain_name ] }
+        oidc_enable: false
+      capabilities:
+        endpoint:
+          properties:
+            ports:
+              http_port:
+                protocol: tcp
+                source: 80
+              https_port:
+                protocol: tcp
+                source: 443
+              minio_port:
+                protocol: tcp
+                source: 30300
+      requirements:
+        - host: lrms_front_end
+
+    lrms_front_end:
+      type: tosca.nodes.indigo.LRMS.FrontEnd.Kubernetes
+      capabilities:
+        endpoint:
+          properties:
+            port: 30443
+            protocol: tcp
+      properties:
+        admin_username:  kubeuser
+        admin_token: { get_input: admin_token }
+        install_kubeapps:  false
+        install_metrics: true
+        install_nfs_client: true
+        install_ingress: true
+        version: 1.23.6
+        cert_manager: true
+        cert_user_email: { get_input: cert_user_email }
+        public_dns_name: { concat: [ get_input: cluster_name, '.', get_input: domain_name ] }
+        cri_runtime: containerd
+      requirements:
+        - host: front
+
+    front:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        endpoint:
+          properties:
+            dns_name: kubeserver
+            additional_dns_names:
+            - { concat: [ get_input: cluster_name, '@', get_input: domain_name ] }
+            - { concat: [ "minio.", get_input: cluster_name, '@', get_input: domain_name ] }
+            - { concat: [ "console.minio.", get_input: cluster_name, '@', get_input: domain_name ] }
+            network_name: PUBLIC
+        host:
+          properties:
+            num_cpus: { get_input: fe_cpus }
+            mem_size: { get_input: fe_mem }
+            instance_type: { get_input: fe_instance_type }
+        os:
+          properties:
+            distribution: ubuntu
+            type: linux
+            image: { get_input: os_image }
+      requirements:
+        - local_storage:
+            node: my_block_storage
+            capability: tosca.capabilities.Attachment
+            relationship:
+              type: tosca.relationships.AttachesTo
+              properties:
+                location: /pv
+                device: hdb
+
+    my_block_storage:
+      type: tosca.nodes.BlockStorage
+      properties:
+        size: { get_input: storage_size }
+
+    wn_node:
+      type: tosca.nodes.indigo.LRMS.WorkerNode.Kubernetes
+      properties:
+        front_end_ip: { get_attribute: [ front, private_address, 0 ] }
+        version: 1.23.6
+        cri_runtime: containerd
+      requirements:
+        - host: wn
+
+    wn:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        scalable:
+          properties:
+            count:  { get_input: wn_num }
+        host:
+          properties:
+            num_cpus: { get_input: wn_cpus }
+            mem_size: { get_input: wn_mem }
+            instance_type: { get_input: wn_instance_type }
+        os:
+          properties:
+            distribution: ubuntu
+            type: linux
+            image: { get_input: os_image }
+
+  outputs:
+    dashboard_endpoint:
+      value: { concat: [ 'https://', get_input: cluster_name, '.', get_input: domain_name , '/dashboard/' ] }
+    local_oscarui_endpoint:
+      value: { concat: [ 'https://', get_input: cluster_name, '.', get_input: domain_name , '/' ] }
+    minio_endpoint:
+      value: { concat: [ 'https://minio.', get_input: cluster_name, '.', get_input: domain_name, '/' ] }
+    console_minio_endpoint:
+      value: { concat: [ 'https://console.minio.', get_input: cluster_name, '.', get_input: domain_name, '/' ] }
