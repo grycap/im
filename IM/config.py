@@ -117,6 +117,7 @@ class Config:
     ENABLE_CORS = False
     CORS_ORIGIN = '*'
     VAULT_URL = None
+    VAULT_MOUNT_POINT = None
     VAULT_PATH = None
     VAULT_ROLE = None
     VM_TAG_USERNAME = None
