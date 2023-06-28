@@ -602,7 +602,14 @@ get the all the credential values from the configured Vault server.
 
 .. confval:: VAULT_PATH 
 
-   Configured path of the KV (ver 1) secret. 
+   Configured path of the KV (ver 1) secret.
+   This field has one special substitution value: ``#USER_SUB#`` that is replaced by the user
+   ID obtained from the OpenID token provided.
+   The default value is ``vault_entity_id``.
+
+.. confval:: VAULT_MOUNT_POINT
+
+   Configured mount point of the KV (ver 1) secret.
    The default value is ``'credentials/'``.
 
 .. confval:: VAULT_ROLE 
