@@ -30,6 +30,7 @@ from IM import get_ex_error
 from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
 from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
+from IM.openid.JWT import JWT
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -237,6 +238,11 @@ def get_auth_header():
         vault_auth = {"type": "Vault", "host": Config.VAULT_URL, "token": token}
         if Config.VAULT_PATH:
             vault_auth["path"] = Config.VAULT_PATH
+        if "#USER_SUB#" in Config.VAULT_PATH:
+            decoded_token = JWT().get_info(token)
+            vault_auth["path"] = Config.VAULT_PATH.replace("#USER_SUB#", decoded_token.get("sub"))
+        if Config.VAULT_MOUNT_POINT:
+            vault_auth["mount_point"] = Config.VAULT_MOUNT_POINT
         if Config.VAULT_ROLE:
             vault_auth["role"] = Config.VAULT_ROLE
         return Authentication([im_auth, vault_auth])
