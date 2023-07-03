@@ -335,7 +335,7 @@ OpenStack has a set of additional fields to access a cloud site:
 * ``domain`` the domain name associated to the credential. The default value is: ``Default``.
 
 * ``auth_version`` the auth version used to connect with the Keystone server.
-  The possible values are: ``2.0_password``, ``2.0_voms``, ``3.x_password`` or ``3.x_oidc_access_token``.
+  The possible values are: ``2.0_password``, ``2.0_voms``, ``3.x_password``, ``3.x_appcred`` or ``3.x_oidc_access_token``.
   The default value is ``2.0_password``.
 
 * ``api_version`` the api version used to connect with nova endpoint.
@@ -388,6 +388,20 @@ some of the previous parameters has a diferent meaning:
 So the auth line will be like that::
 
    id = ost; type = OpenStack; host = https://ostserver:5000; username = indentity_provider; tenant = oidc; password = access_token_value; auth_version = 3.x_oidc_access_token
+
+
+Application Credentials OpenStack sites
+++++++++++++++++++++++++++++++++++++++++
+
+To connect with OpenStack sites that supports `Application Credentials <https://docs.openstack.org/keystone/queens/user/application_credentials.html>`_
+some of the previous parameters has a diferent meaning:
+
+* username: Specifies the application credential ID.
+* password: Specifies the application credential secret.
+
+So the auth line will be like that::
+
+   id = ost; type = OpenStack; host = https://ostserver:5000; username = application_credential_id; password = application_credential_secret; auth_version = 3.x_appcred
 
 
 INDIGO specific parameters
