@@ -4,7 +4,7 @@ copyright = '2023, I3M-GRyCAP'
 author = 'micafer'
 
 version = '1.14'
-release = '1.14.0'
+release = '1.14.1'
 
 master_doc = 'index'
 
