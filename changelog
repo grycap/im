@@ -737,3 +737,9 @@ IM 1.14.0:
     * Enhance proxy host support in contextualization.
     * Enable to install ansible collections.
     * Enable to use wildcards in the instance type
+
+IM 1.14.1:
+    * Fix error resizing VMs.
+    * Enable to set root disk size in EC2, Azure and GCE conns.
+    * Return error if instance is not get in stop, start, reboot ops in EC2 conn
+    * Fix error in OSCAR or Lambda cons with env variables with ":".

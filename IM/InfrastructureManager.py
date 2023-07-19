@@ -690,7 +690,7 @@ class InfrastructureManager:
         error_msg = ""
         # Add the new virtual machines to the infrastructure
         sel_inf.update_radl(radl, deployed_vm, False)
-        if all_failed:
+        if all_failed and new_vms:
             InfrastructureManager.logger.error("VMs failed when adding to Inf ID: %s" % sel_inf.id)
             sel_inf.add_cont_msg("All VMs failed. No contextualize.")
 
