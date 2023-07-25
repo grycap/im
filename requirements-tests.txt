@@ -33,3 +33,4 @@ psutil
 scar
 nose
 mock
+coverage
