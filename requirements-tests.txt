@@ -31,3 +31,4 @@ pyVmomi
 hvac
 psutil
 scar
+nose
