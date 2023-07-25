@@ -35,7 +35,7 @@ def retry(ExceptionToCheck, ExceptionToAvoid, tries=4, delay=3, backoff=2, logge
                 try:
                     return f(*args, **kwargs)
                 except ExceptionToAvoid as a:
-                    raise(a)
+                    raise (a)
                 except ExceptionToCheck as e:
                     if not quiet:
                         msg = "%s, Retrying in %d seconds..." % (

@@ -393,7 +393,7 @@ class InfrastructureInfo:
         except Exception as ex:
             # If something is not correct restore the original one and raise the error
             self.radl = original_radl
-            raise(ex)
+            raise (ex)
 
     def complete_radl(self, radl):
         """
