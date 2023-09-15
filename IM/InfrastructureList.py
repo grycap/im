@@ -64,11 +64,18 @@ class InfrastructureList():
             # In this case only loads the auth data to improve performance
             inf_ids = []
             for inf_id in InfrastructureList._get_inf_ids_from_db():
-                res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
-                if res:
-                    inf = res[inf_id]
-                    if inf and inf.is_authorized(auth):
-                        inf_ids.append(inf.id)
+                inf = None
+                # Check if the infrastructure is in memory
+                if (inf_id in InfrastructureList.infrastructure_list and
+                        not InfrastructureList.infrastructure_list[inf_id].has_expired()):
+                    inf = InfrastructureList.infrastructure_list[inf_id]
+                else:
+                    # If not read it from DB
+                    res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
+                    if res:
+                        inf = res[inf_id]
+                if inf and inf.is_authorized(auth):
+                    inf_ids.append(inf.id)
             return inf_ids
         else:
             return InfrastructureList._get_inf_ids_from_db()
