@@ -20,7 +20,6 @@ import json
 sys.path.append("..")
 sys.path.append(".")
 
-from IM.InfrastructureList import InfrastructureList
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.db import DataBase
 from IM.auth import Authentication
@@ -71,7 +70,9 @@ if __name__ == "__main__":
                 db.execute("ALTER TABLE `inf_list` ADD COLUMN `auth` BLOB;")
 
             infs = []
-            for inf_id in InfrastructureList._get_inf_ids_from_db(get_all=True):
+            res = db.select("select id from inf_list order by rowid desc")
+            for elem in res:
+                inf_id = elem[0]
                 try:
                     inf = get_data_from_db(db, inf_id)
                     print(inf_id)

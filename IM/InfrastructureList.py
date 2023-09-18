@@ -248,7 +248,7 @@ class InfrastructureList():
             return None
 
     @staticmethod
-    def _gen_where_from_auth(auth, get_all):
+    def _gen_where_from_auth(auth):
         like = ""
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
@@ -259,13 +259,11 @@ class InfrastructureList():
 
         if like:
             return "where deleted = 0 and (" + like + ")"
-        elif get_all:
-            return ""
         else:
             return "where deleted = 0"
 
     @staticmethod
-    def _gen_filter_from_auth(auth, get_all):
+    def _gen_filter_from_auth(auth):
         like = ""
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
@@ -276,22 +274,20 @@ class InfrastructureList():
 
         if like:
             return {"deleted": 0, "auth": {"$regex": like}}
-        elif get_all:
-            return {}
         else:
             return {"deleted": 0}
 
     @staticmethod
-    def _get_inf_ids_from_db(auth=None, get_all=False):
+    def _get_inf_ids_from_db(auth=None):
         try:
             db = DataBase(Config.DATA_DB)
             if db.connect():
                 inf_list = []
                 if db.db_type == DataBase.MONGO:
-                    filt = InfrastructureList._gen_filter_from_auth(auth, get_all)
+                    filt = InfrastructureList._gen_filter_from_auth(auth)
                     res = db.find("inf_list", filt, {"id": True}, [('id', -1)])
                 else:
-                    where = InfrastructureList._gen_where_from_auth(auth, get_all)
+                    where = InfrastructureList._gen_where_from_auth(auth)
                     res = db.select("select id from inf_list %s order by rowid desc" % where)
                 for elem in res:
                     if db.db_type == DataBase.MONGO:
