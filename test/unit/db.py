@@ -63,7 +63,7 @@ class TestDataBase(unittest.TestCase):
 
         db.close()
 
-    @patch('IM.db.MongoClient') 
+    @patch('IM.db.MongoClient')
     def test_mongo_db(self, mongo):
         client = MagicMock()
         mongo.return_value = client
