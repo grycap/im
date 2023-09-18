@@ -4,6 +4,7 @@ import yaml
 import copy
 import operator
 import requests
+import requests_cache
 import json
 import re
 from toscaparser.nodetemplate import NodeTemplate
@@ -41,6 +42,7 @@ class Tosca:
     logger = logging.getLogger('InfrastructureManager')
 
     def __init__(self, yaml_str, verify=True):
+        requests_cache.install_cache('tosca_cache', cache_control=True)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
         self.yaml = yaml.safe_load(yaml_str)
         if not verify:
