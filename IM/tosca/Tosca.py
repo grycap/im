@@ -1993,6 +1993,9 @@ class Tosca:
                 elif prop.name == 'enable_gpu':
                     if value:
                         res.setValue('gpu.count', 1)
+                elif prop.name == 'enable_sgx':
+                    if value:
+                        res.setValue('cpu.sgx', 1)
                 elif prop.name == 'memory':
                     if not value.endswith("B"):
                         value += "B"
@@ -2023,6 +2026,10 @@ class Tosca:
                                              'verify', 'oneprovider_host', 'token', 'space']:
                                     if provider.get(elem):
                                         res.setValue("%s.%s" % (provider_pref, elem), provider.get(elem))
+                elif prop.name == 'exposed':
+                    for elem in ["min_scale", "max_scale", "port", "cpu_threshold"]:
+                        if elem in value:
+                            res.setValue("expose.%s" % elem, value)
                 else:
                     # this should never happen
                     Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)

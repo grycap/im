@@ -138,6 +138,8 @@ class OSCARCloudConnector(CloudConnector):
             service["cpu"] = "%g" % radl_system.getValue("cpu.count")
         if radl_system.getValue("gpu.count"):
             service["enable_gpu"] = True
+        if radl_system.getValue("cpu.sgx"):
+            service["enable_sgx"] = True
         if radl_system.getValue("script"):
             service["script"] = radl_system.getValue("script")
         if radl_system.getValue("alpine"):
@@ -147,6 +149,13 @@ class OSCARCloudConnector(CloudConnector):
             if not isinstance(secrets, list):
                 secrets = [secrets]
             service["image_pull_secrets"] = secrets
+
+        expose = {}
+        for elem in ["min_scale", "max_scale", "port", "cpu_threshold"]:
+            if radl_system.getValue("expose.%s" % elem):
+                expose[elem] = radl_system.getValue("expose.%s" % elem)
+        if expose:
+            service["expose"] = expose
 
         if radl_system.getValue("disk.0.image.url"):
             url_image = urlparse(radl_system.getValue("disk.0.image.url"))
