@@ -254,11 +254,11 @@ class InfrastructureList():
             for elem in auth.getAuthInfo('InfrastructureManager'):
                 if elem.get("username"):
                     if like:
-                        like += " and "
+                        like += " or "
                     like += "auth like '%%" + elem.get("username") + "%%'"
 
         if like:
-            return "where deleted = 0 and auth is null or (" + like + ")"
+            return "where deleted = 0 and (" + like + ")"
         elif get_all:
             return ""
         else:
