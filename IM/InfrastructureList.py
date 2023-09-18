@@ -188,7 +188,8 @@ class InfrastructureList():
                     if db.db_type == DataBase.MONGO:
                         res = db.find("inf_list", {"deleted": 0}, {data_field: True, "deleted": True}, [('_id', -1)])
                     else:
-                        res = db.select("select " + data_field + ",deleted from inf_list where deleted = 0 order by rowid desc")
+                        res = db.select("select " + data_field + ",deleted from inf_list where deleted = 0"
+                                        " order by rowid desc")
                 if len(res) > 0:
                     for elem in res:
                         if db.db_type == DataBase.MONGO:
@@ -285,8 +286,8 @@ class InfrastructureList():
             if db.connect():
                 inf_list = []
                 if db.db_type == DataBase.MONGO:
-                    filter = InfrastructureList._gen_filter_from_auth(auth, get_all)
-                    res = db.find("inf_list", filter, {"id": True}, [('id', -1)])
+                    filt = InfrastructureList._gen_filter_from_auth(auth, get_all)
+                    res = db.find("inf_list", filt, {"id": True}, [('id', -1)])
                 else:
                     where = InfrastructureList._gen_where_from_auth(auth, get_all)
                     res = db.select("select id from inf_list %s order by rowid desc" % where)
