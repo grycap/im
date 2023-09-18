@@ -36,6 +36,7 @@ class Tosca:
 
     ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/artifacts"
     ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/"
+    GET_TIMEOUT = 20
 
     logger = logging.getLogger('InfrastructureManager')
 
@@ -796,7 +797,7 @@ class Tosca:
                 if implementation_url[0] in ['http', 'https', 'ftp']:
                     script_path = implementation_url[2]
                     try:
-                        resp = requests.get(implementation)
+                        resp = requests.get(implementation, timeout=self.GET_TIMEOUT)
                         script_content = resp.text
                         if resp.status_code != 200:
                             raise Exception(resp.reason + "\n" + resp.text)
@@ -814,7 +815,7 @@ class Tosca:
                         f.close()
                     else:
                         try:
-                            resp = requests.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation)
+                            resp = requests.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation, timeout=self.GET_TIMEOUT)
                             script_content = resp.text
                             if resp.status_code != 200:
                                 raise Exception(resp.reason + "\n" + resp.text)
