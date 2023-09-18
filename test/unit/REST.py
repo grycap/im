@@ -30,7 +30,6 @@ from radl.radl_parse import parse_radl
 sys.path.append("..")
 sys.path.append(".")
 
-from IM.tosca.Tosca import Tosca
 from IM.config import Config
 from IM import __version__ as version
 from IM.InfrastructureManager import (DeletedInfrastructureException,
