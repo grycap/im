@@ -77,7 +77,10 @@ if __name__ == "__main__":
                     print(inf_id)
                     if inf:
                         auth = inf.auth.serialize()
-                        res = db.execute("UPDATE `inf_list` SET `auth` = %s WHERE id = %s", (auth, inf_id))
+                        if db.db_type == DataBase.MONGO:
+                            res = db.update("inf_list", {"id": inf_id}, {"auth": auth})
+                        else:
+                            res = db.execute("UPDATE `inf_list` SET `auth` = %s WHERE id = %s", (auth, inf_id))
                 except Exception as e:
                     sys.stderr.write("Error updating auth field in Inf ID: %s. Ignoring.\n" % inf_id)
         else:

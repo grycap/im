@@ -63,7 +63,7 @@ class TestDataBase(unittest.TestCase):
 
         db.close()
 
-    @patch('IM.db.MongoClient')
+    @patch('IM.db.MongoClient') 
     def test_mongo_db(self, mongo):
         client = MagicMock()
         mongo.return_value = client
@@ -87,6 +87,10 @@ class TestDataBase(unittest.TestCase):
         res = db.replace('table', {}, {'id': 1, 'data': 'test1'})
         self.assertTrue(res)
         self.assertEqual(table.replace_one.call_args_list[0][0], ({}, {'data': 'test1', 'id': 1}, True))
+
+        res = db.update('table', {'id': 1}, {'data': 'test1'})
+        self.assertTrue(res)
+        self.assertEqual(table.update_one.call_args_list[0][0], ({'id': 1}, {'data': 'test1'}, True))
 
         table.find.return_value = [{'id': 2, 'data': 'test2', '_id': 2}]
         res = db.find('table', {'id': 2}, {'data': True})
