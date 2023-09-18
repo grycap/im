@@ -126,6 +126,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                 name = 'plants' and
                 memory.size = 2G and
                 cpu.count = 1.0 and
+                cpu.sgx = 1 and
                 gpu.count = 1 and
                 disk.0.image.url = 'grycap/oscar-theano-plants' and
                 script = 'plants.sh' and
@@ -139,7 +140,11 @@ class TestOSCARConnector(TestCloudConnectorBase):
                 minio.0.endpoint = 'https://minio.com' and
                 minio.0.region = 'mregion' and
                 minio.0.access_key = 'AK' and
-                minio.0.secret_key = 'SK'
+                minio.0.secret_key = 'SK' and
+                expose.min_scale = 1 and
+                expose.max_scale = 2 and
+                expose.port = 8080 and
+                expose.cpu_threshold = 70
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -160,6 +165,8 @@ class TestOSCARConnector(TestCloudConnectorBase):
         expected_res = {"name": "plants", "memory": "2048Mi",
                         "cpu": "1", "script": "plants.sh",
                         "enable_gpu": True,
+                        "enable_sgx": True,
+                        "expose": {"cpu_threshold": 70, "max_scale": 2, "min_scale": 1, "port": 8080},
                         "image": "grycap/oscar-theano-plants",
                         "environment": {"Variables": {"a": "b", "VAR": "https://server"}},
                         "input": [{"storage_provider": "minio_id",

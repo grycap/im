@@ -19,6 +19,7 @@ topology_template:
           echo "Hola"
         cpu: 0.5
         enable_gpu: true
+        enable_sgx: true
         image: grycap/image
         input:
           - storage_provider: minio.default
