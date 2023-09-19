@@ -816,7 +816,8 @@ class Tosca:
                         f.close()
                     else:
                         try:
-                            resp = self.cache_session.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation, timeout=self.GET_TIMEOUT)
+                            resp = self.cache_session.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation,
+                                                          timeout=self.GET_TIMEOUT)
                             script_content = resp.text
                             if resp.status_code != 200:
                                 raise Exception(resp.reason + "\n" + resp.text)
