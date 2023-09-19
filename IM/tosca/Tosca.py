@@ -3,7 +3,6 @@ import logging
 import yaml
 import copy
 import operator
-import requests
 import requests_cache
 import json
 import re
@@ -42,7 +41,7 @@ class Tosca:
     logger = logging.getLogger('InfrastructureManager')
 
     def __init__(self, yaml_str, verify=True):
-        requests_cache.install_cache('tosca_cache', cache_control=True, expire_after=3600)
+        self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
         self.yaml = yaml.safe_load(yaml_str)
         if not verify:
@@ -799,7 +798,7 @@ class Tosca:
                 if implementation_url[0] in ['http', 'https', 'ftp']:
                     script_path = implementation_url[2]
                     try:
-                        resp = requests.get(implementation, timeout=self.GET_TIMEOUT)
+                        resp = self.cache_session.get(implementation, timeout=self.GET_TIMEOUT)
                         script_content = resp.text
                         if resp.status_code != 200:
                             raise Exception(resp.reason + "\n" + resp.text)
@@ -817,7 +816,7 @@ class Tosca:
                         f.close()
                     else:
                         try:
-                            resp = requests.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation, timeout=self.GET_TIMEOUT)
+                            resp = self.cache_session.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation, timeout=self.GET_TIMEOUT)
                             script_content = resp.text
                             if resp.status_code != 200:
                                 raise Exception(resp.reason + "\n" + resp.text)
