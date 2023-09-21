@@ -298,6 +298,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("memory.size"), 512000000)
         self.assertEqual(node.getValue("alpine"), 0)
         self.assertEqual(node.getValue("gpu.count"), 1)
+        self.assertEqual(node.getValue("cpu.sgx"), 1)
         self.assertEqual(node.getValue("input.0.path"), 'input')
         self.assertEqual(node.getValue("output.0.path"), 'output')
         self.assertEqual(node.getValue("onedata.0.id"), 'my_onedata')

@@ -304,19 +304,20 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "text/yaml"}
-        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+        bottle_request.body = read_file_as_bytes("../files/tosca_simple.yml")
 
         CreateInfrastructure.return_value = "1"
 
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "http://imserver.com/infrastructures/1")
 
-        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+        bottle_request.headers["Content-Type"] = "application/json"
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
         CreateInfrastructure.side_effect = InvaliddUserException()
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "Error Getting Inf. info: Invalid InfrastructureManager credentials")
 
-        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
         CreateInfrastructure.side_effect = UnauthorizedUserException()
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "Error Creating Inf.: Access to this infrastructure not granted.")
@@ -448,22 +449,23 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "text/yaml"}
-        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+        bottle_request.body = read_file_as_bytes("../files/tosca_simple.yml")
 
         res = RESTAddResource("1")
         self.assertEqual(res, "http://imserver.com/infrastructures/1/vms/1")
 
-        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+        bottle_request.headers["Content-Type"] = "application/json"
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
         AddResource.side_effect = DeletedInfrastructureException()
         res = RESTAddResource("1")
         self.assertEqual(res, "Error Adding resources: Deleted infrastructure.")
 
-        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
         AddResource.side_effect = IncorrectInfrastructureException()
         res = RESTAddResource("1")
         self.assertEqual(res, "Error Adding resources: Invalid infrastructure ID or access not granted.")
 
-        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
         AddResource.side_effect = UnauthorizedUserException()
         res = RESTAddResource("1")
         self.assertEqual(res, "Error Adding resources: Access to this infrastructure not granted.")
@@ -523,7 +525,7 @@ class TestREST(unittest.TestCase):
                                                     "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                                     "username = user; password = pass"),
                                   "Content-Type": "text/yaml"}
-        bottle_request.body = read_file_as_bytes("../files/tosca_create.yml")
+        bottle_request.body = read_file_as_bytes("../files/tosca_simple.yml")
 
         res = RESTAlterVM("1", "1")
         self.assertEqual(res, "vm_info")

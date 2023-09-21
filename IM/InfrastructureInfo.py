@@ -184,16 +184,14 @@ class InfrastructureInfo:
         return newinf
 
     @staticmethod
-    def deserialize_auth(str_data):
+    def deserialize_auth(inf_id, deleted, str_data):
         """
         Only Loads auth data
         """
         newinf = InfrastructureInfo()
-        dic = json.loads(str_data)
-        newinf.deleted = dic['deleted']
-        newinf.id = dic['id']
-        if dic['auth']:
-            newinf.auth = Authentication.deserialize(dic['auth'])
+        newinf.deleted = deleted
+        newinf.id = inf_id
+        newinf.auth = Authentication.deserialize(str_data)
         return newinf
 
     def destroy_vms(self, auth):

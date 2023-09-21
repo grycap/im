@@ -281,6 +281,17 @@ class DataBase:
             res = self.connection[table_name].replace_one(filt, replacement, True)
             return res.modified_count == 1 or res.upserted_id is not None
 
+    def update(self, table_name, filt, updates):
+        """ insert/replace elements """
+        if self.db_type != DataBase.MONGO:
+            raise Exception("Operation only supported in MongoDB")
+
+        if self.connection is None:
+            raise Exception("DataBase object not connected")
+        else:
+            res = self.connection[table_name].update_one(filt, updates, True)
+            return res.modified_count == 1 or res.upserted_id is not None
+
     def delete(self, table_name, filt):
         """ delete elements """
         if self.db_type != DataBase.MONGO:

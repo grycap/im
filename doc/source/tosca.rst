@@ -41,7 +41,7 @@ using an Ubuntu 20.04 image. As outputs the TOSCA files will return the public I
               properties:
                 type: linux
                 distribution: ubuntu
-                version: 20.04
+                version: 22.04
 
       outputs:
         node_ip:
@@ -277,3 +277,24 @@ and, optionally, an availability zone::
         targets: [ compute_three ]
 
     ...
+
+Advanced Output values
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``tosca.nodes.indigo.Compute`` node type adds a new
+attribute named: ``ansible_output``. It is a map that has one element per each IM
+configuration step, so you can access it by name. The steps have the keyword
+``tasks`` that is also a map that has one element per ansible task. In this case
+it can bes accessed using the task name as defined in the playbook. Finally
+there is an ``output`` keyword that returns the output of the task.
+In most of the cases the task is a ``debug`` ansible task that shows anything you
+want to return.
+
+In the following example the specified task was a debug ansible task that shows the
+value of a internal defined value::
+
+    ...
+
+      outputs:
+        node_ip:
+          value: { get_attribute: [ front, ansible_output, lrms_front_end_front_conf_front, tasks, 'grycap.nomad : nomad_secret_id', output ] }

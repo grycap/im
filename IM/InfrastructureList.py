@@ -63,12 +63,13 @@ class InfrastructureList():
         if auth:
             # In this case only loads the auth data to improve performance
             inf_ids = []
-            for inf_id in InfrastructureList._get_inf_ids_from_db():
+            for inf_id in InfrastructureList._get_inf_ids_from_db(auth):
+                inf = None
                 res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
                 if res:
                     inf = res[inf_id]
-                    if inf and inf.is_authorized(auth):
-                        inf_ids.append(inf.id)
+                if inf and inf.is_authorized(auth):
+                    inf_ids.append(inf.id)
             return inf_ids
         else:
             return InfrastructureList._get_inf_ids_from_db()
@@ -146,10 +147,11 @@ class InfrastructureList():
                 InfrastructureList.logger.debug("Creating the IM database!.")
                 if db.db_type == DataBase.MYSQL:
                     db.execute("CREATE TABLE inf_list(rowid INTEGER NOT NULL AUTO_INCREMENT UNIQUE,"
-                               " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGBLOB)")
+                               " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGBLOB,"
+                               " auth LONGBLOB)")
                 elif db.db_type == DataBase.SQLITE:
                     db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
-                               " date TIMESTAMP, data LONGBLOB)")
+                               " date TIMESTAMP, data LONGBLOB, auth LONGBLOB)")
                 db.close()
             return True
         else:
@@ -168,25 +170,31 @@ class InfrastructureList():
             db = DataBase(db_url)
             if db.connect():
                 inf_list = {}
+                data_field = "data"
+                if auth:
+                    data_field = "auth"
                 if inf_id:
                     if db.db_type == DataBase.MONGO:
-                        res = db.find("inf_list", {"id": inf_id}, {"data": True})
+                        res = db.find("inf_list", {"id": inf_id}, {data_field: True, "deleted": True})
                     else:
-                        res = db.select("select data from inf_list where id = %s", (inf_id,))
+                        res = db.select("select " + data_field + ",deleted from inf_list where id = %s", (inf_id,))
                 else:
                     if db.db_type == DataBase.MONGO:
-                        res = db.find("inf_list", {"deleted": 0}, {"data": True}, [('_id', -1)])
+                        res = db.find("inf_list", {"deleted": 0}, {data_field: True, "deleted": True}, [('_id', -1)])
                     else:
-                        res = db.select("select data from inf_list where deleted = 0 order by rowid desc")
+                        res = db.select("select " + data_field + ",deleted from inf_list where deleted = 0"
+                                        " order by rowid desc")
                 if len(res) > 0:
                     for elem in res:
                         if db.db_type == DataBase.MONGO:
-                            data = elem['data']
+                            data = elem[data_field]
+                            deleted = elem["deleted"]
                         else:
                             data = elem[0]
+                            deleted = elem[1]
                         try:
                             if auth:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(data)
+                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(inf_id, deleted, data)
                             else:
                                 inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(data)
                             inf_list[inf.id] = inf
@@ -220,10 +228,12 @@ class InfrastructureList():
                 data = inf.serialize()
                 if db.db_type == DataBase.MONGO:
                     res = db.replace("inf_list", {"id": inf.id}, {"id": inf.id, "deleted": int(inf.deleted),
-                                                                  "data": data, "date": time.time()})
+                                                                  "data": data, "date": time.time(),
+                                                                  "auth": inf.auth.serialize()})
                 else:
-                    res = db.execute("replace into inf_list (id, deleted, data, date) values (%s, %s, %s, now())",
-                                     (inf.id, int(inf.deleted), data))
+                    res = db.execute("replace into inf_list (id, deleted, data, date, auth)"
+                                     " values (%s, %s, %s, now(), %s)",
+                                     (inf.id, int(inf.deleted), data, inf.auth.serialize()))
 
             db.close()
             return res
@@ -232,15 +242,47 @@ class InfrastructureList():
             return None
 
     @staticmethod
-    def _get_inf_ids_from_db():
+    def _gen_where_from_auth(auth):
+        like = ""
+        if auth:
+            for elem in auth.getAuthInfo('InfrastructureManager'):
+                if elem.get("username"):
+                    if like:
+                        like += " or "
+                    like += "auth like '%%" + elem.get("username") + "%%'"
+
+        if like:
+            return "where deleted = 0 and (" + like + ")"
+        else:
+            return "where deleted = 0"
+
+    @staticmethod
+    def _gen_filter_from_auth(auth):
+        like = ""
+        if auth:
+            for elem in auth.getAuthInfo('InfrastructureManager'):
+                if elem.get("username"):
+                    if like:
+                        like += "|"
+                    like += elem.get("username")
+
+        if like:
+            return {"deleted": 0, "auth": {"$regex": like}}
+        else:
+            return {"deleted": 0}
+
+    @staticmethod
+    def _get_inf_ids_from_db(auth=None):
         try:
             db = DataBase(Config.DATA_DB)
             if db.connect():
                 inf_list = []
                 if db.db_type == DataBase.MONGO:
-                    res = db.find("inf_list", {"deleted": 0}, {"id": True}, [('id', -1)])
+                    filt = InfrastructureList._gen_filter_from_auth(auth)
+                    res = db.find("inf_list", filt, {"id": True}, [('id', -1)])
                 else:
-                    res = db.select("select id from inf_list where deleted = 0 order by rowid desc")
+                    where = InfrastructureList._gen_where_from_auth(auth)
+                    res = db.select("select id from inf_list %s order by rowid desc" % where)
                 for elem in res:
                     if db.db_type == DataBase.MONGO:
                         inf_list.append(elem['id'])

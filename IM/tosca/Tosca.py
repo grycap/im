@@ -3,7 +3,7 @@ import logging
 import yaml
 import copy
 import operator
-import requests
+import requests_cache
 import json
 import re
 from toscaparser.nodetemplate import NodeTemplate
@@ -36,10 +36,12 @@ class Tosca:
 
     ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/artifacts"
     ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/"
+    GET_TIMEOUT = 20
 
     logger = logging.getLogger('InfrastructureManager')
 
     def __init__(self, yaml_str, verify=True):
+        self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
         self.yaml = yaml.safe_load(yaml_str)
         if not verify:
@@ -796,7 +798,7 @@ class Tosca:
                 if implementation_url[0] in ['http', 'https', 'ftp']:
                     script_path = implementation_url[2]
                     try:
-                        resp = requests.get(implementation)
+                        resp = self.cache_session.get(implementation, timeout=self.GET_TIMEOUT)
                         script_content = resp.text
                         if resp.status_code != 200:
                             raise Exception(resp.reason + "\n" + resp.text)
@@ -814,7 +816,8 @@ class Tosca:
                         f.close()
                     else:
                         try:
-                            resp = requests.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation)
+                            resp = self.cache_session.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation,
+                                                          timeout=self.GET_TIMEOUT)
                             script_content = resp.text
                             if resp.status_code != 200:
                                 raise Exception(resp.reason + "\n" + resp.text)
@@ -1990,6 +1993,9 @@ class Tosca:
                 elif prop.name == 'enable_gpu':
                     if value:
                         res.setValue('gpu.count', 1)
+                elif prop.name == 'enable_sgx':
+                    if value:
+                        res.setValue('cpu.sgx', 1)
                 elif prop.name == 'memory':
                     if not value.endswith("B"):
                         value += "B"
@@ -2020,6 +2026,10 @@ class Tosca:
                                              'verify', 'oneprovider_host', 'token', 'space']:
                                     if provider.get(elem):
                                         res.setValue("%s.%s" % (provider_pref, elem), provider.get(elem))
+                elif prop.name == 'exposed':
+                    for elem in ["min_scale", "max_scale", "port", "cpu_threshold"]:
+                        if elem in value:
+                            res.setValue("expose.%s" % elem, value)
                 else:
                     # this should never happen
                     Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)

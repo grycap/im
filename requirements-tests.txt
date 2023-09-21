@@ -34,3 +34,4 @@ scar
 nose
 mock
 coverage
+requests-cache
