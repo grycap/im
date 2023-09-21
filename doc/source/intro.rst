@@ -33,6 +33,7 @@ from the `Universitat Politècnica de València (UPV) <http://www.upv.es>`_.
 The following publications summarise both the development and integration in larger architecture. Please acknowledge the usage of this software by citing the first reference:
 
 * Caballer, M.; Blanquer, I.; Moltó, G.; and de Alfonso, C.; **"Dynamic management of virtual infrastructures"** . Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN 1570-7873, 10.1007/s10723-014-9296-5.
+* Caballer, M.; Moltó, G.; Calatrava, A.; and de Blanquer, I.; **"Infrastructure Manager: A TOSCA-Based Orchestrator for the Computing Continuum"** . Journal of Grid Computing, Volume 21, Issue 3, 2023, ISSN 1570-7873, 10.1007/s10723-023-09686-7.
 * Caballer, M.; de Alfonso, C.; Moltó, G.; Romero, E.; Blanquer, I.; and García, A.; **"CodeCloud: A Platform to Enable Execution of Programming Models on the Clouds"** . Journal of Systems and Software, Volume 93, Pages 187-198, 2014, ISSN 0164-1212, 10.1016/j.jss.2014.02.005
 * Caballer, M., Segrelles, D., Moltó, G. and Blanquer, I.  **"A Platform to Deploy Customized Scientific Virtual Infrastructures on the Cloud"** . Concurrency and Computation: Practice and Experience, Volume 27, Issue 16, Pages 4318-4329, 2015, ISSN 1532-0626, 10.1002/cpe.3518.
 * Caballer, M.; de Alfonso, C.; Alvarruiz, F. and Moltó, G.; **"EC3: Elastic Cloud Computing Cluster"** . Journal of Computer and System Sciences, Volume 78, Issue 8, December 2013, Pages 1341-1351, ISSN 0022-0000, 10.1016/j.jcss.2013.06.005.
