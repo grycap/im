@@ -646,11 +646,11 @@ echo "Hello World" >> /tmp/data.txt
         host = master_radl.systems[0].getValue("net_interface.0.ip")
         username = master_radl.systems[0].getValue(
             "disk.0.os.credentials.username")
-        password = master_radl.systems[0].getValue(
-            "disk.0.os.credentials.password")
+        private_key = master_radl.systems[0].getValue(
+            "disk.0.os.credentials.private_key")
 
         radl = """
-            ansible ansible_master (host = '%s' and credentials.username='%s' and credentials.password='%s')
+            ansible ansible_master (host = '%s' and credentials.username='%s' and credentials.private_key ='%s')
             network net ()
 
             system node (
@@ -663,7 +663,7 @@ echo "Hello World" >> /tmp/data.txt
             )
 
             deploy node 1
-            """ % (host, username, password)
+            """ % (host, username, private_key)
 
         (success, inf_id) = self.server.CreateInfrastructure(radl, self.auth_data)
         self.assertTrue(
