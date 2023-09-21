@@ -747,4 +747,9 @@ IM 1.15.0:
         WARNING: It requires a DB update.
         Please make a copy of the DB before applying the script.
         Use scripts/db_1_14_X_to_1_15_X.py to update it.
+        It can be used with a docker image with this comand:
+        In case of SQLITE:
+        docker run --rm -v /etc/im/test.dat:/test.dat -ti ghcr.io/grycap/im:db_1_14_15 python3 /db_1_14_X_to_1_15_X.py "sqlite:///test.dat"
+        I case of MySQL:
+        docker run --rm ti ghcr.io/grycap/im:db_1_14_15 python3 /db_1_14_X_to_1_15_X.py "mysql://username:password@server/db_name"
     * Add requests-cache to improve performance in TOSCA parsing
