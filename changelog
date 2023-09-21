@@ -742,4 +742,6 @@ IM 1.15.0:
     * Fix error resizing VMs.
     * Enable to set root disk size in EC2, Azure and GCE conns.
     * Return error if instance is not get in stop, start, reboot ops in EC2 conn
-    * Fix error in OSCAR or Lambda cons with env variables with ":".
+    * Fix error in OSCAR or Lambda cons with env variables with ":"
+    * Improve performance in Infrastructure List operation
+    * Add requests-cache to improve performance in TOSCA parsing
