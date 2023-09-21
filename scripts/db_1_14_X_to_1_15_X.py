@@ -38,7 +38,7 @@ def get_data_from_db(db, inf_id):
     if len(res) > 0:
         elem = res[0]
         if db.db_type == DataBase.MONGO:
-            data = elem[data]
+            data = elem["data"]
         else:
             data = elem[0]
         try:
@@ -82,7 +82,7 @@ if __name__ == "__main__":
                             res = db.update("inf_list", {"id": inf_id}, {"auth": auth})
                         else:
                             res = db.execute("UPDATE `inf_list` SET `auth` = %s WHERE id = %s", (auth, inf_id))
-                except Exception as e:
+                except Exception:
                     sys.stderr.write("Error updating auth field in Inf ID: %s. Ignoring.\n" % inf_id)
         else:
             sys.stdout.write("There are no inf_list table. Do not need to update.")

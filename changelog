@@ -743,5 +743,8 @@ IM 1.15.0:
     * Enable to set root disk size in EC2, Azure and GCE conns.
     * Return error if instance is not get in stop, start, reboot ops in EC2 conn
     * Fix error in OSCAR or Lambda cons with env variables with ":"
-    * Improve performance in Infrastructure List operation
+    * Improve performance in Infrastructure List operation.
+        WARNING: It requires a DB update.
+        Please make a copy of the DB before applying the script.
+        Use scripts/db_1_14_X_to_1_15_X.py to update it.
     * Add requests-cache to improve performance in TOSCA parsing
