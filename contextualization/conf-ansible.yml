@@ -127,11 +127,11 @@
         executable: pip3
       when: ansible_python_version is version('3.7', '<')
 
-    - name: Upgrade pip in py3.6 +
+    - name: Upgrade pip in py3.6-py3.10
       pip:
         name: pip>20.0
         executable: pip3
-      when: ansible_python_version is version('3.7', '>=')
+      when: ansible_python_version is version('3.7', '>=') and ansible_python_version is version('3.11', '<')
 
     # Version 66 (#2497) fails
     - name: Upgrade setuptools with Pip
