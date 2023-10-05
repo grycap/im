@@ -140,6 +140,15 @@
         executable: pip3
       when: ansible_python_version is version('3.11', '<')
 
+    - name: Set extra_args var
+      set_fact:
+        extra_args: --prefer-binary
+
+    - name: Set extra_args var in py3.11
+      set_fact:
+        extra_args: --prefer-binary --break-system-packages
+      when: ansible_python_version is version('3.11', '>=')
+
     - name: Install cryptography & pyOpenSSL & pyyaml & wheel
       pip:
         name:
@@ -149,7 +158,7 @@
           - pyyaml
           - paramiko>=2.9.5
         executable: pip3
-        extra_args: --prefer-binary
+        extra_args: "{{ extra_args }}"
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip3
