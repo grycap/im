@@ -134,10 +134,11 @@
       when: ansible_python_version is version('3.7', '>=') and ansible_python_version is version('3.11', '<')
 
     # Version 66 (#2497) fails
-    - name: Upgrade setuptools with Pip
+    - name: Upgrade setuptools with Pip in py3.11-
       pip:
         name: setuptools<66.0.0
         executable: pip3
+      when: ansible_python_version is version('3.11', '<')
 
     - name: Install cryptography & pyOpenSSL & pyyaml & wheel
       pip:
