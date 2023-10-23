@@ -105,7 +105,9 @@ class OSCARCloudConnector(CloudConnector):
             while radl_system.getValue("%s.id" % provider_pref):
                 sid = radl_system.getValue("%s.id" % provider_pref)
                 if provider_type not in storage_providers:
-                    storage_providers[provider_type] = {sid: {}}
+                    storage_providers[provider_type] = {}
+                if sid not in storage_providers[provider_type]:
+                    storage_providers[provider_type][sid] = {}
                 for elem in ['access_key', 'secret_key', 'region', 'endpoint',
                              'verify', 'oneprovider_host', 'token', 'space']:
                     value = radl_system.getValue("%s.%s" % (provider_pref, elem))
