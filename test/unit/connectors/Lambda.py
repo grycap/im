@@ -90,11 +90,19 @@ class TestLambdaConnector(TestCloudConnectorBase):
                 disk.0.image.url = '000000000000.dkr.ecr.us-east-1.amazonaws.com/scar-function' and
                 script = 'plants.sh' and
                 environment.variables = ['some_var:some_value'] and
-                input.0.provider = 's3' and
+                input.0.provider = 's3.s3_id' and
                 input.0.path = 'micafer/input' and
                 input.0.suffix = ['*.txt'] and
-                output.0.provider = 's3' and
-                output.0.path = 'micafer/output'
+                output.0.provider = 's3.s3_id2' and
+                output.0.path = 'micafer/output' and
+                s3.0.id = 's3_id' and
+                s3.0.region = 's3region' and
+                s3.0.access_key = 'AK' and
+                s3.0.secret_key = 'SK' and
+                s3.1.id = 's3_id2' and
+                s3.1.region = 's3region' and
+                s3.1.access_key = 'AK' and
+                s3.1.secret_key = 'SK'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -125,12 +133,18 @@ class TestLambdaConnector(TestCloudConnectorBase):
                                    'environment': {'Variables': {'some_var': 'some_value'}},
                                    'execution_mode': 'lambda',
                                    'input': [{'path': 'micafer/input',
-                                              'storage_provider': 's3',
+                                              'storage_provider': 's3.s3_id',
                                               'suffix': ['*.txt']}],
                                    'memory': 512,
                                    'name': 'micafer-plants',
                                    'output': [{'path': 'micafer/output',
-                                               'storage_provider': 's3'}],
+                                               'storage_provider': 's3.s3_id2'}],
+                                    'storage_providers': {'s3': {'s3_id': {'access_key': 'AK',
+                                                                            'region': 's3region',
+                                                                            'secret_key': 'SK'},
+                                                                's3_id2': {'access_key': 'AK',
+                                                                            'region': 's3region',
+                                                                            'secret_key': 'SK'}}},
                                    'region': 'us-east-1',
                                    'runtime': 'image',
                                    'init_script': 'plants.sh',
