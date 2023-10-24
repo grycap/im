@@ -127,17 +127,27 @@
         executable: pip3
       when: ansible_python_version is version('3.7', '<')
 
-    - name: Upgrade pip in py3.6 +
+    - name: Upgrade pip in py3.6-py3.10
       pip:
-        name: pip>18.0
+        name: pip>20.0
         executable: pip3
-      when: ansible_python_version is version('3.7', '>=')
+      when: ansible_python_version is version('3.7', '>=') and ansible_python_version is version('3.11', '<')
 
     # Version 66 (#2497) fails
-    - name: Upgrade setuptools with Pip
+    - name: Upgrade setuptools with Pip in py3.11-
       pip:
         name: setuptools<66.0.0
         executable: pip3
+      when: ansible_python_version is version('3.11', '<')
+
+    - name: Set extra_args var
+      set_fact:
+        extra_args: --prefer-binary
+
+    - name: Set extra_args var in py3.11
+      set_fact:
+        extra_args: --prefer-binary --break-system-packages
+      when: ansible_python_version is version('3.11', '>=')
 
     - name: Install cryptography & pyOpenSSL & pyyaml & wheel
       pip:
@@ -148,14 +158,21 @@
           - pyyaml
           - paramiko>=2.9.5
         executable: pip3
-        extra_args: --prefer-binary
+        extra_args: "{{ extra_args }}"
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
-      pip: name=ansible version={{ ANSIBLE_VERSION }} executable=pip3
+      pip:
+        name: ansible
+        version: "{{ ANSIBLE_VERSION }}"
+        executable: pip3
+        extra_args: "{{ extra_args }}"
       when: ANSIBLE_VERSION != "latest"
 
     - name: Install latest ansible version with Pip
-      pip: name=ansible state=latest executable=pip3 
+      pip:
+        name: ansible
+        executable: pip3
+        extra_args: "{{ extra_args }}"
       when: ANSIBLE_VERSION == "latest"
 
 #################################### Now install scp, jmespath and pywinrm with pip  ##################################
@@ -166,10 +183,13 @@
           - jmespath
           - scp
         executable: pip3
-        extra_args: --prefer-binary
+        extra_args: "{{ extra_args }}"
 
     - name: Install pywinrm with Pip
-      pip: name=pywinrm executable=pip3 extra_args=--prefer-binary 
+      pip:
+        name: pywinrm
+        executable: pip3
+        extra_args: "{{ extra_args }}"
       ignore_errors: yes
 
 ################################################ Configure Ansible  ###################################################
