@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import threading
 import os
 import re
 import yaml
@@ -36,6 +37,8 @@ class LambdaCloudConnector(CloudConnector):
     Cloud Launcher to create Lambda functions.
     """
 
+    _lock = threading.Lock()
+    """Threading Lock to avoid concurrency problems."""
     type = "Lambda"
     """str with the name of the provider."""
 
@@ -100,15 +103,10 @@ class LambdaCloudConnector(CloudConnector):
 
     @staticmethod
     def _free_scar_env():
-        if 'AWS_ACCESS_KEY_ID' in os.environ:
-            del os.environ["AWS_ACCESS_KEY_ID"]
-        if 'AWS_SECRET_ACCESS_KEY' in os.environ:
-            del os.environ["AWS_SECRET_ACCESS_KEY"]
+        del os.environ["AWS_ACCESS_KEY_ID"]
+        del os.environ["AWS_SECRET_ACCESS_KEY"]
         os.unlink(os.environ['SCAR_TMP_CFG'])
-        if 'SCAR_TMP_CFG' in os.environ:
-            if os.path.exists(os.environ['SCAR_TMP_CFG']):
-                os.unlink(os.environ['SCAR_TMP_CFG'])
-            del os.environ['SCAR_TMP_CFG']
+        del os.environ['SCAR_TMP_CFG']
 
     @staticmethod
     def _get_region_from_image(image_url):
@@ -178,9 +176,10 @@ class LambdaCloudConnector(CloudConnector):
         inf.add_vm(vm)
 
         try:
-            self._set_scar_env(radl.systems[0], auth_data)
-            AWS("init")
-            self._free_scar_env()
+            with LambdaCloudConnector._lock:
+                self._set_scar_env(radl.systems[0], auth_data)
+                AWS("init")
+                self._free_scar_env()
             vm.destroy = False
             vm.state = VirtualMachine.RUNNING
             res.append((True, vm))
@@ -196,10 +195,11 @@ class LambdaCloudConnector(CloudConnector):
 
     def finalize(self, vm, last, auth_data):
         try:
-            aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
-            Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
-            AWS("rm")
-            self._free_scar_env()
+            with LambdaCloudConnector._lock:
+                aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
+                Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
+                AWS("rm")
+                self._free_scar_env()
         except ClientError as ce:
             # Function not found
             if ce.response['Error']['Code'] == 'ResourceNotFoundException':
@@ -229,10 +229,11 @@ class LambdaCloudConnector(CloudConnector):
 
     def updateVMInfo(self, vm, auth_data):
         try:
-            aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
-            func_conf = Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
-            self.update_system_info_from_function_conf(vm.info.systems[0], func_conf)
-            self._free_scar_env()
+            with LambdaCloudConnector._lock:
+                aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
+                func_conf = Lambda(aws_resources["functions"]["aws"][0]).get_function_configuration(vm.id)
+                self.update_system_info_from_function_conf(vm.info.systems[0], func_conf)
+                self._free_scar_env()
             return True, vm
         except ClientError as ce:
             # Function not found
@@ -255,11 +256,12 @@ class LambdaCloudConnector(CloudConnector):
 
         if new_memory and new_memory != memory:
             try:
-                aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
-                Lambda(aws_resources["functions"]["aws"][0]).client.update_function_configuration(
-                    MemorySize=new_memory, FunctionName=vm.id)
-                self.update_system_info_from_function_conf(vm.info.systems[0], {"MemorySize": new_memory})
-                self._free_scar_env()
+                with LambdaCloudConnector._lock:
+                    aws_resources = self._set_scar_env(vm.info.systems[0], auth_data)
+                    Lambda(aws_resources["functions"]["aws"][0]).client.update_function_configuration(
+                        MemorySize=new_memory, FunctionName=vm.id)
+                    self.update_system_info_from_function_conf(vm.info.systems[0], {"MemorySize": new_memory})
+                    self._free_scar_env()
                 return True, vm
             except ClientError as ce:
                 # Function not found
