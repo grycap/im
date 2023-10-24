@@ -100,10 +100,15 @@ class LambdaCloudConnector(CloudConnector):
 
     @staticmethod
     def _free_scar_env():
-        del os.environ["AWS_ACCESS_KEY_ID"]
-        del os.environ["AWS_SECRET_ACCESS_KEY"]
+        if 'AWS_ACCESS_KEY_ID' in os.environ:
+            del os.environ["AWS_ACCESS_KEY_ID"]
+        if 'AWS_SECRET_ACCESS_KEY' in os.environ:
+            del os.environ["AWS_SECRET_ACCESS_KEY"]
         os.unlink(os.environ['SCAR_TMP_CFG'])
-        del os.environ['SCAR_TMP_CFG']
+        if 'SCAR_TMP_CFG' in os.environ:
+            if os.path.exists(os.environ['SCAR_TMP_CFG']):
+                os.unlink(os.environ['SCAR_TMP_CFG'])
+            del os.environ['SCAR_TMP_CFG']
 
     @staticmethod
     def _get_region_from_image(image_url):
