@@ -121,7 +121,7 @@
   ######################################### Use pip to enable to set the version #############################################
 
     # Version over 21 does not work with python 3.6 or older
-    - name: Upgrade pip in py3.6-py3.10
+    - name: Upgrade pip in py3.6-
       pip:
         name: pip>18.0,<21.0
         executable: pip3
@@ -131,7 +131,7 @@
       pip:
         name: pip>20.0
         executable: pip3
-      when: ansible_python_version is version('3.7', '>=') and ansible_python_version is version('3.10', '<')
+      when: ansible_python_version is version('3.7', '>=') and ansible_python_version is version('3.9', '<')
 
     - name: Upgrade pip in py3.9-py3.10
       pip:
