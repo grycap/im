@@ -912,6 +912,9 @@ def RESTReconfigureInfrastructure(infid=None):
             if content_type:
                 if "application/json" in content_type:
                     radl_data = parse_radl_json(radl_data)
+                elif "text/yaml" in content_type:
+                    tosca_data = Tosca(radl_data)
+                    _, radl_data = tosca_data.to_radl()
                 elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                     content_type = "text/plain"
                 else:
