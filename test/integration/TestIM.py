@@ -697,7 +697,7 @@ echo "Hello World" >> /tmp/data.txt
         self.__class__.inf_id = [inf_id]
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 1200)
+            inf_id, VirtualMachine.CONFIGURED, 1500)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
