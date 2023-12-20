@@ -541,6 +541,10 @@ class InfrastructureManager:
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
+        if sel_inf.deleted:
+            InfrastructureManager.logger.info("Inf ID: %s: Deleted Infrastructure. Stop deploying!" % sel_inf.id)
+            return []
+
         try:
             if isinstance(radl_data, RADL):
                 radl = radl_data
@@ -620,10 +624,6 @@ class InfrastructureManager:
 
         # We are going to start adding resources
         sel_inf.set_adding()
-
-        if sel_inf.deleted:
-            InfrastructureManager.logger.info("Inf ID: %s: Deleted Infrastructure. Stop deploying!" % sel_inf.id)
-            return []
 
         # Launch every group in the same cloud provider
         deployed_vm = {}
@@ -711,13 +711,13 @@ class InfrastructureManager:
         if context and new_vms and not all_failed:
             sel_inf.Contextualize(auth)
 
-        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
-
         if all_failed and new_vms:
             # if there are no VMs, set it as unconfigured
             if not sel_inf.get_vm_list():
                 sel_inf.configured = False
             raise Exception("Error adding VMs: %s" % error_msg)
+
+        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
 
         return [vm.im_id for vm in new_vms]
 
