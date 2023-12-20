@@ -773,7 +773,7 @@ class InfrastructureInfo:
             if self.adding:
                 raise IncorrectStateException()
             self.deleting = value
-            IM.InfrastructureList.InfrastructureList.save_data(self.id)
+        IM.InfrastructureList.InfrastructureList.save_data(self.id)
 
     def set_adding(self, value=True):
         """
@@ -784,7 +784,7 @@ class InfrastructureInfo:
                 self.add_cont_msg("Infrastructure deleted. Do not add resources.")
                 raise Exception("Infrastructure deleted. Do not add resources.")
             self.adding = value
-            IM.InfrastructureList.InfrastructureList.save_data(self.id)
+        IM.InfrastructureList.InfrastructureList.save_data(self.id)
 
     def get_auth(self, only_user_pass=False):
         """
