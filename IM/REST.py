@@ -783,6 +783,10 @@ def RESTAddResource(infid=None):
         if not remove_list and not vm_ids and context:
             InfrastructureManager.Reconfigure(infid, "", auth)
 
+        # If we have to reconfigure the infra, return the ID for the HAProxy stickiness
+        if context:
+            bottle.response.headers['InfID'] = infid
+
         # Replace the TOSCA document
         if tosca_data:
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
@@ -921,6 +925,8 @@ def RESTReconfigureInfrastructure(infid=None):
                     return return_error(415, "Unsupported Media Type %s" % content_type)
         else:
             radl_data = ""
+        # As we have to reconfigure the infra, return the ID for the HAProxy stickiness
+        bottle.response.headers['InfID'] = infid
         bottle.response.content_type = "text/plain"
         return InfrastructureManager.Reconfigure(infid, radl_data, auth, vm_list)
     except DeletedInfrastructureException as ex:
