@@ -12,8 +12,10 @@ You can see some input examples at
 Basic example
 ^^^^^^^^^^^^^
 
-This TOSCA file describes a cloud topology with 2 VM with at least 2 CPUs and 2 GB of RAM connected with a public IP,
-using an Ubuntu 20.04 image. As outputs the TOSCA files will return the public IP of the VM and the SSH credentials to access it::
+This TOSCA file describes a cloud topology with 2 VM with at least 2 CPUs and
+2 GB of RAM and 40 GB of root disk, connected with a public IP, using an Ubuntu
+20.04 image. As outputs, the TOSCA file will return the public IP of the VM and
+the SSH credentials to access it::
 
     tosca_definitions_version: tosca_simple_yaml_1_0
 
@@ -37,6 +39,7 @@ using an Ubuntu 20.04 image. As outputs the TOSCA files will return the public I
               properties:
                 num_cpus: 2
                 mem_size: 2 GB
+                disk_size: 40 GB
             os:
               properties:
                 type: linux
