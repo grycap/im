@@ -31,6 +31,9 @@ class DummyCloudConnector(CloudConnector):
 
     def concreteSystem(self, radl_system, auth_data):
         res_system = radl_system.clone()
+        username = res_system.getValue('disk.0.os.credentials.username')
+        if not username:
+            res_system.setValue('disk.0.os.credentials.username', 'username')
         return [res_system]
 
     def updateVMInfo(self, vm, auth_data):
