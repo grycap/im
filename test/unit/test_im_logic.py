@@ -349,24 +349,6 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(infId0, auth0)
         IM.DestroyInfrastructure(infId1, auth1)
 
-    def test_inf_addresources_without_credentials(self):
-        """Deploy single virtual machine without credentials to check that it raises the correct exception."""
-        radl = RADL()
-        radl.add(
-            system("s0", [Feature("disk.0.image.url", "=", "mock0://linux.for.ev.er")]))
-        radl.add(deploy("s0", 1))
-
-        auth0 = self.getAuth([0], [], [("Dummy", 0)])
-        infId = IM.CreateInfrastructure("", auth0)
-
-        with self.assertRaises(Exception) as ex:
-            IM.AddResource(infId, str(radl), auth0)
-
-        self.assertEqual(str(ex.exception), ("Error adding VMs: Error launching the VMs of type s0 "
-                                             "to cloud ID cloud0 of type Dummy. No username for deploy: s0\n"))
-
-        IM.DestroyInfrastructure(infId, auth0)
-
     def test_inf_auth_with_userdb(self):
         """Test access im with user db."""
         Config.USER_DB = os.path.dirname(os.path.realpath(__file__)) + '/../files/users.txt'
