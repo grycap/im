@@ -481,16 +481,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                                                  volume.size,
                                                                                                  disk_size))
                         continue
-                    vm.info.systems[0].setValue("disk." + str(cont) + ".size", volume.size, 'G')
+                    vm.info.systems[0].setValue("disk.%d.size" % cont, volume.size, 'G')
 
                     # Do not update the image URL in case of the boot disk
                     if cont > 0:
                         disk_url = vm.info.systems[0].getValue("disk." + str(cont) + ".image.url")
                         if disk_url and os.path.basename(disk_url) != vol_id:
-                            self.log_warn("Volume does not have the expected id %s != %s" % (vol_id,
-                                                                                             os.path.basename(disk_url)))
-                        vm.info.systems[0].setValue("disk." + str(cont) + ".image.url", "ost://%s/%s" % (self.cloud.server,
-                                                                                                         volume.id))
+                            self.log_warn("Vol. does not have the expected id %s != %s" % (vol_id,
+                                                                                           os.path.basename(disk_url)))
+                        vm.info.systems[0].setValue("disk.%d.image.url" % cont, "ost://%s/%s" % (self.cloud.server,
+                                                                                                 volume.id))
                     if 'attachments' in volume.extra and volume.extra['attachments']:
                         vm.info.systems[0].setValue("disk." + str(cont) + ".device",
                                                     os.path.basename(volume.extra['attachments'][0]['device']))
