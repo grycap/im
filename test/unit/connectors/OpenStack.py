@@ -370,6 +370,7 @@ class TestOSTConnector(TestCloudConnectorBase):
             net_interface.0.dns_name = 'dydns:secret@test.domain.com' and
             net_interface.1.connection = 'net1' and
             disk.0.os.name = 'linux' and
+            disk.0.size=10GB and
             disk.0.image.url = 'ost://server.com/ami-id' and
             disk.0.os.credentials.username = 'user' and
             disk.0.os.credentials.password = 'pass' and
@@ -402,7 +403,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node = MagicMock()
         node.id = "1"
         node.state = "running"
-        node.extra = {'flavorId': 'small', 'volumes_attached': [{'id': 'vol1'}],
+        node.extra = {'flavorId': 'small', 'volumes_attached': [{'id': 'vol0'}, {'id': 'vol1'}],
                       'addresses': {'os-lan': [{'addr': '10.0.0.1', 'OS-EXT-IPS:type': 'fixed'}],
                                     'public': [{'version': '4', 'addr': '8.8.8.8'},
                                                {'version': '6', 'addr': 'fec0:4801:7808:52:16:3eff:fe6e:b7e2'}]}}
@@ -429,7 +430,13 @@ class TestOSTConnector(TestCloudConnectorBase):
         volume.extra = {'attachments': [{'device': 'vdb'}]}
         volume.attach.return_value = True
         driver.create_volume.return_value = volume
-        driver.ex_get_volume.return_value = volume
+
+        volume0 = MagicMock()
+        volume0.id = "vol0"
+        volume0.size = 10
+        volume0.extra = {'attachments': [{'device': 'vda'}]}
+        volume0.attach.return_value = True
+        driver.ex_get_volume.side_effect = [volume0, volume]
 
         pool = MagicMock()
         pool.name = "pool1"
@@ -465,6 +472,8 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(driver.ex_update_subnet.call_args_list[0][1],
                          {'host_routes': [{'nexthop': '10.0.0.1', 'destination': '10.0.0.0/16'}]})
         self.assertEqual(vm.info.systems[0].getValue("disk.1.device"), "vdb")
+        self.assertEqual(vm.info.systems[0].getValue("disk.0.device"), "vda")
+        self.assertEqual(vm.info.systems[0].getValue("disk.0.image.url"), "ost://server.com/ami-id")
         self.assertEqual(vm.info.systems[0].getValue("disk.1.image.url"), "ost://server.com/vol1")
         self.assertEqual(vm.info.systems[0].getValue("gpu.count"), 1)
         self.assertEqual(vm.info.systems[0].getValue("gpu.model"), 'Tesla V100')
