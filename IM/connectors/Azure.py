@@ -586,7 +586,7 @@ class AzureCloudConnector(CloudConnector):
         os_type = system.getValue("disk.0.os.name")
         os_type = os_type if os_type else "Linux"
         boot_disk_size = None
-        if system.getFeature("disk.0.size"):
+        if system.getValue("disk.0.size"):
             boot_disk_size = system.getFeature("disk.0.size").getValue('G')
 
         if len(image_values) == 3:
