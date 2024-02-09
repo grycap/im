@@ -201,6 +201,30 @@ class Tosca:
                         cloud_id = self._get_placement_property(oscar_sys.name, "cloud_id")
                         dep = deploy(oscar_sys.name, 1, cloud_id)
                         radl.deploys.append(dep)
+            elif root_type == "tosca.nodes.Container.Application.Docker":
+                # if not create a system
+                k8s_sys, nets = self._gen_k8s_system(node, self.tosca.nodetemplates)
+
+                current_num_instances = self._get_current_num_instances(k8s_sys.name, inf_info)
+                num_instances = num_instances - current_num_instances
+                Tosca.logger.debug("User requested %d instances of type %s and there"
+                                    " are %s" % (num_instances, k8s_sys.name, current_num_instances))
+
+                if num_instances < 0:
+                    vm_ids = self._get_vm_ids_to_remove(removal_list, num_instances, inf_info, k8s_sys)
+                    if vm_ids:
+                        all_removal_list.extend(vm_ids)
+                        Tosca.logger.debug("List of K8s pods to delete: %s" % vm_ids)
+                else:
+                    radl.systems.append(k8s_sys)
+                    radl.networks.extend(nets)
+                    conf = configure(node.name, None)
+                    radl.configures.append(conf)
+                    level = Tosca._get_dependency_level(node)
+                    cont_items.append(contextualize_item(node.name, conf.name, level))
+                    cloud_id = self._get_placement_property(k8s_sys.name, "cloud_id")
+                    dep = deploy(k8s_sys.name, 1, cloud_id)
+                    radl.deploys.append(dep)
             else:
                 if root_type == "tosca.nodes.Compute":
                     # Add the system RADL element
@@ -2080,3 +2104,68 @@ class Tosca:
                     Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
 
         return res
+
+    def _gen_k8s_system(self, node, nodetemplates):
+        """Generate the system for an K8s container."""
+        res = system(node.name)
+        nets = []
+
+        artifacts = node.type_definition.get_value('artifacts', node.entity_tpl, True)
+        if len(artifacts) != 1:
+            raise Exception("Only one artifact is supported for K8s container.")
+
+        artifact = list(artifacts.values())[0]
+        image = artifact.get("file", None)
+        if not image:
+            raise Exception("No image specified for K8s container.")
+        if "tosca.artifacts.Deployment.Image.Container.Docker" != artifact.get("type", None):
+            raise Exception("Only Docker images are supported for K8s container.")
+
+        runtime = self._find_host_compute(node, nodetemplates, base_root_type="tosca.nodes.Container.Runtime")
+
+        property_map = {
+            'num_cpus': 'cpu.count',
+            'mem_size': 'memory.size'
+        }
+
+        # Get the properties of the runtime
+        for prop in runtime.get_capability('host').get_properties_objects():
+            value = self._final_function_result(prop.value, node)
+            if value not in [None, [], {}]:
+                if prop.name in property_map:
+                    res.setValue(property_map[prop.name], value)
+                elif prop.name == 'volumes':
+                    cont = 1
+                    # volume format should be "volume_name:mount_path"
+                    for vol in value:
+                        vol_parts = vol.split(":")
+                        volume = vol_parts[0]
+                        mount_path = None
+                        if len(vol_parts) > 1:
+                            mount_path = vol_parts[1:]
+                        cont += 1
+
+                        # Find the volume BlockStorage node
+                        for node in nodetemplates:
+                            root_type = Tosca._get_root_parent_type(node).type
+                            if root_type == "tosca.nodes.BlockStorage" and node.name == volume:
+                                size = self._final_function_result(node.get_property_value('size'), node)
+
+                        if size:
+                            res.setValue('disk.%d.size' % cont, size)
+                        if mount_path:
+                            res.setValue('disk.%d.mount_path' % cont, mount_path)
+
+                elif prop.name == 'publish_ports':
+                    # Asume that publish_ports must be published as NodePort
+                    pub = network("%s_pub" % node.name)
+                    pub.setValue("outbound", "yes")
+                    pub.setValue("outports", self._format_outports(value))
+                    nets.append(pub)
+                elif prop.name == 'expose_ports':
+                    # Asume that publish_ports must be published as ClusterIP
+                    priv = network("%s_priv" % node.name)
+                    priv.setValue("outports", self._format_outports(value))
+                    nets.append(priv)
+                    
+        return res, nets
