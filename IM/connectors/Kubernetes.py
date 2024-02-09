@@ -36,7 +36,6 @@ class KubernetesCloudConnector(CloudConnector):
 
     type = "Kubernetes"
 
-    _root_password = "Aspecial+0ne"
     """ Default password to set to the root in the container"""
     _apiVersions = ["v1", "v1beta3"]
     """ Supported API versions"""
@@ -131,12 +130,14 @@ class KubernetesCloudConnector(CloudConnector):
         if protocol == 'docker' and url[1]:
             res_system = radl_system.clone()
 
-            res_system.addFeature(Feature("virtual_system_type", "=", "docker"), conflict="other", missing="other")
+            res_system.addFeature(Feature("virtual_system_type", "=", "kubernetes"), conflict="other", missing="other")
             res_system.getFeature("cpu.count").operator = "="
             res_system.getFeature("memory.size").operator = "="
 
-            res_system.setValue('disk.0.os.credentials.username', 'root')
-            res_system.setValue('disk.0.os.credentials.password', self._root_password)
+            # Set it as it is required by the IM but in this case it is not used
+            username = res_system.getValue('disk.0.os.credentials.username')
+            if not username:
+                res_system.setValue('disk.0.os.credentials.username', 'username')
 
             return res_system
         else:
@@ -189,17 +190,11 @@ class KubernetesCloudConnector(CloudConnector):
         res = []
         cont = 1
         while (system.getValue("disk." + str(cont) + ".size") and
-                system.getValue("disk." + str(cont) + ".mount_path") and
-                system.getValue("disk." + str(cont) + ".device")):
+                system.getValue("disk." + str(cont) + ".mount_path")):
             disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
-            # Use the device as volume host path to bind
-            disk_device = system.getValue("disk." + str(cont) + ".device")
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('B')
             if not disk_mount_path.startswith('/'):
                 disk_mount_path = '/' + disk_mount_path
-            if not disk_device.startswith('/'):
-                disk_device = '/' + disk_device
-            self.log_info("Binding a volume in %s to %s" % (disk_device, disk_mount_path))
             name = "%s-%d" % (pod_name, cont)
 
             if persistent:
@@ -211,11 +206,11 @@ class KubernetesCloudConnector(CloudConnector):
                 self.log_debug("Creating PVC: %s/%s" % (namespace, name))
                 success = self._create_volume_claim(claim_data, auth_data)
                 if success:
-                    res.append((name, disk_device, disk_size, disk_mount_path, persistent))
+                    res.append((name, disk_size, disk_mount_path, persistent))
                 else:
                     self.log_error("Error creating PersistentVolumeClaim:" + name)
             else:
-                res.append((name, disk_device, disk_size, disk_mount_path, persistent))
+                res.append((name, disk_size, disk_mount_path, persistent))
 
             cont += 1
 
@@ -254,12 +249,12 @@ class KubernetesCloudConnector(CloudConnector):
             'labels': {'name': name}
         }
 
-        ports = [{'port': 22, 'targetPort': 22, 'protocol': 'TCP', 'name': 'ssh'}]
+        ports = []
         if outports:
             for outport in outports:
                 if outport.is_range():
                     self.log_warn("Port range not allowed in Kubernetes connector. Ignoring.")
-                elif outport.get_local_port() != 22:
+                else:
                     ports.append({'port': outport.get_local_port(), 'protocol': outport.get_protocol().upper(),
                                   'targetPort': outport.get_local_port(), 'name': 'port%s' % outport.get_local_port()})
 
@@ -277,12 +272,12 @@ class KubernetesCloudConnector(CloudConnector):
         # The URI has this format: docker://image_name
         image_name = system.getValue("disk.0.image.url")[9:]
 
-        ports = [{'containerPort': 22, 'protocol': 'TCP'}]
+        ports = []
         if outports:
             for outport in outports:
                 if outport.is_range():
                     self.log_warn("Port range not allowed in Kubernetes connector. Ignoring.")
-                elif outport.get_local_port() != 22:
+                else:
                     ports.append({'containerPort': outport.get_local_port(),
                                   'protocol': outport.get_protocol().upper()})
 
@@ -292,31 +287,13 @@ class KubernetesCloudConnector(CloudConnector):
             'namespace': namespace,
             'labels': {'name': name}
         }
-        command = "yum install -y openssh-server python sudo"
-        command += " ; "
-        command += "apt-get update && apt-get install -y openssh-server python sudo"
-        command += " ; "
-        command += "apk add --no-cache openssh-server python2 sudo"
-        command += " ; "
-        command += "mkdir /var/run/sshd"
-        command += " ; "
-        command += "sed -i '/PermitRootLogin/c\\PermitRootLogin yes' /etc/ssh/sshd_config"
-        command += " ; "
-        command += "ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N ''"
-        command += " ; "
-        command += "echo 'root:" + self._root_password + "' | chpasswd"
-        command += " ; "
-        command += ("sed 's@session\\s*required\\s*pam_loginuid.so@session"
-                    " optional pam_loginuid.so@g' -i /etc/pam.d/sshd")
-        command += " ; "
-        command += " /usr/sbin/sshd -D"
         containers = [{
             'name': name,
             'image': image_name,
-            'command': ["/bin/sh", "-c", command],
-            'imagePullPolicy': 'IfNotPresent',
+            'imagePullPolicy': 'Always',
             'ports': ports,
-            'resources': {'limits': {'cpu': cpu, 'memory': memory}}
+            'resources': {'limits': {'cpu': cpu, 'memory': memory},
+                          'requests': {'cpu': cpu, 'memory': memory}}
         }]
 
         if system.getValue("docker.privileged") == 'yes':
@@ -324,26 +301,18 @@ class KubernetesCloudConnector(CloudConnector):
 
         if volumes:
             containers[0]['volumeMounts'] = []
-            for (v_name, _, _, v_mount_path, _) in volumes:
+            for (v_name, _, v_mount_path, _) in volumes:
                 containers[0]['volumeMounts'].append(
                     {'name': v_name, 'mountPath': v_mount_path})
 
-        pod_data['spec'] = {'containers': containers, 'restartPolicy': 'Never'}
+        pod_data['spec'] = {'containers': containers, 'restartPolicy': 'OnFailure'}
 
         if volumes:
             pod_data['spec']['volumes'] = []
-            for (v_name, v_device, _, _, persistent) in volumes:
+            for (v_name, _, _, persistent) in volumes:
                 if persistent:
                     pod_data['spec']['volumes'].append(
                         {'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
-                else:
-                    if v_device:
-                        # Use the device as volume host path to bind
-                        pod_data['spec']['volumes'].append(
-                            {'name': v_name, 'hostPath:': {'path': v_device}})
-                    else:
-                        pod_data['spec']['volumes'].append(
-                            {'name': v_name, 'emptyDir:': {}})
 
         return pod_data
 
@@ -396,8 +365,7 @@ class KubernetesCloudConnector(CloudConnector):
                                                     default_domain=Config.DEFAULT_DOMAIN)
                 pod_name = nodename
 
-                # Do not use the Persistent volumes yet
-                volumes = self._create_volumes(namespace, system, pod_name, auth_data)
+                volumes = self._create_volumes(namespace, system, pod_name, auth_data, True)
 
                 pod_data = self._generate_pod_data(namespace, pod_name, outports, system, volumes)
 
@@ -417,9 +385,6 @@ class KubernetesCloudConnector(CloudConnector):
 
                     output = json.loads(resp.text)
                     vm.id = output["metadata"]["name"]
-                    # Set the default user and password to access the container
-                    vm.info.systems[0].setValue('disk.0.os.credentials.username', 'root')
-                    vm.info.systems[0].setValue('disk.0.os.credentials.password', self._root_password)
                     vm.info.systems[0].setValue('instance_id', str(vm.id))
                     vm.info.systems[0].setValue('instance_name', str(vm.id))
 
@@ -620,5 +585,3 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception(
                 "Error connecting with Kubernetes API server")
             return (False, "ERROR: " + str(ex))
-
-        return (False, "Not supported")
