@@ -255,8 +255,13 @@ class KubernetesCloudConnector(CloudConnector):
                 if outport.is_range():
                     self.log_warn("Port range not allowed in Kubernetes connector. Ignoring.")
                 else:
-                    ports.append({'port': outport.get_local_port(), 'protocol': outport.get_protocol().upper(),
-                                  'targetPort': outport.get_local_port(), 'name': 'port%s' % outport.get_local_port()})
+                    port = {'port': outport.get_local_port(),
+                            'protocol': outport.get_protocol().upper(),
+                            'targetPort': outport.get_local_port(),
+                            'name': 'port%s' % outport.get_local_port()}
+                    if outport.get_remote_port():
+                        port['nodePort'] = outport.get_remote_port()
+                    ports.append(port)
 
         service_data['spec'] = {
             'type': 'NodePort',
@@ -266,7 +271,15 @@ class KubernetesCloudConnector(CloudConnector):
 
         return service_data
 
-    def _generate_pod_data(self, namespace, name, outports, system, volumes):
+    @staticmethod
+    def _get_env_variables(radl_system):
+        env_vars = []
+        for elem in radl_system.getValue("environment.variables", []):
+            parts = elem.split(":")
+            env_vars.append({'name': parts[0], 'value': ":".join(parts[1:])})
+        return env_vars
+
+    def _generate_pod_data(self, namespace, name, outports, system, volumes, tags):
         cpu = str(system.getValue('cpu.count'))
         memory = "%s" % system.getFeature('memory.size').getValue('B')
         # The URI has this format: docker://image_name
@@ -287,6 +300,12 @@ class KubernetesCloudConnector(CloudConnector):
             'namespace': namespace,
             'labels': {'name': name}
         }
+
+        # Add instance tags
+        if tags:
+            for k,v in tags.items():
+                pod_data['metadata']['labels'][k] = v
+
         containers = [{
             'name': name,
             'image': image_name,
@@ -295,6 +314,10 @@ class KubernetesCloudConnector(CloudConnector):
             'resources': {'limits': {'cpu': cpu, 'memory': memory},
                           'requests': {'cpu': cpu, 'memory': memory}}
         }]
+
+        env_vars = self._get_env_variables(system)
+        if env_vars:
+            containers[0]["env"] = env_vars
 
         if system.getValue("docker.privileged") == 'yes':
             containers[0]['securityContext'] = {'privileged': True}
@@ -367,7 +390,9 @@ class KubernetesCloudConnector(CloudConnector):
 
                 volumes = self._create_volumes(namespace, system, pod_name, auth_data, True)
 
-                pod_data = self._generate_pod_data(namespace, pod_name, outports, system, volumes)
+                tags = self.get_instance_tags(system, auth_data, inf)
+
+                pod_data = self._generate_pod_data(namespace, pod_name, outports, system, volumes, tags)
 
                 self.log_debug("Creating POD: %s/%s" % (namespace, pod_name))
                 uri = self._get_api_url(auth_data, namespace, '/pods')
