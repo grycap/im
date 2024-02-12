@@ -201,10 +201,14 @@ class Tosca:
                         cloud_id = self._get_placement_property(oscar_sys.name, "cloud_id")
                         dep = deploy(oscar_sys.name, 1, cloud_id)
                         radl.deploys.append(dep)
-            elif root_type == "tosca.nodes.Container.Application.Docker":
+            elif root_type == "tosca.nodes.Container.Application":
                 # if not create a system
                 k8s_sys, nets = self._gen_k8s_system(node, self.tosca.nodetemplates)
 
+                min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(node)
+                num_instances = self._get_num_instances(count, default_instances, min_instances)
+                if num_instances not in [0, 1]:
+                    raise Exception("Scalability values of %s only allows 0 or 1." % root_type)
                 current_num_instances = self._get_current_num_instances(k8s_sys.name, inf_info)
                 num_instances = num_instances - current_num_instances
                 Tosca.logger.debug("User requested %d instances of type %s and there"
@@ -223,7 +227,7 @@ class Tosca:
                     level = Tosca._get_dependency_level(node)
                     cont_items.append(contextualize_item(node.name, conf.name, level))
                     cloud_id = self._get_placement_property(k8s_sys.name, "cloud_id")
-                    dep = deploy(k8s_sys.name, 1, cloud_id)
+                    dep = deploy(k8s_sys.name, num_instances, cloud_id)
                     radl.deploys.append(dep)
             else:
                 if root_type == "tosca.nodes.Compute":
@@ -417,9 +421,11 @@ class Tosca:
         return current_num
 
     @staticmethod
-    def _format_outports(ports_dict):
+    def _format_outports(ports):
         res = ""
-        for port in ports_dict.values():
+        if isinstance(ports, dict):
+            ports = list(ports.values())
+        for port in ports:
             protocol = "tcp"
             source_range = None
             remote_cidr = ""
@@ -736,6 +742,18 @@ class Tosca:
 
         return res
 
+    def _get_repository_url(self, repo):
+        repo_url = None
+        repositories = self.tosca.tpl.get('repositories')
+        if repositories:
+            for repo_name, repo_def in repositories.items():
+                if repo_name == repo:
+                    if isinstance(repo_def, dict) and 'url' in repo_def:
+                        repo_url = (repo_def['url']).strip().rstrip("//")
+                    else:
+                        repo_url = repo_def.strip().rstrip("//")
+        return repo_url
+
     def _get_artifact_full_uri(self, node, artifact_name):
         artifact_def = artifact_name
         artifacts = self._get_node_artifacts(node)
@@ -748,13 +766,9 @@ class Tosca:
             res = artifact_def['file']
             if 'repository' in artifact_def:
                 repo = artifact_def['repository']
-                repositories = self.tosca.tpl.get('repositories')
-
-                if repositories:
-                    for repo_name, repo_def in repositories.items():
-                        if repo_name == repo:
-                            repo_url = ((repo_def['url']).strip()).rstrip("//")
-                            res = repo_url + "/" + artifact_def['file']
+                repo_url = self._get_repository_url(repo)
+                if repo_url:
+                    res = repo_url + "/" + artifact_def['file']
         else:
             res = artifact_def
 
@@ -2120,49 +2134,61 @@ class Tosca:
             raise Exception("No image specified for K8s container.")
         if "tosca.artifacts.Deployment.Image.Container.Docker" != artifact.get("type", None):
             raise Exception("Only Docker images are supported for K8s container.")
+        repo = artifact.get("repository", None)
+        if repo:
+            repo_url = self._get_repository_url(repo)
+            if repo_url:
+                image = repo_url + "/" + image
 
-        runtime = self._find_host_compute(node, nodetemplates, base_root_type="tosca.nodes.Container.Runtime")
+        runtime = self._find_host_compute(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
 
-        # Get the properties of the runtime
-        for prop in runtime.get_capability('host').get_properties_objects():
-            value = self._final_function_result(prop.value, node)
-            if value not in [None, [], {}]:
-                if prop.name == "num_cpus":
-                    res.setValue('cpu.count', value)
-                elif prop.name == "mem_size":
-                    res.setValue("memory.size", value)
-                elif prop.name == 'volumes':
-                    cont = 1
-                    # volume format should be "volume_name:mount_path"
-                    for vol in value:
-                        vol_parts = vol.split(":")
-                        volume = vol_parts[0]
-                        mount_path = None
-                        if len(vol_parts) > 1:
-                            mount_path = vol_parts[1:]
-                        cont += 1
+        if runtime:
+            # Get the properties of the runtime
+            for prop in runtime.get_capability('host').get_properties_objects():
+                value = self._final_function_result(prop.value, node)
+                if value not in [None, [], {}]:
+                    if prop.name == "num_cpus":
+                        res.setValue('cpu.count', float(value))
+                    elif prop.name == "mem_size":
+                        if not value.endswith("B"):
+                            value += "B"
+                        value = int(ScalarUnit_Size(value).get_num_from_scalar_unit('B'))
+                        res.setValue("memory.size", value, 'B')
+                    elif prop.name == 'volumes':
+                        cont = 1
+                        # volume format should be "volume_name:mount_path"
+                        for vol in value:
+                            vol_parts = vol.split(":")
+                            volume = vol_parts[0]
+                            mount_path = None
+                            if len(vol_parts) > 1:
+                                mount_path = vol_parts[1:]
+                            cont += 1
 
-                        # Find the volume BlockStorage node
-                        for node in nodetemplates:
-                            root_type = Tosca._get_root_parent_type(node).type
-                            if root_type == "tosca.nodes.BlockStorage" and node.name == volume:
-                                size = self._final_function_result(node.get_property_value('size'), node)
+                            # Find the volume BlockStorage node
+                            for node in nodetemplates:
+                                root_type = Tosca._get_root_parent_type(node).type
+                                if root_type == "tosca.nodes.BlockStorage" and node.name == volume:
+                                    size = self._final_function_result(node.get_property_value('size'), node)
 
-                        if size:
-                            res.setValue('disk.%d.size' % cont, size)
-                        if mount_path:
-                            res.setValue('disk.%d.mount_path' % cont, mount_path)
+                            if size:
+                                if not size.endswith("B"):
+                                    size += "B"
+                                size = int(ScalarUnit_Size(size).get_num_from_scalar_unit('B'))
+                                res.setValue('disk.%d.size' % cont, size, 'B')
+                            if mount_path:
+                                res.setValue('disk.%d.mount_path' % cont, mount_path)
 
-                elif prop.name == 'publish_ports':
-                    # Asume that publish_ports must be published as NodePort
-                    pub = network("%s_pub" % node.name)
-                    pub.setValue("outbound", "yes")
-                    pub.setValue("outports", self._format_outports(value))
-                    nets.append(pub)
-                elif prop.name == 'expose_ports':
-                    # Asume that publish_ports must be published as ClusterIP
-                    priv = network("%s_priv" % node.name)
-                    priv.setValue("outports", self._format_outports(value))
-                    nets.append(priv)
+                    elif prop.name == 'publish_ports':
+                        # Asume that publish_ports must be published as NodePort
+                        pub = network("%s_pub" % node.name)
+                        pub.setValue("outbound", "yes")
+                        pub.setValue("outports", self._format_outports(value))
+                        nets.append(pub)
+                    elif prop.name == 'expose_ports':
+                        # Asume that publish_ports must be published as ClusterIP
+                        priv = network("%s_priv" % node.name)
+                        priv.setValue("outports", self._format_outports(value))
+                        nets.append(priv)
                     
         return res, nets

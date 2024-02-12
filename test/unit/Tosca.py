@@ -425,6 +425,17 @@ class TestTosca(unittest.TestCase):
         remove_list, _ = tosca.to_radl(inf_info)
         self.assertEqual(remove_list, [2])
 
+    def test_tosca_k8s(self):
+        """Test TOSCA RADL translation with Containers for K8s"""
+        tosca_data = read_file_as_string('../files/tosca_k8s.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        print(radl)
+        radl.check()
+
+        node = radl.get_system_by_name('mysql_container')
+        self.assertEqual(node.getValue("disk.0.image.url"), "mysql:5.7")
 
 if __name__ == "__main__":
     unittest.main()
