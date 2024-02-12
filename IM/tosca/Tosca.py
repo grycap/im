@@ -2123,17 +2123,14 @@ class Tosca:
 
         runtime = self._find_host_compute(node, nodetemplates, base_root_type="tosca.nodes.Container.Runtime")
 
-        property_map = {
-            'num_cpus': 'cpu.count',
-            'mem_size': 'memory.size'
-        }
-
         # Get the properties of the runtime
         for prop in runtime.get_capability('host').get_properties_objects():
             value = self._final_function_result(prop.value, node)
             if value not in [None, [], {}]:
-                if prop.name in property_map:
-                    res.setValue(property_map[prop.name], value)
+                if prop.name == "num_cpus":
+                    res.setValue('cpu.count', value)
+                elif prop.name == "mem_size":
+                    res.setValue("memory.size", value)
                 elif prop.name == 'volumes':
                     cont = 1
                     # volume format should be "volume_name:mount_path"
