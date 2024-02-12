@@ -2140,6 +2140,7 @@ class Tosca:
             if repo_url:
                 image = repo_url + "/" + image
 
+        res.setValue("disk.0.image.url", image)
         runtime = self._find_host_compute(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
 
         if runtime:
@@ -2162,8 +2163,7 @@ class Tosca:
                             volume = vol_parts[0]
                             mount_path = None
                             if len(vol_parts) > 1:
-                                mount_path = vol_parts[1:]
-                            cont += 1
+                                mount_path = "".join(vol_parts[1:])
 
                             # Find the volume BlockStorage node
                             for node in nodetemplates:
@@ -2178,6 +2178,7 @@ class Tosca:
                                 res.setValue('disk.%d.size' % cont, size, 'B')
                             if mount_path:
                                 res.setValue('disk.%d.mount_path' % cont, mount_path)
+                            cont += 1
 
                     elif prop.name == 'publish_ports':
                         # Asume that publish_ports must be published as NodePort

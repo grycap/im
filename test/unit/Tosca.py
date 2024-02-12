@@ -435,7 +435,7 @@ class TestTosca(unittest.TestCase):
         radl.check()
 
         node = radl.get_system_by_name('mysql_container')
-        self.assertEqual(node.getValue("disk.0.image.url"), "mysql:5.7")
+        self.assertEqual(node.getValue("disk.0.image.url"), "https://docker.io/mysql:5.7")
 
 if __name__ == "__main__":
     unittest.main()
