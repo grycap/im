@@ -358,7 +358,7 @@ machine.  The supported features are:
    Set the mount point, if it is disk with no source set.
    It specifies a path to mount the device. In Docker and Kubernetes 
    connectors this path refers to the directory in the container to 
-   mount the or the bind host directory specified in ``device``.
+   mount a PVC or the bind host directory specified in ``device``.
    
 ``disk.<diskId>.fstype = <string>``
    Set the filesystem, if it is disk with no source set.
