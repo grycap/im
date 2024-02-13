@@ -212,7 +212,7 @@ class Tosca:
                 current_num_instances = self._get_current_num_instances(k8s_sys.name, inf_info)
                 num_instances = num_instances - current_num_instances
                 Tosca.logger.debug("User requested %d instances of type %s and there"
-                                    " are %s" % (num_instances, k8s_sys.name, current_num_instances))
+                                   " are %s" % (num_instances, k8s_sys.name, current_num_instances))
 
                 if num_instances < 0:
                     vm_ids = self._get_vm_ids_to_remove(removal_list, num_instances, inf_info, k8s_sys)
@@ -2203,5 +2203,5 @@ class Tosca:
                         priv = network("%s_priv" % node.name)
                         priv.setValue("outports", self._format_outports(value))
                         nets.append(priv)
-                    
+
         return res, nets

@@ -152,7 +152,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "resources": {"requests": {"storage": 10737418240}},
             },
         }
-        self.assertEqual(requests.call_args_list[2][0][1], 'http://server.com:8080/api/v1/namespaces/infid/persistentvolumeclaims')
+        self.assertEqual(requests.call_args_list[2][0][1],
+                         'http://server.com:8080/api/v1/namespaces/infid/persistentvolumeclaims')
         self.assertEqual(json.loads(requests.call_args_list[2][1]['data']), exp_pvc)
 
         exp_pod = {
@@ -294,14 +295,18 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         success, _ = kube_cloud.finalize(vm, True, auth)
 
-        self.assertEqual(requests.call_args_list[2][0], ('DELETE',
-                                                         'http://server.com:8080/api/v1/namespaces/infid/persistentvolumeclaims/cname'))
-        self.assertEqual(requests.call_args_list[3][0], ('DELETE',
-                                                         'http://server.com:8080/api/v1/namespaces/infid/pods/1'))
-        self.assertEqual(requests.call_args_list[4][0], ('DELETE',
-                                                         'http://server.com:8080/api/v1/namespaces/infid/services/1'))
-        self.assertEqual(requests.call_args_list[5][0], ('DELETE',
-                                                         'http://server.com:8080/api/v1/namespaces/infid'))
+        self.assertEqual(requests.call_args_list[2][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/infid/persistentvolumeclaims/cname'))
+        self.assertEqual(requests.call_args_list[3][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/infid/pods/1'))
+        self.assertEqual(requests.call_args_list[4][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/infid/services/1'))
+        self.assertEqual(requests.call_args_list[5][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/infid'))
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

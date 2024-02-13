@@ -305,7 +305,7 @@ class KubernetesCloudConnector(CloudConnector):
 
         # Add instance tags
         if tags:
-            for k,v in tags.items():
+            for k, v in tags.items():
                 pod_data['metadata']['labels'][k] = v
 
         containers = [{

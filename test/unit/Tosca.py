@@ -446,5 +446,6 @@ class TestTosca(unittest.TestCase):
         conf = radl.get_configure_by_name('mysql_container')
         self.assertEqual(conf.recipes, None)
 
+
 if __name__ == "__main__":
     unittest.main()
