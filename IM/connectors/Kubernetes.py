@@ -386,7 +386,7 @@ class KubernetesCloudConnector(CloudConnector):
                 vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
                 vm.destroy = True
                 inf.add_vm(vm)
-                (nodename, _) = vm.getRequestedName(default_hostname=Config.DEFAULT_VM_NAME,
+                (nodename, _) = vm.getRequestedName(default_hostname="pod-#N#",
                                                     default_domain=Config.DEFAULT_DOMAIN)
                 pod_name = nodename
 

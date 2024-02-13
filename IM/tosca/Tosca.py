@@ -2143,6 +2143,16 @@ class Tosca:
                 image = "".join(repo_url_p[1:]) + "/" + image
 
         res.setValue("disk.0.image.url", "docker://%s" % image)
+
+        for prop in node.get_properties_objects():
+            value = self._final_function_result(prop.value, node)
+            if value not in [None, [], {}]:
+                if prop.name == "environment":
+                    env = []
+                    for k, v in value.items():
+                        env.append("%s:%s" % (k, v))
+                    res.setValue('environment.variables', env)
+
         runtime = self._find_host_compute(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
 
         if runtime:
