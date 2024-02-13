@@ -63,7 +63,7 @@ class KubernetesCloudConnector(CloudConnector):
                 headers = {}
             headers.update(auth_header)
 
-        if body and isinstance(body, dict):
+        if body and isinstance(body, (dict, list)):
             data = json.dumps(body)
         else:
             data = body
@@ -447,6 +447,14 @@ class KubernetesCloudConnector(CloudConnector):
             output = json.loads(output)
             vm.state = self.VM_STATE_MAP.get(output["status"]["phase"], VirtualMachine.UNKNOWN)
 
+            pod_limits = output['spec']['containers'][0].get('resources', {}).get('limits')
+            if pod_limits:
+                vm.info.systems[0].setValue('cpu.count', float(pod_limits['cpu']))
+                memory = self.convert_memory_unit(pod_limits['memory'], "B")
+                vm.info.systems[0].setValue('memory.size', memory)
+
+            vm.info.systems[0].setValue('disk.0.image.url', output['spec']['containers'][0]['image'])
+
             # Update the network info
             self.setIPs(vm, output)
             return (True, vm)
@@ -564,26 +572,23 @@ class KubernetesCloudConnector(CloudConnector):
 
     def alterVM(self, vm, radl, auth_data):
         # This function is correctly implemented
-        # But kubernetes does not permit cpu to be updated yet
+        # But kubernetes only enable to change the image of the container
         system = radl.systems[0]
 
         try:
             pod_data = []
 
-            cpu = vm.info.systems[0].getValue('cpu.count')
-            memory = vm.info.systems[0].getFeature('memory.size').getValue('B')
-
-            new_cpu = system.getValue('cpu.count')
-            new_memory = system.getFeature('memory.size').getValue('B')
+            image_url = urlparse(vm.info.systems[0].getValue('disk.0.image.url'))
+            image = "".join(image_url[1:])
+            new_image = system.getValue('disk.0.image.url')
+            if system.getValue("disk.0.image.url"):
+                new_image_url = urlparse(system.getValue("disk.0.image.url"))
+                new_image = "".join(new_image_url[1:])
 
             changed = False
-            if new_cpu and new_cpu != cpu:
+            if new_image and new_image != image:
                 pod_data.append(
-                    {"op": "replace", "path": "/spec/containers/0/resources/limits/cpu", "value": new_cpu})
-                changed = True
-            if new_memory and new_memory != memory:
-                pod_data.append(
-                    {"op": "replace", "path": "/spec/containers/0/resources/limits/memory", "value": new_memory})
+                    {"op": "replace", "path": "/spec/containers/0/image", "value": new_image})
                 changed = True
 
             if not changed:
@@ -598,15 +603,12 @@ class KubernetesCloudConnector(CloudConnector):
             uri = self._get_api_url(auth_data, namespace, "/pods/" + pod_name)
             resp = self.create_request('PATCH', uri, auth_data, headers, pod_data)
 
-            if resp.status_code != 201:
+            if resp.status_code != 200:
                 return (False, "Error updating the Pod: " + resp.text)
             else:
-                if new_cpu:
-                    vm.info.systems[0].setValue('cpu.count', new_cpu)
-                if new_memory:
-                    vm.info.systems[0].addFeature(
-                        Feature("memory.size", "=", new_memory, 'B'), conflict="other", missing="other")
-                return (True, self.updateVMInfo(vm, auth_data))
+                if new_image:
+                    vm.info.systems[0].setValue('disk.0.image.url', new_image)
+                return (True, vm)
 
         except Exception as ex:
             self.log_exception(

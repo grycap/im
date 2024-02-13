@@ -84,7 +84,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.status_code = 200
                 resp.text = ('{"metadata": {"namespace":"infid", "name": "name"}, "status": '
                              '{"phase":"Running", "hostIP": "158.42.1.1", "podIP": "10.0.0.1"}, '
-                             '"spec": {"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}}]}}')
+                             '"spec": {"containers": [{"image": "image:1.0"}], '
+                             '"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}}]}}')
             if url == "/api/v1/namespaces/infid":
                 resp.status_code = 200
         elif method == "POST":
@@ -108,7 +109,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.status_code = 200
         elif method == "PATCH":
             if url.endswith("/pods/1"):
-                resp.status_code = 201
+                resp.status_code = 200
 
         return resp
 
@@ -255,14 +256,13 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            disk.0.image.url = 'docker://image:tag'
+            disk.0.image.url = 'docker://image:1.0'
             )"""
         radl = radl_parse.parse_radl(radl_data)
 
         new_radl_data = """
             system test (
-            cpu.count>=2 and
-            memory.size>=2048m
+            disk.0.image.url = 'docker://image:2.0'
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 

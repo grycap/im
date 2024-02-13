@@ -255,25 +255,12 @@ class OSCARCloudConnector(CloudConnector):
 
         return True, ""
 
-    @staticmethod
-    def _convert_memory_unit(memory, unit="M"):
-        unit_dict = {'B': 1, 'K': 1000, 'Ki': 1024,
-                     'M': 1000000, 'Mi': 1048576,
-                     'G': 1000000000, 'Gi': 1073741824,
-                     'T': 1000000000000, 'Ti': 1099511627776}
-        regex = re.compile(r'([0-9.]+)\s*([a-zA-Z]+)')
-        result = regex.match(str(memory)).groups()
-        converted = (float(result[0]) * unit_dict[result[1]] / unit_dict[unit])
-        if converted - int(converted) < 0.0000000000001:
-            converted = int(converted)
-        return converted
-
     def update_system_info_from_service_info(self, system, service_info):
         if "cpu" in service_info and service_info["cpu"]:
             system.addFeature(Feature("cpu.count", "=", float(service_info["cpu"])),
                               conflict="other", missing="other")
         if "memory" in service_info and service_info["memory"]:
-            memory = self._convert_memory_unit(service_info["memory"], "Mi")
+            memory = self.convert_memory_unit(service_info["memory"], "Mi")
             system.addFeature(Feature("memory.size", "=", memory, "M"),
                               conflict="other", missing="other")
         if "script" in service_info and service_info["script"]:

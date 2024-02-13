@@ -19,6 +19,7 @@ import operator
 import time
 import yaml
 import uuid
+import re
 
 from radl.radl import Feature, outport
 from IM.config import Config
@@ -751,3 +752,21 @@ class CloudConnector(LoggerMixin):
             self.error_messages += "Error in %s DNS entries %s.\n" % (op, str(ex))
             self.log_exception("Error in %s DNS entries" % op)
             return False
+
+    @staticmethod
+    def convert_memory_unit(memory, unit="M"):
+        unit_dict = {'B': 1, 'K': 1000, 'Ki': 1024,
+                     'M': 1000000, 'Mi': 1048576,
+                     'G': 1000000000, 'Gi': 1073741824,
+                     'T': 1000000000000, 'Ti': 1099511627776}
+        regex = re.compile(r'([0-9.]+)\s*([a-zA-Z]+)')
+        result = regex.match(str(memory)).groups()
+        value = float(result[0])
+        orig_unit = result[1]
+        if len(orig_unit) > 1 and orig_unit[-1] == 'B':
+            orig_unit = orig_unit[:-1]
+
+        converted = (value * unit_dict[orig_unit] / unit_dict[unit])
+        if converted - int(converted) < 0.0000000000001:
+            converted = int(converted)
+        return converted
