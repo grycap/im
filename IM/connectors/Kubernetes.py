@@ -127,7 +127,9 @@ class KubernetesCloudConnector(CloudConnector):
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
         protocol = url[0]
-        if protocol == 'docker' and url[1]:
+        # it can use the docker protocol or the have a empty protocol and a non empty path
+        # docker://image:tag or image:tag
+        if (protocol == 'docker' and url[1]) or (protocol == '' and url[1] == '' and url[2] != ''):
             res_system = radl_system.clone()
 
             res_system.addFeature(Feature("virtual_system_type", "=", "kubernetes"), conflict="other", missing="other")
@@ -282,8 +284,8 @@ class KubernetesCloudConnector(CloudConnector):
     def _generate_pod_data(self, namespace, name, outports, system, volumes, tags):
         cpu = str(system.getValue('cpu.count'))
         memory = "%s" % system.getFeature('memory.size').getValue('B')
-        # The URI has this format: docker://image_name
-        image_name = system.getValue("disk.0.image.url")[9:]
+        image_url = urlparse(system.getValue("disk.0.image.url"))
+        image_name = "".join(image_url[1:])
 
         ports = []
         if outports:

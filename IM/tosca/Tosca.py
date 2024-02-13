@@ -2138,9 +2138,11 @@ class Tosca:
         if repo:
             repo_url = self._get_repository_url(repo)
             if repo_url:
-                image = repo_url + "/" + image
+                # Remove the protocol from the URL
+                repo_url_p = urlparse(repo_url)
+                image = "".join(repo_url_p[1:]) + "/" + image
 
-        res.setValue("disk.0.image.url", image)
+        res.setValue("disk.0.image.url", "docker://%s" % image)
         runtime = self._find_host_compute(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
 
         if runtime:

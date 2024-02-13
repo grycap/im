@@ -7,7 +7,7 @@ description: TOSCA test for K8s
 
 repositories:
 
-  docker_hub: https://docker.io/
+  docker_hub: docker.io
 
 topology_template:
 
@@ -31,7 +31,7 @@ topology_template:
         host:
           properties:
             num_cpus: 1
-            mem_size: 2 MB
+            mem_size: 2 GB
             publish_ports:
               - protocol: tcp
                 target: 33306

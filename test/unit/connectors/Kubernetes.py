@@ -219,15 +219,11 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl_data = """
             network net (outbound = 'yes')
             system test (
-            cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            disk.0.os.name = 'linux' and
-            disk.0.image.url = 'docker://someimage' and
-            disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.0.image.url = 'docker://someimage'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -254,15 +250,11 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl_data = """
             network net ()
             system test (
-            cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            disk.0.os.name = 'linux' and
-            disk.0.image.url = 'one://server.com/1' and
-            disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.0.image.url = 'docker://image:tag'
             )"""
         radl = radl_parse.parse_radl(radl_data)
 

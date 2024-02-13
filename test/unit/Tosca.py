@@ -431,11 +431,19 @@ class TestTosca(unittest.TestCase):
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
         radl = parse_radl(str(radl))
-        print(radl)
         radl.check()
 
         node = radl.get_system_by_name('mysql_container')
-        self.assertEqual(node.getValue("disk.0.image.url"), "https://docker.io/mysql:5.7")
+        self.assertEqual(node.getValue("disk.0.image.url"), "docker://docker.io/mysql:5.7")
+        self.assertEqual(node.getValue("cpu.count"), 1.0)
+        self.assertEqual(node.getValue("memory.size"), 2000000000)
+        self.assertEqual(node.getValue("disk.1.size"), 10000000000)
+        self.assertEqual(node.getValue("disk.1.mount_path"), '/some/path')
+        net = radl.get_network_by_id('mysql_container_pub')
+        self.assertEqual(net.getValue("outports"), '3306/tcp-33306/tcp')
+        self.assertEqual(net.getValue("outbound"), 'yes')
+        conf = radl.get_configure_by_name('mysql_container')
+        self.assertEqual(conf.recipes, None)
 
 if __name__ == "__main__":
     unittest.main()
