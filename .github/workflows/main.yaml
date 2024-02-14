@@ -1,0 +1,38 @@
+name: Test IM
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the codebase.
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-tests.txt
+
+      - name: Check code style
+        run: pycodestyle --max-line-length=120 --ignore=E402,W504,W605,E722 . --exclude=doc
+
+      - name: Test with nose
+        #run: nosetests test/unit/connectors/*.py test/unit/*.py test/functional/*.py -v --stop --with-xunit --with-coverage --cover-erase --cover-xml --cover-package=IM,contextualization
+        run: python -m coverage run --source=. -m unittest discover -s test/unit -p '*.py'
+
+      - name: Generate XML coverage report
+        run: python -m coverage xml
+
+      - name: Report coverage
+        uses: codacy/codacy-coverage-reporter-action@v1
+        with:
+            project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+            coverage-reports: coverage.xml
