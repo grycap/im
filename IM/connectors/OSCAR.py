@@ -17,7 +17,6 @@
 import base64
 import json
 import requests
-import re
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from radl.radl import Feature
