@@ -2123,6 +2123,8 @@ class Tosca:
         cont = 1
         # volume format should be "volume_name:mount_path"
         for vol in value:
+            size = None
+            volume_id = None
             vol_parts = vol.split(":")
             volume = vol_parts[0]
             mount_path = None
@@ -2134,12 +2136,13 @@ class Tosca:
                 root_type = Tosca._get_root_parent_type(node).type
                 if root_type == "tosca.nodes.BlockStorage" and node.name == volume:
                     size = self._final_function_result(node.get_property_value('size'), node)
+                    volume_id = self._final_function_result(node.get_property_value('volume_id'), node)
 
             if size:
                 if not size.endswith("B"):
                     size += "B"
                 size = int(ScalarUnit_Size(size).get_num_from_scalar_unit('B'))
-            volumes.append((cont, size, mount_path))
+            volumes.append((cont, size, mount_path, volume_id))
             cont += 1
         return volumes
 
@@ -2192,7 +2195,9 @@ class Tosca:
                         value = int(ScalarUnit_Size(value).get_num_from_scalar_unit('B'))
                         res.setValue("memory.size", value, 'B')
                     elif prop.name == 'volumes':
-                        for num, size, mount_path in self._gen_k8s_volumes(node, nodetemplates, value):
+                        for num, size, mount_path, volume_id in self._gen_k8s_volumes(node, nodetemplates, value):
+                            if volume_id:
+                                res.setValue('disk.%d.image.url' % num, volume_id)
                             if size:
                                 res.setValue('disk.%d.size' % num, size, 'B')
                             if mount_path:

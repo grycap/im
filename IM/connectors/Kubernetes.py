@@ -191,8 +191,10 @@ class KubernetesCloudConnector(CloudConnector):
     def _create_volumes(self, namespace, system, pod_name, auth_data, persistent=False):
         res = []
         cont = 1
-        while (system.getValue("disk." + str(cont) + ".size") and
+        while ((system.getValue("disk." + str(cont) + ".size") or 
+                system.getValue("disk." + str(cont) + ".image.url")) and
                 system.getValue("disk." + str(cont) + ".mount_path")):
+            volume_id = system.getValue("disk." + str(cont) + ".image.url")
             disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('B')
             if not disk_mount_path.startswith('/'):
@@ -204,6 +206,10 @@ class KubernetesCloudConnector(CloudConnector):
                 claim_data['metadata'] = {'name': name, 'namespace': namespace}
                 claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
                     'requests': {'storage': disk_size}}}
+
+                if volume_id:
+                    claim_data['spec']['storageClassName'] = ""
+                    claim_data['spec']['volumeName'] = volume_id
 
                 self.log_debug("Creating PVC: %s/%s" % (namespace, name))
                 success = self._create_volume_claim(claim_data, auth_data)

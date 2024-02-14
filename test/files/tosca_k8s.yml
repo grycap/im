@@ -46,4 +46,6 @@ topology_template:
       type: tosca.nodes.BlockStorage
       properties:
         size: 10 GB
+        # Set the PV name in this field
+        # volume_id: "PV name"
 
