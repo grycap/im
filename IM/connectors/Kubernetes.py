@@ -191,7 +191,7 @@ class KubernetesCloudConnector(CloudConnector):
     def _create_volumes(self, namespace, system, pod_name, auth_data, persistent=False):
         res = []
         cont = 1
-        while ((system.getValue("disk." + str(cont) + ".size") or 
+        while ((system.getValue("disk." + str(cont) + ".size") or
                 system.getValue("disk." + str(cont) + ".image.url")) and
                 system.getValue("disk." + str(cont) + ".mount_path")):
             volume_id = system.getValue("disk." + str(cont) + ".image.url")
