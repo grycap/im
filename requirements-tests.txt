@@ -12,7 +12,7 @@ requests >= 2.19
 scp
 tosca-parser
 defusedxml
-urllib3>=1.23
+urllib3>=1.23,<2.0
 pycodestyle
 suds-py3
 xmltodict
