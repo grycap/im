@@ -2119,8 +2119,33 @@ class Tosca:
 
         return res
 
+    def _gen_k8s_volumes(self, node, nodetemplates, value):
+        volumes = []
+        cont = 1
+        # volume format should be "volume_name:mount_path"
+        for vol in value:
+            vol_parts = vol.split(":")
+            volume = vol_parts[0]
+            mount_path = None
+            if len(vol_parts) > 1:
+                mount_path = "".join(vol_parts[1:])
+
+            # Find the volume BlockStorage node
+            for node in nodetemplates:
+                root_type = Tosca._get_root_parent_type(node).type
+                if root_type == "tosca.nodes.BlockStorage" and node.name == volume:
+                    size = self._final_function_result(node.get_property_value('size'), node)
+
+            if size:
+                if not size.endswith("B"):
+                    size += "B"
+                size = int(ScalarUnit_Size(size).get_num_from_scalar_unit('B'))
+            volumes.append((cont, size, mount_path))
+            cont += 1
+        return volumes
+
     def _gen_k8s_system(self, node, nodetemplates):
-        """Generate the system for an K8s container."""
+        """Get the volumes attached to an K8s container."""
         res = system(node.name)
         nets = []
 
@@ -2168,30 +2193,11 @@ class Tosca:
                         value = int(ScalarUnit_Size(value).get_num_from_scalar_unit('B'))
                         res.setValue("memory.size", value, 'B')
                     elif prop.name == 'volumes':
-                        cont = 1
-                        # volume format should be "volume_name:mount_path"
-                        for vol in value:
-                            vol_parts = vol.split(":")
-                            volume = vol_parts[0]
-                            mount_path = None
-                            if len(vol_parts) > 1:
-                                mount_path = "".join(vol_parts[1:])
-
-                            # Find the volume BlockStorage node
-                            for node in nodetemplates:
-                                root_type = Tosca._get_root_parent_type(node).type
-                                if root_type == "tosca.nodes.BlockStorage" and node.name == volume:
-                                    size = self._final_function_result(node.get_property_value('size'), node)
-
+                        for num, size, mount_path in self._gen_k8s_volumes(node, nodetemplates, value):
                             if size:
-                                if not size.endswith("B"):
-                                    size += "B"
-                                size = int(ScalarUnit_Size(size).get_num_from_scalar_unit('B'))
-                                res.setValue('disk.%d.size' % cont, size, 'B')
+                                res.setValue('disk.%d.size' % num, size, 'B')
                             if mount_path:
-                                res.setValue('disk.%d.mount_path' % cont, mount_path)
-                            cont += 1
-
+                                res.setValue('disk.%d.mount_path' % num, mount_path)
                     elif prop.name == 'publish_ports':
                         # Asume that publish_ports must be published as NodePort
                         pub = network("%s_pub" % node.name)
