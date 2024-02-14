@@ -68,7 +68,7 @@
 		<NIC>
 			<AR_ID><![CDATA[71]]></AR_ID>
 			<BRIDGE><![CDATA[br1]]></BRIDGE>
-			<IP><![CDATA[10.0.0.01]]></IP>
+			<IP><![CDATA[10.0.0.1]]></IP>
 			<MAC><![CDATA[10:00:00:00:00:01]]></MAC>
 			<NETWORK><![CDATA[privada]]></NETWORK>
 			<NETWORK_ID><![CDATA[0]]></NETWORK_ID>
