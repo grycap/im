@@ -43,7 +43,7 @@ An RADL document has the next general structure::
    deploy <system_id> <num> [<cloud_id>] 
 
 The ``description`` optional keyword can only appear once. It is an special keyword
-to add some medatada to the RADL. All features on the list are free, except for the ``name`` field. 
+to add some metadata to the RADL. All features on the list are free, except for the ``name`` field. 
 The ``name`` field is a predefined but optional field used to assign a name to the infrastructure. For instance::
 
    description desc (
