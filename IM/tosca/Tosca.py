@@ -143,9 +143,8 @@ class Tosca:
                 if num_instances not in [0, 1]:
                     raise Exception("Scalability values of %s only allows 0 or 1." % root_type)
 
-                oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
-                                                     "tosca.nodes.SoftwareComponent")
-                oscar_compute = self._find_host_compute(node, self.tosca.nodetemplates)
+                oscar_host = self._find_host_node(node, self.tosca.nodetemplates, "tosca.nodes.SoftwareComponent")
+                oscar_compute = self._find_host_node(node, self.tosca.nodetemplates)
                 # If the function has a host create a recipe
                 if oscar_compute and oscar_host:
                     service_json = self._get_oscar_service_json(node)
@@ -259,7 +258,7 @@ class Tosca:
                     compute = node
                 else:
                     # Select the host to host this element
-                    compute = self._find_host_compute(node, self.tosca.nodetemplates)
+                    compute = self._find_host_node(node, self.tosca.nodetemplates)
                     if not compute:
                         Tosca.logger.warn(
                             "Node %s has not compute node to host in." % node.name)
@@ -473,7 +472,7 @@ class Tosca:
             compute = None
             if root_type != "tosca.nodes.Compute":
                 # Select the host to host this element
-                compute = self._find_host_compute(other_node, nodetemplates)
+                compute = self._find_host_node(other_node, nodetemplates)
 
             if compute and compute.name == node.name:
                 node_caps = other_node.get_capabilities()
@@ -1150,7 +1149,7 @@ class Tosca:
 
         # Get node
         if node_name == "HOST":
-            node = self._find_host_compute(node, self.tosca.nodetemplates)
+            node = self._find_host_node(node, self.tosca.nodetemplates)
         elif node_name == "SOURCE":
             node = func.context.source
         elif node_name == "TARGET":
@@ -1206,7 +1205,7 @@ class Tosca:
 
         root_type = Tosca._get_root_parent_type(node).type
 
-        host_node = self._find_host_compute(node, self.tosca.nodetemplates)
+        host_node = self._find_host_node(node, self.tosca.nodetemplates)
         if root_type == "tosca.nodes.aisprint.FaaS.Function" and host_node is None:
             # in case of FaaS functions without host, the node is the host
             host_node = node
@@ -1292,8 +1291,8 @@ class Tosca:
                         # AWS Lambda function
                         return vm.info.systems[0].get("function.api_url")
                     else:
-                        oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
-                                                             "tosca.nodes.SoftwareComponent")
+                        oscar_host = self._find_host_node(node, self.tosca.nodetemplates,
+                                                          "tosca.nodes.SoftwareComponent")
                         if host_node != node and oscar_host:
                             # OSCAR function deployed in a deployed VM
                             dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'),
@@ -1316,8 +1315,8 @@ class Tosca:
                     if vm.getCloudConnector().type == "Lambda":
                         return None
                     else:
-                        oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
-                                                             "tosca.nodes.SoftwareComponent")
+                        oscar_host = self._find_host_node(node, self.tosca.nodetemplates,
+                                                          "tosca.nodes.SoftwareComponent")
                         if host_node != node and oscar_host:
                             # OSCAR function deployed in a deployed VM
                             oscar_pass = self._final_function_result(oscar_host.get_property_value('password'),
@@ -1404,8 +1403,8 @@ class Tosca:
                                                                                        host_node.name))
             elif attribute_name == "endpoint":
                 if root_type == "tosca.nodes.aisprint.FaaS.Function":
-                    oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
-                                                         "tosca.nodes.SoftwareComponent")
+                    oscar_host = self._find_host_node(node, self.tosca.nodetemplates,
+                                                      "tosca.nodes.SoftwareComponent")
                     if host_node != node and oscar_host:
                         # OSCAR function deployed in a deployed VM
                         dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
@@ -1453,7 +1452,7 @@ class Tosca:
         # TODO: resolve function values related with run-time values as IM
         # or ansible variables
 
-    def _find_host_compute(self, node, nodetemplates, base_root_type="tosca.nodes.Compute"):
+    def _find_host_node(self, node, nodetemplates, base_root_type="tosca.nodes.Compute"):
         """
         Select the node to host each node, using the node requirements
         In most of the cases the are directly specified, otherwise "node_filter" is used
@@ -1471,7 +1470,7 @@ class Tosca:
                     if root_type == base_root_type:
                         return n
                     else:
-                        return self._find_host_compute(n, nodetemplates)
+                        return self._find_host_node(n, nodetemplates)
 
         # There are no direct HostedOn node
         # check node_filter requirements
@@ -1691,7 +1690,7 @@ class Tosca:
                 compute = other_node
             else:
                 # Select the host to host this element
-                compute = self._find_host_compute(other_node, nodetemplates)
+                compute = self._find_host_node(other_node, nodetemplates)
 
             if compute and compute.name == node.name:
                 # Get the artifacts to see if there is a ansible galaxy role
@@ -2076,7 +2075,7 @@ class Tosca:
                 deps = []
                 for r, n in node.relationships.items():
                     if Tosca._is_derived_from(r, [r.DEPENDSON]):
-                        node_compute = self._find_host_compute(n, self.tosca.nodetemplates)
+                        node_compute = self._find_host_node(n, self.tosca.nodetemplates)
                         deps.append(node_compute.name)
                 if deps:
                     res.setValue('dependencies', deps)
@@ -2178,7 +2177,7 @@ class Tosca:
                         env.append("%s:%s" % (k, v))
                     res.setValue('environment.variables', env)
 
-        runtime = self._find_host_compute(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
+        runtime = self._find_host_node(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
 
         if runtime:
             # Get the properties of the runtime
