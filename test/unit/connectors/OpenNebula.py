@@ -190,7 +190,7 @@ class TestONEConnector(TestCloudConnectorBase):
         server_proxy.return_value = one_server
 
         success, vm = one_cloud.updateVMInfo(vm, auth)
-        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.01")
+        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "158.42.1.1")
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
