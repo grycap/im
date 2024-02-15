@@ -24,9 +24,8 @@ jobs:
       - name: Check code style
         run: pycodestyle --max-line-length=120 --ignore=E402,W504,W605,E722 . --exclude=doc
 
-      - name: Test with nose
-        #run: nosetests test/unit/connectors/*.py test/unit/*.py test/functional/*.py -v --stop --with-xunit --with-coverage --cover-erase --cover-xml --cover-package=IM,contextualization
-        run: python -m coverage run --source=. -m unittest discover -s test/unit -p '*.py'
+      - name: Unit tests
+        run: python -m coverage run --source=. -m unittest discover -v -s test/unit -p '*.py'
 
       - name: Generate XML coverage report
         run: python -m coverage xml
