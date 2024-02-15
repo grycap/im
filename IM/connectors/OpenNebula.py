@@ -571,7 +571,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         if vm.id:
             one_ver = self.getONEVersion(auth_data)
             op = 'terminate'
-            if one_ver <= Version("4.14.0"):
+            if Version(one_ver) <= Version("4.14.0"):
                 op = 'delete'
             success, err = server.one.vm.action(session_id, op, int(vm.id))[0:2]
         else:
@@ -587,7 +587,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         if last and success:
             one_ver = self.getONEVersion(auth_data)
             # Security Groups appears in version 4.12.0
-            if one_ver >= Version("4.12.0"):
+            if Version(one_ver) >= Version("4.12.0"):
                 self.delete_security_groups(vm.inf, auth_data)
 
         return (success, err)
@@ -1181,7 +1181,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         image_type = ""  # Use the default one
         one_ver = self.getONEVersion(auth_data)
-        if one_ver >= Version("5.0"):
+        if Version(one_ver) >= Version("5.0"):
             success, res_info = server.one.vm.disksaveas(session_id, int(vm.id), disk_num,
                                                          image_name, image_type, -1)[0:2]
         else:
