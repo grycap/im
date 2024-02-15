@@ -65,7 +65,8 @@ from IM.REST import (RESTDestroyInfrastructure,
 def read_file_as_bytes(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
-    return BytesIO(open(abs_file_path, 'r').read().encode())
+    with open(abs_file_path, 'r') as f:
+        return BytesIO(f.read().encode())
 
 
 class TestREST(unittest.TestCase):

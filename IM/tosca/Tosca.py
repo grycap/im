@@ -79,7 +79,7 @@ class Tosca:
                                                                               sys_name))
                             return policy.properties[prop]
             else:
-                Tosca.logger.warn("Policy %s not supported. Ignoring it." % policy.type_definition.type)
+                Tosca.logger.warning("Policy %s not supported. Ignoring it." % policy.type_definition.type)
 
         return None
 
@@ -135,7 +135,7 @@ class Tosca:
                         elif token_type == "private_key":
                             ansible_host.setValue("credentials.private_key", token)
                         else:
-                            Tosca.logger.warn("Unknown tyoe of token %s. Ignoring." % token_type)
+                            Tosca.logger.warning("Unknown tyoe of token %s. Ignoring." % token_type)
                 radl.ansible_hosts = [ansible_host]
             elif root_type == "tosca.nodes.aisprint.FaaS.Function":
                 min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(node)
@@ -260,7 +260,7 @@ class Tosca:
                     # Select the host to host this element
                     compute = self._find_host_node(node, self.tosca.nodetemplates)
                     if not compute:
-                        Tosca.logger.warn(
+                        Tosca.logger.warning(
                             "Node %s has not compute node to host in." % node.name)
 
                 interfaces = Tosca._get_interfaces(node)
@@ -655,7 +655,7 @@ class Tosca:
                 else:
                     # There are no a private IP, net the provider_id to the priv net
                     if not public_net:
-                        Tosca.logger.warn("Node %s does not require any IP!!" % node.name)
+                        Tosca.logger.warning("Node %s does not require any IP!!" % node.name)
 
                 if public_net:
                     if pool_name:
@@ -928,7 +928,7 @@ class Tosca:
         try:
             yamlo = yaml.safe_load(script_content)
             if not isinstance(yamlo, list):
-                Tosca.logger.warn("Error parsing YAML: " + script_content + "\n.Do not remove header.")
+                Tosca.logger.warning("Error parsing YAML: " + script_content + "\n.Do not remove header.")
                 return script_content
         except Exception:
             Tosca.logger.exception("Error parsing YAML: " + script_content + "\n.Do not remove header.")
@@ -1033,11 +1033,11 @@ class Tosca:
                             "Incorrect substring_index in function token.")
                         return None
                 else:
-                    Tosca.logger.warn(
+                    Tosca.logger.warning(
                         "Intrinsic function token must receive 3 parameters.")
                     return None
             else:
-                Tosca.logger.warn(
+                Tosca.logger.warning(
                     "Intrinsic function %s not supported." % func_name)
                 return None
 
@@ -1214,7 +1214,7 @@ class Tosca:
             vm_list = inf_info.get_vm_list_by_system_name()
 
             if host_node.name not in vm_list:
-                Tosca.logger.warn("There are no VM associated with the name %s." % host_node.name)
+                Tosca.logger.warning("There are no VM associated with the name %s." % host_node.name)
                 return None
             else:
                 # As default assume that there will be only one VM per group
@@ -1230,14 +1230,14 @@ class Tosca:
                 if node.type == "tosca.nodes.indigo.Compute":
                     return vm.cont_out
                 else:
-                    Tosca.logger.warn("Attribute ctxt_log only supported"
+                    Tosca.logger.warning("Attribute ctxt_log only supported"
                                       " in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "ansible_output":
                 if node.type == "tosca.nodes.indigo.Compute":
                     return self._get_ansible_output(vm.cont_out, attribute_params)
                 else:
-                    Tosca.logger.warn("Attribute ansible_output only supported"
+                    Tosca.logger.warning("Attribute ansible_output only supported"
                                       " in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "credential" and capability_name == "endpoint":
@@ -1257,7 +1257,7 @@ class Tosca:
                         res = res[index]
                     return res
                 else:
-                    Tosca.logger.warn("Attribute credential of capability endpoint only"
+                    Tosca.logger.warning("Attribute credential of capability endpoint only"
                                       " supported in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "private_address":
@@ -1308,7 +1308,7 @@ class Tosca:
                             # OSCAR function deployed in a pre-deployed cluster or not dns_host set
                             return vm.getCloudConnector().cloud.get_url()
 
-                Tosca.logger.warn("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
+                Tosca.logger.warning("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
                 return None
             elif attribute_name == "credential":
                 if root_type == "tosca.nodes.aisprint.FaaS.Function":
@@ -1327,7 +1327,7 @@ class Tosca:
                                                                 "token": oscar_pass},
                                                                attribute_params)
 
-                            Tosca.logger.warn("No password defined in tosca.nodes.indigo.OSCAR host node")
+                            Tosca.logger.warning("No password defined in tosca.nodes.indigo.OSCAR host node")
                             return None
                         else:
                             # OSCAR function deployed in a pre-deployed cluster or not dns_host set
@@ -1344,16 +1344,16 @@ class Tosca:
                                                                     "token": auth["token"]},
                                                                    attribute_params)
                                 else:
-                                    Tosca.logger.warn("No valid auth data in OSCAR connector")
+                                    Tosca.logger.warning("No valid auth data in OSCAR connector")
                                     return None
 
-                            Tosca.logger.warn("No auth data in OSCAR connector")
+                            Tosca.logger.warning("No auth data in OSCAR connector")
                             return None
 
-                Tosca.logger.warn("Attribute credential only supported in tosca.nodes.aisprint.FaaS.Function")
+                Tosca.logger.warning("Attribute credential only supported in tosca.nodes.aisprint.FaaS.Function")
                 return None
             else:
-                Tosca.logger.warn("Attribute %s not supported." % attribute_name)
+                Tosca.logger.warning("Attribute %s not supported." % attribute_name)
                 return None
         else:
             if attribute_name == "tosca_id":
@@ -1411,10 +1411,10 @@ class Tosca:
                         if dns_host.strip("'\""):
                             return "https://%s" % dns_host
 
-                Tosca.logger.warn("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
+                Tosca.logger.warning("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
                 return None
             else:
-                Tosca.logger.warn("Attribute %s not supported." % attribute_name)
+                Tosca.logger.warning("Attribute %s not supported." % attribute_name)
                 return None
 
     def _final_function_result(self, func, node, inf_info=None):
@@ -1542,7 +1542,7 @@ class Tosca:
                     elif op == "valid_values":
                         comparation = node_value in filter_value
                     else:
-                        Tosca.logger.warn("Logical operator %s not supported." % op)
+                        Tosca.logger.warning("Logical operator %s not supported." % op)
 
                 if not comparation:
                     return False
@@ -1788,7 +1788,7 @@ class Tosca:
                                     feature = Feature("disk.0.os.credentials.public_key", "=", token)
                                     res.addFeature(feature)
                                 else:
-                                    Tosca.logger.warn("Unknown tyoe of token %s. Ignoring." % token_type)
+                                    Tosca.logger.warning("Unknown tyoe of token %s. Ignoring." % token_type)
                             if 'user' not in value or not value['user']:
                                 raise Exception("User must be specified in the image credentials.")
                             name = "disk.0.os.credentials.username"
@@ -2069,7 +2069,7 @@ class Tosca:
                             res.setValue("expose.%s" % elem, value)
                 else:
                     # this should never happen
-                    Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
+                    Tosca.logger.warning("Property %s not expected. Ignoring." % prop.name)
 
             if node.requirements:
                 deps = []
@@ -2114,7 +2114,7 @@ class Tosca:
                     res['image_pull_secrets'] = value
                 else:
                     # this should never happen
-                    Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
+                    Tosca.logger.warning("Property %s not expected. Ignoring." % prop.name)
 
         return res
 

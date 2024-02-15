@@ -25,7 +25,7 @@ from multiprocessing import Process
 import psutil
 import signal
 import logging
-from distutils.version import LooseVersion
+from packaging.version import Version
 from collections import namedtuple
 from ansible import errors
 from ansible import __version__ as ansible_version
@@ -137,7 +137,7 @@ class AnsibleThread(Process):
             self._kill_childs()
 
     def get_play_prereqs(self, options):
-        if LooseVersion(ansible_version) >= LooseVersion("2.4.0"):
+        if Version(ansible_version) >= Version("2.4.0"):
             # for Ansible version 2.4.0 or higher
             return self.get_play_prereqs_2_4(options)
         else:
@@ -208,7 +208,7 @@ class AnsibleThread(Process):
                 'revision': ansible_versions[2]}
 
     def _gen_options(self):
-        if LooseVersion(ansible_version) >= LooseVersion("2.8.0"):
+        if Version(ansible_version) >= Version("2.8.0"):
             from ansible.module_utils.common.collections import ImmutableDict
             from ansible import context
             context.CLIARGS = ImmutableDict(connection='ssh',
