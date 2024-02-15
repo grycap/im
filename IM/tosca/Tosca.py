@@ -1231,14 +1231,14 @@ class Tosca:
                     return vm.cont_out
                 else:
                     Tosca.logger.warning("Attribute ctxt_log only supported"
-                                      " in tosca.nodes.indigo.Compute nodes.")
+                                         " in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "ansible_output":
                 if node.type == "tosca.nodes.indigo.Compute":
                     return self._get_ansible_output(vm.cont_out, attribute_params)
                 else:
                     Tosca.logger.warning("Attribute ansible_output only supported"
-                                      " in tosca.nodes.indigo.Compute nodes.")
+                                         " in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "credential" and capability_name == "endpoint":
                 if node.type == "tosca.nodes.indigo.Compute":
@@ -1258,7 +1258,7 @@ class Tosca:
                     return res
                 else:
                     Tosca.logger.warning("Attribute credential of capability endpoint only"
-                                      " supported in tosca.nodes.indigo.Compute nodes.")
+                                         " supported in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
