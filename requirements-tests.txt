@@ -32,7 +32,6 @@ pyVmomi
 hvac
 psutil
 scar
-nose
 mock
 coverage
 requests-cache
