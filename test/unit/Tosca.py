@@ -37,7 +37,8 @@ from IM.tosca.Tosca import Tosca
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
-    return open(abs_file_path, 'r').read()
+    with open(abs_file_path, 'r') as f:
+        return f.read()
 
 
 class TestTosca(unittest.TestCase):
@@ -424,6 +425,27 @@ class TestTosca(unittest.TestCase):
         tosca = Tosca(tosca_data)
         remove_list, _ = tosca.to_radl(inf_info)
         self.assertEqual(remove_list, [2])
+
+    def test_tosca_k8s(self):
+        """Test TOSCA RADL translation with Containers for K8s"""
+        tosca_data = read_file_as_string('../files/tosca_k8s.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        radl.check()
+
+        node = radl.get_system_by_name('mysql_container')
+        self.assertEqual(node.getValue("disk.0.image.url"), "docker://docker.io/mysql:5.7")
+        self.assertEqual(node.getValue("cpu.count"), 1.0)
+        self.assertEqual(node.getValue("memory.size"), 2000000000)
+        self.assertEqual(node.getValue("disk.1.size"), 10000000000)
+        self.assertEqual(node.getValue("disk.1.mount_path"), '/some/path')
+        self.assertEqual(node.getValue("environment.variables"), ['MYSQL_ROOT_PASSWORD:my-secret'])
+        net = radl.get_network_by_id('mysql_container_pub')
+        self.assertEqual(net.getValue("outports"), '33306/tcp-3306/tcp')
+        self.assertEqual(net.getValue("outbound"), 'yes')
+        conf = radl.get_configure_by_name('mysql_container')
+        self.assertEqual(conf.recipes, None)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,51 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+imports:
+  - grycap_custom_types: https://raw.githubusercontent.com/grycap/tosca/main/custom_types.yaml
+
+description: TOSCA test for K8s
+
+repositories:
+
+  docker_hub: docker.io
+
+topology_template:
+
+  node_templates:
+
+    # The MYSQL container based on official MySQL image in Docker hub
+    mysql_container:
+      type: tosca.nodes.Container.Application.Docker
+      properties:
+        environment:
+          MYSQL_ROOT_PASSWORD: my-secret
+      requirements:
+        - host: mysql_runtime
+      artifacts:
+        my_image:
+          file: "mysql:5.7"
+          type: tosca.artifacts.Deployment.Image.Container.Docker
+          repository: docker_hub
+
+    # The properties of the runtime to host the container
+    mysql_runtime:
+      type: tosca.nodes.Container.Runtime.Docker
+      capabilities:
+        host:
+          properties:
+            num_cpus: 1
+            mem_size: 2 GB
+            publish_ports:
+              - protocol: tcp
+                target: 3306
+                source: 33306
+            volumes:
+              - "some_vol:/some/path"
+
+    some_vol:
+      type: tosca.nodes.BlockStorage
+      properties:
+        size: 10 GB
+        # Set the PV name in this field
+        # volume_id: "PV name"
+

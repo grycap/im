@@ -350,7 +350,7 @@ machine.  The supported features are:
    Set the device name, if it is disk with no source set.
    It specifies the device where the disk will be located in the system
    (hdb, hdc, etc.). Depending on the Cloud provider the meaning of this
-   field may change. In Docker and Kubernetes connectors the device
+   field may change. In Docker connector the device
    refers to a path to create a bind in the container, if it starts with
    character ``/`` or the name of a volume otherwise.
    
@@ -358,10 +358,10 @@ machine.  The supported features are:
    Set the mount point, if it is disk with no source set.
    It specifies a path to mount the device. In Docker and Kubernetes 
    connectors this path refers to the directory in the container to 
-   bind the host directory specified in ``device``.
+   mount a PVC or the bind host directory specified in ``device``.
    
 ``disk.<diskId>.fstype = <string>``
-   Set the mount point, if it is disk with no source set.
+   Set the filesystem, if it is disk with no source set.
    It specifies the type of the filesystem of this disk. If specified
    the contextualization agent will try to format and mount this disk
    in the path specified in ``mount_path`` field. In case of Docker 

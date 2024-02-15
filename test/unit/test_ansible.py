@@ -42,7 +42,6 @@ class TestAnsible(unittest.TestCase):
         ansible_process.run()
 
         _, return_code, output = result.get()
-        print(output.getvalue())
         self.assertEqual(return_code, 0)
         self.assertIn("failed=0", output.getvalue())
         self.assertIn("changed=2", output.getvalue())

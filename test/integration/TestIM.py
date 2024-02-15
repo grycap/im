@@ -47,7 +47,8 @@ TEST_PORT = 8899
 def read_file_as_string(file_name):
     tests_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(tests_path, file_name)
-    return open(abs_file_path, 'r').read()
+    with open(abs_file_path, 'r') as f:
+        return f.read()
 
 
 class TestIM(unittest.TestCase):

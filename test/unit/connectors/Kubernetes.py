@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import json
 import sys
 import unittest
 
@@ -53,16 +54,11 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
     def test_10_concrete(self):
         radl_data = """
-            network net ()
             system test (
-            cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
-            net_interface.0.connection = 'net' and
-            net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'docker://someimage' and
-            disk.0.os.credentials.username = 'user'
+            disk.0.image.url = 'docker://someimage'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl_system = radl.systems[0]
@@ -86,31 +82,34 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.text = '{"versions": "v1"}'
             elif url.endswith("/pods/1"):
                 resp.status_code = 200
-                resp.text = ('{"metadata": {"namespace":"namespace", "name": "name"}, "status": '
+                resp.text = ('{"metadata": {"namespace":"infid", "name": "name"}, "status": '
                              '{"phase":"Running", "hostIP": "158.42.1.1", "podIP": "10.0.0.1"}, '
-                             '"spec": {"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}}]}}')
+                             '"spec": {"containers": [{"image": "image:1.0"}], '
+                             '"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}}]}}')
             if url == "/api/v1/namespaces/infid":
                 resp.status_code = 200
         elif method == "POST":
             if url.endswith("/pods"):
                 resp.status_code = 201
-                resp.text = '{"metadata": {"namespace":"namespace", "name": "name"}}'
+                resp.text = '{"metadata": {"namespace":"infid", "name": "name"}}'
             elif url.endswith("/services"):
                 resp.status_code = 201
             elif url.endswith("/namespaces/"):
+                resp.status_code = 201
+            elif url.endswith("/persistentvolumeclaims"):
                 resp.status_code = 201
         elif method == "DELETE":
             if url.endswith("/pods/1"):
                 resp.status_code = 200
             elif url.endswith("/services/1"):
                 resp.status_code = 200
-            elif url.endswith("/namespaces/namespace"):
+            elif url.endswith("/namespaces/infid"):
                 resp.status_code = 200
             elif "persistentvolumeclaims" in url:
                 resp.status_code = 200
         elif method == "PATCH":
             if url.endswith("/pods/1"):
-                resp.status_code = 201
+                resp.status_code = 200
 
         return resp
 
@@ -118,21 +117,17 @@ class TestKubernetesConnector(TestCloudConnectorBase):
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, requests):
         radl_data = """
-            network net1 (outbound = 'yes' and outports = '8080')
-            network net2 ()
+            network net (outbound = 'yes' and outports = '38080-8080')
             system test (
-            cpu.arch='x86_64' and
             cpu.count>=1 and
             memory.size>=512m and
-            net_interface.0.connection = 'net1' and
+            net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            net_interface.1.connection = 'net2' and
+            environment.variables = ['var:some_val'] and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'docker://someimage' and
-            disk.0.os.credentials.username = 'user' and
-            disk.1.size=1GB and
-            disk.1.device='hdb' and
-            disk.1.mount_path='/mnt/path'
+            disk.1.size = 10G and
+            disk.1.mount_path = '/mnt'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -148,6 +143,77 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         res = kube_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
+
+        exp_pvc = {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": {"name": "test-1", "namespace": "infid"},
+            "spec": {
+                "accessModes": ["ReadWriteOnce"],
+                "resources": {"requests": {"storage": 10737418240}},
+            },
+        }
+        self.assertEqual(requests.call_args_list[2][0][1],
+                         'http://server.com:8080/api/v1/namespaces/infid/persistentvolumeclaims')
+        self.assertEqual(json.loads(requests.call_args_list[2][1]['data']), exp_pvc)
+
+        exp_pod = {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "metadata": {
+                "name": "test",
+                "namespace": "infid",
+                "labels": {"name": "test", "IM_INFRA_ID": "infid"},
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "name": "test",
+                        "image": "someimage",
+                        "imagePullPolicy": "Always",
+                        "ports": [{"containerPort": 8080, "protocol": "TCP"}],
+                        "resources": {
+                            "limits": {"cpu": "1", "memory": "536870912"},
+                            "requests": {"cpu": "1", "memory": "536870912"},
+                        },
+                        "env": [{"name": "var", "value": "some_val"}],
+                        "volumeMounts": [{"name": "test-1", "mountPath": "/mnt"}],
+                    }
+                ],
+                "restartPolicy": "OnFailure",
+                "volumes": [
+                    {"name": "test-1", "persistentVolumeClaim": {"claimName": "test-1"}}
+                ],
+            },
+        }
+        self.assertEqual(requests.call_args_list[3][0][1], 'http://server.com:8080/api/v1/namespaces/infid/pods')
+        self.assertEqual(json.loads(requests.call_args_list[3][1]['data']), exp_pod)
+
+        exp_svc = {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "name": "test",
+                "namespace": "infid",
+                "labels": {"name": "test"},
+            },
+            "spec": {
+                "type": "NodePort",
+                "ports": [
+                    {
+                        "port": 8080,
+                        "protocol": "TCP",
+                        "targetPort": 8080,
+                        "name": "port8080",
+                        "nodePort": 38080,
+                    }
+                ],
+                "selector": {"name": "test"},
+            },
+        }
+        self.assertEqual(requests.call_args_list[4][0][1], 'http://server.com:8080/api/v1/namespaces/infid/services')
+        self.assertEqual(json.loads(requests.call_args_list[4][1]['data']), exp_svc)
+
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')
@@ -155,15 +221,11 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl_data = """
             network net (outbound = 'yes')
             system test (
-            cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            disk.0.os.name = 'linux' and
-            disk.0.image.url = 'docker://someimage' and
-            disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.0.image.url = 'docker://someimage'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -190,22 +252,17 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl_data = """
             network net ()
             system test (
-            cpu.arch='x86_64' and
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            disk.0.os.name = 'linux' and
-            disk.0.image.url = 'one://server.com/1' and
-            disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
+            disk.0.image.url = 'docker://image:1.0'
             )"""
         radl = radl_parse.parse_radl(radl_data)
 
         new_radl_data = """
             system test (
-            cpu.count>=2 and
-            memory.size>=2048m
+            disk.0.image.url = 'docker://image:2.0'
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 
@@ -231,13 +288,25 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
-        inf.id = "namespace"
+        inf.id = "infid"
         vm = VirtualMachine(inf, "1", kube_cloud.cloud, "", "", kube_cloud, 1)
 
         requests.side_effect = self.get_response
 
         success, _ = kube_cloud.finalize(vm, True, auth)
 
+        self.assertEqual(requests.call_args_list[2][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/infid/persistentvolumeclaims/cname'))
+        self.assertEqual(requests.call_args_list[3][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/infid/pods/1'))
+        self.assertEqual(requests.call_args_list[4][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/infid/services/1'))
+        self.assertEqual(requests.call_args_list[5][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/infid'))
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

@@ -21,7 +21,7 @@ import threading
 import time
 import tempfile
 import shutil
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 try:
     from StringIO import StringIO
@@ -758,7 +758,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         """
         Get the correct VaultEditor object in different Ansible versions
         """
-        if LooseVersion(ansible_version) >= LooseVersion("2.4.0"):
+        if Version(ansible_version) >= Version("2.4.0"):
             # for Ansible version 2.4.0 or higher
             vault_secrets = [('default', VaultSecret(_bytes=to_bytes(vault_password)))]
             return VaultEditor(VaultLib(vault_secrets))

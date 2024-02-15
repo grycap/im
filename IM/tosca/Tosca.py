@@ -79,7 +79,7 @@ class Tosca:
                                                                               sys_name))
                             return policy.properties[prop]
             else:
-                Tosca.logger.warn("Policy %s not supported. Ignoring it." % policy.type_definition.type)
+                Tosca.logger.warning("Policy %s not supported. Ignoring it." % policy.type_definition.type)
 
         return None
 
@@ -135,7 +135,7 @@ class Tosca:
                         elif token_type == "private_key":
                             ansible_host.setValue("credentials.private_key", token)
                         else:
-                            Tosca.logger.warn("Unknown tyoe of token %s. Ignoring." % token_type)
+                            Tosca.logger.warning("Unknown tyoe of token %s. Ignoring." % token_type)
                 radl.ansible_hosts = [ansible_host]
             elif root_type == "tosca.nodes.aisprint.FaaS.Function":
                 min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(node)
@@ -143,9 +143,8 @@ class Tosca:
                 if num_instances not in [0, 1]:
                     raise Exception("Scalability values of %s only allows 0 or 1." % root_type)
 
-                oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
-                                                     "tosca.nodes.SoftwareComponent")
-                oscar_compute = self._find_host_compute(node, self.tosca.nodetemplates)
+                oscar_host = self._find_host_node(node, self.tosca.nodetemplates, "tosca.nodes.SoftwareComponent")
+                oscar_compute = self._find_host_node(node, self.tosca.nodetemplates)
                 # If the function has a host create a recipe
                 if oscar_compute and oscar_host:
                     service_json = self._get_oscar_service_json(node)
@@ -201,6 +200,34 @@ class Tosca:
                         cloud_id = self._get_placement_property(oscar_sys.name, "cloud_id")
                         dep = deploy(oscar_sys.name, 1, cloud_id)
                         radl.deploys.append(dep)
+            elif root_type == "tosca.nodes.Container.Application":
+                # if not create a system
+                k8s_sys, nets = self._gen_k8s_system(node, self.tosca.nodetemplates)
+
+                min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(node)
+                num_instances = self._get_num_instances(count, default_instances, min_instances)
+                if num_instances not in [0, 1]:
+                    raise Exception("Scalability values of %s only allows 0 or 1." % root_type)
+                current_num_instances = self._get_current_num_instances(k8s_sys.name, inf_info)
+                num_instances = num_instances - current_num_instances
+                Tosca.logger.debug("User requested %d instances of type %s and there"
+                                   " are %s" % (num_instances, k8s_sys.name, current_num_instances))
+
+                if num_instances < 0:
+                    vm_ids = self._get_vm_ids_to_remove(removal_list, num_instances, inf_info, k8s_sys)
+                    if vm_ids:
+                        all_removal_list.extend(vm_ids)
+                        Tosca.logger.debug("List of K8s pods to delete: %s" % vm_ids)
+                else:
+                    radl.systems.append(k8s_sys)
+                    radl.networks.extend(nets)
+                    conf = configure(node.name, None)
+                    radl.configures.append(conf)
+                    level = Tosca._get_dependency_level(node)
+                    cont_items.append(contextualize_item(node.name, conf.name, level))
+                    cloud_id = self._get_placement_property(k8s_sys.name, "cloud_id")
+                    dep = deploy(k8s_sys.name, num_instances, cloud_id)
+                    radl.deploys.append(dep)
             else:
                 if root_type == "tosca.nodes.Compute":
                     # Add the system RADL element
@@ -231,9 +258,9 @@ class Tosca:
                     compute = node
                 else:
                     # Select the host to host this element
-                    compute = self._find_host_compute(node, self.tosca.nodetemplates)
+                    compute = self._find_host_node(node, self.tosca.nodetemplates)
                     if not compute:
-                        Tosca.logger.warn(
+                        Tosca.logger.warning(
                             "Node %s has not compute node to host in." % node.name)
 
                 interfaces = Tosca._get_interfaces(node)
@@ -393,9 +420,11 @@ class Tosca:
         return current_num
 
     @staticmethod
-    def _format_outports(ports_dict):
+    def _format_outports(ports):
         res = ""
-        for port in ports_dict.values():
+        if isinstance(ports, dict):
+            ports = list(ports.values())
+        for port in ports:
             protocol = "tcp"
             source_range = None
             remote_cidr = ""
@@ -443,7 +472,7 @@ class Tosca:
             compute = None
             if root_type != "tosca.nodes.Compute":
                 # Select the host to host this element
-                compute = self._find_host_compute(other_node, nodetemplates)
+                compute = self._find_host_node(other_node, nodetemplates)
 
             if compute and compute.name == node.name:
                 node_caps = other_node.get_capabilities()
@@ -626,7 +655,7 @@ class Tosca:
                 else:
                     # There are no a private IP, net the provider_id to the priv net
                     if not public_net:
-                        Tosca.logger.warn("Node %s does not require any IP!!" % node.name)
+                        Tosca.logger.warning("Node %s does not require any IP!!" % node.name)
 
                 if public_net:
                     if pool_name:
@@ -712,6 +741,18 @@ class Tosca:
 
         return res
 
+    def _get_repository_url(self, repo):
+        repo_url = None
+        repositories = self.tosca.tpl.get('repositories')
+        if repositories:
+            for repo_name, repo_def in repositories.items():
+                if repo_name == repo:
+                    if isinstance(repo_def, dict) and 'url' in repo_def:
+                        repo_url = (repo_def['url']).strip().rstrip("//")
+                    else:
+                        repo_url = repo_def.strip().rstrip("//")
+        return repo_url
+
     def _get_artifact_full_uri(self, node, artifact_name):
         artifact_def = artifact_name
         artifacts = self._get_node_artifacts(node)
@@ -724,13 +765,9 @@ class Tosca:
             res = artifact_def['file']
             if 'repository' in artifact_def:
                 repo = artifact_def['repository']
-                repositories = self.tosca.tpl.get('repositories')
-
-                if repositories:
-                    for repo_name, repo_def in repositories.items():
-                        if repo_name == repo:
-                            repo_url = ((repo_def['url']).strip()).rstrip("//")
-                            res = repo_url + "/" + artifact_def['file']
+                repo_url = self._get_repository_url(repo)
+                if repo_url:
+                    res = repo_url + "/" + artifact_def['file']
         else:
             res = artifact_def
 
@@ -891,7 +928,7 @@ class Tosca:
         try:
             yamlo = yaml.safe_load(script_content)
             if not isinstance(yamlo, list):
-                Tosca.logger.warn("Error parsing YAML: " + script_content + "\n.Do not remove header.")
+                Tosca.logger.warning("Error parsing YAML: " + script_content + "\n.Do not remove header.")
                 return script_content
         except Exception:
             Tosca.logger.exception("Error parsing YAML: " + script_content + "\n.Do not remove header.")
@@ -996,11 +1033,11 @@ class Tosca:
                             "Incorrect substring_index in function token.")
                         return None
                 else:
-                    Tosca.logger.warn(
+                    Tosca.logger.warning(
                         "Intrinsic function token must receive 3 parameters.")
                     return None
             else:
-                Tosca.logger.warn(
+                Tosca.logger.warning(
                     "Intrinsic function %s not supported." % func_name)
                 return None
 
@@ -1112,7 +1149,7 @@ class Tosca:
 
         # Get node
         if node_name == "HOST":
-            node = self._find_host_compute(node, self.tosca.nodetemplates)
+            node = self._find_host_node(node, self.tosca.nodetemplates)
         elif node_name == "SOURCE":
             node = func.context.source
         elif node_name == "TARGET":
@@ -1168,7 +1205,7 @@ class Tosca:
 
         root_type = Tosca._get_root_parent_type(node).type
 
-        host_node = self._find_host_compute(node, self.tosca.nodetemplates)
+        host_node = self._find_host_node(node, self.tosca.nodetemplates)
         if root_type == "tosca.nodes.aisprint.FaaS.Function" and host_node is None:
             # in case of FaaS functions without host, the node is the host
             host_node = node
@@ -1177,7 +1214,7 @@ class Tosca:
             vm_list = inf_info.get_vm_list_by_system_name()
 
             if host_node.name not in vm_list:
-                Tosca.logger.warn("There are no VM associated with the name %s." % host_node.name)
+                Tosca.logger.warning("There are no VM associated with the name %s." % host_node.name)
                 return None
             else:
                 # As default assume that there will be only one VM per group
@@ -1193,15 +1230,15 @@ class Tosca:
                 if node.type == "tosca.nodes.indigo.Compute":
                     return vm.cont_out
                 else:
-                    Tosca.logger.warn("Attribute ctxt_log only supported"
-                                      " in tosca.nodes.indigo.Compute nodes.")
+                    Tosca.logger.warning("Attribute ctxt_log only supported"
+                                         " in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "ansible_output":
                 if node.type == "tosca.nodes.indigo.Compute":
                     return self._get_ansible_output(vm.cont_out, attribute_params)
                 else:
-                    Tosca.logger.warn("Attribute ansible_output only supported"
-                                      " in tosca.nodes.indigo.Compute nodes.")
+                    Tosca.logger.warning("Attribute ansible_output only supported"
+                                         " in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "credential" and capability_name == "endpoint":
                 if node.type == "tosca.nodes.indigo.Compute":
@@ -1220,8 +1257,8 @@ class Tosca:
                         res = res[index]
                     return res
                 else:
-                    Tosca.logger.warn("Attribute credential of capability endpoint only"
-                                      " supported in tosca.nodes.indigo.Compute nodes.")
+                    Tosca.logger.warning("Attribute credential of capability endpoint only"
+                                         " supported in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
@@ -1254,8 +1291,8 @@ class Tosca:
                         # AWS Lambda function
                         return vm.info.systems[0].get("function.api_url")
                     else:
-                        oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
-                                                             "tosca.nodes.SoftwareComponent")
+                        oscar_host = self._find_host_node(node, self.tosca.nodetemplates,
+                                                          "tosca.nodes.SoftwareComponent")
                         if host_node != node and oscar_host:
                             # OSCAR function deployed in a deployed VM
                             dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'),
@@ -1271,15 +1308,15 @@ class Tosca:
                             # OSCAR function deployed in a pre-deployed cluster or not dns_host set
                             return vm.getCloudConnector().cloud.get_url()
 
-                Tosca.logger.warn("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
+                Tosca.logger.warning("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
                 return None
             elif attribute_name == "credential":
                 if root_type == "tosca.nodes.aisprint.FaaS.Function":
                     if vm.getCloudConnector().type == "Lambda":
                         return None
                     else:
-                        oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
-                                                             "tosca.nodes.SoftwareComponent")
+                        oscar_host = self._find_host_node(node, self.tosca.nodetemplates,
+                                                          "tosca.nodes.SoftwareComponent")
                         if host_node != node and oscar_host:
                             # OSCAR function deployed in a deployed VM
                             oscar_pass = self._final_function_result(oscar_host.get_property_value('password'),
@@ -1290,7 +1327,7 @@ class Tosca:
                                                                 "token": oscar_pass},
                                                                attribute_params)
 
-                            Tosca.logger.warn("No password defined in tosca.nodes.indigo.OSCAR host node")
+                            Tosca.logger.warning("No password defined in tosca.nodes.indigo.OSCAR host node")
                             return None
                         else:
                             # OSCAR function deployed in a pre-deployed cluster or not dns_host set
@@ -1307,16 +1344,16 @@ class Tosca:
                                                                     "token": auth["token"]},
                                                                    attribute_params)
                                 else:
-                                    Tosca.logger.warn("No valid auth data in OSCAR connector")
+                                    Tosca.logger.warning("No valid auth data in OSCAR connector")
                                     return None
 
-                            Tosca.logger.warn("No auth data in OSCAR connector")
+                            Tosca.logger.warning("No auth data in OSCAR connector")
                             return None
 
-                Tosca.logger.warn("Attribute credential only supported in tosca.nodes.aisprint.FaaS.Function")
+                Tosca.logger.warning("Attribute credential only supported in tosca.nodes.aisprint.FaaS.Function")
                 return None
             else:
-                Tosca.logger.warn("Attribute %s not supported." % attribute_name)
+                Tosca.logger.warning("Attribute %s not supported." % attribute_name)
                 return None
         else:
             if attribute_name == "tosca_id":
@@ -1366,18 +1403,18 @@ class Tosca:
                                                                                        host_node.name))
             elif attribute_name == "endpoint":
                 if root_type == "tosca.nodes.aisprint.FaaS.Function":
-                    oscar_host = self._find_host_compute(node, self.tosca.nodetemplates,
-                                                         "tosca.nodes.SoftwareComponent")
+                    oscar_host = self._find_host_node(node, self.tosca.nodetemplates,
+                                                      "tosca.nodes.SoftwareComponent")
                     if host_node != node and oscar_host:
                         # OSCAR function deployed in a deployed VM
                         dns_host = self._final_function_result(oscar_host.get_property_value('dns_host'), oscar_host)
                         if dns_host.strip("'\""):
                             return "https://%s" % dns_host
 
-                Tosca.logger.warn("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
+                Tosca.logger.warning("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
                 return None
             else:
-                Tosca.logger.warn("Attribute %s not supported." % attribute_name)
+                Tosca.logger.warning("Attribute %s not supported." % attribute_name)
                 return None
 
     def _final_function_result(self, func, node, inf_info=None):
@@ -1415,7 +1452,7 @@ class Tosca:
         # TODO: resolve function values related with run-time values as IM
         # or ansible variables
 
-    def _find_host_compute(self, node, nodetemplates, base_root_type="tosca.nodes.Compute"):
+    def _find_host_node(self, node, nodetemplates, base_root_type="tosca.nodes.Compute"):
         """
         Select the node to host each node, using the node requirements
         In most of the cases the are directly specified, otherwise "node_filter" is used
@@ -1433,7 +1470,7 @@ class Tosca:
                     if root_type == base_root_type:
                         return n
                     else:
-                        return self._find_host_compute(n, nodetemplates)
+                        return self._find_host_node(n, nodetemplates)
 
         # There are no direct HostedOn node
         # check node_filter requirements
@@ -1505,7 +1542,7 @@ class Tosca:
                     elif op == "valid_values":
                         comparation = node_value in filter_value
                     else:
-                        Tosca.logger.warn("Logical operator %s not supported." % op)
+                        Tosca.logger.warning("Logical operator %s not supported." % op)
 
                 if not comparation:
                     return False
@@ -1653,7 +1690,7 @@ class Tosca:
                 compute = other_node
             else:
                 # Select the host to host this element
-                compute = self._find_host_compute(other_node, nodetemplates)
+                compute = self._find_host_node(other_node, nodetemplates)
 
             if compute and compute.name == node.name:
                 # Get the artifacts to see if there is a ansible galaxy role
@@ -1751,7 +1788,7 @@ class Tosca:
                                     feature = Feature("disk.0.os.credentials.public_key", "=", token)
                                     res.addFeature(feature)
                                 else:
-                                    Tosca.logger.warn("Unknown tyoe of token %s. Ignoring." % token_type)
+                                    Tosca.logger.warning("Unknown tyoe of token %s. Ignoring." % token_type)
                             if 'user' not in value or not value['user']:
                                 raise Exception("User must be specified in the image credentials.")
                             name = "disk.0.os.credentials.username"
@@ -2032,13 +2069,13 @@ class Tosca:
                             res.setValue("expose.%s" % elem, value)
                 else:
                     # this should never happen
-                    Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
+                    Tosca.logger.warning("Property %s not expected. Ignoring." % prop.name)
 
             if node.requirements:
                 deps = []
                 for r, n in node.relationships.items():
                     if Tosca._is_derived_from(r, [r.DEPENDSON]):
-                        node_compute = self._find_host_compute(n, self.tosca.nodetemplates)
+                        node_compute = self._find_host_node(n, self.tosca.nodetemplates)
                         deps.append(node_compute.name)
                 if deps:
                     res.setValue('dependencies', deps)
@@ -2077,6 +2114,104 @@ class Tosca:
                     res['image_pull_secrets'] = value
                 else:
                     # this should never happen
-                    Tosca.logger.warn("Property %s not expected. Ignoring." % prop.name)
+                    Tosca.logger.warning("Property %s not expected. Ignoring." % prop.name)
 
         return res
+
+    def _gen_k8s_volumes(self, node, nodetemplates, value):
+        volumes = []
+        cont = 1
+        # volume format should be "volume_name:mount_path"
+        for vol in value:
+            size = None
+            volume_id = None
+            vol_parts = vol.split(":")
+            volume = vol_parts[0]
+            mount_path = None
+            if len(vol_parts) > 1:
+                mount_path = "".join(vol_parts[1:])
+
+            # Find the volume BlockStorage node
+            for node in nodetemplates:
+                root_type = Tosca._get_root_parent_type(node).type
+                if root_type == "tosca.nodes.BlockStorage" and node.name == volume:
+                    size = self._final_function_result(node.get_property_value('size'), node)
+                    volume_id = self._final_function_result(node.get_property_value('volume_id'), node)
+
+            if size:
+                if not size.endswith("B"):
+                    size += "B"
+                size = int(ScalarUnit_Size(size).get_num_from_scalar_unit('B'))
+            volumes.append((cont, size, mount_path, volume_id))
+            cont += 1
+        return volumes
+
+    def _gen_k8s_system(self, node, nodetemplates):
+        """Get the volumes attached to an K8s container."""
+        res = system(node.name)
+        nets = []
+
+        artifacts = node.type_definition.get_value('artifacts', node.entity_tpl, True)
+        if len(artifacts) != 1:
+            raise Exception("Only one artifact is supported for K8s container.")
+
+        artifact = list(artifacts.values())[0]
+        image = artifact.get("file", None)
+        if not image:
+            raise Exception("No image specified for K8s container.")
+        if "tosca.artifacts.Deployment.Image.Container.Docker" != artifact.get("type", None):
+            raise Exception("Only Docker images are supported for K8s container.")
+        repo = artifact.get("repository", None)
+        if repo:
+            repo_url = self._get_repository_url(repo)
+            if repo_url:
+                # Remove the protocol from the URL
+                repo_url_p = urlparse(repo_url)
+                image = "".join(repo_url_p[1:]) + "/" + image
+
+        res.setValue("disk.0.image.url", "docker://%s" % image)
+
+        for prop in node.get_properties_objects():
+            value = self._final_function_result(prop.value, node)
+            if value not in [None, [], {}]:
+                if prop.name == "environment":
+                    env = []
+                    for k, v in value.items():
+                        env.append("%s:%s" % (k, v))
+                    res.setValue('environment.variables', env)
+
+        runtime = self._find_host_node(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
+
+        if runtime:
+            # Get the properties of the runtime
+            for prop in runtime.get_capability('host').get_properties_objects():
+                value = self._final_function_result(prop.value, node)
+                if value not in [None, [], {}]:
+                    if prop.name == "num_cpus":
+                        res.setValue('cpu.count', float(value))
+                    elif prop.name == "mem_size":
+                        if not value.endswith("B"):
+                            value += "B"
+                        value = int(ScalarUnit_Size(value).get_num_from_scalar_unit('B'))
+                        res.setValue("memory.size", value, 'B')
+                    elif prop.name == 'volumes':
+                        for num, size, mount_path, volume_id in self._gen_k8s_volumes(node, nodetemplates, value):
+                            if volume_id:
+                                res.setValue('disk.%d.image.url' % num, volume_id)
+                            if size:
+                                res.setValue('disk.%d.size' % num, size, 'B')
+                            if mount_path:
+                                res.setValue('disk.%d.mount_path' % num, mount_path)
+                    elif prop.name == 'publish_ports':
+                        # Asume that publish_ports must be published as NodePort
+                        pub = network("%s_pub" % node.name)
+                        pub.setValue("outbound", "yes")
+                        pub.setValue("outports", self._format_outports(value))
+                        nets.append(pub)
+                    elif prop.name == 'expose_ports':
+                        # Asume that publish_ports must be published as ClusterIP
+                        priv = network("%s_priv" % node.name)
+                        priv.setValue("outports", self._format_outports(value))
+                        nets.append(priv)
+
+        return res, nets
