@@ -124,6 +124,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             environment.variables = ['var:some_val'] and
+            instance_tags = 'key=_inva:lid_' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'docker://someimage' and
             disk.1.size = 10G and
@@ -163,7 +164,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             "metadata": {
                 "name": "test",
                 "namespace": "infid",
-                "labels": {"name": "test", "IM_INFRA_ID": "infid"},
+                "labels": {"name": "test", "IM_INFRA_ID": "infid", "key": "invalid_"},
             },
             "spec": {
                 "containers": [

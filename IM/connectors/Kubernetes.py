@@ -313,7 +313,7 @@ class KubernetesCloudConnector(CloudConnector):
         # Add instance tags
         if tags:
             for k, v in tags.items():
-                pod_data['metadata']['labels'][k] = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~]', '', v)
+                pod_data['metadata']['labels'][k] = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~]', '', v).lstrip("_-")
 
         containers = [{
             'name': name,
