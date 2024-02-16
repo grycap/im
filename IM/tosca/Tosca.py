@@ -2156,7 +2156,7 @@ class Tosca:
             raise Exception("Only one artifact is supported for K8s container.")
 
         artifact = list(artifacts.values())[0]
-        image = artifact.get("file", None)
+        image = self._final_function_result(artifact.get("file", None), node)
         if not image:
             raise Exception("No image specified for K8s container.")
         if "tosca.artifacts.Deployment.Image.Container.Docker" != artifact.get("type", None):

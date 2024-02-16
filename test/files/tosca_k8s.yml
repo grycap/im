@@ -11,6 +11,13 @@ repositories:
 
 topology_template:
 
+  inputs:
+
+    image:
+      type: string
+      description: The image to be used in the container
+      default: "mysql:5.7"
+
   node_templates:
 
     # The MYSQL container based on official MySQL image in Docker hub
@@ -23,7 +30,7 @@ topology_template:
         - host: mysql_runtime
       artifacts:
         my_image:
-          file: "mysql:5.7"
+          file: { get_input: image }
           type: tosca.artifacts.Deployment.Image.Container.Docker
           repository: docker_hub
 
