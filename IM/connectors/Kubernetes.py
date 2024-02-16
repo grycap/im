@@ -18,6 +18,7 @@ import base64
 import json
 import requests
 import time
+import re
 from netaddr import IPNetwork, IPAddress
 try:
     from urlparse import urlparse
@@ -312,7 +313,7 @@ class KubernetesCloudConnector(CloudConnector):
         # Add instance tags
         if tags:
             for k, v in tags.items():
-                pod_data['metadata']['labels'][k] = v
+                pod_data['metadata']['labels'][k] = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~]', '', v)
 
         containers = [{
             'name': name,
