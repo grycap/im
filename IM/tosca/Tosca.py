@@ -767,7 +767,7 @@ class Tosca:
                 repo = artifact_def['repository']
                 repo_url = self._get_repository_url(repo)
                 if repo_url:
-                    res = repo_url + "/" + artifact_def['file']
+                    res = repo_url + "/" + self._final_function_result(artifact_def['file'], node)
         else:
             res = artifact_def
 
