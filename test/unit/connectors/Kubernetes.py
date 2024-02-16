@@ -123,7 +123,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
-            environment.variables = ['var:some_val'] and
+            environment.variables = 'var=some_val' and
             instance_tags = 'key=_inva:lid_' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'docker://someimage' and

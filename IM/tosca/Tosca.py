@@ -2175,10 +2175,12 @@ class Tosca:
             value = self._final_function_result(prop.value, node)
             if value not in [None, [], {}]:
                 if prop.name == "environment":
-                    env = []
+                    variables = ""
                     for k, v in value.items():
-                        env.append("%s:%s" % (k, v))
-                    res.setValue('environment.variables', env)
+                        if variables != "":
+                            variables += ","
+                        variables += "%s=%s" % (k, v)
+                    res.setValue("environment.variables", variables)
 
         runtime = self._find_host_node(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
 
