@@ -767,7 +767,7 @@ class Tosca:
                 repo = artifact_def['repository']
                 repo_url = self._get_repository_url(repo)
                 if repo_url:
-                    res = repo_url + "/" + artifact_def['file']
+                    res = repo_url + "/" + self._final_function_result(artifact_def['file'], node)
         else:
             res = artifact_def
 
@@ -2156,7 +2156,7 @@ class Tosca:
             raise Exception("Only one artifact is supported for K8s container.")
 
         artifact = list(artifacts.values())[0]
-        image = artifact.get("file", None)
+        image = self._final_function_result(artifact.get("file", None), node)
         if not image:
             raise Exception("No image specified for K8s container.")
         if "tosca.artifacts.Deployment.Image.Container.Docker" != artifact.get("type", None):
@@ -2175,10 +2175,12 @@ class Tosca:
             value = self._final_function_result(prop.value, node)
             if value not in [None, [], {}]:
                 if prop.name == "environment":
-                    env = []
+                    variables = ""
                     for k, v in value.items():
-                        env.append("%s:%s" % (k, v))
-                    res.setValue('environment.variables', env)
+                        if variables != "":
+                            variables += ","
+                        variables += "%s=%s" % (k, v)
+                    res.setValue("environment.variables", variables)
 
         runtime = self._find_host_node(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
 

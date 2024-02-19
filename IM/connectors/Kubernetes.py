@@ -18,6 +18,7 @@ import base64
 import json
 import requests
 import time
+import re
 from netaddr import IPNetwork, IPAddress
 try:
     from urlparse import urlparse
@@ -282,9 +283,13 @@ class KubernetesCloudConnector(CloudConnector):
     @staticmethod
     def _get_env_variables(radl_system):
         env_vars = []
-        for elem in radl_system.getValue("environment.variables", []):
-            parts = elem.split(":")
-            env_vars.append({'name': parts[0], 'value': ":".join(parts[1:])})
+        if radl_system.getValue('environment.variables'):
+            keypairs = radl_system.getValue('environment.variables').split(",")
+            for keypair in keypairs:
+                parts = keypair.split("=")
+                key = parts[0].strip()
+                value = parts[1].strip()
+                env_vars.append({'name': key, 'value': value})
         return env_vars
 
     def _generate_pod_data(self, namespace, name, outports, system, volumes, tags):
@@ -312,7 +317,8 @@ class KubernetesCloudConnector(CloudConnector):
         # Add instance tags
         if tags:
             for k, v in tags.items():
-                pod_data['metadata']['labels'][k] = v
+                # Remove special characters
+                pod_data['metadata']['labels'][k] = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~]', '', v).lstrip("_-")
 
         containers = [{
             'name': name,
