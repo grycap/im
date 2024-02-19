@@ -267,6 +267,16 @@ class VirtualMachine(LoggerMixin):
         """
         return self.info.getPrivateIP()
 
+    def getConnectedNet(self, public=False):
+        """
+        Return the first public/private net connected to this VM if available
+        """
+        for netid in self.info.systems[0].getNetworkIDs():
+            net = self.info.get_network_by_id(netid)
+            if net.isPublic() == public:
+                return net
+        return None
+
     def getNumNetworkIfaces(self):
         """
         Get the number of net interfaces of this VM
