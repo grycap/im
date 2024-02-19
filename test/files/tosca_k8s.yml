@@ -56,3 +56,6 @@ topology_template:
         # Set the PV name in this field
         # volume_id: "PV name"
 
+  outputs:
+    mysql_service_url:
+      value: { get_attribute: [ mysql_container, endpoints, 0 ] }

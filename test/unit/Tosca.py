@@ -447,6 +447,23 @@ class TestTosca(unittest.TestCase):
         conf = radl.get_configure_by_name('mysql_container')
         self.assertEqual(conf.recipes, None)
 
+    def test_tosca_k8s_get_attribute(self):
+        """Test TOSCA K8s get_attributes function"""
+        tosca_data = read_file_as_string('../files/tosca_k8s.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl1 = radl.clone()
+        radl1.systems = [radl.get_system_by_name('mysql_container')]
+        inf = InfrastructureInfo()
+        radl1.systems[0].setValue("net_interface.0.ip", "8.8.8.8")
+
+        cloud_info = MagicMock()
+        vm = VirtualMachine(inf, "1", cloud_info, radl1, radl1, None)
+        vm.requested_radl = radl1
+        inf.vm_list = [vm]
+        outputs = tosca.get_outputs(inf)
+        self.assertEqual(outputs, {'mysql_service_url': 'http://8.8.8.8:33306'})
+
 
 if __name__ == "__main__":
     unittest.main()

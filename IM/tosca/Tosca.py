@@ -1206,7 +1206,8 @@ class Tosca:
         root_type = Tosca._get_root_parent_type(node).type
 
         host_node = self._find_host_node(node, self.tosca.nodetemplates)
-        if root_type == "tosca.nodes.aisprint.FaaS.Function" and host_node is None:
+        if (host_node is None and (root_type == "tosca.nodes.aisprint.FaaS.Function" or
+                                   node.type == "tosca.nodes.Container.Application.Docker")):
             # in case of FaaS functions without host, the node is the host
             host_node = node
 
@@ -1351,6 +1352,32 @@ class Tosca:
                             return None
 
                 Tosca.logger.warning("Attribute credential only supported in tosca.nodes.aisprint.FaaS.Function")
+                return None
+            elif attribute_name == "endpoints":
+                if node.type == "tosca.nodes.Container.Application.Docker":
+                    res = []
+                    dmsname = vm.info.systems[0].getValue("net_interface.0.dns_name")
+                    pub_net = vm.getConnectedNet(public=True)
+                    priv_net = vm.getConnectedNet(public=False)
+                    if pub_net:
+                        url = "http://%s" % vm.getPublicIP()
+                        if pub_net.getOutPorts():
+                            for outport in pub_net.getOutPorts():
+                                # if DNS name is set, the endpoint of the first public port is the DNS name
+                                if dmsname and not res:
+                                    res.append("https://%s" % dmsname)
+                                else:
+                                    res.append(url + ":%s" % outport.get_remote_port())
+                    if priv_net:
+                        url = "http://%s" % vm.getPrivateIP()
+                        if priv_net.getOutPorts():
+                            for outport in priv_net.getOutPorts():
+                                res.append(url + ":%s" % outport.get_remote_port())
+
+                    if index is not None:
+                        res = res[index]
+                    return res
+                Tosca.logger.warning("Attribute credential only supported in tosca.nodes.Container.Application.Docker")
                 return None
             else:
                 Tosca.logger.warning("Attribute %s not supported." % attribute_name)
