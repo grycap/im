@@ -370,8 +370,8 @@ class KubernetesCloudConnector(CloudConnector):
     @staticmethod
     def _get_namespace(inf):
         namespace = inf.id
-        if inf.description and inf.description.getValue('namespace'):
-            namespace = inf.description.getValue('namespace')
+        if inf.radl.description and inf.radl.description.getValue('namespace'):
+            namespace = inf.radl.description.getValue('namespace')
         return namespace
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):

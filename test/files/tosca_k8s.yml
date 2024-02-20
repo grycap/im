@@ -7,7 +7,7 @@ description: TOSCA test for K8s
 
 metadata:
   # Enable to set the K8s namespace for this deployment
-  namespace: some_namespace
+  namespace: somenamespace
   infra_name: some_infra
 
 repositories:
@@ -21,7 +21,7 @@ topology_template:
     image:
       type: string
       description: The image to be used in the container
-      default: "mysql:5.7"
+      default: "mysql:8"
     
     mysql_root_password:
       type: string
@@ -53,8 +53,8 @@ topology_template:
       capabilities:
         host:
           properties:
-            num_cpus: 1
-            mem_size: 2 GB
+            num_cpus: 0.5
+            mem_size: 1 GB
             publish_ports:
               - protocol: tcp
                 target: 8800
@@ -80,13 +80,13 @@ topology_template:
       capabilities:
         host:
           properties:
-            num_cpus: 1
-            mem_size: 2 GB
+            num_cpus: 0.5
+            mem_size: 1 GB
             expose_ports:
               - protocol: tcp
                 target: 3306
             volumes:
-              - "some_vol:/some/path"
+              - "some_vol:/var/lib/mysql"
 
     some_vol:
       type: tosca.nodes.BlockStorage
