@@ -1379,7 +1379,7 @@ class Tosca:
                                     res.append(url + ":%s" % outport.get_remote_port())
                     if priv_net:
                         # set the internal DNS name
-                        url = "%s.%s" % (vm.info.systems[0].name, inf_info.id)
+                        url = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_]', '-', node.name)
                         if priv_net.getOutPorts():
                             for outport in priv_net.getOutPorts():
                                 res.append(url + ":%s" % outport.get_local_port())
@@ -1474,7 +1474,7 @@ class Tosca:
                                                outport.get_remote_port())
                     else:
                         # set the internal DNS name
-                        url = node.name
+                        url = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_]', '-', node.name)
                         if net.getOutPorts():
                             for outport in net.getOutPorts():
                                 res.append(url + ":%s" % outport.get_local_port())

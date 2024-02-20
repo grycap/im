@@ -296,7 +296,6 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "158.42.1.1")
-        self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('requests.request')

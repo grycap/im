@@ -191,9 +191,9 @@ class KubernetesCloudConnector(CloudConnector):
 
         return res
 
-    def create_service_data(self, namespace, name, outports, auth_data, vm):
+    def create_service_data(self, namespace, name, outports, public, auth_data, vm):
         try:
-            service_data = self._generate_service_data(namespace, name, outports)
+            service_data = self._generate_service_data(namespace, name, outports, public)
             self.log_debug("Creating Service: %s/%s" % (namespace, name))
             headers = {'Content-Type': 'application/json'}
             uri = "/api/v1/namespaces/%s/%s" % (namespace, "services")
@@ -217,7 +217,7 @@ class KubernetesCloudConnector(CloudConnector):
             self.error_messages += "Error creating service to access pod %s" % name
             self.log_exception("Error creating service.")
 
-    def _generate_service_data(self, namespace, name, outports):
+    def _generate_service_data(self, namespace, name, outports, public):
         service_data = {'apiVersion': 'v1', 'kind': 'Service'}
         service_data['metadata'] = {
             'name': name,
@@ -235,15 +235,18 @@ class KubernetesCloudConnector(CloudConnector):
                             'protocol': outport.get_protocol().upper(),
                             'targetPort': outport.get_local_port(),
                             'name': 'port%s' % outport.get_local_port()}
-                    if outport.get_remote_port():
+                    if public and outport.get_remote_port():
                         port['nodePort'] = outport.get_remote_port()
                     ports.append(port)
 
         service_data['spec'] = {
-            'type': 'NodePort',
+            'type': 'ClusterIP',
             'ports': ports,
             'selector': {'name': name}
         }
+
+        if public:
+            service_data['spec']['type'] = 'NodePort'
 
         return service_data
 
@@ -377,15 +380,6 @@ class KubernetesCloudConnector(CloudConnector):
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
 
-        public_net = None
-        for net in radl.networks:
-            if net.isPublic():
-                public_net = net
-
-        outports = None
-        if public_net:
-            outports = public_net.getOutPorts()
-
         res = []
         # First create the namespace for the infrastructure
         namespace = self._get_namespace(inf)
@@ -419,11 +413,19 @@ class KubernetesCloudConnector(CloudConnector):
             vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
             vm.destroy = True
             inf.add_vm(vm)
-            pod_name = system.name
+            pod_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_]', '-', system.name)
 
             volumes = self._create_volumes(namespace, system, pod_name, auth_data, True)
 
             tags = self.get_instance_tags(system, auth_data, inf)
+
+            outports = []
+            pub_net = vm.getConnectedNet(public=True)
+            priv_net = vm.getConnectedNet(public=False)
+            if pub_net:
+                outports = pub_net.getOutPorts()
+            elif priv_net:
+                outports = priv_net.getOutPorts()
 
             pod_data = self._generate_pod_data(namespace, pod_name, outports, system, volumes, tags)
 
@@ -441,7 +443,7 @@ class KubernetesCloudConnector(CloudConnector):
             else:
                 dns_name = system.getValue("net_interface.0.dns_name")
 
-                self.create_service_data(namespace, pod_name, outports, auth_data, vm)
+                self.create_service_data(namespace, pod_name, outports, pub_net, auth_data, vm)
 
                 output = json.loads(resp.text)
                 vm.id = output["metadata"]["name"]
@@ -480,6 +482,12 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Kubernetes API server")
             return (False, None, "Error connecting with Kubernetes API server: " + str(ex))
 
+    def _get_float_cpu(self, cpu):
+        if cpu.endswith("m"):
+            return float(cpu[:-1]) / 1000
+        else:
+            return float(cpu)
+
     def updateVMInfo(self, vm, auth_data):
         success, status, output = self._get_pod(vm, auth_data)
         if success:
@@ -488,7 +496,7 @@ class KubernetesCloudConnector(CloudConnector):
 
             pod_limits = output['spec']['containers'][0].get('resources', {}).get('limits')
             if pod_limits:
-                vm.info.systems[0].setValue('cpu.count', float(pod_limits['cpu']))
+                vm.info.systems[0].setValue('cpu.count', self._get_float_cpu(pod_limits['cpu']))
                 memory = self.convert_memory_unit(pod_limits['memory'], "B")
                 vm.info.systems[0].setValue('memory.size', memory)
 
@@ -509,7 +517,6 @@ class KubernetesCloudConnector(CloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - pod_info(dict): JSON information about the POD
         """
-
         public_ips = []
         private_ips = []
         if 'hostIP' in pod_info["status"]:
@@ -521,6 +528,11 @@ class KubernetesCloudConnector(CloudConnector):
                 public_ips = [host_ip]
         if 'podIP' in pod_info["status"]:
             private_ips = [str(pod_info["status"]["podIP"])]
+
+        if not vm.getConnectedNet(public=True):
+            public_ips = []
+        if not vm.getConnectedNet(public=False):
+            private_ips = []
 
         vm.setIps(public_ips, private_ips)
 

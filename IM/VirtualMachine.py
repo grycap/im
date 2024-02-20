@@ -54,6 +54,8 @@ class VirtualMachine(LoggerMixin):
 
     SSH_REVERSE_BASE_PORT = 20000
 
+    NO_DNS_NAME_SET = ["Kubernetes", "OSCAR", "Lambda"]
+
     logger = logging.getLogger('InfrastructureManager')
 
     def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector=None, im_id=None):
@@ -586,8 +588,9 @@ class VirtualMachine(LoggerMixin):
             self.state = new_state
             self.info.systems[0].setValue("state", new_state)
 
-            # Replace the #N# in dns_names
-            self.replace_dns_name(self.info.systems[0])
+            if self.getCloudConnector().type not in self.NO_DNS_NAME_SET:
+                # Replace the #N# in dns_names
+                self.replace_dns_name(self.info.systems[0])
 
         return updated
 

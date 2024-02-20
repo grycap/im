@@ -40,6 +40,7 @@ topology_template:
               - { get_input: mysql_root_password }
               - "@"
               - { get_attribute: [ mysql_container, endpoints, 0 ] }
+              - "/im-db"
       requirements:
         - host: im_runtime
       artifacts:
@@ -66,6 +67,7 @@ topology_template:
       properties:
         environment:
           MYSQL_ROOT_PASSWORD: { get_input: mysql_root_password }
+          MYSQL_DATABASE: "im-db"
       requirements:
         - host: mysql_runtime
       artifacts:

@@ -441,7 +441,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("memory.size"), 1000000000)
         self.assertEqual(node.getValue("disk.1.size"), 10000000000)
         self.assertEqual(node.getValue("disk.1.mount_path"), '/var/lib/mysql')
-        self.assertEqual(node.getValue("environment.variables"), 'MYSQL_ROOT_PASSWORD=my-secret')
+        self.assertEqual(node.getValue("environment.variables"), 'MYSQL_ROOT_PASSWORD=my-secret,MYSQL_DATABASE=im-db')
         net = radl.get_network_by_id('mysql_container_priv')
         self.assertEqual(net.getValue("outports"), '3306/tcp-3306/tcp')
         self.assertEqual(net.getValue("outbound"), 'no')
@@ -454,7 +454,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(net.getValue("outports"), '30880/tcp-8800/tcp')
         self.assertEqual(net.getValue("outbound"), 'yes')
         self.assertEqual(node.getValue("environment.variables"),
-                         'IM_DATA_DB=mysql://root:my-secret@mysql_container:3306')
+                         'IM_DATA_DB=mysql://root:my-secret@mysql-container:3306/im-db')
         conf = radl.get_configure_by_name('im_container')
         self.assertEqual(conf.recipes, None)
 
