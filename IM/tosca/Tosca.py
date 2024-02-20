@@ -449,7 +449,7 @@ class Tosca:
                     local_port = remote_port
                 if not remote_port and local_port:
                     remote_port = local_port
-                
+
                 if not remote_port or not local_port:
                     raise Exception("source or target port must be specified in PortSpec type.")
 
