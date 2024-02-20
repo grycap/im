@@ -479,7 +479,7 @@ class TestTosca(unittest.TestCase):
         inf.vm_list = [vm, vm2]
         outputs = tosca.get_outputs(inf)
         self.assertEqual(outputs, {'im_service_endpoint': '8.8.8.8:30880',
-                                   'mysql_service_endpoint': 'mysql_container.%s:3306' % inf.id})
+                                   'mysql_service_endpoint': 'mysql-container:3306'})
 
 
 if __name__ == "__main__":
