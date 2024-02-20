@@ -6,6 +6,7 @@ imports:
 description: TOSCA test for K8s
 
 metadata:
+  # Enable to set the K8s namespace for this deployment
   namespace: some_namespace
   infra_name: some_infra
 
@@ -45,7 +46,6 @@ topology_template:
         my_image:
           file: grycap/im
           type: tosca.artifacts.Deployment.Image.Container.Docker
-          repository: docker_hub
 
     # The properties of the runtime to host the container
     im_runtime:

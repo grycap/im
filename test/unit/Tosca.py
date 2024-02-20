@@ -449,7 +449,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(conf.recipes, None)
 
         node = radl.get_system_by_name('im_container')
-        self.assertEqual(node.getValue("disk.0.image.url"), "docker://docker.io/grycap/im")
+        self.assertEqual(node.getValue("disk.0.image.url"), "docker://grycap/im")
         net = radl.get_network_by_id('im_container_pub')
         self.assertEqual(net.getValue("outports"), '30880/tcp-8800/tcp')
         self.assertEqual(net.getValue("outbound"), 'yes')
