@@ -84,7 +84,6 @@ topology_template:
             mem_size: 2 GB
             expose_ports:
               - protocol: tcp
-                target: 3306
                 source: 3306
             volumes:
               - "some_vol:/some/path"
