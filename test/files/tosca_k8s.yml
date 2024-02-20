@@ -21,6 +21,11 @@ topology_template:
       type: string
       description: The image to be used in the container
       default: "mysql:5.7"
+    
+    mysql_root_password:
+      type: string
+      description: The root password for the MySQL container
+      default: "my-secret"
 
   node_templates:
 
@@ -28,7 +33,12 @@ topology_template:
       type: tosca.nodes.Container.Application.Docker
       properties:
         environment:
-          IM_DATA_DB: { concat: [ "mysql://root:my-secret@", { get_attribute: [ mysql_container, endpoints, 0 ] } ] }
+          IM_DATA_DB:
+            concat:
+              - "mysql://root:"
+              - { get_input: mysql_root_password }
+              - "@"
+              - { get_attribute: [ mysql_container, endpoints, 0 ] }
       requirements:
         - host: im_runtime
       artifacts:
@@ -55,7 +65,7 @@ topology_template:
       type: tosca.nodes.Container.Application.Docker
       properties:
         environment:
-          MYSQL_ROOT_PASSWORD: my-secret
+          MYSQL_ROOT_PASSWORD: { get_input: mysql_root_password }
       requirements:
         - host: mysql_runtime
       artifacts:
