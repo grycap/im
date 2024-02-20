@@ -367,6 +367,13 @@ class KubernetesCloudConnector(CloudConnector):
 
         return pod_data
 
+    @staticmethod
+    def _get_namespace(inf):
+        namespace = inf.id
+        if inf.description and inf.description.getValue('namespace'):
+            namespace = inf.description.getValue('namespace')
+        return namespace
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
 
@@ -381,7 +388,8 @@ class KubernetesCloudConnector(CloudConnector):
 
         res = []
         # First create the namespace for the infrastructure
-        namespace = inf.id
+        namespace = self._get_namespace(inf)
+
         headers = {'Content-Type': 'application/json'}
         uri = "/api/v1/namespaces/"
         with inf._lock:
@@ -404,61 +412,60 @@ class KubernetesCloudConnector(CloudConnector):
                         res.append((False, "Error creating the Namespace"))
                         return res
 
-        i = 0
-        while i < num_vm:
-            try:
-                i += 1
+        if num_vm != 1:
+            self.log_warn("Num VM is not 1. Ignoring.")
 
-                vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
-                vm.destroy = True
-                inf.add_vm(vm)
-                pod_name = "pod-%s" % vm.im_id
+        try:
+            vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
+            vm.destroy = True
+            inf.add_vm(vm)
+            pod_name = system.name
 
-                volumes = self._create_volumes(namespace, system, pod_name, auth_data, True)
+            volumes = self._create_volumes(namespace, system, pod_name, auth_data, True)
 
-                tags = self.get_instance_tags(system, auth_data, inf)
+            tags = self.get_instance_tags(system, auth_data, inf)
 
-                pod_data = self._generate_pod_data(namespace, pod_name, outports, system, volumes, tags)
+            pod_data = self._generate_pod_data(namespace, pod_name, outports, system, volumes, tags)
 
-                self.log_debug("Creating POD: %s/%s" % (namespace, pod_name))
-                uri = "/api/v1/namespaces/%s/%s" % (namespace, "pods")
-                resp = self.create_request('POST', uri, auth_data, headers, pod_data)
+            self.log_debug("Creating POD: %s/%s" % (namespace, pod_name))
+            uri = "/api/v1/namespaces/%s/%s" % (namespace, "pods")
+            resp = self.create_request('POST', uri, auth_data, headers, pod_data)
 
-                if resp.status_code != 201:
-                    self.log_error("Error creating the Container: " + resp.text)
-                    res.append((False, "Error creating the Container: " + resp.text))
-                    try:
-                        self._delete_volume_claims(pod_data, auth_data)
-                    except Exception:
-                        self.log_exception("Error deleting volumes.")
-                else:
-                    dns_name = system.getValue("net_interface.0.dns_name")
+            if resp.status_code != 201:
+                self.log_error("Error creating the Container: " + resp.text)
+                res.append((False, "Error creating the Container: " + resp.text))
+                try:
+                    self._delete_volume_claims(pod_data, auth_data)
+                except Exception:
+                    self.log_exception("Error deleting volumes.")
+            else:
+                dns_name = system.getValue("net_interface.0.dns_name")
 
-                    self.create_service_data(namespace, pod_name, outports, auth_data, vm)
+                self.create_service_data(namespace, pod_name, outports, auth_data, vm)
 
-                    output = json.loads(resp.text)
-                    vm.id = output["metadata"]["name"]
-                    vm.info.systems[0].setValue('instance_id', str(vm.id))
-                    vm.info.systems[0].setValue('instance_name', str(vm.id))
+                output = json.loads(resp.text)
+                vm.id = output["metadata"]["name"]
+                vm.info.systems[0].setValue('instance_id', str(vm.id))
+                vm.info.systems[0].setValue('instance_name', str(vm.id))
 
-                    if dns_name and outports:
-                        port = outports[0].get_local_port()
-                        ingress_created = self.create_ingress(namespace, pod_name, dns_name, port, auth_data)
-                        if not ingress_created:
-                            vm.info.systems[0].delValue("net_interface.0.dns_name")
+                if dns_name and outports:
+                    port = outports[0].get_local_port()
+                    ingress_created = self.create_ingress(namespace, pod_name, dns_name, port, auth_data)
+                    if not ingress_created:
+                        vm.info.systems[0].delValue("net_interface.0.dns_name")
 
-                    vm.destroy = False
-                    res.append((True, vm))
+                vm.destroy = False
+                res.append((True, vm))
 
-            except Exception as ex:
-                self.log_exception("Error connecting with Kubernetes API server")
-                res.append((False, "ERROR: " + str(ex)))
+        except Exception as ex:
+            self.log_exception("Error connecting with Kubernetes API server")
+            res.append((False, "ERROR: " + str(ex)))
 
         return res
 
     def _get_pod(self, vm, auth_data):
         try:
-            namespace = vm.inf.id
+            namespace = self._get_namespace(vm.inf)
             pod_name = vm.id
 
             uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "pods", pod_name)
@@ -551,8 +558,9 @@ class KubernetesCloudConnector(CloudConnector):
         return success, msg
 
     def _delete_namespace(self, vm, auth_data):
-        self.log_debug("Deleting Namespace: %s" % vm.inf.id)
-        uri = "/api/v1/namespaces/%s" % vm.inf.id
+        namespace = self._get_namespace(vm.inf)
+        self.log_debug("Deleting Namespace: %s" % namespace)
+        uri = "/api/v1/namespaces/%s" % namespace
         resp = self.create_request('DELETE', uri, auth_data)
         if resp.status_code == 404:
             self.log_warn("Trying to remove a non existing Namespace id: " + vm.inf.id)
@@ -562,7 +570,7 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _delete_service(self, vm, auth_data):
         try:
-            namespace = vm.inf.id
+            namespace = self._get_namespace(vm.inf)
             service_name = vm.id
 
             self.log_debug("Deleting Service: %s/%s" % (namespace, service_name))
@@ -582,7 +590,7 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _delete_ingress(self, vm, auth_data):
         try:
-            namespace = vm.inf.id
+            namespace = self._get_namespace(vm.inf)
             ingress_name = vm.id
 
             self.log_debug("Deleting Ingress: %s/%s" % (namespace, ingress_name))
@@ -602,7 +610,7 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _delete_pod(self, vm, auth_data):
         try:
-            namespace = vm.inf.id
+            namespace = self._get_namespace(vm.inf)
             pod_name = vm.id
 
             self.log_debug("Deleting POD: %s/%s" % (namespace, pod_name))
@@ -655,7 +663,7 @@ class KubernetesCloudConnector(CloudConnector):
                 return (True, vm)
 
             # Create the container
-            namespace = vm.inf.id
+            namespace = self._get_namespace(vm.inf)
             pod_name = vm.id
 
             headers = {'Content-Type': 'application/json-patch+json'}

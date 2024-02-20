@@ -284,9 +284,11 @@ class Tosca:
         self._check_private_networks(radl, inf_info)
 
         infra_name = self.tosca.tpl.get('metadata', {}).get('infra_name')
-        if infra_name:
+        namespace = self.tosca.tpl.get('metadata', {}).get('namespace')
+        if infra_name or namespace:
             radl.description = description('desc')
             radl.description.setValue('name', infra_name)
+            radl.description.setValue('namespace', namespace)
 
         return all_removal_list, self._complete_radl_networks(radl)
 
@@ -1360,19 +1362,20 @@ class Tosca:
                     pub_net = vm.getConnectedNet(public=True)
                     priv_net = vm.getConnectedNet(public=False)
                     if pub_net:
-                        url = "http://%s" % vm.getPublicIP()
+                        url = "%s" % vm.getPublicIP()
                         if pub_net.getOutPorts():
                             for outport in pub_net.getOutPorts():
                                 # if DNS name is set, the endpoint of the first public port is the DNS name
                                 if dmsname and not res:
-                                    res.append("https://%s" % dmsname)
+                                    res.append("%s" % dmsname)
                                 else:
                                     res.append(url + ":%s" % outport.get_remote_port())
                     if priv_net:
-                        url = "http://%s" % vm.getPrivateIP()
+                        # set the internal DNS name
+                        url = "%s.%s" % (vm.info.systems[0].name, inf_info.id)
                         if priv_net.getOutPorts():
                             for outport in priv_net.getOutPorts():
-                                res.append(url + ":%s" % outport.get_remote_port())
+                                res.append(url + ":%s" % outport.get_local_port())
 
                     if index is not None:
                         res = res[index]
@@ -1439,6 +1442,40 @@ class Tosca:
                             return "https://%s" % dns_host
 
                 Tosca.logger.warning("Attribute endpoint only supported in tosca.nodes.aisprint.FaaS.Function")
+                return None
+            elif attribute_name == "endpoints":
+                if node.type == "tosca.nodes.Container.Application.Docker":
+                    k8s_sys, nets = self._gen_k8s_system(node, self.tosca.nodetemplates)
+                    if nets:
+                        net = nets[0]
+                    else:
+                        if index is not None:
+                            return None
+                        else:
+                            return []
+
+                    res = []
+                    if net.isPublic():
+                        dmsname = k8s_sys.getValue("net_interface.0.dns_name")
+                        if net.getOutPorts():
+                            for outport in net.getOutPorts():
+                                # if DNS name is set, the endpoint of the first public port is the DNS name
+                                if dmsname and not res:
+                                    res.append("%s" % dmsname)
+                                else:
+                                    res.append("{{ hostvars[groups['%s'][0]]['IM_NODE_PUBLIC_IP'] }}:%s" %
+                                               outport.get_remote_port())
+                    else:
+                        # set the internal DNS name
+                        url = node.name
+                        if net.getOutPorts():
+                            for outport in net.getOutPorts():
+                                res.append(url + ":%s" % outport.get_local_port())
+
+                    if index is not None:
+                        res = res[index]
+                    return res
+                Tosca.logger.warning("Attribute credential only supported in tosca.nodes.Container.Application.Docker")
                 return None
             else:
                 Tosca.logger.warning("Attribute %s not supported." % attribute_name)
@@ -2237,10 +2274,13 @@ class Tosca:
                         pub.setValue("outbound", "yes")
                         pub.setValue("outports", self._format_outports(value))
                         nets.append(pub)
+                        res.setValue("net_interface.0.connection", "%s_pub" % node.name)
                     elif prop.name == 'expose_ports':
                         # Asume that publish_ports must be published as ClusterIP
                         priv = network("%s_priv" % node.name)
+                        priv.setValue("outbound", "no")
                         priv.setValue("outports", self._format_outports(value))
                         nets.append(priv)
+                        res.setValue("net_interface.0.connection", "%s_priv" % node.name)
 
         return res, nets

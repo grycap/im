@@ -82,30 +82,30 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.text = '{"versions": "v1"}'
             elif url.endswith("/pods/1"):
                 resp.status_code = 200
-                resp.text = ('{"metadata": {"namespace":"infid", "name": "name"}, "status": '
+                resp.text = ('{"metadata": {"namespace":"some_namespace", "name": "name"}, "status": '
                              '{"phase":"Running", "hostIP": "158.42.1.1", "podIP": "10.0.0.1"}, '
                              '"spec": {"containers": [{"image": "image:1.0"}], '
                              '"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}}]}}')
-            if url == "/api/v1/namespaces/infid":
+            if url == "/api/v1/namespaces/some_namespace":
                 resp.status_code = 200
         elif method == "POST":
             if url.endswith("/pods"):
                 resp.status_code = 201
-                resp.text = '{"metadata": {"namespace":"infid", "name": "name"}}'
+                resp.text = '{"metadata": {"namespace":"some_namespace", "name": "name"}}'
             elif url.endswith("/services"):
                 resp.status_code = 201
             elif url.endswith("/namespaces/"):
                 resp.status_code = 201
             elif url.endswith("/persistentvolumeclaims"):
                 resp.status_code = 201
-            elif url.endswith("/apis/networking.k8s.io/v1/namespaces/infid/ingresses"):
+            elif url.endswith("/apis/networking.k8s.io/v1/namespaces/some_namespace/ingresses"):
                 resp.status_code = 201
         elif method == "DELETE":
             if url.endswith("/pods/1"):
                 resp.status_code = 200
             elif url.endswith("/services/1"):
                 resp.status_code = 200
-            elif url.endswith("/namespaces/infid"):
+            elif url.endswith("/namespaces/some_namespace"):
                 resp.status_code = 200
             elif "persistentvolumeclaims" in url:
                 resp.status_code = 200
@@ -124,6 +124,10 @@ class TestKubernetesConnector(TestCloudConnectorBase):
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
     def test_20_launch(self, save_data, requests):
         radl_data = """
+            description desc (
+                name = 'Infrastructure Name' and
+                namespace = 'some_namespace'
+            )
             network net (outbound = 'yes' and outports = '38080-8080')
             system test (
             cpu.count>=1 and
@@ -146,8 +150,10 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        inf = MagicMock(["id", "_lock", "add_vm"])
+        inf = MagicMock(["id", "_lock", "add_vm", "description"])
         inf.id = "infid"
+        inf.description = MagicMock(["getValue"])
+        inf.description.getValue.return_value = "some_namespace"
         inf.add_vm.side_effect = self.add_vm
         res = kube_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
@@ -156,28 +162,28 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         exp_pvc = {
             "apiVersion": "v1",
             "kind": "PersistentVolumeClaim",
-            "metadata": {"name": "pod-0-1", "namespace": "infid"},
+            "metadata": {"name": "test-1", "namespace": "some_namespace"},
             "spec": {
                 "accessModes": ["ReadWriteOnce"],
                 "resources": {"requests": {"storage": 10737418240}},
             },
         }
         self.assertEqual(requests.call_args_list[1][0][1],
-                         'http://server.com:8080/api/v1/namespaces/infid/persistentvolumeclaims')
+                         'http://server.com:8080/api/v1/namespaces/some_namespace/persistentvolumeclaims')
         self.assertEqual(json.loads(requests.call_args_list[1][1]['data']), exp_pvc)
 
         exp_pod = {
             "apiVersion": "v1",
             "kind": "Pod",
             "metadata": {
-                "name": "pod-0",
-                "namespace": "infid",
-                "labels": {"name": "pod-0", "IM_INFRA_ID": "infid", "key": "invalid_"},
+                "name": "test",
+                "namespace": "some_namespace",
+                "labels": {"name": "test", "IM_INFRA_ID": "infid", "key": "invalid_"},
             },
             "spec": {
                 "containers": [
                     {
-                        "name": "pod-0",
+                        "name": "test",
                         "image": "someimage",
                         "imagePullPolicy": "Always",
                         "ports": [{"containerPort": 8080, "protocol": "TCP"}],
@@ -186,25 +192,26 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                             "requests": {"cpu": "1", "memory": "536870912"},
                         },
                         "env": [{"name": "var", "value": "some_val"}],
-                        "volumeMounts": [{"name": "pod-0-1", "mountPath": "/mnt"}],
+                        "volumeMounts": [{"name": "test-1", "mountPath": "/mnt"}],
                     }
                 ],
                 "restartPolicy": "OnFailure",
                 "volumes": [
-                    {"name": "pod-0-1", "persistentVolumeClaim": {"claimName": "pod-0-1"}}
+                    {"name": "test-1", "persistentVolumeClaim": {"claimName": "test-1"}}
                 ],
             },
         }
-        self.assertEqual(requests.call_args_list[2][0][1], 'http://server.com:8080/api/v1/namespaces/infid/pods')
+        self.assertEqual(requests.call_args_list[2][0][1],
+                         'http://server.com:8080/api/v1/namespaces/some_namespace/pods')
         self.assertEqual(json.loads(requests.call_args_list[2][1]['data']), exp_pod)
 
         exp_svc = {
             "apiVersion": "v1",
             "kind": "Service",
             "metadata": {
-                "name": "pod-0",
-                "namespace": "infid",
-                "labels": {"name": "pod-0"},
+                "name": "test",
+                "namespace": "some_namespace",
+                "labels": {"name": "test"},
             },
             "spec": {
                 "type": "NodePort",
@@ -217,19 +224,20 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                         "nodePort": 38080,
                     }
                 ],
-                "selector": {"name": "pod-0"},
+                "selector": {"name": "test"},
             },
         }
-        self.assertEqual(requests.call_args_list[3][0][1], 'http://server.com:8080/api/v1/namespaces/infid/services')
+        self.assertEqual(requests.call_args_list[3][0][1],
+                         'http://server.com:8080/api/v1/namespaces/some_namespace/services')
         self.assertEqual(json.loads(requests.call_args_list[3][1]['data']), exp_svc)
 
         exp_ing = {
             "apiVersion": "networking.k8s.io/v1",
             "kind": "Ingress",
             "metadata": {
-                "labels": {"name": "pod-0"},
-                "name": "pod-0",
-                "namespace": "infid",
+                "labels": {"name": "test"},
+                "name": "test",
+                "namespace": "some_namespace",
             },
             "spec": {
                 "rules": [
@@ -240,7 +248,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                                 {
                                     "backend": {
                                         "service": {
-                                            "name": "pod-0",
+                                            "name": "test",
                                             "port": {"number": 8080},
                                         }
                                     },
@@ -255,7 +263,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         }
 
         self.assertEqual(requests.call_args_list[5][0][1],
-                         'http://server.com:8080/apis/networking.k8s.io/v1/namespaces/infid/ingresses')
+                         'http://server.com:8080/apis/networking.k8s.io/v1/namespaces/some_namespace/ingresses')
         self.assertEqual(json.loads(requests.call_args_list[5][1]['data']), exp_ing)
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -333,6 +341,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         inf = MagicMock()
         inf.id = "infid"
+        inf.description = MagicMock(["getValue"])
+        inf.description.getValue.return_value = "some_namespace"
         vm = VirtualMachine(inf, "1", kube_cloud.cloud, "", "", kube_cloud, 1)
 
         requests.side_effect = self.get_response
@@ -341,19 +351,19 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         self.assertEqual(requests.call_args_list[1][0],
                          ('DELETE',
-                          'http://server.com:8080/api/v1/namespaces/infid/persistentvolumeclaims/cname'))
+                          'http://server.com:8080/api/v1/namespaces/some_namespace/persistentvolumeclaims/cname'))
         self.assertEqual(requests.call_args_list[2][0],
                          ('DELETE',
-                          'http://server.com:8080/api/v1/namespaces/infid/pods/1'))
+                          'http://server.com:8080/api/v1/namespaces/some_namespace/pods/1'))
         self.assertEqual(requests.call_args_list[3][0],
                          ('DELETE',
-                          'http://server.com:8080/api/v1/namespaces/infid/services/1'))
+                          'http://server.com:8080/api/v1/namespaces/some_namespace/services/1'))
         self.assertEqual(requests.call_args_list[4][0],
                          ('DELETE',
-                          'http://server.com:8080/apis/networking.k8s.io/v1/namespaces/infid/ingresses/1'))
+                          'http://server.com:8080/apis/networking.k8s.io/v1/namespaces/some_namespace/ingresses/1'))
         self.assertEqual(requests.call_args_list[5][0],
                          ('DELETE',
-                          'http://server.com:8080/api/v1/namespaces/infid'))
+                          'http://server.com:8080/api/v1/namespaces/some_namespace'))
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

@@ -35,3 +35,4 @@ scar
 mock
 coverage
 requests-cache
+packaging

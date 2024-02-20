@@ -5,6 +5,10 @@ imports:
 
 description: TOSCA test for K8s
 
+metadata:
+  namespace: some_namespace
+  infra_name: some_infra
+
 repositories:
 
   docker_hub: docker.io
@@ -19,6 +23,32 @@ topology_template:
       default: "mysql:5.7"
 
   node_templates:
+
+    im_container:
+      type: tosca.nodes.Container.Application.Docker
+      properties:
+        environment:
+          IM_DATA_DB: { concat: [ "mysql://root:my-secret@", { get_attribute: [ mysql_container, endpoints, 0 ] } ] }
+      requirements:
+        - host: im_runtime
+      artifacts:
+        my_image:
+          file: grycap/im
+          type: tosca.artifacts.Deployment.Image.Container.Docker
+          repository: docker_hub
+
+    # The properties of the runtime to host the container
+    im_runtime:
+      type: tosca.nodes.Container.Runtime.Docker
+      capabilities:
+        host:
+          properties:
+            num_cpus: 1
+            mem_size: 2 GB
+            publish_ports:
+              - protocol: tcp
+                target: 8800
+                source: 30880
 
     # The MYSQL container based on official MySQL image in Docker hub
     mysql_container:
@@ -42,10 +72,10 @@ topology_template:
           properties:
             num_cpus: 1
             mem_size: 2 GB
-            publish_ports:
+            expose_ports:
               - protocol: tcp
                 target: 3306
-                source: 33306
+                source: 3306
             volumes:
               - "some_vol:/some/path"
 
@@ -57,5 +87,7 @@ topology_template:
         # volume_id: "PV name"
 
   outputs:
-    mysql_service_url:
+    im_service_endpoint:
+      value: { get_attribute: [ im_container, endpoints, 0 ] }
+    mysql_service_endpoint:
       value: { get_attribute: [ mysql_container, endpoints, 0 ] }
