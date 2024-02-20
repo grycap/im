@@ -287,8 +287,10 @@ class Tosca:
         namespace = self.tosca.tpl.get('metadata', {}).get('namespace')
         if infra_name or namespace:
             radl.description = description('desc')
-            radl.description.setValue('name', infra_name)
-            radl.description.setValue('namespace', namespace)
+            if infra_name:
+                radl.description.setValue('name', infra_name)
+            if namespace:
+                radl.description.setValue('namespace', namespace)
 
         return all_removal_list, self._complete_radl_networks(radl)
 
