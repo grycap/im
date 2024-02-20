@@ -439,14 +439,19 @@ class Tosca:
             if "source_range" in port:
                 source_range = port["source_range"]
             else:
+                remote_port = None
+                local_port = None
                 if "source" in port:
                     remote_port = port["source"]
-                else:
-                    raise Exception("source port must be specified in PortSpec type.")
                 if "target" in port:
                     local_port = port["target"]
-                else:
+                elif remote_port:
                     local_port = remote_port
+                if not remote_port and local_port:
+                    remote_port = local_port
+                
+                if not remote_port or not local_port:
+                    raise Exception("source or target port must be specified in PortSpec type.")
 
             # In case of source_range do not use port mapping only direct ports
             if source_range:
