@@ -54,6 +54,8 @@ class VirtualMachine(LoggerMixin):
 
     SSH_REVERSE_BASE_PORT = 20000
 
+    NO_DNS_NAME_SET = ["Kubernetes", "OSCAR", "Lambda"]
+
     logger = logging.getLogger('InfrastructureManager')
 
     def __init__(self, inf, cloud_id, cloud, info, requested_radl, cloud_connector=None, im_id=None):
@@ -266,6 +268,16 @@ class VirtualMachine(LoggerMixin):
         Get the first net interface with private IP
         """
         return self.info.getPrivateIP()
+
+    def getConnectedNet(self, public=False):
+        """
+        Return the first public/private net connected to this VM if available
+        """
+        for netid in self.info.systems[0].getNetworkIDs():
+            net = self.info.get_network_by_id(netid)
+            if net.isPublic() == public:
+                return net
+        return None
 
     def getNumNetworkIfaces(self):
         """
@@ -576,8 +588,9 @@ class VirtualMachine(LoggerMixin):
             self.state = new_state
             self.info.systems[0].setValue("state", new_state)
 
-            # Replace the #N# in dns_names
-            self.replace_dns_name(self.info.systems[0])
+            if self.getCloudConnector().type not in self.NO_DNS_NAME_SET:
+                # Replace the #N# in dns_names
+                self.replace_dns_name(self.info.systems[0])
 
         return updated
 

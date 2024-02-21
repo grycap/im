@@ -70,5 +70,5 @@ setup(name="IM", version=version,
       install_requires=["ansible >=2.4", "paramiko >= 1.14", "PyYAML", suds_pkg, sqlite_pkg, "cheroot",
                         "boto >= 2.29", "apache-libcloud >= 3.2.0", "RADL >= 1.1.5", "bottle", "netaddr",
                         "requests >= 2.19", "scp", "tosca-parser", 'defusedxml', 'urllib3>=1.23', 'hvac',
-                        'psutil', 'scar', 'requests-cache >= 1.0.0']
+                        'psutil', 'scar', 'requests-cache >= 1.0.0', 'packaging']
       )

@@ -434,18 +434,52 @@ class TestTosca(unittest.TestCase):
         radl = parse_radl(str(radl))
         radl.check()
 
+        self.assertEqual(radl.description.getValue("namespace"), "somenamespace")
         node = radl.get_system_by_name('mysql_container')
-        self.assertEqual(node.getValue("disk.0.image.url"), "docker://docker.io/mysql:5.7")
-        self.assertEqual(node.getValue("cpu.count"), 1.0)
-        self.assertEqual(node.getValue("memory.size"), 2000000000)
+        self.assertEqual(node.getValue("disk.0.image.url"), "docker://docker.io/mysql:8")
+        self.assertEqual(node.getValue("cpu.count"), 0.5)
+        self.assertEqual(node.getValue("memory.size"), 1000000000)
         self.assertEqual(node.getValue("disk.1.size"), 10000000000)
-        self.assertEqual(node.getValue("disk.1.mount_path"), '/some/path')
-        self.assertEqual(node.getValue("environment.variables"), 'MYSQL_ROOT_PASSWORD=my-secret')
-        net = radl.get_network_by_id('mysql_container_pub')
-        self.assertEqual(net.getValue("outports"), '33306/tcp-3306/tcp')
-        self.assertEqual(net.getValue("outbound"), 'yes')
+        self.assertEqual(node.getValue("disk.1.mount_path"), '/var/lib/mysql')
+        self.assertEqual(node.getValue("environment.variables"), 'MYSQL_ROOT_PASSWORD=my-secret,MYSQL_DATABASE=im-db')
+        net = radl.get_network_by_id('mysql_container_priv')
+        self.assertEqual(net.getValue("outports"), '3306/tcp-3306/tcp')
+        self.assertEqual(net.getValue("outbound"), 'no')
         conf = radl.get_configure_by_name('mysql_container')
         self.assertEqual(conf.recipes, None)
+
+        node = radl.get_system_by_name('im_container')
+        self.assertEqual(node.getValue("disk.0.image.url"), "docker://grycap/im")
+        net = radl.get_network_by_id('im_container_pub')
+        self.assertEqual(net.getValue("outports"), '30880/tcp-8800/tcp')
+        self.assertEqual(net.getValue("outbound"), 'yes')
+        self.assertEqual(node.getValue("environment.variables"),
+                         'IM_DATA_DB=mysql://root:my-secret@mysql-container:3306/im-db')
+        conf = radl.get_configure_by_name('im_container')
+        self.assertEqual(conf.recipes, None)
+
+    def test_tosca_k8s_get_attribute(self):
+        """Test TOSCA K8s get_attributes function"""
+        tosca_data = read_file_as_string('../files/tosca_k8s.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl1 = radl.clone()
+        radl1.systems = [radl.get_system_by_name('im_container')]
+        inf = InfrastructureInfo()
+        radl1.systems[0].setValue("net_interface.0.ip", "8.8.8.8")
+
+        radl2 = radl.clone()
+        radl2.systems = [radl.get_system_by_name('mysql_container')]
+
+        cloud_info = MagicMock()
+        vm = VirtualMachine(inf, "1", cloud_info, radl1, radl1, None)
+        vm2 = VirtualMachine(inf, "2", cloud_info, radl2, radl2, None)
+        vm.requested_radl = radl1
+        vm2.requested_radl = radl2
+        inf.vm_list = [vm, vm2]
+        outputs = tosca.get_outputs(inf)
+        self.assertEqual(outputs, {'im_service_endpoint': '8.8.8.8:30880',
+                                   'mysql_service_endpoint': 'mysql-container:3306'})
 
 
 if __name__ == "__main__":

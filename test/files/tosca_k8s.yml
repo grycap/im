@@ -5,6 +5,11 @@ imports:
 
 description: TOSCA test for K8s
 
+metadata:
+  # Enable to set the K8s namespace for this deployment
+  namespace: somenamespace
+  infra_name: some_infra
+
 repositories:
 
   docker_hub: docker.io
@@ -16,16 +21,53 @@ topology_template:
     image:
       type: string
       description: The image to be used in the container
-      default: "mysql:5.7"
+      default: "mysql:8"
+    
+    mysql_root_password:
+      type: string
+      description: The root password for the MySQL container
+      default: "my-secret"
 
   node_templates:
+
+    im_container:
+      type: tosca.nodes.Container.Application.Docker
+      properties:
+        environment:
+          IM_DATA_DB:
+            concat:
+              - "mysql://root:"
+              - { get_input: mysql_root_password }
+              - "@"
+              - { get_attribute: [ mysql_container, endpoints, 0 ] }
+              - "/im-db"
+      requirements:
+        - host: im_runtime
+      artifacts:
+        my_image:
+          file: grycap/im
+          type: tosca.artifacts.Deployment.Image.Container.Docker
+
+    # The properties of the runtime to host the container
+    im_runtime:
+      type: tosca.nodes.Container.Runtime.Docker
+      capabilities:
+        host:
+          properties:
+            num_cpus: 0.5
+            mem_size: 1 GB
+            publish_ports:
+              - protocol: tcp
+                target: 8800
+                source: 30880
 
     # The MYSQL container based on official MySQL image in Docker hub
     mysql_container:
       type: tosca.nodes.Container.Application.Docker
       properties:
         environment:
-          MYSQL_ROOT_PASSWORD: my-secret
+          MYSQL_ROOT_PASSWORD: { get_input: mysql_root_password }
+          MYSQL_DATABASE: "im-db"
       requirements:
         - host: mysql_runtime
       artifacts:
@@ -40,14 +82,13 @@ topology_template:
       capabilities:
         host:
           properties:
-            num_cpus: 1
-            mem_size: 2 GB
-            publish_ports:
+            num_cpus: 0.5
+            mem_size: 1 GB
+            expose_ports:
               - protocol: tcp
                 target: 3306
-                source: 33306
             volumes:
-              - "some_vol:/some/path"
+              - "some_vol:/var/lib/mysql"
 
     some_vol:
       type: tosca.nodes.BlockStorage
@@ -56,3 +97,8 @@ topology_template:
         # Set the PV name in this field
         # volume_id: "PV name"
 
+  outputs:
+    im_service_endpoint:
+      value: { get_attribute: [ im_container, endpoints, 0 ] }
+    mysql_service_endpoint:
+      value: { get_attribute: [ mysql_container, endpoints, 0 ] }
