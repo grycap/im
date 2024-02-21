@@ -2282,6 +2282,8 @@ class Tosca:
                         pub.setValue("outports", self._format_outports(value))
                         nets.append(pub)
                         res.setValue("net_interface.0.connection", "%s_pub" % node.name)
+                        if value and value[0] and 'endpoint' in value[0]:
+                            res.setValue("net_interface.0.dns_name", value[0]['endpoint'])
                     elif prop.name == 'expose_ports':
                         # Asume that publish_ports must be published as ClusterIP
                         priv = network("%s_priv" % node.name)
