@@ -276,14 +276,30 @@ class KubernetesCloudConnector(CloudConnector):
             'labels': {'name': name}
         }
 
+        host = None
+        path = "/"
+        secure = False
+        if dns.startswith("/"):  # It is only a path
+            path = dns
+        else:  # It is and endpoint
+            # If not set, add the protocol to enable the parsing
+            if dns.find("://") == -1:
+                dns = "http://" + dns
+            dns_url = urlparse(dns)
+            if dns_url[0] == "https":
+                secure = True
+            if dns_url[1]:
+                host = dns_url[1]
+            if dns_url[2]:
+                path = dns_url[2]
+
         ingress_data["spec"] = {
             "rules": [
                 {
-                    "host": dns,
                     "http": {
                         "paths": [
                             {
-                                "path": "/",
+                                "path": path,
                                 "pathType": "Prefix",
                                 "backend": {
                                     "service": {"name": name, "port": {"number": port}}
@@ -294,6 +310,12 @@ class KubernetesCloudConnector(CloudConnector):
                 }
             ]
         }
+
+        if host:
+            ingress_data["spec"]["rules"][0]["host"] = host
+
+        if secure and host:
+            ingress_data["spec"]["tls"] = [{"hosts": [host], "secretName": name + "-tls"}]
 
         return ingress_data
 

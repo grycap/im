@@ -60,6 +60,7 @@ topology_template:
               - protocol: tcp
                 target: 8800
                 source: 30880
+                endpoint: https://im.domain.com/im
 
     # The MYSQL container based on official MySQL image in Docker hub
     mysql_container:

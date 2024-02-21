@@ -133,7 +133,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             cpu.count>=1 and
             memory.size>=512m and
             net_interface.0.connection = 'net' and
-            net_interface.0.dns_name = 'ingress.domain.com' and
+            net_interface.0.dns_name = 'https://ingress.domain.com/path' and
             environment.variables = 'var=some_val' and
             instance_tags = 'key=_inva:lid_' and
             disk.0.os.name = 'linux' and
@@ -231,6 +231,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                          'http://server.com:8080/api/v1/namespaces/somenamespace/services')
         self.assertEqual(json.loads(requests.call_args_list[3][1]['data']), exp_svc)
 
+        self.maxDiff = None
         exp_ing = {
             "apiVersion": "networking.k8s.io/v1",
             "kind": "Ingress",
@@ -240,6 +241,12 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "namespace": "somenamespace",
             },
             "spec": {
+                "tls": [
+                    {
+                        "hosts": ["ingress.domain.com"],
+                        "secretName": "test-tls"
+                    }
+                ],
                 "rules": [
                     {
                         "host": "ingress.domain.com",
@@ -252,7 +259,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                                             "port": {"number": 8080},
                                         }
                                     },
-                                    "path": "/",
+                                    "path": "/path",
                                     "pathType": "Prefix",
                                 }
                             ]
