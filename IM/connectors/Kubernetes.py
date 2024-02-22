@@ -169,8 +169,7 @@ class KubernetesCloudConnector(CloudConnector):
             name = "%s-%d" % (pod_name, cont)
 
             if persistent:
-                claim_data = {'apiVersion': 'v1', 'kind': 'PersistentVolumeClaim'}
-                claim_data['metadata'] = {'name': name, 'namespace': namespace}
+                claim_data = self._gen_basic_k8s_elem(namespace, name, 'PersistentVolumeClaim')
                 claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
                     'requests': {'storage': disk_size}}}
 
@@ -218,12 +217,7 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error creating service.")
 
     def _generate_service_data(self, namespace, name, outports, public):
-        service_data = {'apiVersion': 'v1', 'kind': 'Service'}
-        service_data['metadata'] = {
-            'name': name,
-            'namespace': namespace,
-            'labels': {'name': name}
-        }
+        service_data = self._gen_basic_k8s_elem(namespace, name, 'Service')
 
         ports = []
         if outports:
@@ -269,12 +263,7 @@ class KubernetesCloudConnector(CloudConnector):
             return False
 
     def _generate_ingress_data(self, namespace, name, dns, port):
-        ingress_data = {'apiVersion': 'networking.k8s.io/v1', 'kind': 'Ingress'}
-        ingress_data['metadata'] = {
-            'name': name,
-            'namespace': namespace,
-            'labels': {'name': name}
-        }
+        ingress_data = self._gen_basic_k8s_elem(namespace, name, 'Ingress', 'networking.k8s.io/v1')
 
         host = None
         path = "/"
@@ -327,6 +316,16 @@ class KubernetesCloudConnector(CloudConnector):
         return ingress_data
 
     @staticmethod
+    def _gen_basic_k8s_elem(namespace, name, kind, version="v1"):
+        k8s_elem = {'apiVersion': version, 'kind': kind}
+        k8s_elem['metadata'] = {
+            'name': name,
+            'namespace': namespace,
+            'labels': {'name': name}
+        }
+        return k8s_elem
+
+    @staticmethod
     def _get_env_variables(radl_system):
         env_vars = []
         if radl_system.getValue('environment.variables'):
@@ -353,13 +352,7 @@ class KubernetesCloudConnector(CloudConnector):
                     ports.append({'containerPort': outport.get_local_port(),
                                   'protocol': outport.get_protocol().upper()})
 
-        pod_data = {'apiVersion': 'v1', 'kind': 'Pod'}
-        pod_data['metadata'] = {
-            'name': name,
-            'namespace': namespace,
-            'labels': {'name': name}
-        }
-
+        pod_data = self._gen_basic_k8s_elem(namespace, name, 'Pod')
         # Add instance tags
         if tags:
             for k, v in tags.items():

@@ -162,7 +162,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         exp_pvc = {
             "apiVersion": "v1",
             "kind": "PersistentVolumeClaim",
-            "metadata": {"name": "test-1", "namespace": "somenamespace"},
+            "metadata": {"name": "test-1",
+                         "namespace": "somenamespace",
+                         'labels': {'name': 'test-1'}},
             "spec": {
                 "accessModes": ["ReadWriteOnce"],
                 "resources": {"requests": {"storage": 10737418240}},
