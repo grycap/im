@@ -239,6 +239,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "labels": {"name": "test"},
                 "name": "test",
                 "namespace": "somenamespace",
+                "annotations": {"cert-manager.io/cluster-issuer": "letsencrypt-prod"},
             },
             "spec": {
                 "tls": [
