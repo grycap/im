@@ -159,6 +159,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
 
+        self.assertEqual(requests.call_args_list[0][0][1],
+                         'http://server.com:8080/api/v1/namespaces/somenamespace')
+
         exp_pvc = {
             "apiVersion": "v1",
             "kind": "PersistentVolumeClaim",
