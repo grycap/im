@@ -293,6 +293,13 @@ class KubernetesCloudConnector(CloudConnector):
             if dns_url[2]:
                 path = dns_url[2]
 
+        # Add Let's Encrypt annotation asuming that the cluster has
+        # cert-manager installed and the issuer is letsencrypt-prod
+        if secure:
+            ingress_data["metadata"]["annotations"] = {
+                "cert-manager.io/cluster-issuer": "letsencrypt-prod"
+            }
+
         ingress_data["spec"] = {
             "rules": [
                 {
