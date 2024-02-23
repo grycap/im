@@ -218,7 +218,7 @@ class KubernetesCloudConnector(CloudConnector):
 
         return res
 
-    def _create_volumes(self, namespace, system, pod_name, auth_data, persistent=False):
+    def _create_volumes(self, namespace, system, pod_name, auth_data):
         res = []
         cont = 1
         while system.getValue("disk." + str(cont) + ".mount_path"):
@@ -233,23 +233,20 @@ class KubernetesCloudConnector(CloudConnector):
                     disk_mount_path = '/' + disk_mount_path
                 name = "%s-%d" % (pod_name, cont)
 
-                if persistent:
-                    claim_data = self._gen_basic_k8s_elem(namespace, name, 'PersistentVolumeClaim')
-                    claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
-                        'requests': {'storage': disk_size}}}
+                claim_data = self._gen_basic_k8s_elem(namespace, name, 'PersistentVolumeClaim')
+                claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
+                    'requests': {'storage': disk_size}}}
 
-                    if volume_id:
-                        claim_data['spec']['storageClassName'] = ""
-                        claim_data['spec']['volumeName'] = volume_id
+                if volume_id:
+                    claim_data['spec']['storageClassName'] = ""
+                    claim_data['spec']['volumeName'] = volume_id
 
-                    self.log_debug("Creating PVC: %s/%s" % (namespace, name))
-                    success = self._create_volume_claim(claim_data, auth_data)
-                    if success:
-                        res.append((name, disk_size, disk_mount_path, persistent))
-                    else:
-                        self.log_error("Error creating PersistentVolumeClaim:" + name)
+                self.log_debug("Creating PVC: %s/%s" % (namespace, name))
+                success = self._create_volume_claim(claim_data, auth_data)
+                if success:
+                    res.append((name, disk_size, disk_mount_path))
                 else:
-                    res.append((name, disk_size, disk_mount_path, persistent))
+                    self.log_error("Error creating PersistentVolumeClaim:" + name)
 
             cont += 1
 
@@ -442,7 +439,7 @@ class KubernetesCloudConnector(CloudConnector):
 
         if volumes:
             containers[0]['volumeMounts'] = []
-            for (v_name, _, v_mount_path, _) in volumes:
+            for (v_name, _, v_mount_path) in volumes:
                 containers[0]['volumeMounts'].append(
                     {'name': v_name, 'mountPath': v_mount_path})
 
@@ -457,10 +454,9 @@ class KubernetesCloudConnector(CloudConnector):
 
         if volumes:
             pod_data['spec']['volumes'] = []
-            for (v_name, _, _, persistent) in volumes:
-                if persistent:
-                    pod_data['spec']['volumes'].append(
-                        {'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
+            for (v_name, _, _) in volumes:
+                pod_data['spec']['volumes'].append(
+                    {'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
 
         if configmaps:
             pod_data['spec']['volumes'] = pod_data['spec'].get('volumes', [])
@@ -516,7 +512,7 @@ class KubernetesCloudConnector(CloudConnector):
             inf.add_vm(vm)
             pod_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_]', '-', system.name)
 
-            volumes = self._create_volumes(namespace, system, pod_name, auth_data, True)
+            volumes = self._create_volumes(namespace, system, pod_name, auth_data)
 
             configmaps = self._create_config_maps(namespace, system, pod_name, auth_data)
 
