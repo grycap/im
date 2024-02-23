@@ -2228,8 +2228,7 @@ class Tosca:
 
         if not image:
             raise Exception("No image specified for K8s container.")
-        if "tosca.artifacts.Deployment.Image.Container.Docker" != artifact.get("type", None):
-            raise Exception("Only Docker images are supported for K8s container.")
+
         repo = artifact.get("repository", None)
         if repo:
             repo_url = self._get_repository_url(repo)
