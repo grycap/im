@@ -18,6 +18,7 @@ import base64
 import json
 import requests
 import time
+import os
 import re
 from netaddr import IPNetwork, IPAddress
 try:
@@ -155,36 +156,100 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Kubernetes API server")
             return False
 
+    def _delete_config_map(self, namespace, cm_name, auth_data):
+        try:
+            self.log_debug("Deleting CM: %s/%s" % (namespace, cm_name))
+            uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "configmaps", cm_name)
+            resp = self.create_request('DELETE', uri, auth_data)
+
+            if resp.status_code == 404:
+                self.log_warn("Trying to remove a non existing ConfigMap: " + cm_name)
+                return True
+            elif resp.status_code != 200:
+                self.log_error("Error deleting the ConfigMap: " + resp.txt)
+                return False
+            else:
+                return True
+        except Exception:
+            self.log_exception("Error connecting with Kubernetes API server")
+            return False
+
+    def _delete_config_maps(self, pod_data, auth_data):
+        if 'volumes' in pod_data['spec']:
+            for volume in pod_data['spec']['volumes']:
+                if 'configMap' in volume and 'name' in volume['configMap']:
+                    cm_name = volume['configMap']['name']
+                    success = self._delete_config_map(pod_data["metadata"]["namespace"], cm_name, auth_data)
+                    if not success:
+                        self.log_error("Error deleting ConfigMap:" + cm_name)
+
+    def _create_config_maps(self, namespace, system, pod_name, auth_data):
+        res = []
+        cont = 1
+        while system.getValue("disk." + str(cont) + ".mount_path"):
+
+            if (system.getValue("disk." + str(cont) + ".content") and
+                    not system.getValue("disk." + str(cont) + ".size")):
+
+                mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+                content = system.getValue("disk." + str(cont) + ".content")
+                if not mount_path.startswith('/'):
+                    mount_path = '/' + mount_path
+                name = "%s-cm-%d" % (pod_name, cont)
+
+                cm_data = self._gen_basic_k8s_elem(namespace, name, 'ConfigMap')
+                cm_data['data'] = {os.path.basename(mount_path): content}
+
+                try:
+                    self.log_debug("Creating ConfigMap: %s/%s" % (namespace, name))
+                    headers = {'Content-Type': 'application/json'}
+                    uri = "/api/v1/namespaces/%s/%s" % (namespace, "configmaps")
+                    svc_resp = self.create_request('POST', uri, auth_data, headers, cm_data)
+                    if svc_resp.status_code != 201:
+                        self.error_messages += "Error creating configmap for pod %s: %s" % (name, svc_resp.text)
+                        self.log_warn("Error creating configmap: %s" % svc_resp.text)
+                    else:
+                        res.append((name, mount_path))
+                except Exception:
+                    self.error_messages += "Error creating configmap to access pod %s" % name
+                    self.log_exception("Error creating configmap.")
+
+            cont += 1
+
+        return res
+
     def _create_volumes(self, namespace, system, pod_name, auth_data, persistent=False):
         res = []
         cont = 1
-        while ((system.getValue("disk." + str(cont) + ".size") or
-                system.getValue("disk." + str(cont) + ".image.url")) and
-                system.getValue("disk." + str(cont) + ".mount_path")):
-            volume_id = system.getValue("disk." + str(cont) + ".image.url")
-            disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
-            disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('B')
-            if not disk_mount_path.startswith('/'):
-                disk_mount_path = '/' + disk_mount_path
-            name = "%s-%d" % (pod_name, cont)
+        while system.getValue("disk." + str(cont) + ".mount_path"):
 
-            if persistent:
-                claim_data = self._gen_basic_k8s_elem(namespace, name, 'PersistentVolumeClaim')
-                claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
-                    'requests': {'storage': disk_size}}}
+            if (system.getValue("disk." + str(cont) + ".size") or
+                    system.getValue("disk." + str(cont) + ".image.url")):
 
-                if volume_id:
-                    claim_data['spec']['storageClassName'] = ""
-                    claim_data['spec']['volumeName'] = volume_id
+                volume_id = system.getValue("disk." + str(cont) + ".image.url")
+                disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
+                disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('B')
+                if not disk_mount_path.startswith('/'):
+                    disk_mount_path = '/' + disk_mount_path
+                name = "%s-%d" % (pod_name, cont)
 
-                self.log_debug("Creating PVC: %s/%s" % (namespace, name))
-                success = self._create_volume_claim(claim_data, auth_data)
-                if success:
-                    res.append((name, disk_size, disk_mount_path, persistent))
+                if persistent:
+                    claim_data = self._gen_basic_k8s_elem(namespace, name, 'PersistentVolumeClaim')
+                    claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
+                        'requests': {'storage': disk_size}}}
+
+                    if volume_id:
+                        claim_data['spec']['storageClassName'] = ""
+                        claim_data['spec']['volumeName'] = volume_id
+
+                    self.log_debug("Creating PVC: %s/%s" % (namespace, name))
+                    success = self._create_volume_claim(claim_data, auth_data)
+                    if success:
+                        res.append((name, disk_size, disk_mount_path, persistent))
+                    else:
+                        self.log_error("Error creating PersistentVolumeClaim:" + name)
                 else:
-                    self.log_error("Error creating PersistentVolumeClaim:" + name)
-            else:
-                res.append((name, disk_size, disk_mount_path, persistent))
+                    res.append((name, disk_size, disk_mount_path, persistent))
 
             cont += 1
 
@@ -337,7 +402,7 @@ class KubernetesCloudConnector(CloudConnector):
                 env_vars.append({'name': key, 'value': value})
         return env_vars
 
-    def _generate_pod_data(self, namespace, name, outports, system, volumes, tags):
+    def _generate_pod_data(self, namespace, name, outports, system, volumes, configmaps, tags):
         cpu = str(system.getValue('cpu.count'))
         memory = "%s" % system.getFeature('memory.size').getValue('B')
         image_url = urlparse(system.getValue("disk.0.image.url"))
@@ -381,6 +446,12 @@ class KubernetesCloudConnector(CloudConnector):
                 containers[0]['volumeMounts'].append(
                     {'name': v_name, 'mountPath': v_mount_path})
 
+        if configmaps:
+            containers[0]['volumeMounts'] = containers[0].get('volumeMounts', [])
+            for (cm_name, cm_mount_path) in configmaps:
+                containers[0]['volumeMounts'].append(
+                    {'name': cm_name, 'mountPath': cm_mount_path, 'readOnly': True})
+
         pod_data['spec'] = {'containers': containers, 'restartPolicy': 'OnFailure'}
 
         if volumes:
@@ -389,6 +460,13 @@ class KubernetesCloudConnector(CloudConnector):
                 if persistent:
                     pod_data['spec']['volumes'].append(
                         {'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
+
+        if configmaps:
+            for (cm_name, _) in configmaps:
+                pod_data['spec']['volumes'].append(
+                    {'name': cm_name,
+                     'configMap': {'name': cm_name,
+                                   'items': [{'key': os.path.basename(cm_mount_path), 'path': cm_mount_path}]}})
 
         return pod_data
 
@@ -439,6 +517,8 @@ class KubernetesCloudConnector(CloudConnector):
 
             volumes = self._create_volumes(namespace, system, pod_name, auth_data, True)
 
+            configmaps = self._create_config_maps(namespace, system, pod_name, auth_data)
+
             tags = self.get_instance_tags(system, auth_data, inf)
 
             outports = []
@@ -449,7 +529,7 @@ class KubernetesCloudConnector(CloudConnector):
             elif priv_net:
                 outports = priv_net.getOutPorts()
 
-            pod_data = self._generate_pod_data(namespace, pod_name, outports, system, volumes, tags)
+            pod_data = self._generate_pod_data(namespace, pod_name, outports, system, volumes, configmaps, tags)
 
             self.log_debug("Creating POD: %s/%s" % (namespace, pod_name))
             uri = "/api/v1/namespaces/%s/%s" % (namespace, "pods")
@@ -462,15 +542,20 @@ class KubernetesCloudConnector(CloudConnector):
                     self._delete_volume_claims(pod_data, auth_data)
                 except Exception:
                     self.log_exception("Error deleting volumes.")
+                try:
+                    self._delete_config_maps(pod_data, auth_data)
+                except Exception:
+                    self.log_exception("Error deleting configmaps.")
+
             else:
-                dns_name = system.getValue("net_interface.0.dns_name")
-
-                self.create_service_data(namespace, pod_name, outports, pub_net, auth_data, vm)
-
                 output = json.loads(resp.text)
                 vm.id = output["metadata"]["name"]
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
                 vm.info.systems[0].setValue('instance_name', str(vm.id))
+                vm.destroy = False
+
+                dns_name = system.getValue("net_interface.0.dns_name")
+                self.create_service_data(namespace, pod_name, outports, pub_net, auth_data, vm)
 
                 if dns_name and outports:
                     port = outports[0].get_local_port()
@@ -478,7 +563,6 @@ class KubernetesCloudConnector(CloudConnector):
                     if not ingress_created:
                         vm.info.systems[0].delValue("net_interface.0.dns_name")
 
-                vm.destroy = False
                 res.append((True, vm))
 
         except Exception as ex:
@@ -568,6 +652,7 @@ class KubernetesCloudConnector(CloudConnector):
                 else:
                     pod_data = json.loads(output)
                     self._delete_volume_claims(pod_data, auth_data)
+                    self._delete_config_maps(pod_data, auth_data)
                     success, msg = self._delete_pod(vm, auth_data)
                     if not success:
                         self.log_error("Error deleting Pod %s: %s" % (vm.id, msg))

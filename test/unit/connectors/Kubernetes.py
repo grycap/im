@@ -85,7 +85,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.text = ('{"metadata": {"namespace":"somenamespace", "name": "name"}, "status": '
                              '{"phase":"Running", "hostIP": "158.42.1.1", "podIP": "10.0.0.1"}, '
                              '"spec": {"containers": [{"image": "image:1.0"}], '
-                             '"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}}]}}')
+                             '"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}},'
+                             '{"configMap": {"name": "configmap"}}]}}')
             if url == "/api/v1/namespaces/somenamespace":
                 resp.status_code = 200
         elif method == "POST":
@@ -100,6 +101,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.status_code = 201
             elif url.endswith("/apis/networking.k8s.io/v1/namespaces/somenamespace/ingresses"):
                 resp.status_code = 201
+            elif url.endswith("/configmaps"):
+                resp.status_code = 201
         elif method == "DELETE":
             if url.endswith("/pods/1"):
                 resp.status_code = 200
@@ -110,6 +113,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             elif "persistentvolumeclaims" in url:
                 resp.status_code = 200
             elif "ingresses" in url:
+                resp.status_code = 200
+            elif "configmaps" in url:
                 resp.status_code = 200
         elif method == "PATCH":
             if url.endswith("/pods/1"):
@@ -139,7 +144,11 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'docker://someimage' and
             disk.1.size = 10G and
-            disk.1.mount_path = '/mnt'
+            disk.1.mount_path = '/mnt' and
+            disk.2.mount_path = '/etc/config' and
+            disk.2.content = '
+            some content
+            '
             )"""
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
@@ -177,6 +186,18 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                          'http://server.com:8080/api/v1/namespaces/somenamespace/persistentvolumeclaims')
         self.assertEqual(json.loads(requests.call_args_list[1][1]['data']), exp_pvc)
 
+        exp_cm = {
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "metadata": {"name": "test-cm-2",
+                         "namespace": "somenamespace",
+                         'labels': {'name': 'test-cm-2'}},
+            "data": {"config": "\n            some content\n            "},
+        }
+        self.assertEqual(requests.call_args_list[2][0][1],
+                         'http://server.com:8080/api/v1/namespaces/somenamespace/configmaps')
+        self.assertEqual(json.loads(requests.call_args_list[2][1]['data']), exp_cm)
+
         exp_pod = {
             "apiVersion": "v1",
             "kind": "Pod",
@@ -197,18 +218,22 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                             "requests": {"cpu": "1", "memory": "536870912"},
                         },
                         "env": [{"name": "var", "value": "some_val"}],
-                        "volumeMounts": [{"name": "test-1", "mountPath": "/mnt"}],
+                        "volumeMounts": [{"name": "test-1", "mountPath": "/mnt"},
+                                         {'mountPath': '/etc/config', 'name': 'test-cm-2', 'readOnly': True}],
                     }
                 ],
                 "restartPolicy": "OnFailure",
                 "volumes": [
-                    {"name": "test-1", "persistentVolumeClaim": {"claimName": "test-1"}}
+                    {"name": "test-1", "persistentVolumeClaim": {"claimName": "test-1"}},
+                    {"name": "test-cm-2", "configMap": {"name": "test-cm-2",
+                                                        "items": [{"key": "config", "path": "/etc/config"}]}},
                 ],
             },
         }
-        self.assertEqual(requests.call_args_list[2][0][1],
+        self.maxDiff = None
+        self.assertEqual(requests.call_args_list[3][0][1],
                          'http://server.com:8080/api/v1/namespaces/somenamespace/pods')
-        self.assertEqual(json.loads(requests.call_args_list[2][1]['data']), exp_pod)
+        self.assertEqual(json.loads(requests.call_args_list[3][1]['data']), exp_pod)
 
         exp_svc = {
             "apiVersion": "v1",
@@ -232,9 +257,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "selector": {"name": "test"},
             },
         }
-        self.assertEqual(requests.call_args_list[3][0][1],
+        self.assertEqual(requests.call_args_list[4][0][1],
                          'http://server.com:8080/api/v1/namespaces/somenamespace/services')
-        self.assertEqual(json.loads(requests.call_args_list[3][1]['data']), exp_svc)
+        self.assertEqual(json.loads(requests.call_args_list[4][1]['data']), exp_svc)
 
         self.maxDiff = None
         exp_ing = {
@@ -275,9 +300,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             },
         }
 
-        self.assertEqual(requests.call_args_list[5][0][1],
+        self.assertEqual(requests.call_args_list[6][0][1],
                          'http://server.com:8080/apis/networking.k8s.io/v1/namespaces/somenamespace/ingresses')
-        self.assertEqual(json.loads(requests.call_args_list[5][1]['data']), exp_ing)
+        self.assertEqual(json.loads(requests.call_args_list[6][1]['data']), exp_ing)
 
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
@@ -367,14 +392,17 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                           'http://server.com:8080/api/v1/namespaces/somenamespace/persistentvolumeclaims/cname'))
         self.assertEqual(requests.call_args_list[2][0],
                          ('DELETE',
-                          'http://server.com:8080/api/v1/namespaces/somenamespace/pods/1'))
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/configmaps/configmap'))
         self.assertEqual(requests.call_args_list[3][0],
                          ('DELETE',
-                          'http://server.com:8080/api/v1/namespaces/somenamespace/services/1'))
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/pods/1'))
         self.assertEqual(requests.call_args_list[4][0],
                          ('DELETE',
-                          'http://server.com:8080/apis/networking.k8s.io/v1/namespaces/somenamespace/ingresses/1'))
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/services/1'))
         self.assertEqual(requests.call_args_list[5][0],
+                         ('DELETE',
+                          'http://server.com:8080/apis/networking.k8s.io/v1/namespaces/somenamespace/ingresses/1'))
+        self.assertEqual(requests.call_args_list[6][0],
                          ('DELETE',
                           'http://server.com:8080/api/v1/namespaces/somenamespace'))
         self.assertTrue(success, msg="ERROR: finalizing VM info.")

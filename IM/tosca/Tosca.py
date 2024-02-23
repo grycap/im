@@ -2222,12 +2222,10 @@ class Tosca:
         res = system(node.name)
         nets = []
 
-        artifacts = node.type_definition.get_value('artifacts', node.entity_tpl, True)
-        if len(artifacts) != 1:
-            raise Exception("Only one artifact is supported for K8s container.")
+        for artifact in list(self._get_node_artifacts(node).values()):
+            if artifact.get("type", None) == "tosca.artifacts.Deployment.Image.Container.Docker":
+                image = self._final_function_result(artifact.get("file", None), node)
 
-        artifact = list(artifacts.values())[0]
-        image = self._final_function_result(artifact.get("file", None), node)
         if not image:
             raise Exception("No image specified for K8s container.")
         if "tosca.artifacts.Deployment.Image.Container.Docker" != artifact.get("type", None):
