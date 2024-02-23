@@ -219,14 +219,14 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                         },
                         "env": [{"name": "var", "value": "some_val"}],
                         "volumeMounts": [{"name": "test-1", "mountPath": "/mnt"},
-                                         {'mountPath': '/etc/config', 'name': 'test-cm-2', 'readOnly': True}],
+                                         {'mountPath': '/etc/config', 'name': 'test-cm-2',
+                                          'readOnly': True, 'subPath': 'config'}],
                     }
                 ],
                 "restartPolicy": "OnFailure",
                 "volumes": [
                     {"name": "test-1", "persistentVolumeClaim": {"claimName": "test-1"}},
-                    {"name": "test-cm-2", "configMap": {"name": "test-cm-2",
-                                                        "items": [{"key": "config", "path": "/etc/config"}]}},
+                    {"name": "test-cm-2", "configMap": {"name": "test-cm-2"}},
                 ],
             },
         }

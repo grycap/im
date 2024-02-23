@@ -450,7 +450,8 @@ class KubernetesCloudConnector(CloudConnector):
             containers[0]['volumeMounts'] = containers[0].get('volumeMounts', [])
             for (cm_name, cm_mount_path) in configmaps:
                 containers[0]['volumeMounts'].append(
-                    {'name': cm_name, 'mountPath': cm_mount_path, 'readOnly': True})
+                    {'name': cm_name, 'mountPath': cm_mount_path, "readOnly": True,
+                     'subPath': os.path.basename(cm_mount_path)})
 
         pod_data['spec'] = {'containers': containers, 'restartPolicy': 'OnFailure'}
 
@@ -462,11 +463,11 @@ class KubernetesCloudConnector(CloudConnector):
                         {'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
 
         if configmaps:
+            pod_data['spec']['volumes'] = pod_data['spec'].get('volumes', [])
             for (cm_name, _) in configmaps:
                 pod_data['spec']['volumes'].append(
                     {'name': cm_name,
-                     'configMap': {'name': cm_name,
-                                   'items': [{'key': os.path.basename(cm_mount_path), 'path': cm_mount_path}]}})
+                     'configMap': {'name': cm_name}})
 
         return pod_data
 
