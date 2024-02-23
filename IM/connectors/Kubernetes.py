@@ -437,11 +437,18 @@ class KubernetesCloudConnector(CloudConnector):
         if system.getValue("docker.privileged") == 'yes':
             containers[0]['securityContext'] = {'privileged': True}
 
+        pod_data['spec'] = {'restartPolicy': 'OnFailure'}
+
         if volumes:
             containers[0]['volumeMounts'] = []
             for (v_name, _, v_mount_path) in volumes:
                 containers[0]['volumeMounts'].append(
                     {'name': v_name, 'mountPath': v_mount_path})
+                
+            pod_data['spec']['volumes'] = []
+            for (v_name, _, _) in volumes:
+                pod_data['spec']['volumes'].append(
+                    {'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
 
         if configmaps:
             containers[0]['volumeMounts'] = containers[0].get('volumeMounts', [])
@@ -450,20 +457,13 @@ class KubernetesCloudConnector(CloudConnector):
                     {'name': cm_name, 'mountPath': cm_mount_path, "readOnly": True,
                      'subPath': os.path.basename(cm_mount_path)})
 
-        pod_data['spec'] = {'containers': containers, 'restartPolicy': 'OnFailure'}
-
-        if volumes:
-            pod_data['spec']['volumes'] = []
-            for (v_name, _, _) in volumes:
-                pod_data['spec']['volumes'].append(
-                    {'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
-
-        if configmaps:
             pod_data['spec']['volumes'] = pod_data['spec'].get('volumes', [])
             for (cm_name, _) in configmaps:
                 pod_data['spec']['volumes'].append(
                     {'name': cm_name,
                      'configMap': {'name': cm_name}})
+
+        pod_data['spec']['containers'] = containers
 
         return pod_data
 
