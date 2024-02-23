@@ -77,7 +77,7 @@ topology_template:
       interfaces:
         Standard:
           configure:
-            implementation: mysql/mysql_db_import.yml
+            implementation: https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/mysql/mysql_db_import.yml
             inputs:
               db_name: { get_property: [ SELF, name ] }
               db_data: { get_artifact: [ SELF, db_content ] }
