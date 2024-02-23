@@ -47,6 +47,16 @@ topology_template:
         my_image:
           file: grycap/im
           type: tosca.artifacts.Deployment.Image.Container.Docker
+        my_config_map:
+          deploy_path: /etc/im/im.cfg
+          file: https://raw.githubusercontent.com/grycap/im/master/etc/im.cfg
+          type: tosca.artifacts.File
+          properties:
+            # when the content is not provided, the file is downloaded from the URL
+            # otherwise, the file is ignored
+            content: |
+              [im]
+              REST_API = True
 
     # The properties of the runtime to host the container
     im_runtime:
