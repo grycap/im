@@ -35,7 +35,7 @@ class Tosca:
     """
 
     ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/artifacts"
-    ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/indigo-dc/tosca-types/master/artifacts/"
+    ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/grycap/tosca/main/artifacts/"
     GET_TIMEOUT = 20
 
     logger = logging.getLogger('InfrastructureManager')
@@ -2189,9 +2189,9 @@ class Tosca:
 
         return res
 
-    def _gen_k8s_volumes(self, node, nodetemplates, value):
+    def _gen_k8s_volumes(self, node, nodetemplates, value, cont=1):
+        """Get the volumes attached to an K8s container."""
         volumes = []
-        cont = 1
         # volume format should be "volume_name:mount_path"
         for vol in value:
             size = None
@@ -2217,21 +2217,44 @@ class Tosca:
             cont += 1
         return volumes
 
+    def _gen_k8s_configmaps(self, res, cms):
+        """Get the configmaps attached to an K8s container."""
+        cont = 1
+        for cm in cms:
+            mount_path = cm.get("deploy_path")
+            cm_file = cm.get("file")
+            content = cm.get("properties", {}).get("content", "")
+            if content:
+                res.setValue('disk.%d.content' % cont, content)
+            # if content is not empty file is ignored
+            if cm_file and not content:
+                resp = self.cache_session.get(cm_file, timeout=self.GET_TIMEOUT)
+                if resp.status_code != 200:
+                    raise Exception("Error downloading file %s: %s\n%s" % (cm_file, resp.reason, resp.text))
+                res.setValue('disk.%d.content' % cont, resp.text)
+            if content or cm_file:
+                res.setValue('disk.%d.mount_path' % cont, mount_path)
+                cont += 1
+
+        return cont
+
     def _gen_k8s_system(self, node, nodetemplates):
-        """Get the volumes attached to an K8s container."""
+        """Generate the system for a K8s app."""
         res = system(node.name)
         nets = []
+        cms = []
 
-        artifacts = node.type_definition.get_value('artifacts', node.entity_tpl, True)
-        if len(artifacts) != 1:
-            raise Exception("Only one artifact is supported for K8s container.")
+        for artifact in list(self._get_node_artifacts(node).values()):
+            if artifact.get("type") == "tosca.artifacts.Deployment.Image.Container.Docker":
+                image = self._final_function_result(artifact.get("file"), node)
+            elif artifact.get("type") == "tosca.artifacts.File" and artifact.get("deploy_path"):
+                cms.append(artifact)
 
-        artifact = list(artifacts.values())[0]
-        image = self._final_function_result(artifact.get("file", None), node)
         if not image:
             raise Exception("No image specified for K8s container.")
-        if "tosca.artifacts.Deployment.Image.Container.Docker" != artifact.get("type", None):
-            raise Exception("Only Docker images are supported for K8s container.")
+
+        cont = self._gen_k8s_configmaps(res, cms)
+
         repo = artifact.get("repository", None)
         if repo:
             repo_url = self._get_repository_url(repo)
@@ -2268,7 +2291,7 @@ class Tosca:
                         value = int(ScalarUnit_Size(value).get_num_from_scalar_unit('B'))
                         res.setValue("memory.size", value, 'B')
                     elif prop.name == 'volumes':
-                        for num, size, mount_path, volume_id in self._gen_k8s_volumes(node, nodetemplates, value):
+                        for num, size, mount_path, volume_id in self._gen_k8s_volumes(node, nodetemplates, value, cont):
                             if volume_id:
                                 res.setValue('disk.%d.image.url' % num, volume_id)
                             if size:
