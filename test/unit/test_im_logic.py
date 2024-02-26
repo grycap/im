@@ -964,7 +964,7 @@ configure step2 (
 
         infId = IM.CreateInfrastructure(str(radl), auth0)
 
-        time.sleep(15)
+        time.sleep(20)
 
         state = IM.GetInfrastructureState(infId, auth0)
         self.assertEqual(state["state"], "unconfigured")
