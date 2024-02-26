@@ -156,17 +156,20 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Kubernetes API server")
             return False
 
-    def _delete_config_map(self, namespace, cm_name, auth_data):
+    def _delete_config_map(self, namespace, cm_name, auth_data, secret=False):
         try:
-            self.log_debug("Deleting CM: %s/%s" % (namespace, cm_name))
-            uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "configmaps", cm_name)
+            self.log_debug("Deleting CM/Secret: %s/%s" % (namespace, cm_name))
+            if secret:
+                uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "secrets", cm_name)
+            else:
+                uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "configmaps", cm_name)
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
-                self.log_warn("Trying to remove a non existing ConfigMap: " + cm_name)
+                self.log_warn("Trying to remove a non existing ConfigMap/Secret: " + cm_name)
                 return True
             elif resp.status_code != 200:
-                self.log_error("Error deleting the ConfigMap: " + resp.txt)
+                self.log_error("Error deleting the ConfigMap/Secret: " + resp.txt)
                 return False
             else:
                 return True
@@ -182,6 +185,11 @@ class KubernetesCloudConnector(CloudConnector):
                     success = self._delete_config_map(pod_data["metadata"]["namespace"], cm_name, auth_data)
                     if not success:
                         self.log_error("Error deleting ConfigMap:" + cm_name)
+                if 'secret' in volume and 'secretName' in volume['secret']:
+                    cm_name = volume['secret']['secretName']
+                    success = self._delete_config_map(pod_data["metadata"]["namespace"], cm_name, auth_data, True)
+                    if not success:
+                        self.log_error("Error deleting Secret:" + cm_name)
 
     def _create_config_maps(self, namespace, system, pod_name, auth_data):
         res = []
@@ -197,22 +205,35 @@ class KubernetesCloudConnector(CloudConnector):
                     mount_path = '/' + mount_path
                 name = "%s-cm-%d" % (pod_name, cont)
 
-                cm_data = self._gen_basic_k8s_elem(namespace, name, 'ConfigMap')
+                # Let's assume that if content is base64 encoded it is a secret
+                try:
+                    base64.b64decode(content)
+                    secret = True
+                except Exception:
+                    secret = False
+
+                if secret:
+                    cm_data = self._gen_basic_k8s_elem(namespace, name, 'Secret')
+                else:
+                    cm_data = self._gen_basic_k8s_elem(namespace, name, 'ConfigMap')
                 cm_data['data'] = {os.path.basename(mount_path): content}
 
                 try:
                     self.log_debug("Creating ConfigMap: %s/%s" % (namespace, name))
                     headers = {'Content-Type': 'application/json'}
-                    uri = "/api/v1/namespaces/%s/%s" % (namespace, "configmaps")
+                    if secret:
+                        uri = "/api/v1/namespaces/%s/%s" % (namespace, "secrets")
+                    else:
+                        uri = "/api/v1/namespaces/%s/%s" % (namespace, "configmaps")
                     svc_resp = self.create_request('POST', uri, auth_data, headers, cm_data)
                     if svc_resp.status_code != 201:
-                        self.error_messages += "Error creating configmap for pod %s: %s" % (name, svc_resp.text)
-                        self.log_warn("Error creating configmap: %s" % svc_resp.text)
+                        self.error_messages += "Error creating configmap/secret for pod %s: %s" % (name, svc_resp.text)
+                        self.log_warn("Error creating configmap/secret: %s" % svc_resp.text)
                     else:
-                        res.append((name, mount_path))
+                        res.append((name, mount_path, secret))
                 except Exception:
-                    self.error_messages += "Error creating configmap to access pod %s" % name
-                    self.log_exception("Error creating configmap.")
+                    self.error_messages += "Error creating configmap/secret to access pod %s" % name
+                    self.log_exception("Error creating configmap/secret.")
 
             cont += 1
 
@@ -453,13 +474,18 @@ class KubernetesCloudConnector(CloudConnector):
             containers[0]['volumeMounts'] = containers[0].get('volumeMounts', [])
             pod_data['spec']['volumes'] = pod_data['spec'].get('volumes', [])
 
-            for (cm_name, cm_mount_path) in configmaps:
+            for (cm_name, cm_mount_path, secret) in configmaps:
                 containers[0]['volumeMounts'].append(
                     {'name': cm_name, 'mountPath': cm_mount_path, "readOnly": True,
                      'subPath': os.path.basename(cm_mount_path)})
-                pod_data['spec']['volumes'].append(
-                    {'name': cm_name,
-                     'configMap': {'name': cm_name}})
+                if secret:
+                    pod_data['spec']['volumes'].append(
+                        {'name': cm_name,
+                         'secret': {'secretName': cm_name}})
+                else:
+                    pod_data['spec']['volumes'].append(
+                        {'name': cm_name,
+                         'configMap': {'name': cm_name}})
 
         pod_data['spec']['containers'] = containers
 
