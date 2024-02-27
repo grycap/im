@@ -182,6 +182,7 @@ topology_template:
           properties:
             # host Operating System image properties
             type: linux 
+            architecture: { equal: x86_64 }
             #distribution: scientific 
             #version: 6.6
       requirements:

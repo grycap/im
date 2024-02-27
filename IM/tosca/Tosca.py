@@ -1710,9 +1710,10 @@ class Tosca:
 
         if isinstance(value, dict) and len(value) == 1:
             operator = operator_map.get(list(value.keys())[0])
+            value = list(value.values())[0]
         else:
             operator = None
-        return operator
+        return operator, value
 
     def _gen_system(self, node, nodetemplates):
         """
@@ -1792,8 +1793,10 @@ class Tosca:
                         elif prop.name in ["preemtible_instance", "sgx"]:
                             value = 'yes' if value else 'no'
 
-                        operator = self._get_operator(prop.value)
-                        if not operator:
+                        operator, new_value = self._get_operator(value)
+                        if operator:
+                            value = new_value
+                        else:
                             if isinstance(value, float) or isinstance(value, int):
                                 operator = ">="
                             else:
