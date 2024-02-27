@@ -753,3 +753,9 @@ IM 1.15.0:
         I case of MySQL:
         docker run --rm ti ghcr.io/grycap/im:db_1_14_15 python3 /db_1_14_X_to_1_15_X.py "mysql://username:password@server/db_name"
     * Add requests-cache to improve performance in TOSCA parsing
+
+IM 1.16.0:
+    * Fix error parsing FaaS Functions storage providers.
+    * Fix concurrency error in Lambda conn.
+    * Fix error in disk info in VMs in OpenStack when root disk is resized.
+    * Improve K8s conector.
