@@ -1523,24 +1523,26 @@ class Tosca:
         # TODO: resolve function values related with run-time values as IM
         # or ansible variables
 
-    def _find_host_node(self, node, nodetemplates, base_root_type="tosca.nodes.Compute"):
+    def _find_host_node(self, node, nodetemplates, base_root_type="tosca.nodes.Compute", node_type=None):
         """
         Select the node to host each node
         """
-
-        # check for a HosteOn relation
-        root_type = Tosca._get_root_parent_type(node).type
-        if root_type == base_root_type:
+        if node_type and node.type == node_type:
             return node
+        else:
+            root_type = Tosca._get_root_parent_type(node).type
+            if root_type == base_root_type:
+                return node
 
         if node.requirements:
             for r, n in node.relationships.items():
+                # check for a HosteOn relation
                 if Tosca._is_derived_from(r, r.HOSTEDON) or Tosca._is_derived_from(r, r.BINDSTO):
                     root_type = Tosca._get_root_parent_type(n).type
                     if root_type == base_root_type:
                         return n
                     else:
-                        return self._find_host_node(n, nodetemplates)
+                        return self._find_host_node(n, nodetemplates, base_root_type, node_type)
 
         return None
 
@@ -2182,7 +2184,7 @@ class Tosca:
                         variables += "%s=%s" % (k, v)
                     res.setValue("environment.variables", variables)
 
-        runtime = self._find_host_node(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
+        runtime = self._find_host_node(node, nodetemplates, node_type="tosca.nodes.Container.Runtime.Docker")
 
         if runtime:
             # Get the properties of the runtime
