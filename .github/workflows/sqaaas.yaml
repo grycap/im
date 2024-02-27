@@ -1,0 +1,23 @@
+name: Test IM
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+jobs:
+  sqaaas_job:
+    runs-on: ubuntu-latest
+    name: Job that triggers SQAaaS platform
+    steps:
+      - name: SQAaaS action step
+        uses: eosc-synergy/sqaaas-assessment-action@v2
+        with:
+          qc_uni_steps: unit-test
+
+      - name: unit-test
+        uses: actions/sqaaas-step@v1
+        with:
+          name: unit-test
+          tool: tox
