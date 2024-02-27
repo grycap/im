@@ -2,7 +2,6 @@ import os
 import logging
 import yaml
 import copy
-import operator
 import requests_cache
 import json
 import re
@@ -1523,118 +1522,26 @@ class Tosca:
         # TODO: resolve function values related with run-time values as IM
         # or ansible variables
 
-    def _find_host_node(self, node, nodetemplates, base_root_type="tosca.nodes.Compute"):
+    def _find_host_node(self, node, nodetemplates, base_root_type="tosca.nodes.Compute", node_type=None):
         """
-        Select the node to host each node, using the node requirements
-        In most of the cases the are directly specified, otherwise "node_filter" is used
+        Select the node to host each node
         """
-
-        # check for a HosteOn relation
-        root_type = Tosca._get_root_parent_type(node).type
-        if root_type == base_root_type:
+        if node_type and node.type == node_type:
             return node
+        else:
+            root_type = Tosca._get_root_parent_type(node).type
+            if root_type == base_root_type:
+                return node
 
         if node.requirements:
             for r, n in node.relationships.items():
+                # check for a HosteOn relation
                 if Tosca._is_derived_from(r, r.HOSTEDON) or Tosca._is_derived_from(r, r.BINDSTO):
                     root_type = Tosca._get_root_parent_type(n).type
                     if root_type == base_root_type:
                         return n
                     else:
-                        return self._find_host_node(n, nodetemplates)
-
-        # There are no direct HostedOn node
-        # check node_filter requirements
-        if node.requirements and base_root_type == "tosca.nodes.Compute":
-            for requires in node.requirements:
-                if 'host' in requires:
-                    value = requires.get('host')
-                    if isinstance(value, dict):
-                        if 'node_filter' in value:
-                            node_filter = value.get('node_filter')
-                            return self._get_compute_from_node_filter(node_filter, nodetemplates)
-
-        return None
-
-    def _node_fulfill_filter(self, node, node_filter):
-        """
-        Check if a node fulfills the features of a node filter
-        """
-
-        # Get node properties
-        node_props = {}
-        for cap_type in ['os', 'host']:
-            if node.get_capability(cap_type):
-                for prop in node.get_capability(cap_type).get_properties_objects():
-                    if prop.value is not None:
-                        unit = None
-                        value = self._final_function_result(prop.value, node)
-                        if prop.name in ['disk_size', 'mem_size']:
-                            value, unit = Tosca._get_size_and_unit(value)
-                        node_props[prop.name] = (value, unit)
-
-        filter_props = {}
-        # Get node_filter properties
-        for elem in node_filter:
-            if isinstance(elem, dict):
-                for cap_type in ['os', 'host']:
-                    if cap_type in elem:
-                        for p in elem.get(cap_type).get('properties'):
-                            p_name = list(p.keys())[0]
-                            p_value = list(p.values())[0]
-                            if isinstance(p_value, dict):
-                                filter_props[p_name] = (list(p_value.keys())[0],
-                                                        list(p_value.values())[0])
-                            else:
-                                filter_props[p_name] = ("equal", p_value)
-
-        operator_map = {
-            'equal': operator.eq,
-            'greater_than': operator.gt,
-            'greater_or_equal': operator.ge,
-            'less_than': operator.lt,
-            'less_or_equal': operator.le
-        }
-
-        # Compare the properties
-        for name, value in filter_props.items():
-            op, filter_value = value
-            if name in ['disk_size', 'mem_size']:
-                filter_value, _ = Tosca._get_size_and_unit(filter_value)
-
-            if name in node_props:
-                node_value, _ = node_props[name]
-                conv_operator = operator_map.get(op, None)
-                if conv_operator:
-                    comparation = conv_operator(node_value, filter_value)
-                else:
-                    if op == "in_range":
-                        comparation = node_value >= filter_value[0] and node_value <= filter_value[1]
-                    elif op == "valid_values":
-                        comparation = node_value in filter_value
-                    else:
-                        Tosca.logger.warning("Logical operator %s not supported." % op)
-
-                if not comparation:
-                    return False
-            else:
-                # if this property is not specified in the node, return False
-                # TODO: we must think about default values
-                return False
-
-        return True
-
-    def _get_compute_from_node_filter(self, node_filter, nodetemplates):
-        """
-        Select the first node that fulfills the specified "node_filter"
-        """
-
-        for node in nodetemplates:
-            root_type = Tosca._get_root_parent_type(node).type
-
-            if root_type == "tosca.nodes.Compute":
-                if self._node_fulfill_filter(node, node_filter.get('capabilities')):
-                    return node
+                        return self._find_host_node(n, nodetemplates, base_root_type, node_type)
 
         return None
 
@@ -1789,6 +1696,25 @@ class Tosca:
             feature = Feature('disk.0.applications', 'contains', app_features)
             system.addFeature(feature)
 
+    def _get_operator(self, value):
+        """
+        Get the operator for a value
+        """
+        operator_map = {
+            'equal': '=',
+            'greater_than': '>',
+            'greater_or_equal': '>=',
+            'less_than': '<',
+            'less_or_equal': '<='
+        }
+
+        if isinstance(value, dict) and len(value) == 1:
+            operator = operator_map.get(list(value.keys())[0])
+            value = list(value.values())[0]
+        else:
+            operator = None
+        return operator, value
+
     def _gen_system(self, node, nodetemplates):
         """
         Take a node of type "Compute" and get the RADL.system to represent it
@@ -1867,10 +1793,14 @@ class Tosca:
                         elif prop.name in ["preemtible_instance", "sgx"]:
                             value = 'yes' if value else 'no'
 
-                        if isinstance(value, float) or isinstance(value, int):
-                            operator = ">="
+                        operator, new_value = self._get_operator(value)
+                        if operator:
+                            value = new_value
                         else:
-                            operator = "="
+                            if isinstance(value, float) or isinstance(value, int):
+                                operator = ">="
+                            else:
+                                operator = "="
 
                         feature = Feature(name, operator, value, unit)
                         res.addFeature(feature)
@@ -2276,7 +2206,7 @@ class Tosca:
                         variables += "%s=%s" % (k, v)
                     res.setValue("environment.variables", variables)
 
-        runtime = self._find_host_node(node, nodetemplates, base_root_type="tosca.nodes.SoftwareComponent")
+        runtime = self._find_host_node(node, nodetemplates, node_type="tosca.nodes.Container.Runtime.Docker")
 
         if runtime:
             # Get the properties of the runtime
