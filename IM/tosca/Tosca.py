@@ -2,7 +2,6 @@ import os
 import logging
 import yaml
 import copy
-import operator
 import requests_cache
 import json
 import re
@@ -1697,6 +1696,24 @@ class Tosca:
             feature = Feature('disk.0.applications', 'contains', app_features)
             system.addFeature(feature)
 
+    def _get_operator(self, value):
+        """
+        Get the operator for a value
+        """
+        operator_map = {
+            'equal': '=',
+            'greater_than': '>',
+            'greater_or_equal': '>=',
+            'less_than': '<',
+            'less_or_equal': '<='
+        }
+
+        if isinstance(value, dict) and len(value) == 1:
+            operator = operator_map.get(list(value.keys())[0])
+        else:
+            operator = None
+        return operator
+
     def _gen_system(self, node, nodetemplates):
         """
         Take a node of type "Compute" and get the RADL.system to represent it
@@ -1775,10 +1792,12 @@ class Tosca:
                         elif prop.name in ["preemtible_instance", "sgx"]:
                             value = 'yes' if value else 'no'
 
-                        if isinstance(value, float) or isinstance(value, int):
-                            operator = ">="
-                        else:
-                            operator = "="
+                        operator = self._get_operator(prop.value)
+                        if not operator:
+                            if isinstance(value, float) or isinstance(value, int):
+                                operator = ">="
+                            else:
+                                operator = "="
 
                         feature = Feature(name, operator, value, unit)
                         res.addFeature(feature)
