@@ -13,11 +13,3 @@ jobs:
     steps:
       - name: SQAaaS action step
         uses: eosc-synergy/sqaaas-assessment-action@v2
-        with:
-          qc_uni_steps: unit-test
-
-      - name: unit-test
-        uses: actions/sqaaas-step@v1
-        with:
-          name: unit-test
-          tool: tox
