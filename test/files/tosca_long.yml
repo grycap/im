@@ -198,22 +198,6 @@ topology_template:
         size: 10 GB
         type: ssd
 
-    mysql:
-      type: tosca.nodes.DBMS
-      requirements:
-        - host:
-            node_filter:
-              capabilities:
-                # Constraints for selecting "host" (Container Capability)
-                - host:
-                    properties:
-                      - num_cpus: { in_range: [ 1, 4 ] }
-                      - mem_size: { greater_or_equal: 2 GB }
-                # Constraints for selecting "os" (OperatingSystem Capability)
-                - os:
-                    properties:
-                      - type: linux
-
   outputs:
     galaxy_url:
       value: { concat: [ 'http://', get_attribute: [ lrms_server, public_address, 0 ], ':8080' ] }

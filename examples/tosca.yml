@@ -64,20 +64,7 @@ topology_template:
       properties:
         root_password: { get_input: mysql_root_password }
       requirements:
-        - host:
-            node_filter:
-              capabilities:
-                # Constraints for selecting “host” (Container Capability)
-                - host:
-                    properties:
-                      - num_cpus: { in_range: [1,4] }
-                      - mem_size: { greater_or_equal: 1 GB }
-                # Constraints for selecting “os” (OperatingSystem Capability)
-                - os:
-                    properties:
-                      - architecture: { equal: x86_64 }
-                      - type: linux
-                      - distribution: ubuntu
+        - host: db_server
  
     db_server:
       type: tosca.nodes.Compute
