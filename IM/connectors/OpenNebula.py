@@ -20,7 +20,7 @@ xmlrpc.monkey_patch()
 try:
     from xmlrpclib import ServerProxy  # nosec
 except ImportError:
-    from xmlrpc.client import ServerProxy
+    from xmlrpc.client import ServerProxy # nosec
 
 import os.path
 import time

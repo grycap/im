@@ -23,9 +23,9 @@ try:
 except ImportError:
     from queue import Queue, Empty
 try:
-    from SimpleXMLRPCServer import SimpleXMLRPCServer
+    from SimpleXMLRPCServer import SimpleXMLRPCServer # nosec
 except ImportError:
-    from xmlrpc.server import SimpleXMLRPCServer
+    from xmlrpc.server import SimpleXMLRPCServer # nosec
 try:
     from SocketServer import ThreadingMixIn
 except ImportError:

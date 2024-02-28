@@ -17,9 +17,9 @@
 
 import ssl
 try:
-    from SimpleXMLRPCServer import SimpleXMLRPCServer
+    from SimpleXMLRPCServer import SimpleXMLRPCServer # nosec
 except ImportError:
-    from xmlrpc.server import SimpleXMLRPCServer
+    from xmlrpc.server import SimpleXMLRPCServer # nosec
 
 
 class SSLSimpleXMLRPCServer(SimpleXMLRPCServer, object):
