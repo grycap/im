@@ -9,5 +9,6 @@ jobs:
   sqaaas_job:
     runs-on: ubuntu-latest
     steps:
-      - uses: eosc-synergy/sqaaas-assessment-action@v2
+      - name: SQAaaS assessment step
+        uses: eosc-synergy/sqaaas-assessment-action@v2
 
