@@ -1608,7 +1608,7 @@ class EC2CloudConnector(CloudConnector):
             cont += 1
             try:
                 info_url = "https://raw.githubusercontent.com/grycap/im/master/scripts/instances.json"
-                resp = requests.get(info_url)
+                resp = requests.get(info_url, timeout=10)
                 if resp.status_code == 200:
                     data = resp.json()
                 else:

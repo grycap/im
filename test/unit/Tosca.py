@@ -458,6 +458,8 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(net.getValue("outbound"), 'yes')
         self.assertEqual(node.getValue("disk.1.content"), '[im]\nREST_API = True\n')
         self.assertEqual(node.getValue("disk.1.mount_path"), '/etc/im/im.cfg')
+        self.assertEqual(node.getValue("disk.2.content"), 'c29tZSBlbmNvZGVkIGNvbnRlbnQ=')
+        self.assertEqual(node.getValue("disk.2.mount_path"), '/etc/secret')
         self.assertEqual(node.getValue("environment.variables"),
                          'IM_DATA_DB=mysql://root:my-secret@mysql-container:3306/im-db')
         self.assertEqual(node.getValue("net_interface.0.connection"), 'im_container_pub')

@@ -582,7 +582,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                                       domain[:-1],
                                                                                       ip)
             try:
-                resp = requests.get(url, headers=headers)
+                resp = requests.get(url, headers=headers, timeout=10)
                 resp.raise_for_status()
             except Exception as ex:
                 self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
