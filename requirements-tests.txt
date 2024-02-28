@@ -16,7 +16,7 @@ urllib3>=1.23,<2.0
 pycodestyle
 suds-py3
 xmltodict
-mysqlclient
+PyMySQL
 pywinrm
 pymongo
 msrest
