@@ -58,6 +58,11 @@ topology_template:
             content: |
               [im]
               REST_API = True
+        my_secret:
+          deploy_path: /etc/secret
+          type: tosca.artifacts.File
+          properties:
+            content: c29tZSBlbmNvZGVkIGNvbnRlbnQ=
 
     # The properties of the runtime to host the container
     im_runtime:

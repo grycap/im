@@ -98,7 +98,7 @@ class AppDB:
                             images.append((image_basename, image['@vmiversion']))
                     except Exception:
                         # in case of error ignore image
-                        pass
+                        continue
 
         image = None
         if len(images) == 1:
