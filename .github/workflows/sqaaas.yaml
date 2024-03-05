@@ -19,6 +19,7 @@ jobs:
         uses: ./sqaaas-step-action
         id: tox_unit_test
         with:
+          container: "grycap/tox"
           name: tox_unit_test
           tool: commands
           commands: tox -e py3
