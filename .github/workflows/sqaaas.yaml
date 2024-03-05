@@ -19,11 +19,10 @@ jobs:
         uses: ./sqaaas-step-action
         id: tox_unit_test
         with:
+          container: "python:3.10"
           name: tox_unit_test
           tool: commands
-          commands: |
-            pip install tox
-            tox -e py3
+          commands: pip install tox && tox -e py3
 
       - name: SQAaaS assessment step
         uses: eosc-synergy/sqaaas-assessment-action@v2
