@@ -20,7 +20,8 @@ jobs:
         id: tox_unit_test
         with:
           name: tox_unit_test
-          tool: tox
+          tool: commands
+          commands: tox -e py3
 
       - name: SQAaaS assessment step
         uses: eosc-synergy/sqaaas-assessment-action@v2
