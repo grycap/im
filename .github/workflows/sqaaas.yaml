@@ -3,7 +3,8 @@ name: SQAaaS IM
 on:
   push:
     branches: ["sqa"]
-
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 jobs:
 
   sqaaas_job:
@@ -19,12 +20,14 @@ jobs:
         uses: ./sqaaas-step-action
         id: tox_unit_test
         with:
+#          container: "python:3.10"
           name: tox_unit_test
           tool: commands
+#          commands: pip install tox && tox -e py3
           commands: |
-            micromamba install -c conda-forge python=3.10 tox -y
-            micromamba activate base
-            tox -e py3
+            micromamba create -n test
+            micromamba install -n test -c conda-forge python=3.10 tox -y
+            micromamba run -n test tox -e py3
 
       - name: SQAaaS assessment step
         uses: eosc-synergy/sqaaas-assessment-action@v2
