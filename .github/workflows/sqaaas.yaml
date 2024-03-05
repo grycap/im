@@ -9,6 +9,19 @@ jobs:
   sqaaas_job:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        repository: 'https://github.com/EOSC-synergy/sqaaas-step-action/'
+        path: 'sqaaas-step-action'
+
+      - name: Tox unit test step definition for a SQAaaS assessment
+        uses: ./sqaaas-step-action
+        id: tox_unit_test
+        with:
+          name: tox_unit_test
+          tool: tox
+
       - name: SQAaaS assessment step
         uses: eosc-synergy/sqaaas-assessment-action@v2
+
 
