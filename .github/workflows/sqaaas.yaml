@@ -11,8 +11,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        repository: 'https://github.com/EOSC-synergy/sqaaas-step-action/'
-        path: 'sqaaas-step-action'
+        with:
+          repository: 'https://github.com/EOSC-synergy/sqaaas-step-action/'
+          path: 'sqaaas-step-action'
 
       - name: Tox unit test step definition for a SQAaaS assessment
         uses: ./sqaaas-step-action
@@ -23,5 +24,7 @@ jobs:
 
       - name: SQAaaS assessment step
         uses: eosc-synergy/sqaaas-assessment-action@v2
+        with:
+          qc_uni_steps: tox_unit_test
 
 
