@@ -12,7 +12,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          repository: 'EOSC-synergy/sqaaas-step-action/'
+          repository: 'EOSC-synergy/sqaaas-step-action'
           path: 'sqaaas-step-action'
 
       - name: Tox unit test step definition for a SQAaaS assessment
