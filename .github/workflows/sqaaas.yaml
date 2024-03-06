@@ -10,14 +10,8 @@ jobs:
   sqaaas_job:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout SQAaaS step action
-        uses: actions/checkout@v3
-        with:
-          repository: 'EOSC-synergy/sqaaas-step-action'
-          path: 'sqaaas-step-action'
-
       - name: Add tox unit test step definition for a SQAaaS assessment
-        uses: ./sqaaas-step-action
+        uses: eosc-synergy/sqaaas-step-action@v1
         id: tox_unit_test
         with:
 #          container: "python:3.10"
