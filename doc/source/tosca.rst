@@ -281,6 +281,103 @@ and, optionally, an availability zone::
 
     ...
 
+Container Applications (Kubernetes connector)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+IM also enables the definition of container applications to be deployed in a Kubernetes cluster.
+In the following example we can see how to define a container application (IM) that uses a
+ConfigMap for a configuration file. The IM application is connected with a MySQL backend
+using the ``IM_DATA_DB`` environment variable. The MySQL container is defined with a Persistent
+Volume Claim (PVC) of 10GB. Furthermore the IM application specifies an endpoint to be published
+that will result in the creation of a Kubernetes Ingress.
+
+    ...
+
+    node_templates:
+
+      im_container:
+        type: tosca.nodes.Container.Application.Docker
+        properties:
+          environment:
+            IM_DATA_DB:
+              concat:
+                - "mysql://root:"
+                - { get_input: mysql_root_password }
+                - "@"
+                - { get_attribute: [ mysql_container, endpoints, 0 ] }
+                - "/im-db"
+        requirements:
+          - host: im_runtime
+        artifacts:
+          my_image:
+            file: grycap/im
+            type: tosca.artifacts.Deployment.Image.Container.Docker
+          my_config_map:
+            deploy_path: /etc/im/im.cfg
+            file: https://raw.githubusercontent.com/grycap/im/master/etc/im.cfg
+            type: tosca.artifacts.File
+            properties:
+              # when the content is not provided, the file is downloaded from the URL
+              # otherwise, the file is ignored
+              # If the content is base64 encoded, it is assumed to be a K8s Secret
+              content: |
+                [im]
+                REST_API = True
+
+      # The properties of the runtime to host the container
+      im_runtime:
+        type: tosca.nodes.Container.Runtime.Docker
+        capabilities:
+          host:
+            properties:
+              num_cpus: 0.5
+              mem_size: 1 GB
+              publish_ports:
+                - protocol: tcp
+                  target: 8800
+                  source: 30880
+                  endpoint: https://im.domain.com/im
+
+      # The MYSQL container based on official MySQL image in Docker hub
+      mysql_container:
+        type: tosca.nodes.Container.Application.Docker
+        properties:
+          environment:
+            MYSQL_ROOT_PASSWORD: { get_input: mysql_root_password }
+            MYSQL_DATABASE: "im-db"
+        requirements:
+          - host: mysql_runtime
+        artifacts:
+          my_image:
+            file: mysql:8
+            type: tosca.artifacts.Deployment.Image.Container.Docker
+
+      # The properties of the runtime to host the container
+      mysql_runtime:
+        type: tosca.nodes.Container.Runtime.Docker
+        capabilities:
+          host:
+            properties:
+              num_cpus: 0.5
+              mem_size: 1 GB
+              expose_ports:
+                - protocol: tcp
+                  target: 3306
+              volumes:
+                - "some_vol:/var/lib/mysql"
+
+      some_vol:
+        type: tosca.nodes.BlockStorage
+        properties:
+          size: 10 GB
+          # Set the PV name in this field
+          # volume_id: "PV name"
+
+    outputs:
+      im_service_endpoint:
+        value: { get_attribute: [ im_container, endpoints, 0 ] }
+
+
 Advanced Output values
 ^^^^^^^^^^^^^^^^^^^^^^^
 
