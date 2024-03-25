@@ -384,6 +384,8 @@ some of the previous parameters has a diferent meaning:
 * username: Specifies the identity provider.
 * tenant: Specifies the authentication protocol to use (tipically ``oidc`` or ``openid``).
 * password: Specifies the OpenID access token.
+* domain: Specifies the OpenStack project to use. This parameter is optional. If not set the first project returned
+  by Keystone will be selected.
 
 So the auth line will be like that::
 
