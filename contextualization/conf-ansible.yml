@@ -163,6 +163,7 @@
           - wheel
           - pyyaml
           - paramiko>=2.9.5
+          - packaging
         executable: pip3
         extra_args: "{{ extra_args }}"
 
