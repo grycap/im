@@ -148,7 +148,7 @@ class InfrastructureList():
                 if db.db_type == DataBase.MYSQL:
                     db.execute("CREATE TABLE inf_list(rowid INTEGER NOT NULL AUTO_INCREMENT UNIQUE,"
                                " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGTEXT,"
-                               " auth TEXT, FULLTEXT(auth))")
+                               " auth TEXT, FULLTEXT(auth), INDEX(deleted))")
                 elif db.db_type == DataBase.SQLITE:
                     db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
                                " date TIMESTAMP, data TEXT, auth TEXT)")
