@@ -147,11 +147,11 @@ class InfrastructureList():
                 InfrastructureList.logger.debug("Creating the IM database!.")
                 if db.db_type == DataBase.MYSQL:
                     db.execute("CREATE TABLE inf_list(rowid INTEGER NOT NULL AUTO_INCREMENT UNIQUE,"
-                               " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGBLOB,"
-                               " auth LONGBLOB)")
+                               " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGTEXT,"
+                               " auth TEXT, FULLTEXT(auth))")
                 elif db.db_type == DataBase.SQLITE:
                     db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
-                               " date TIMESTAMP, data LONGBLOB, auth LONGBLOB)")
+                               " date TIMESTAMP, data TEXT, auth TEXT)")
                 elif db.db_type == DataBase.MONGO:
                     db.connection.create_collection("inf_list")
                     db.connection["inf_list"].create_index([("id", 1)], unique=True)
