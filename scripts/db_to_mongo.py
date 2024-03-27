@@ -24,14 +24,18 @@ from IM.db import DataBase
 
 if __name__ == "__main__":
 
+    if len(sys.argv) != 3:
+        sys.stderr.write("Usage: %s <MySQL uri> <MongoDB URI>\n" % sys.argv[0])
+        sys.exit(-1)
+
     mydb = DataBase(sys.argv[1])
     mongodb = DataBase(sys.argv[2])
     if mydb.connect():
         if mydb.table_exists("inf_list"):
-            if mydb.db_type != DataBase.MYSQL:
-                sys.stderr.write("First DB must be a MySQL DB.\n")
+            if mydb.db_type not in DataBase.DB_TYPES:
+                sys.stderr.write("First DB must be an Relational DB.\n")
                 sys.exit(-1)
-            
+
             if mongodb.connect():
                 if mongodb.db_type != DataBase.MONGO:
                     sys.stderr.write("Second DB must be a MongoDB DB.\n")
