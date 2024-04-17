@@ -1745,6 +1745,9 @@ class InfrastructureManager:
     @staticmethod
     def stop():
         IM.InfrastructureList.InfrastructureList.stop()
+        # Flush data to DB
+        InfrastructureManager.logger.info('Flushing data to DB...')
+        IM.InfrastructureList.InfrastructureList.save_data()
 
     @staticmethod
     def _get_cloud_conn(cloud_id, auth):
