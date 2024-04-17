@@ -130,9 +130,10 @@ The :program:`im_client` is called like this::
    ``destroy infId``
       Destroy the infrastructure with ID ``infId``.
 
-   ``getinfo infId``
+   ``getinfo infId [radl_attribute]``
       Show the information about all the virtual machines associated to the
-      infrastructure with ID ``infId``.
+      infrastructure with ID ``infId``. Optional parameter ``radl_attribute`` to show
+      only the value of the specified attribute in the RADL.
 
    ``getcontmsg infId``
       Show the contextualization message of the infrastructure with ID ``id``.
@@ -143,9 +144,10 @@ The :program:`im_client` is called like this::
    ``getoutputs <infId>``
       Show the outputs of infrastructure with ID ``infId`` (Only in case of TOSCA docs with REST API).
 
-   ``getvminfo infId vmId``
+   ``getvminfo infId vmId [radl_attribute]``
       Show the information associated to the virtual machine with ID ``vmId``
-      associated to the infrastructure with ID ``infId``.
+      associated to the infrastructure with ID ``infId``. Optional parameter 
+      ``radl_attribute`` to show only the value of the specified attribute in the RADL.
 
    ``getvmcontmsg infId vmId``
       Show the contextualization message of the virtual machine with ID ``vmId``
