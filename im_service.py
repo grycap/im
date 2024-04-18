@@ -360,8 +360,7 @@ def im_stop():
     """
     try:
         # Assure that the IM data are correctly saved
-        InfrastructureManager.logger.info(
-            'Stopping Infrastructure Manager daemon...')
+        InfrastructureManager.logger.info('Stopping Infrastructure Manager daemon...')
         InfrastructureManager.stop()
 
         if Config.ACTIVATE_REST:
@@ -374,8 +373,8 @@ def im_stop():
     # Assure that there are no Ansible process pending
     kill_childs()
 
-    InfrastructureManager.logger.info(
-        '************ Infrastructure Manager daemon stopped ************')
+    InfrastructureManager.logger.info('************ Infrastructure Manager daemon stopped ************')
+    print("IM service stopped.")
     sys.exit(0)
 
 
@@ -408,6 +407,7 @@ def signal_int_handler(signal, frame):
     """
     Callback function to catch the system signals
     """
+    print("Signal %s received. Exiting..." % signal)
     im_stop()
 
 
