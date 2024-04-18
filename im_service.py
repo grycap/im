@@ -421,7 +421,9 @@ if __name__ == "__main__":
         print("IM %s" % version)
         sys.exit(0)
 
-    signal.signal(signal.SIGINT, signal_int_handler)
-    signal.signal(signal.SIGTERM, signal_int_handler)
+    # Register the signal handlers
+    for sig in [signal.SIGINT, signal.SIGTERM, signal.SIGHUP]:
+        signal.signal(sig, signal_int_handler)
+
     config_logging()
     launch_daemon()
