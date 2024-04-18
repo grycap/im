@@ -234,48 +234,7 @@ def launch_daemon():
         print("Error connecting with the DB!!.")
         sys.exit(2)
 
-    if Config.XMLRCP_SSL:
-        # if specified launch the secure version
-        import ssl
-        from IM.request import AsyncSSLXMLRPCServer
-        server = AsyncSSLXMLRPCServer((Config.XMLRCP_ADDRESS, Config.XMLRCP_PORT), keyfile=Config.XMLRCP_SSL_KEYFILE,
-                                      certfile=Config.XMLRCP_SSL_CERTFILE, ca_certs=Config.XMLRCP_SSL_CA_CERTS,
-                                      cert_reqs=ssl.CERT_OPTIONAL)
-    else:
-        # otherwise the standard XML-RPC service
-        server = AsyncXMLRPCServer((Config.XMLRCP_ADDRESS, Config.XMLRCP_PORT))
-
-    # Register the API functions
-    server.register_function(CreateInfrastructure)
-    server.register_function(DestroyInfrastructure)
-    server.register_function(StartInfrastructure)
-    server.register_function(StopInfrastructure)
-    server.register_function(GetInfrastructureInfo)
-    server.register_function(GetVMInfo)
-    server.register_function(GetVMProperty)
-    server.register_function(AlterVM)
-    server.register_function(RemoveResource)
-    server.register_function(AddResource)
-    server.register_function(GetInfrastructureList)
-    server.register_function(Reconfigure)
-    server.register_function(ExportInfrastructure)
-    server.register_function(ImportInfrastructure)
-    server.register_function(GetInfrastructureRADL)
-    server.register_function(GetInfrastructureContMsg)
-    server.register_function(GetVMContMsg)
-    server.register_function(StartVM)
-    server.register_function(StopVM)
-    server.register_function(RebootVM)
-    server.register_function(GetInfrastructureState)
-    server.register_function(GetVersion)
-    server.register_function(CreateDiskSnapshot)
-    server.register_function(GetCloudImageList)
-    server.register_function(GetCloudQuotas)
-    server.register_function(ChangeInfrastructureAuth)
-    server.register_function(GetInfrastructureOwners)
-
-    InfrastructureManager.logger.info(
-        '************ Start Infrastructure Manager daemon (v.%s) ************' % version)
+    InfrastructureManager.logger.info('************ Start Infrastructure Manager daemon (v.%s) ************' % version)
 
     if Config.ACTIVATE_REST:
         # If specified launch the REST server
@@ -286,6 +245,48 @@ def launch_daemon():
             IM.REST.run(host=Config.REST_ADDRESS, port=Config.REST_PORT)
 
     if Config.ACTIVATE_XMLRPC:
+        if Config.XMLRCP_SSL:
+            # if specified launch the secure version
+            import ssl
+            from IM.request import AsyncSSLXMLRPCServer
+            server = AsyncSSLXMLRPCServer((Config.XMLRCP_ADDRESS, Config.XMLRCP_PORT),
+                                          keyfile=Config.XMLRCP_SSL_KEYFILE,
+                                          certfile=Config.XMLRCP_SSL_CERTFILE,
+                                          ca_certs=Config.XMLRCP_SSL_CA_CERTS,
+                                          cert_reqs=ssl.CERT_OPTIONAL)
+        else:
+            # otherwise the standard XML-RPC service
+            server = AsyncXMLRPCServer((Config.XMLRCP_ADDRESS, Config.XMLRCP_PORT))
+
+        # Register the API functions
+        server.register_function(CreateInfrastructure)
+        server.register_function(DestroyInfrastructure)
+        server.register_function(StartInfrastructure)
+        server.register_function(StopInfrastructure)
+        server.register_function(GetInfrastructureInfo)
+        server.register_function(GetVMInfo)
+        server.register_function(GetVMProperty)
+        server.register_function(AlterVM)
+        server.register_function(RemoveResource)
+        server.register_function(AddResource)
+        server.register_function(GetInfrastructureList)
+        server.register_function(Reconfigure)
+        server.register_function(ExportInfrastructure)
+        server.register_function(ImportInfrastructure)
+        server.register_function(GetInfrastructureRADL)
+        server.register_function(GetInfrastructureContMsg)
+        server.register_function(GetVMContMsg)
+        server.register_function(StartVM)
+        server.register_function(StopVM)
+        server.register_function(RebootVM)
+        server.register_function(GetInfrastructureState)
+        server.register_function(GetVersion)
+        server.register_function(CreateDiskSnapshot)
+        server.register_function(GetCloudImageList)
+        server.register_function(GetCloudQuotas)
+        server.register_function(ChangeInfrastructureAuth)
+        server.register_function(GetInfrastructureOwners)
+
         # Launch the API XMLRPC thread
         server.serve_forever_in_thread()
         # Start the messages queue
@@ -375,6 +376,7 @@ def im_stop():
 
     InfrastructureManager.logger.info('************ Infrastructure Manager daemon stopped ************')
     print("IM service stopped.")
+    logging.shutdown()
     sys.exit(0)
 
 
