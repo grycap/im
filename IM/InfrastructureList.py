@@ -223,6 +223,9 @@ class InfrastructureList():
 
     @staticmethod
     def _save_data_to_db(db_url, inf_list, inf_id=None):
+        if not inf_list:
+            InfrastructureList.logger.info("No data to save to the database!.")
+            return True
         db = DataBase(db_url)
         if db.connect():
             infs_to_save = inf_list
