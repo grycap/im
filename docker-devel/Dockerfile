@@ -25,7 +25,7 @@ RUN sed -i -e 's/VM_NUM_USE_CTXT_DIST = 30/VM_NUM_USE_CTXT_DIST = 3/g' /etc/im/i
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
 # Fix boto issue https://github.com/boto/boto/issues/3783
-COPY endpoints.json /usr/local/lib/python3.8/dist-packages/boto/endpoints.json
+COPY endpoints.json /usr/local/lib/python3.10/dist-packages/boto/endpoints.json
 
 # Start IM service
 CMD im_service.py
