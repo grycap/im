@@ -225,6 +225,48 @@ The :program:`im_client` is called like this::
          
          {"infid": "ID", "error": "Error message"}
 
+   ``cloudusage cloud_id``
+      Show the usage/quotas of the cloud with ID ``cloud_id``.
+      The results will be returned to stdout in json format::
+
+         [
+            {
+               "uri": "ost://server.com/image_id1",
+               "name": "Image 1 Name"
+            },
+            {
+               "uri": "ost://server.com/image_id2",
+               "name": "Image 2 Name"
+            }
+         ]
+
+   ``cloudimages cloud_id``
+      Show the images available in the cloud with ID ``cloud_id``.
+      The results will be returned to stdout in json format (-1 means no limit)::
+
+         {
+            "cores": {
+               "used": 36,
+               "limit": -1
+            },
+            "ram": {
+               "used": 50,
+               "limit": -1
+            },
+            "instances": {
+               "used": 10,
+               "limit": 50
+            },
+            "security_groups": {
+               "used": 0,
+               "limit": -1
+            },
+            "floating_ips": {
+               "used": 0,
+               "limit": -1
+            }
+         }
+
 .. _auth-file:
 
 Authorization File
