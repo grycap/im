@@ -380,7 +380,7 @@ class IMPlaybookExecutor(PlaybookExecutor):
 
         try:
             # Initialize the plugin loader for ansible 2.15.0 or higher
-            from ansible.plugins.loader import  init_plugin_loader
+            from ansible.plugins.loader import init_plugin_loader
             init_plugin_loader([])
         except ImportError:
             pass
