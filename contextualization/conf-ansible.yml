@@ -5,7 +5,7 @@
   gather_facts: false
   vars:
     # Ansible specific Version or "latest"
-    ANSIBLE_VERSION: 2.9.26
+    ANSIBLE_VERSION: 4.10.0
   tasks:
     - name: Set Ansible version from env if defined
       set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
