@@ -167,6 +167,13 @@
         executable: pip3
         extra_args: "{{ extra_args }}"
 
+    - name: Set Ansible newer version for python 3.12
+      set_fact:
+        ANSIBLE_VERSION:  6.7.0
+      when:
+        - ansible_python_version is version('3.12', '>=')
+        - ANSIBLE_VERSION is version('6.7.0', '<')
+
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip:
         name: ansible
