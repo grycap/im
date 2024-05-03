@@ -551,7 +551,8 @@ class InfrastructureManager:
                                                            radl.get_system_by_name(system_id))
                       for s in systems for s0 in cloud.concreteSystem(s, auth)]
                 # Store the concrete system with largest score
-                concrete_systems.setdefault(cloud_id, {})[system_id] = max(s1, key=lambda x: x[1]) if s1 else (None, -1e9)
+                concrete_systems.setdefault(cloud_id, {})[system_id] = max(s1, key=lambda x: x[1]) if s1 else (None,
+                                                                                                               -1e9)
 
         # Group virtual machines to deploy by network dependencies
         deploy_groups = InfrastructureManager._compute_deploy_groups(radl)
@@ -561,7 +562,7 @@ class InfrastructureManager:
         # Sort by score the cloud providers
         deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
                                                                   deploy_groups, auth)
-        
+
         return concrete_systems, deploy_groups, deploys_group_cloud
 
     @staticmethod
@@ -1971,13 +1972,13 @@ class InfrastructureManager:
 
                 if not concrete_system:
                     InfrastructureManager.logger.warn("Error getting cost of and infrastructure:" +
-                                                    "Error, no concrete system to deploy: " +
-                                                    deploy.id + " in cloud: " + cloud_id +
-                                                    ". Check if a correct image is being used")
+                                                      "Error, no concrete system to deploy: " +
+                                                      deploy.id + " in cloud: " + cloud_id +
+                                                      ". Check if a correct image is being used")
                 else:
                     vm = {"cpu": concrete_system.getValue("cpu.count"),
                           "memory": concrete_system.getFeature("memory.size").getValue("M")}
-                    
+
                     if concrete_system.getValue("disk.0.free_size"):
                         vm['disk'] = concrete_system.getFeature("disk.0.free_size").getValue('G')
 

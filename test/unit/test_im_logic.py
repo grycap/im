@@ -1524,5 +1524,6 @@ configure step2 (
                                            {'cpu': 1, 'memory': 2048, 'disk': 10}],
                                'storage': [{'size': 100}]})
 
+
 if __name__ == "__main__":
     unittest.main()
