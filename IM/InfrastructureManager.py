@@ -1426,7 +1426,6 @@ class InfrastructureManager:
                     issuer += '/'
                 im_auth['password'] = issuer + str(userinfo.get("sub"))
 
-
                 if Config.OIDC_GROUPS:
                     # Get user groups from any of the possible fields
                     user_groups = userinfo.get('groups',  # Generic
@@ -1437,7 +1436,6 @@ class InfrastructureManager:
                     if not set(Config.OIDC_GROUPS).issubset(user_groups):
                         raise InvaliddUserException("Invalid InfrastructureManager credentials. " +
                                                     "User not in configured groups.")
-
 
         except Exception as ex:
             InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
