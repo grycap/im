@@ -1153,6 +1153,8 @@ configure step2 (
         self.assertEqual(str(ex.exception),
                          "Error trying to validate OIDC auth token: Invalid InfrastructureManager" +
                          " credentials. User not in configured groups.")
+        
+        Config.OIDC_GROUPS = []
 
     def test_inf_auth_with_token(self):
         im_auth = {"token": (self.gen_token())}
