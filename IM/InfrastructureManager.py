@@ -1554,7 +1554,7 @@ class InfrastructureManager:
                 if im_auth_item['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
                     # This is a OpenID user do not enable to get data using user/pass creds
                     raise InvaliddUserException("Invalid username used for the InfrastructureManager.")
-            
+
                 # Now check if the user is in authorized
                 if not InfrastructureManager.check_im_user(im_auth_item):
                     raise InvaliddUserException()
