@@ -427,7 +427,7 @@ This is the list of method names:
 
    Get the estimated amount of resources needed to deploy the infrastructure
    specified in the RADL document passed as string. The response is a struct
-   with the following format::
+   with the following format (memory unit MB, disk and storage unit GB)::
 
       {
          'compute': [

@@ -130,7 +130,7 @@ POST ``http://imserver.com/infrastructures``
    and will only return the ammount of resources needed to deploy the infrastructure.
    Acceptable values: yes, no, true, false, 1 or 0. If not specified the flag is set to False.
    In this case no infrastructure ID is returned, only the ammount of resources needed to deploy
-   the infrastructure with the following format::
+   the infrastructure with the following format (memory unit MB, disk and storage unit GB)::
 
     {
        'compute': [
