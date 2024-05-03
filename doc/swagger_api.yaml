@@ -2,7 +2,7 @@ openapi: 3.0.0
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.11.0
+  version: 1.17.0
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es
@@ -100,6 +100,22 @@ paths:
           description: >-
             The async parameter is optional and is a flag to specify if the call
             will not wait the VMs to be created. 
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'false'
+        - name: dry_run
+          in: query
+          description: >-
+            parameter is optional and is a flag to specify if the call will not create the VMs
+            and will only return the ammount of resources needed to deploy the infrastructure.
           required: false
           schema:
             type: string

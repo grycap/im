@@ -416,3 +416,25 @@ This is the list of method names:
    :fail response: [false, ``error``: string]
 
    Return the list of current owners of the infrastructure with ID ``infId``.
+
+.. _EstimateResouces-xmlrpc:
+
+``EstimateResouces``
+   :parameter 0: ``radl``: string
+   :parameter 1: ``auth``: array of structs
+   :ok response: [true, struct]
+   :fail response: [false, ``error``: string]
+
+   Get the estimated amount of resources needed to deploy the infrastructure
+   specified in the RADL document passed as string. The response is a struct
+   with the following format::
+
+      {
+         'compute': [
+                        {'cpu': 2, 'memory': 4096, 'disk': 20},
+                        {'cpu': 1, 'memory': 2048, 'disk': 10}
+                     ],
+         'storage': [
+                        {'size': 100}
+                     ]
+      }
