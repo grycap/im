@@ -135,7 +135,7 @@ class TestIM(unittest.TestCase):
         return cloud
 
     @staticmethod
-    def gen_token(aud=None, exp=None, user_sub="user_sub"):
+    def gen_token(aud=None, exp=None, user_sub="user_sub", groups=None):
         data = {
             "sub": user_sub,
             "iss": "https://iam-test.indigo-datacloud.eu/",
@@ -147,6 +147,8 @@ class TestIM(unittest.TestCase):
             data["aud"] = aud
         if exp:
             data["exp"] = int(time.time()) + exp
+        if groups:
+            data["groups"] = groups
         return ("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.%s.ignored" %
                 base64.urlsafe_b64encode(json.dumps(data).encode("utf-8")).decode("utf-8"))
 
@@ -1125,6 +1127,32 @@ configure step2 (
 
         self.assertEqual(im_auth['username'], InfrastructureInfo.OPENID_USER_PREFIX + "micafer")
         self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+
+    @patch('IM.InfrastructureManager.OpenIDClient')
+    def test_check_oidc_groups(self, openidclient):
+        im_auth = {"token": (self.gen_token())}
+
+        user_info = json.loads(read_file_as_string('../files/iam_user_info.json'))
+
+        openidclient.is_access_token_expired.return_value = False, "Valid Token for 100 seconds"
+        openidclient.get_user_info_request.return_value = True, user_info
+
+        Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+        Config.OIDC_AUDIENCE = None
+        Config.OIDC_GROUPS = ["urn:mace:egi.eu:group:demo.fedcloud.egi.eu:role=member#aai.egi.eu"]
+
+        IM.check_oidc_token(im_auth)
+
+        self.assertEqual(im_auth['username'], InfrastructureInfo.OPENID_USER_PREFIX + "micafer")
+        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+
+        Config.OIDC_GROUPS = ["urn:mace:egi.eu:group:demo.fedcloud.egi.eu:role=INVALID#aai.egi.eu"]
+
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth)
+        self.assertEqual(str(ex.exception),
+                         "Error trying to validate OIDC auth token: Invalid InfrastructureManager" +
+                         " credentials. User not in configured groups.")
 
     def test_inf_auth_with_token(self):
         im_auth = {"token": (self.gen_token())}

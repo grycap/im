@@ -1425,6 +1425,20 @@ class InfrastructureManager:
                 if not issuer.endswith('/'):
                     issuer += '/'
                 im_auth['password'] = issuer + str(userinfo.get("sub"))
+
+
+                if Config.OIDC_GROUPS:
+                    # Get user groups from any of the possible fields
+                    user_groups = userinfo.get('groups',  # Generic
+                                               userinfo.get('entitlements',  # GEANT
+                                                            userinfo.get('eduperson_entitlement',  # EGI Check-in
+                                                                         [])))
+
+                    if not set(Config.OIDC_GROUPS).issubset(user_groups):
+                        raise InvaliddUserException("Invalid InfrastructureManager credentials. " +
+                                                    "User not in configured groups.")
+
+
         except Exception as ex:
             InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
             raise Exception("Error trying to validate OIDC auth token: %s" % str(ex))
@@ -1928,10 +1942,10 @@ class InfrastructureManager:
 
             # If any deploy is defined, only update definitions.
             if not radl.deploys:
-                InfrastructureManager.logger.warn("Getting cost of and infrastructure without any deploy.")
+                InfrastructureManager.logger.warn("Getting cost of an infrastructure without any deploy.")
                 return res
         except Exception as ex:
-            InfrastructureManager.logger.exception("Error getting cost of and infrastructure when parsing RADL")
+            InfrastructureManager.logger.exception("Error getting cost of an infrastructure when parsing RADL")
             raise ex
 
         InfrastructureManager.add_app_reqs(radl, inf.id)
@@ -1940,7 +1954,7 @@ class InfrastructureManager:
         try:
             systems_with_iis = InfrastructureManager.systems_with_iis(inf, radl, auth)
         except Exception as ex:
-            InfrastructureManager.logger.exception("Error getting cost of and infrastructure error getting VM images")
+            InfrastructureManager.logger.exception("Error getting cost of an infrastructure error getting VM images")
             raise ex
 
         # Concrete systems with cloud providers and select systems with the greatest score
@@ -1956,7 +1970,7 @@ class InfrastructureManager:
         deploy_items = []
         for deploy_group in deploy_groups:
             if not deploy_group:
-                InfrastructureManager.logger.warning("Error getting cost of and infrastructure: No VMs to deploy!")
+                InfrastructureManager.logger.warning("Error getting cost of an infrastructure: No VMs to deploy!")
 
             cloud_id = deploys_group_cloud[id(deploy_group)]
             cloud = cloud_list[cloud_id]
@@ -1971,7 +1985,7 @@ class InfrastructureManager:
                 concrete_system = concrete_systems[cloud_id][deploy.id][0]
 
                 if not concrete_system:
-                    InfrastructureManager.logger.warn("Error getting cost of and infrastructure:" +
+                    InfrastructureManager.logger.warn("Error getting cost of an infrastructure:" +
                                                       "Error, no concrete system to deploy: " +
                                                       deploy.id + " in cloud: " + cloud_id +
                                                       ". Check if a correct image is being used")
