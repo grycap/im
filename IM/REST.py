@@ -534,13 +534,23 @@ def RESTCreateInfrastructure():
 
         async_call = False
         if "async" in bottle.request.params.keys():
-            str_ctxt = bottle.request.params.get("async").lower()
-            if str_ctxt in ['yes', 'true', '1']:
+            str_async = bottle.request.params.get("async").lower()
+            if str_async in ['yes', 'true', '1']:
                 async_call = True
-            elif str_ctxt in ['no', 'false', '0']:
+            elif str_async in ['no', 'false', '0']:
                 async_call = False
             else:
                 return return_error(400, "Incorrect value in async parameter")
+
+        dry_run = False
+        if "dry_run" in bottle.request.params.keys():
+            str_dry_run = bottle.request.params.get("dry_run").lower()
+            if str_dry_run in ['yes', 'true', '1']:
+                dry_run = True
+            elif str_dry_run in ['no', 'false', '0']:
+                dry_run = False
+            else:
+                return return_error(400, "Incorrect value in dry_run parameter")
 
         if content_type:
             if "application/json" in content_type:
@@ -553,18 +563,22 @@ def RESTCreateInfrastructure():
             else:
                 return return_error(415, "Unsupported Media Type %s" % content_type)
 
-        inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth, async_call)
+        if dry_run:
+            res = InfrastructureManager.EstimateResouces(radl_data, auth)
+            return format_output(res, "application/json")
+        else:
+            inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth, async_call)
 
-        # Store the TOSCA document
-        if tosca_data:
-            sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-            sel_inf.extra_info['TOSCA'] = tosca_data
+            # Store the TOSCA document
+            if tosca_data:
+                sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+                sel_inf.extra_info['TOSCA'] = tosca_data
 
-        bottle.response.headers['InfID'] = inf_id
-        bottle.response.content_type = "text/uri-list"
-        res = get_full_url('/infrastructures/%s' % inf_id)
+            bottle.response.headers['InfID'] = inf_id
+            bottle.response.content_type = "text/uri-list"
+            res = get_full_url('/infrastructures/%s' % inf_id)
 
-        return format_output(res, "text/uri-list", "uri")
+            return format_output(res, "text/uri-list", "uri")
     except InvaliddUserException as ex:
         return return_error(401, "Error Getting Inf. info: %s" % get_ex_error(ex))
     except DisabledFunctionException as ex:

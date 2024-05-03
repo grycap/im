@@ -323,6 +323,16 @@ class TestREST(unittest.TestCase):
         res = RESTCreateInfrastructure()
         self.assertEqual(res, "Error Creating Inf.: Access to this infrastructure not granted.")
 
+        # Test the dry_run option to get the estimation of the resources
+        bottle_request.headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
+                                                    "id = one; type = OpenNebula; host = ramses.i3m.upv.es:2633; "
+                                                    "username = user; password = pass"),
+                                  "Content-Type": "application/json"}
+        bottle_request.body = read_file_as_bytes("../files/test_simple.json")
+        bottle_request.params = {"dry_run": "yes"}
+        res = RESTCreateInfrastructure()
+        self.assertEqual(res, '{"compute": [{"cpu": 1, "memory": 512}, {"cpu": 1, "memory": 512}], "storage": []}')
+
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
     @patch("bottle.request")
     def test_CreateInfrastructureWithErrors(self, bottle_request, CreateInfrastructure):

@@ -1488,6 +1488,41 @@ configure step2 (
                        'host': 'https://ostsite.com:5000', 'domain': 'projectid'}, res.auth_list)
         self.assertIn({'type': 'InfrastructureManager', 'token': 'atoken'}, res.auth_list)
 
+    def test_estimate_resources(self):
+        radl = """"
+            network publica (outbound = 'yes')
+            network privada
+
+            system front (
+            cpu.count>=2 and
+            memory.size>=4g and
+            net_interface.0.connection = 'publica' and
+            net_interface.1.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.free_size >= 20GB and
+            disk.0.os.name = 'linux' and
+            disk.1.size=100GB and
+            disk.1.device='hdb' and
+            disk.1.fstype='ext4' and
+            disk.1.mount_path='/mnt/disk'
+            )
+
+            system wn (
+            cpu.count>=1 and
+            memory.size>=2g and
+            net_interface.0.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.free_size >= 10GB and
+            disk.0.os.name = 'linux'
+            )
+
+            deploy front 1
+            deploy wn 1
+        """
+        res = IM.EstimateResouces(radl, self.getAuth([0], [], [("Dummy", 0)]))
+        self.assertEqual(res, {'compute': [{'cpu': 2, 'memory': 4096, 'disk': 20},
+                                           {'cpu': 1, 'memory': 2048, 'disk': 10}],
+                               'storage': [{'size': 100}]})
 
 if __name__ == "__main__":
     unittest.main()
