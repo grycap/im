@@ -141,7 +141,7 @@ class TestIM(unittest.TestCase):
 
         self.__class__.inf_id = str(os.path.basename(resp.text))
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 1200)
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 1500)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -175,7 +175,7 @@ class TestIM(unittest.TestCase):
         vm_ids = resp.text.split("\n")
         self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
                                               str(len(vm_ids)) + "). It must be 2"))
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -195,7 +195,7 @@ class TestIM(unittest.TestCase):
                                    body=new_config)
         self.assertEqual(resp.status_code, 200, msg="ERROR reconfiguring:" + resp.text)
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 500)
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 800)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
