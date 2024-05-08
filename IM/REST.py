@@ -699,7 +699,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
                         break
                 if not sel_vm:
                     # it sometimes happen when the VM is in creation state
-                    logger.warn("Specified vmid in step2 is incorrect!!")
+                    logger.warning("Specified vmid in step2 is incorrect!!")
                     info = "wait"
                 else:
                     ssh = sel_vm.get_ssh_ansible_master(retry=False)
