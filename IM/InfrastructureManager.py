@@ -1988,18 +1988,18 @@ class InfrastructureManager:
                                                       deploy.id + " in cloud: " + cloud_id +
                                                       ". Check if a correct image is being used")
                 else:
-                    vm = {"cpu": concrete_system.getValue("cpu.count"),
-                          "memory": concrete_system.getFeature("memory.size").getValue("M")}
+                    vm = {"cpuCores": concrete_system.getValue("cpu.count"),
+                          "memoryInMegabytes": concrete_system.getFeature("memory.size").getValue("M")}
 
                     if concrete_system.getValue("disk.0.free_size"):
-                        vm['disk'] = concrete_system.getFeature("disk.0.free_size").getValue('G')
+                        vm['diskSizeInGigabytes'] = concrete_system.getFeature("disk.0.free_size").getValue('G')
 
                     res["compute"].append(vm)
 
                     cont = 1
                     while (concrete_system.getValue("disk." + str(cont) + ".size")):
                         volume_size = concrete_system.getFeature("disk." + str(cont) + ".size").getValue('G')
-                        res["storage"].append({"size": volume_size})
+                        res["storage"].append({"sizeInGigabytes": volume_size})
                         cont += 1
 
         return res

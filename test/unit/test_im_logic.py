@@ -1550,9 +1550,9 @@ configure step2 (
             deploy wn 1
         """
         res = IM.EstimateResouces(radl, self.getAuth([0], [], [("Dummy", 0)]))
-        self.assertEqual(res, {'compute': [{'cpu': 2, 'memory': 4096, 'disk': 20},
-                                           {'cpu': 1, 'memory': 2048, 'disk': 10}],
-                               'storage': [{'size': 100}]})
+        self.assertEqual(res, {'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4096, 'diskSizeInGigabytes': 20},
+                                           {'cpuCores': 1, 'memoryInMegabytes': 2048, 'diskSizeInGigabytes': 10}],
+                               'storage': [{'sizeInGigabytes': 100}]})
 
 
 if __name__ == "__main__":
