@@ -42,8 +42,7 @@ def parse_options(config, section_name, config_class):
                 setattr(config_class, option, config.get(section_name, option))
         else:
             logger = logging.getLogger('InfrastructureManager')
-            logger.warn(
-                "Unknown option in the IM config file. Ignoring it: " + option)
+            logger.warning("Unknown option in the IM config file. Ignoring it: " + option)
 
 
 class Config:

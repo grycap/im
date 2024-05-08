@@ -607,7 +607,7 @@ class InfrastructureManager:
 
             # If any deploy is defined, only update definitions.
             if not radl.deploys:
-                InfrastructureManager.logger.warn("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
+                InfrastructureManager.logger.warning("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
                 sel_inf.add_cont_msg("Infrastructure without any deploy. Exiting.")
                 if sel_inf.configured is None:
                     sel_inf.configured = False
@@ -1940,7 +1940,7 @@ class InfrastructureManager:
 
             # If any deploy is defined, only update definitions.
             if not radl.deploys:
-                InfrastructureManager.logger.warn("Getting cost of an infrastructure without any deploy.")
+                InfrastructureManager.logger.warning("Getting cost of an infrastructure without any deploy.")
                 return res
         except Exception as ex:
             InfrastructureManager.logger.exception("Error getting cost of an infrastructure when parsing RADL")
@@ -1983,10 +1983,10 @@ class InfrastructureManager:
                 concrete_system = concrete_systems[cloud_id][deploy.id][0]
 
                 if not concrete_system:
-                    InfrastructureManager.logger.warn("Error getting cost of an infrastructure:" +
-                                                      "Error, no concrete system to deploy: " +
-                                                      deploy.id + " in cloud: " + cloud_id +
-                                                      ". Check if a correct image is being used")
+                    InfrastructureManager.logger.warning("Error getting cost of an infrastructure:" +
+                                                         "Error, no concrete system to deploy: " +
+                                                         deploy.id + " in cloud: " + cloud_id +
+                                                         ". Check if a correct image is being used")
                 else:
                     vm = {"cpuCores": concrete_system.getValue("cpu.count"),
                           "memoryInMegabytes": concrete_system.getFeature("memory.size").getValue("M")}
