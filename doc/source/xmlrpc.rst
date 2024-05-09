@@ -430,11 +430,12 @@ This is the list of method names:
    with the following format (memory unit MB, disk and storage unit GB)::
 
       {
-         'compute': [
-                        {'cpu': 2, 'memory': 4096, 'disk': 20},
-                        {'cpu': 1, 'memory': 2048, 'disk': 10}
+         "compute": [
+                        {"cpuCores": 2, "memoryInMegabytes": 4096, "diskSizeInGigabytes": 20},
+                        {"cpuCores": 1, "memoryInMegabytes": 2048, "diskSizeInGigabytes": 10}
                      ],
-         'storage': [
-                        {'size': 100}
+         "storage": [
+                        {"sizeInGigabytes": 100, "type": "lvm"},
+                        {"sizeInGigabytes": 200},
                      ]
       }

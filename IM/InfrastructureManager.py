@@ -1999,7 +1999,10 @@ class InfrastructureManager:
                     cont = 1
                     while (concrete_system.getValue("disk." + str(cont) + ".size")):
                         volume_size = concrete_system.getFeature("disk." + str(cont) + ".size").getValue('G')
-                        res["storage"].append({"sizeInGigabytes": volume_size})
+                        vol_info = {"sizeInGigabytes": volume_size}
+                        if concrete_system.getValue("disk." + str(cont) + ".type"):
+                            vol_info["type"] = concrete_system.getValue("disk." + str(cont) + ".type")
+                        res["storage"].append(vol_info)
                         cont += 1
 
         return res
