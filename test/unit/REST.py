@@ -331,8 +331,8 @@ class TestREST(unittest.TestCase):
         bottle_request.body = read_file_as_bytes("../files/test_simple.json")
         bottle_request.params = {"dry_run": "yes"}
         res = RESTCreateInfrastructure()
-        self.assertEqual(res, ('{"compute": [{"cpuCores": 1, "memoryInMegabytes": 512},'
-                               ' {"cpuCores": 1, "memoryInMegabytes": 512}], "storage": []}'))
+        self.assertEqual(res, ('{"compute": [{"cpuCores": 1, "memoryInMegabytes": 1024},'
+                               ' {"cpuCores": 1, "memoryInMegabytes": 1024}], "storage": []}'))
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
     @patch("bottle.request")
