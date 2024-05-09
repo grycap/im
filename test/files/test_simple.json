@@ -17,7 +17,7 @@
     "disk.0.os.credentials.username": "ubuntu",
     "disk.0.os.name": "linux",
     "id": "front",
-    "memory.size_min": 536870912,
+    "memory.size_min": 1073741824,
     "net_interface.0.connection": "publica",
     "net_interface.1.connection": "privada"
   },
@@ -28,7 +28,7 @@
     "disk.0.image.url": "one://ramses.i3m.upv.es/1396",
     "disk.0.os.name": "linux",
     "id": "wn",
-    "memory.size_min": 536870912,
+    "memory.size_min": 1073741824,
     "net_interface.0.connection": "privada"
   },
   {
