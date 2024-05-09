@@ -133,14 +133,27 @@ POST ``http://imserver.com/infrastructures``
    the infrastructure with the following format (memory unit MB, disk and storage unit GB)::
 
     {
-       "compute": [
-                      {"cpuCores": 2, "memoryInMegabytes": 4096, "diskSizeInGigabytes": 20},
-                      {"cpuCores": 1, "memoryInMegabytes": 2048, "diskSizeInGigabytes": 10}
-                   ],
-       "storage": [
-                      {"sizeInGigabytes": 100, "type": "lvm"},
-                      {"sizeInGigabytes": 200},
-                   ]
+       "ost1": {
+          "cloudType": "OpenStack",
+          "cloudEndpoint": "http://openstack.example.com:5000",
+
+          "compute": [
+                {
+                   "cpuCores": 2,
+                   "memoryInMegabytes": 4096,
+                   "diskSizeInGigabytes": 20
+                },
+                {
+                   "cpuCores": 1,
+                   "memoryInMegabytes": 2048,
+                   "diskSizeInGigabytes": 10
+                }
+          ],
+          "storage": [
+                   {"sizeInGigabytes": 100, "type": "ceph"},
+                   {"sizeInGigabytes": 100}
+          ]
+       }
     }
 
 PUT ``http://imserver.com/infrastructures``

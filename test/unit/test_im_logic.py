@@ -1550,9 +1550,14 @@ configure step2 (
             deploy wn 1
         """
         res = IM.EstimateResouces(radl, self.getAuth([0], [], [("Dummy", 0)]))
-        self.assertEqual(res, {'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4096, 'diskSizeInGigabytes': 20},
-                                           {'cpuCores': 1, 'memoryInMegabytes': 2048, 'diskSizeInGigabytes': 10}],
-                               'storage': [{'sizeInGigabytes': 100}]})
+        self.assertEqual(res, {
+            'cloud0': {
+                'cloudType': 'Dummy',
+                'cloudEndpoint': 'http://server.com:80/path',
+                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4096, 'diskSizeInGigabytes': 20},
+                            {'cpuCores': 1, 'memoryInMegabytes': 2048, 'diskSizeInGigabytes': 10}],
+                'storage': [{'sizeInGigabytes': 100}]
+            }})
 
 
 if __name__ == "__main__":

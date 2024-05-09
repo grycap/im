@@ -1908,20 +1908,34 @@ class InfrastructureManager:
         - radl(str): RADL description.
         - auth(Authentication): parsed authentication tokens.
 
-        Return(dict): dict with the estimated amount of needed to deploy the infrastructure
+        Return(list): list with the estimated amount of needed to deploy the infrastructure
         with the following structure:
+            [
                 {
-                    'compute': [
-                                    {'cpu': 2, 'memory': 4096, 'disk': 20},
-                                    {'cpu': 1, 'memory': 2048, 'disk': 10}
-                               ],
-                    'storage': [
-                                    {'size': 100}
-                               ]
+                    "cloudType": "OpenStack",
+                    "cloudEndpoint": "http://openstack.example.com:5000",
+
+                    "compute": [
+                        {
+                            "cpuCores": 2,
+                            "memoryInMegabytes": 4096,
+                            "diskSizeInGigabytes": 20
+                        },
+                        {
+                            "cpuCores": 1,
+                            "memoryInMegabytes": 2048,
+                            "diskSizeInGigabytes": 10
+                        }
+                    ],
+                    "storage": [
+                            {"sizeInGigabytes": 100, "type": "ceph"},
+                            {"sizeInGigabytes": 100}
+                    ]
                 }
+            ]
 
         """
-        res = {"compute": [], "storage": []}
+        res = {}
         InfrastructureManager.logger.info("Getting the cost of the infrastructure")
 
         # First check the auth data
@@ -1979,6 +1993,10 @@ class InfrastructureManager:
         # Get the cost of the infrastructure
         for deploy, cloud_id, cloud in deploy_items:
 
+            if cloud_id not in res:
+                res[cloud_id] = {"cloudType": cloud.type, "cloudEndpoint": cloud.cloud.get_url(),
+                                 "compute": [], "storage": []}
+
             if not deploy.id.startswith(IM.InfrastructureInfo.InfrastructureInfo.FAKE_SYSTEM):
                 concrete_system = concrete_systems[cloud_id][deploy.id][0]
 
@@ -1994,7 +2012,7 @@ class InfrastructureManager:
                     if concrete_system.getValue("disk.0.free_size"):
                         vm['diskSizeInGigabytes'] = concrete_system.getFeature("disk.0.free_size").getValue('G')
 
-                    res["compute"].append(vm)
+                    res[cloud_id]["compute"].append(vm)
 
                     cont = 1
                     while (concrete_system.getValue("disk." + str(cont) + ".size")):
@@ -2002,7 +2020,7 @@ class InfrastructureManager:
                         vol_info = {"sizeInGigabytes": volume_size}
                         if concrete_system.getValue("disk." + str(cont) + ".type"):
                             vol_info["type"] = concrete_system.getValue("disk." + str(cont) + ".type")
-                        res["storage"].append(vol_info)
+                        res[cloud_id]["storage"].append(vol_info)
                         cont += 1
 
         return res
