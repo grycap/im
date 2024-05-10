@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ANSIBLE_VERSION="2.9.21"
+ANSIBLE_VERSION="4.10.0"
 
 distribution_id() {
     RETVAL=""
@@ -71,7 +71,7 @@ else
 
     pip3 install "pip>=20.0"
     pip3 install -U "setuptools<66.0"
-    pip3 install "pyOpenSSL>20.0,<22.1.0" "cryptography>37.0.0,<39.0.0" pyyaml jmespath scp "paramiko>=2.9.5" --prefer-binary
+    pip3 install "pyOpenSSL>20.0,<22.1.0" "cryptography>37.0.0,<39.0.0" pyyaml jmespath scp "paramiko>=2.9.5" packaging --prefer-binary
     pip3 install ansible==$ANSIBLE_VERSION --prefer-binary
 fi
 
