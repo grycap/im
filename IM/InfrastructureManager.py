@@ -1908,31 +1908,31 @@ class InfrastructureManager:
         - radl(str): RADL description.
         - auth(Authentication): parsed authentication tokens.
 
-        Return(list): list with the estimated amount of needed to deploy the infrastructure
+        Return(dict): dict with the estimated amount of needed to deploy the infrastructure
         with the following structure:
-            [
-                {
+            {
+                "ost1": {
                     "cloudType": "OpenStack",
                     "cloudEndpoint": "http://openstack.example.com:5000",
 
                     "compute": [
-                        {
+                            {
                             "cpuCores": 2,
                             "memoryInMegabytes": 4096,
                             "diskSizeInGigabytes": 20
-                        },
-                        {
+                            },
+                            {
                             "cpuCores": 1,
                             "memoryInMegabytes": 2048,
                             "diskSizeInGigabytes": 10
-                        }
+                            }
                     ],
                     "storage": [
                             {"sizeInGigabytes": 100, "type": "ceph"},
                             {"sizeInGigabytes": 100}
                     ]
                 }
-            ]
+            }
 
         """
         res = {}
