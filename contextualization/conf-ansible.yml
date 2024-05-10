@@ -232,3 +232,6 @@
       - { section: 'defaults', option: 'ansible_python_interpreter', value: 'auto' }
       - { section: 'defaults', option: 'transport', value: 'ssh' }
       - { section: 'ssh_connection', option: 'ssh_args', value: '-o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null' }
+      - { section: 'galaxy', option: 'server_list', value: 'galaxy, oldgalaxy' }
+      - { section: 'galaxy_server.galaxy', option: 'url', value: 'https://galaxy.ansible.com/api/' }
+      - { section: 'galaxy_server.oldgalaxy', option: 'url', value: 'https://old-galaxy.ansible.com/api/' }
