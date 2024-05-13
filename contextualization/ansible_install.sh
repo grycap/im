@@ -76,7 +76,7 @@ else
 fi
 
 # Create the config file
-mkdir /etc/ansible
+ls /etc/ansible || mkdir /etc/ansible
 cat > /etc/ansible/ansible.cfg <<EOL
 [defaults]
 transport  = smart
