@@ -183,7 +183,7 @@ def get_media_type(header):
             pos = media_type.find(";")
             if pos != -1:
                 media_type = media_type[:pos]
-            if media_type.strip() in ["text/yaml", "text/x-yaml"]:
+            if media_type.strip() in ["text/yaml", "text/x-yaml", "application/yaml"]:
                 res.append("text/yaml")
             else:
                 res.append(media_type.strip())
@@ -555,7 +555,7 @@ def RESTCreateInfrastructure():
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
-            elif "text/yaml" in content_type:
+            elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
                 tosca_data = Tosca(radl_data)
                 _, radl_data = tosca_data.to_radl()
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
@@ -773,7 +773,7 @@ def RESTAddResource(infid=None):
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
-            elif "text/yaml" in content_type:
+            elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
                 tosca_data = Tosca(radl_data)
                 auth = InfrastructureManager.check_auth_data(auth)
                 sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
@@ -879,7 +879,7 @@ def RESTAlterVM(infid=None, vmid=None):
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
-            elif "text/yaml" in content_type:
+            elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
                 tosca_data = Tosca(radl_data)
                 _, radl_data = tosca_data.to_radl()
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
@@ -930,7 +930,7 @@ def RESTReconfigureInfrastructure(infid=None):
             if content_type:
                 if "application/json" in content_type:
                     radl_data = parse_radl_json(radl_data)
-                elif "text/yaml" in content_type:
+                elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
                     tosca_data = Tosca(radl_data)
                     _, radl_data = tosca_data.to_radl()
                 elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
