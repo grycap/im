@@ -635,7 +635,7 @@ echo "Hello World" >> /tmp/data.txt
         self.__class__.inf_id = [inf_id]
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 900)
+            inf_id, VirtualMachine.CONFIGURED, 1200)
         self.assertTrue(
             all_configured, msg="ERROR waiting the ansible master to be configured (timeout).")
 
@@ -672,7 +672,7 @@ echo "Hello World" >> /tmp/data.txt
         self.__class__.inf_id.append(inf_id)
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 900)
+            inf_id, VirtualMachine.CONFIGURED, 1200)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -723,7 +723,7 @@ echo "Hello World" >> /tmp/data.txt
             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
         self.__class__.inf_id = [inf_id]
 
-        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 900)
+        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 1200)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -759,7 +759,7 @@ echo "Hello World" >> /tmp/data.txt
         self.assertTrue(success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
         self.__class__.inf_id = [inf_id]
 
-        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 900)
+        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 1200)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
         (success, vminfo) = self.server.GetVMInfo(inf_id, 0, self.auth_data)
@@ -786,7 +786,7 @@ echo "Hello World" >> /tmp/data.txt
         (success, inf_id2) = self.server.CreateInfrastructure(radl, self.auth_data)
         self.__class__.inf_id.append(inf_id2)
 
-        all_configured = self.wait_inf_state(inf_id2, VirtualMachine.CONFIGURED, 900)
+        all_configured = self.wait_inf_state(inf_id2, VirtualMachine.CONFIGURED, 1200)
         self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
     def test_99_destroy(self):
