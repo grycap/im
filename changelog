@@ -759,3 +759,9 @@ IM 1.16.0:
     * Fix concurrency error in Lambda conn.
     * Fix error in disk info in VMs in OpenStack when root disk is resized.
     * Improve K8s conector.
+
+IM 1.17.0:
+    * Fix error installing collections.
+    * Enable to configure an OIDC group to access the IM.
+    * Fix error with ansible versions 2.15 and higher.
+    * Add resource estimation function.
