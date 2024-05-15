@@ -89,6 +89,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                              '{"configMap": {"name": "configmap"}}, {"secret": {"secretName": "secret"}}]}}')
             if url == "/api/v1/namespaces/somenamespace":
                 resp.status_code = 200
+                resp.json.return_value =  {'apiVersion': 'v1', 'kind': 'Namespace',
+                                           'metadata': {'name': 'somenamespace', 'labels': {'inf_id': 'infid'}}}
         elif method == "POST":
             if url.endswith("/pods"):
                 resp.status_code = 201
@@ -427,6 +429,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                          ('DELETE',
                           'http://server.com:8080/apis/networking.k8s.io/v1/namespaces/somenamespace/ingresses/1'))
         self.assertEqual(requests.call_args_list[7][0],
+                         ('GET',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace'))
+        self.assertEqual(requests.call_args_list[8][0],
                          ('DELETE',
                           'http://server.com:8080/api/v1/namespaces/somenamespace'))
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
