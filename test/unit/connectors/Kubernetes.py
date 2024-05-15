@@ -89,8 +89,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                              '{"configMap": {"name": "configmap"}}, {"secret": {"secretName": "secret"}}]}}')
             if url == "/api/v1/namespaces/somenamespace":
                 resp.status_code = 200
-                resp.json.return_value =  {'apiVersion': 'v1', 'kind': 'Namespace',
-                                           'metadata': {'name': 'somenamespace', 'labels': {'inf_id': 'infid'}}}
+                resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Namespace',
+                                          'metadata': {'name': 'somenamespace', 'labels': {'inf_id': 'infid'}}}
         elif method == "POST":
             if url.endswith("/pods"):
                 resp.status_code = 201
