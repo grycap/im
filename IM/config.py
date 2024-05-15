@@ -42,8 +42,7 @@ def parse_options(config, section_name, config_class):
                 setattr(config_class, option, config.get(section_name, option))
         else:
             logger = logging.getLogger('InfrastructureManager')
-            logger.warn(
-                "Unknown option in the IM config file. Ignoring it: " + option)
+            logger.warning("Unknown option in the IM config file. Ignoring it: " + option)
 
 
 class Config:
@@ -107,6 +106,7 @@ class Config:
     OIDC_SCOPES = []
     OIDC_USER_INFO_PATH = "/userinfo"
     OIDC_INSTROSPECT_PATH = "/introspect"
+    OIDC_GROUPS = []
     VM_NUM_USE_CTXT_DIST = 30
     DELAY_BETWEEN_VM_RETRIES = 5
     VERIFI_SSL = False

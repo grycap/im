@@ -12,12 +12,10 @@
     "class": "system",
     "cpu.arch": "x86_64",
     "cpu.count_min": 1,
-    "disk.0.image.url": "one://ramses.i3m.upv.es/1396",
-    "disk.0.os.credentials.password": "GRyCAP01",
-    "disk.0.os.credentials.username": "ubuntu",
+    "disk.0.image.url": "one://ramses.i3m.upv.es/1593",
     "disk.0.os.name": "linux",
     "id": "front",
-    "memory.size_min": 536870912,
+    "memory.size_min": 1073741824,
     "net_interface.0.connection": "publica",
     "net_interface.1.connection": "privada"
   },
@@ -25,10 +23,10 @@
     "class": "system",
     "cpu.arch": "x86_64",
     "cpu.count_min": 1,
-    "disk.0.image.url": "one://ramses.i3m.upv.es/1129",
+    "disk.0.image.url": "one://ramses.i3m.upv.es/1396",
     "disk.0.os.name": "linux",
     "id": "wn",
-    "memory.size_min": 536870912,
+    "memory.size_min": 1073741824,
     "net_interface.0.connection": "privada"
   },
   {

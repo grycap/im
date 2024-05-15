@@ -207,6 +207,13 @@ class TestServiceRequests(unittest.TestCase):
             IM.ServiceRequests.IMBaseRequest.GET_INFRASTRUCTURE_OWNERS, ("", ""))
         req._call_function()
 
+    @patch('IM.InfrastructureManager.InfrastructureManager')
+    def test_estimate_resources(self, inflist):
+        import IM.ServiceRequests
+        req = IM.ServiceRequests.IMBaseRequest.create_request(
+            IM.ServiceRequests.IMBaseRequest.ESTIMATE_RESOURCES, ("", ""))
+        req._call_function()
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -361,12 +361,12 @@ class InfrastructureInfo:
             # Add new networks ad ansible_hosts only
             for s in radl.networks + radl.ansible_hosts:
                 if not self.radl.add(s.clone(), "ignore") and warn:
-                    InfrastructureInfo.logger.warn("Ignoring the redefinition of %s %s" % (type(s), s.getId()))
+                    InfrastructureInfo.logger.warning("Ignoring the redefinition of %s %s" % (type(s), s.getId()))
 
             # Add or update configures and systems
             for s in radl.configures + radl.systems:
                 if self.radl.get(s) and warn:
-                    InfrastructureInfo.logger.warn("(Re)definition of %s %s" % (type(s), s.getId()))
+                    InfrastructureInfo.logger.warning("(Re)definition of %s %s" % (type(s), s.getId()))
                 self.radl.add(s.clone(), "replace")
 
             # Append contextualize
@@ -724,7 +724,7 @@ class InfrastructureInfo:
             if (self_im_auth['username'].startswith(InfrastructureInfo.OPENID_USER_PREFIX) and
                     'token' not in other_im_auth):
                 # This is a OpenID user do not enable to get data using user/pass creds
-                InfrastructureInfo.logger.warn("Inf ID %s: A non OpenID user tried to access it." % self.id)
+                InfrastructureInfo.logger.warning("Inf ID %s: A non OpenID user tried to access it." % self.id)
                 res = False
                 break
 
