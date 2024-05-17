@@ -249,7 +249,7 @@ class DataBase:
             res = self.select('SELECT * FROM information_schema.tables WHERE table_name = %s and table_schema = %s',
                               (table_name, db))
         elif self.db_type == DataBase.MONGO:
-            return table_name in self.connection.collection_names()
+            return table_name in self.connection.list_collection_names()
         else:
             return False
 

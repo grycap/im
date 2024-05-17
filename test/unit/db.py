@@ -78,7 +78,7 @@ class TestDataBase(unittest.TestCase):
         db = DataBase(db_url)
         self.assertTrue(db.connect())
 
-        database.collection_names.return_value = ['table1']
+        database.list_collection_names.return_value = ['table1']
         res = db.table_exists("test")
         self.assertFalse(res)
         res = db.table_exists("table1")

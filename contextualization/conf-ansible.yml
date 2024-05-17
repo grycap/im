@@ -5,7 +5,7 @@
   gather_facts: false
   vars:
     # Ansible specific Version or "latest"
-    ANSIBLE_VERSION: 2.9.26
+    ANSIBLE_VERSION: 4.10.0
   tasks:
     - name: Set Ansible version from env if defined
       set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
@@ -163,8 +163,16 @@
           - wheel
           - pyyaml
           - paramiko>=2.9.5
+          - packaging
         executable: pip3
         extra_args: "{{ extra_args }}"
+
+    - name: Set Ansible newer version for python 3.12
+      set_fact:
+        ANSIBLE_VERSION:  8.7.0
+      when:
+        - ansible_python_version is version('3.12', '>=')
+        - ANSIBLE_VERSION is version('8.7.0', '<')
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip:
@@ -224,3 +232,6 @@
       - { section: 'defaults', option: 'ansible_python_interpreter', value: 'auto' }
       - { section: 'defaults', option: 'transport', value: 'ssh' }
       - { section: 'ssh_connection', option: 'ssh_args', value: '-o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null' }
+      - { section: 'galaxy', option: 'server_list', value: 'galaxy, oldgalaxy' }
+      - { section: 'galaxy_server.galaxy', option: 'url', value: 'https://galaxy.ansible.com/api/' }
+      - { section: 'galaxy_server.oldgalaxy', option: 'url', value: 'https://old-galaxy.ansible.com/api/' }

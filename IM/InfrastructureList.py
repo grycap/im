@@ -147,11 +147,16 @@ class InfrastructureList():
                 InfrastructureList.logger.debug("Creating the IM database!.")
                 if db.db_type == DataBase.MYSQL:
                     db.execute("CREATE TABLE inf_list(rowid INTEGER NOT NULL AUTO_INCREMENT UNIQUE,"
-                               " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGBLOB,"
-                               " auth LONGBLOB)")
+                               " id VARCHAR(255) PRIMARY KEY, deleted INTEGER, date TIMESTAMP, data LONGTEXT,"
+                               " auth TEXT, FULLTEXT(auth), INDEX(deleted))")
                 elif db.db_type == DataBase.SQLITE:
                     db.execute("CREATE TABLE inf_list(id VARCHAR(255) PRIMARY KEY, deleted INTEGER,"
-                               " date TIMESTAMP, data LONGBLOB, auth LONGBLOB)")
+                               " date TIMESTAMP, data TEXT, auth TEXT)")
+                elif db.db_type == DataBase.MONGO:
+                    db.connection.create_collection("inf_list")
+                    db.connection["inf_list"].create_index([("id", 1)], unique=True)
+                    db.connection["inf_list"].create_index([("deleted", 1)])
+                    db.connection["inf_list"].create_index([("auth", 1)])
                 db.close()
             return True
         else:
@@ -205,7 +210,7 @@ class InfrastructureList():
                     msg = ""
                     if inf_id:
                         msg = " for inf ID: %s" % inf_id
-                    InfrastructureList.logger.warn("No data in database%s!." % msg)
+                    InfrastructureList.logger.warning("No data in database%s!." % msg)
 
                 db.close()
                 return inf_list
@@ -218,6 +223,9 @@ class InfrastructureList():
 
     @staticmethod
     def _save_data_to_db(db_url, inf_list, inf_id=None):
+        if not inf_list:
+            InfrastructureList.logger.info("No data to save to the database!.")
+            return True
         db = DataBase(db_url)
         if db.connect():
             infs_to_save = inf_list
@@ -249,7 +257,7 @@ class InfrastructureList():
                 if elem.get("username"):
                     if like:
                         like += " or "
-                    like += "auth like '%%" + elem.get("username") + "%%'"
+                    like += "auth like '%%\"" + elem.get("username") + "\"%%'"
 
         if like:
             return "where deleted = 0 and (" + like + ")"
@@ -264,7 +272,7 @@ class InfrastructureList():
                 if elem.get("username"):
                     if like:
                         like += "|"
-                    like += elem.get("username")
+                    like += '"%s"' % elem.get("username")
 
         if like:
             return {"deleted": 0, "auth": {"$regex": like}}

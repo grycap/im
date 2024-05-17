@@ -644,6 +644,7 @@ class CloudConnector(LoggerMixin):
         if new_memory:
             orig_system.delValue('memory.size')
             orig_system.addFeature(new_memory)
+        orig_system.delValue('instance_type')
         instance_type = radl.systems[0].getValue('instance_type')
         if instance_type is not None:
             orig_system.setValue('instance_type', instance_type)

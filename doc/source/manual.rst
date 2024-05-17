@@ -507,6 +507,13 @@ OPENID CONNECT OPTIONS
    Client ID and Secret must be provided to make it work.
    The default value is ``''``.
 
+.. confval:: OIDC_GROUPS
+
+   List of OIDC groups supported.
+   It must be a coma separated string of group names.
+   (see the `AARC guidelines for group names <https://aarc-community.org/guidelines/AARC-G069/>`_).
+   The default value is ``''``.
+
 .. confval:: FORCE_OIDC_AUTH
 
    If ``True`` the IM will force the users to pass a valid OIDC token.

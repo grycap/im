@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:22.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.16.0"
+LABEL version="1.17.0"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3 python3
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
-     pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==6.4.0&& \
-     pip3 install urllib3==1.26.18 IM==1.16.0 && \
+     pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==6.7.0&& \
+     pip3 install urllib3==1.26.18 IM==1.17.0 && \
      apt-get purge -y python3-pip git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3-setupto
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
 # Fix boto issue https://github.com/boto/boto/issues/3783
-COPY endpoints.json /usr/local/lib/python3.8/dist-packages/boto/endpoints.json
+COPY endpoints.json /usr/local/lib/python3.10/dist-packages/boto/endpoints.json
 
 # Start IM service
 CMD im_service.py

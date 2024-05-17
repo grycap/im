@@ -378,6 +378,13 @@ class IMPlaybookExecutor(PlaybookExecutor):
         # Create a specific dir for the local temp
         C.DEFAULT_LOCAL_TMP = tempfile.mkdtemp()
 
+        try:
+            # Initialize the plugin loader for ansible 2.15.0 or higher
+            from ansible.plugins.loader import init_plugin_loader
+            init_plugin_loader([])
+        except ImportError:
+            pass
+
         result = 0
         try:
             pb = Playbook.load(self._playbook, variable_manager=self._variable_manager, loader=self._loader)

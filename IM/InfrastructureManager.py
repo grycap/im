@@ -519,6 +519,53 @@ class InfrastructureManager:
         return deploys_group_cloud
 
     @staticmethod
+    def add_app_reqs(radl, inf_id=None):
+        """ Add apps requirements to the RADL. """
+        for radl_system in radl.systems:
+            apps_to_install = radl_system.getApplications()
+            for app_to_install in apps_to_install:
+                for app_avail, _, _, _, requirements in Recipe.getInstallableApps():
+                    if requirements and app_avail.isNewerThan(app_to_install):
+                        # This app must be installed and it has special
+                        # requirements
+                        try:
+                            requirements_radl = radl_parse.parse_radl(requirements).systems[0]
+                            radl_system.applyFeatures(requirements_radl, conflict="other", missing="other")
+                        except Exception:
+                            InfrastructureManager.logger.exception(
+                                "Inf ID: " + inf_id + ": Error in the requirements of the app: " +
+                                app_to_install.getValue("name") + ". Ignore them.")
+                            InfrastructureManager.logger.debug("Inf ID: " + inf_id + ": " + str(requirements))
+                        break
+
+    @staticmethod
+    def get_deploy_groups(cloud_list, radl, systems_with_iis, sel_inf, auth):
+        # Concrete systems with cloud providers and select systems with the greatest score
+        # in every cloud
+        concrete_systems = {}
+        for cloud_id, cloud in cloud_list.items():
+            for system_id, systems in systems_with_iis.items():
+                s1 = [InfrastructureManager._compute_score(s.clone().applyFeatures(s0,
+                                                                                   conflict="other",
+                                                                                   missing="other").concrete(),
+                                                           radl.get_system_by_name(system_id))
+                      for s in systems for s0 in cloud.concreteSystem(s, auth)]
+                # Store the concrete system with largest score
+                concrete_systems.setdefault(cloud_id, {})[system_id] = max(s1, key=lambda x: x[1]) if s1 else (None,
+                                                                                                               -1e9)
+
+        # Group virtual machines to deploy by network dependencies
+        deploy_groups = InfrastructureManager._compute_deploy_groups(radl)
+        InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Groups of VMs with dependencies")
+        InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + "\n" + str(deploy_groups))
+
+        # Sort by score the cloud providers
+        deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
+                                                                  deploy_groups, auth)
+
+        return concrete_systems, deploy_groups, deploys_group_cloud
+
+    @staticmethod
     def AddResource(inf_id, radl_data, auth, context=True):
         """
         Add the resources in the RADL to the infrastructure.
@@ -560,7 +607,7 @@ class InfrastructureManager:
 
             # If any deploy is defined, only update definitions.
             if not radl.deploys:
-                InfrastructureManager.logger.warn("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
+                InfrastructureManager.logger.warning("Inf ID: " + sel_inf.id + ": without any deploy. Exiting.")
                 sel_inf.add_cont_msg("Infrastructure without any deploy. Exiting.")
                 if sel_inf.configured is None:
                     sel_inf.configured = False
@@ -571,23 +618,7 @@ class InfrastructureManager:
             InfrastructureManager.logger.exception("Inf ID: " + sel_inf.id + " error parsing RADL")
             raise ex
 
-        for radl_system in radl.systems:
-            # Add apps requirements to the RADL
-            apps_to_install = radl_system.getApplications()
-            for app_to_install in apps_to_install:
-                for app_avail, _, _, _, requirements in Recipe.getInstallableApps():
-                    if requirements and app_avail.isNewerThan(app_to_install):
-                        # This app must be installed and it has special
-                        # requirements
-                        try:
-                            requirements_radl = radl_parse.parse_radl(requirements).systems[0]
-                            radl_system.applyFeatures(requirements_radl, conflict="other", missing="other")
-                        except Exception:
-                            InfrastructureManager.logger.exception(
-                                "Inf ID: " + sel_inf.id + ": Error in the requirements of the app: " +
-                                app_to_install.getValue("name") + ". Ignore them.")
-                            InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": " + str(requirements))
-                        break
+        InfrastructureManager.add_app_reqs(radl, sel_inf.id)
 
         # Concrete systems using VMRC
         try:
@@ -601,26 +632,11 @@ class InfrastructureManager:
         # Concrete systems with cloud providers and select systems with the greatest score
         # in every cloud
         cloud_list = dict([(c.id, c.getCloudConnector(sel_inf)) for c in CloudInfo.get_cloud_list(auth)])
-        concrete_systems = {}
-        for cloud_id, cloud in cloud_list.items():
-            for system_id, systems in systems_with_iis.items():
-                s1 = [InfrastructureManager._compute_score(s.clone().applyFeatures(s0,
-                                                                                   conflict="other",
-                                                                                   missing="other").concrete(),
-                                                           radl.get_system_by_name(system_id))
-                      for s in systems for s0 in cloud.concreteSystem(s, auth)]
-                # Store the concrete system with largest score
-                concrete_systems.setdefault(cloud_id, {})[system_id] = (
-                    max(s1, key=lambda x: x[1]) if s1 else (None, -1e9))
-
-        # Group virtual machines to deploy by network dependencies
-        deploy_groups = InfrastructureManager._compute_deploy_groups(radl)
-        InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + ": Groups of VMs with dependencies")
-        InfrastructureManager.logger.debug("Inf ID: " + sel_inf.id + "\n" + str(deploy_groups))
-
-        # Sort by score the cloud providers
-        deploys_group_cloud = InfrastructureManager.sort_by_score(sel_inf, concrete_systems, cloud_list,
-                                                                  deploy_groups, auth)
+        concrete_systems, deploy_groups, deploys_group_cloud = InfrastructureManager.get_deploy_groups(cloud_list,
+                                                                                                       radl,
+                                                                                                       systems_with_iis,
+                                                                                                       sel_inf,
+                                                                                                       auth)
 
         # We are going to start adding resources
         sel_inf.set_adding()
@@ -1409,6 +1425,18 @@ class InfrastructureManager:
                 if not issuer.endswith('/'):
                     issuer += '/'
                 im_auth['password'] = issuer + str(userinfo.get("sub"))
+
+                if Config.OIDC_GROUPS:
+                    # Get user groups from any of the possible fields
+                    user_groups = userinfo.get('groups',  # Generic
+                                               userinfo.get('entitlements',  # GEANT
+                                                            userinfo.get('eduperson_entitlement',  # EGI Check-in
+                                                                         [])))
+
+                    if not set(Config.OIDC_GROUPS).issubset(user_groups):
+                        raise InvaliddUserException("Invalid InfrastructureManager credentials. " +
+                                                    "User not in configured groups.")
+
         except Exception as ex:
             InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
             raise Exception("Error trying to validate OIDC auth token: %s" % str(ex))
@@ -1526,12 +1554,12 @@ class InfrastructureManager:
                 if im_auth_item['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
                     # This is a OpenID user do not enable to get data using user/pass creds
                     raise InvaliddUserException("Invalid username used for the InfrastructureManager.")
+
+                # Now check if the user is in authorized
+                if not InfrastructureManager.check_im_user(im_auth_item):
+                    raise InvaliddUserException()
             else:
                 raise InvaliddUserException("No username nor token for the InfrastructureManager.")
-
-            # Now check if the user is in authorized
-            if not InfrastructureManager.check_im_user(im_auth_item):
-                raise InvaliddUserException()
 
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
@@ -1745,6 +1773,9 @@ class InfrastructureManager:
     @staticmethod
     def stop():
         IM.InfrastructureList.InfrastructureList.stop()
+        # Flush data to DB
+        InfrastructureManager.logger.info('Flushing data to DB...')
+        IM.InfrastructureList.InfrastructureList.save_data()
 
     @staticmethod
     def _get_cloud_conn(cloud_id, auth):
@@ -1864,5 +1895,132 @@ class InfrastructureManager:
         res = []
         for im_auth in sel_inf.auth.getAuthInfo("InfrastructureManager"):
             res.append(im_auth['username'])
+
+        return res
+
+    @staticmethod
+    def EstimateResouces(radl_data, auth):
+        """
+        Get the estimated amount of resources needed to deploy the infrastructure.
+
+        Args:
+
+        - radl(str): RADL description.
+        - auth(Authentication): parsed authentication tokens.
+
+        Return(dict): dict with the estimated amount of needed to deploy the infrastructure
+        with the following structure:
+            {
+                "ost1": {
+                    "cloudType": "OpenStack",
+                    "cloudEndpoint": "http://openstack.example.com:5000",
+
+                    "compute": [
+                            {
+                            "cpuCores": 2,
+                            "memoryInMegabytes": 4096,
+                            "diskSizeInGigabytes": 20
+                            },
+                            {
+                            "cpuCores": 1,
+                            "memoryInMegabytes": 2048,
+                            "diskSizeInGigabytes": 10
+                            }
+                    ],
+                    "storage": [
+                            {"sizeInGigabytes": 100, "type": "ceph"},
+                            {"sizeInGigabytes": 100}
+                    ]
+                }
+            }
+
+        """
+        res = {}
+        InfrastructureManager.logger.info("Getting the cost of the infrastructure")
+
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
+
+        try:
+            if isinstance(radl_data, RADL):
+                radl = radl_data
+            else:
+                radl = radl_parse.parse_radl(radl_data)
+
+            radl.check()
+
+            inf = IM.InfrastructureInfo.InfrastructureInfo()
+            inf.radl = radl
+
+            # If any deploy is defined, only update definitions.
+            if not radl.deploys:
+                InfrastructureManager.logger.warning("Getting cost of an infrastructure without any deploy.")
+                return res
+        except Exception as ex:
+            InfrastructureManager.logger.exception("Error getting cost of an infrastructure when parsing RADL")
+            raise ex
+
+        InfrastructureManager.add_app_reqs(radl, inf.id)
+
+        # Concrete systems using VMRC
+        try:
+            systems_with_iis = InfrastructureManager.systems_with_iis(inf, radl, auth)
+        except Exception as ex:
+            InfrastructureManager.logger.exception("Error getting cost of an infrastructure error getting VM images")
+            raise ex
+
+        # Concrete systems with cloud providers and select systems with the greatest score
+        # in every cloud
+        cloud_list = dict([(c.id, c.getCloudConnector(inf)) for c in CloudInfo.get_cloud_list(auth)])
+        concrete_systems, deploy_groups, deploys_group_cloud = InfrastructureManager.get_deploy_groups(cloud_list,
+                                                                                                       radl,
+                                                                                                       systems_with_iis,
+                                                                                                       inf,
+                                                                                                       auth)
+
+        # Launch every group in the same cloud provider
+        deploy_items = []
+        for deploy_group in deploy_groups:
+            if not deploy_group:
+                InfrastructureManager.logger.warning("Error getting cost of an infrastructure: No VMs to deploy!")
+
+            cloud_id = deploys_group_cloud[id(deploy_group)]
+            cloud = cloud_list[cloud_id]
+
+            for d in deploy_group:
+                deploy_items.append((d, cloud_id, cloud))
+
+        # Get the cost of the infrastructure
+        for deploy, cloud_id, cloud in deploy_items:
+
+            if cloud_id not in res:
+                res[cloud_id] = {"cloudType": cloud.type, "cloudEndpoint": cloud.cloud.get_url(),
+                                 "compute": [], "storage": []}
+
+            if not deploy.id.startswith(IM.InfrastructureInfo.InfrastructureInfo.FAKE_SYSTEM):
+                concrete_system = concrete_systems[cloud_id][deploy.id][0]
+
+                if not concrete_system:
+                    InfrastructureManager.logger.warning("Error getting cost of an infrastructure:" +
+                                                         "Error, no concrete system to deploy: " +
+                                                         deploy.id + " in cloud: " + cloud_id +
+                                                         ". Check if a correct image is being used")
+                else:
+                    vm = {"cpuCores": concrete_system.getValue("cpu.count"),
+                          "memoryInMegabytes": concrete_system.getFeature("memory.size").getValue("M")}
+
+                    if concrete_system.getValue("disk.0.free_size"):
+                        vm['diskSizeInGigabytes'] = concrete_system.getFeature("disk.0.free_size").getValue('G')
+
+                    res[cloud_id]["compute"].append(vm)
+
+                    cont = 1
+                    while (concrete_system.getValue("disk." + str(cont) + ".size")):
+                        volume_size = concrete_system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                        vol_info = {"sizeInGigabytes": volume_size}
+                        if concrete_system.getValue("disk." + str(cont) + ".type"):
+                            vol_info["type"] = concrete_system.getValue("disk." + str(cont) + ".type")
+                        res[cloud_id]["storage"].append(vol_info)
+                        cont += 1
 
         return res

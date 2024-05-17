@@ -130,9 +130,10 @@ The :program:`im_client` is called like this::
    ``destroy infId``
       Destroy the infrastructure with ID ``infId``.
 
-   ``getinfo infId``
+   ``getinfo infId [radl_attribute]``
       Show the information about all the virtual machines associated to the
-      infrastructure with ID ``infId``.
+      infrastructure with ID ``infId``. Optional parameter ``radl_attribute`` to show
+      only the value of the specified attribute in the RADL.
 
    ``getcontmsg infId``
       Show the contextualization message of the infrastructure with ID ``id``.
@@ -143,9 +144,10 @@ The :program:`im_client` is called like this::
    ``getoutputs <infId>``
       Show the outputs of infrastructure with ID ``infId`` (Only in case of TOSCA docs with REST API).
 
-   ``getvminfo infId vmId``
+   ``getvminfo infId vmId [radl_attribute]``
       Show the information associated to the virtual machine with ID ``vmId``
-      associated to the infrastructure with ID ``infId``.
+      associated to the infrastructure with ID ``infId``. Optional parameter 
+      ``radl_attribute`` to show only the value of the specified attribute in the RADL.
 
    ``getvmcontmsg infId vmId``
       Show the contextualization message of the virtual machine with ID ``vmId``
@@ -222,6 +224,48 @@ The :program:`im_client` is called like this::
       will be returned. The results will be returned to stdout in json format::
          
          {"infid": "ID", "error": "Error message"}
+
+   ``cloudusage cloud_id``
+      Show the usage/quotas of the cloud with ID ``cloud_id``.
+      The results will be returned to stdout in json format::
+
+         [
+            {
+               "uri": "ost://server.com/image_id1",
+               "name": "Image 1 Name"
+            },
+            {
+               "uri": "ost://server.com/image_id2",
+               "name": "Image 2 Name"
+            }
+         ]
+
+   ``cloudimages cloud_id``
+      Show the images available in the cloud with ID ``cloud_id``.
+      The results will be returned to stdout in json format (-1 means no limit)::
+
+         {
+            "cores": {
+               "used": 36,
+               "limit": -1
+            },
+            "ram": {
+               "used": 50,
+               "limit": -1
+            },
+            "instances": {
+               "used": 10,
+               "limit": 50
+            },
+            "security_groups": {
+               "used": 0,
+               "limit": -1
+            },
+            "floating_ips": {
+               "used": 0,
+               "limit": -1
+            }
+         }
 
 .. _auth-file:
 
@@ -384,6 +428,8 @@ some of the previous parameters has a diferent meaning:
 * username: Specifies the identity provider.
 * tenant: Specifies the authentication protocol to use (tipically ``oidc`` or ``openid``).
 * password: Specifies the OpenID access token.
+* domain: Specifies the OpenStack project to use. This parameter is optional. If not set the first project returned
+  by Keystone will be selected.
 
 So the auth line will be like that::
 

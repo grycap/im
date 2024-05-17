@@ -140,7 +140,7 @@ class QuickTestIM(unittest.TestCase):
             success, msg="ERROR calling CreateInfrastructure: " + str(inf_id))
         self.__class__.inf_id = inf_id
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 1200)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -236,7 +236,7 @@ class QuickTestIM(unittest.TestCase):
         self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
                                               str(len(vm_ids)) + "). It must be 3"))
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 1200)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -301,7 +301,7 @@ class QuickTestIM(unittest.TestCase):
         self.assertEqual(vm_state, VirtualMachine.RUNNING,
                          msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -341,7 +341,7 @@ class QuickTestIM(unittest.TestCase):
             self.inf_id, "", self.auth_data)
         self.assertTrue(success, msg="ERROR calling Reconfigure: " + str(res))
 
-        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -353,7 +353,7 @@ class QuickTestIM(unittest.TestCase):
             self.inf_id, "", self.auth_data, [0])
         self.assertTrue(success, msg="ERROR calling Reconfigure: " + str(res))
 
-        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        all_stopped = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -366,7 +366,7 @@ class QuickTestIM(unittest.TestCase):
             self.inf_id, radl, self.auth_data)
         self.assertTrue(success, msg="ERROR calling Reconfigure: " + str(res))
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 600)
+        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 

@@ -494,6 +494,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     if 'attachments' in volume.extra and volume.extra['attachments']:
                         vm.info.systems[0].setValue("disk." + str(cont) + ".device",
                                                     os.path.basename(volume.extra['attachments'][0]['device']))
+                    if 'volume_type' in volume.extra and volume.extra['volume_type']:
+                        vm.info.systems[0].setValue("disk." + str(cont) + ".type", volume.extra['volume_type'])
+
                     cont += 1
         except Exception as ex:
             self.log_warn("Error getting volume info: %s" % get_ex_error(ex))

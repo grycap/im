@@ -2,7 +2,7 @@ openapi: 3.0.0
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.11.0
+  version: 1.17.0
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es
@@ -111,6 +111,22 @@ paths:
               - '0'
               - '1'
             default: 'false'
+        - name: dry_run
+          in: query
+          description: >-
+            parameter is optional and is a flag to specify if the call will not create the VMs
+            and will only return the ammount of resources needed to deploy the infrastructure.
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'false'
       requestBody:
         content:
           text/plain:
@@ -176,6 +192,17 @@ paths:
                   value: |
                     {
                       "uri": "http://server.com:8800/infrastructures/inf_id1"
+                    }
+                response_dry_run:
+                  value: |
+                    {
+                      "compute": [
+                                      {"cpu": 2, "memory": 4096, "disk": 20},
+                                      {"cpu": 1, "memory": 2048, "disk": 10}
+                                 ],
+                      "storage": [
+                                      {"size": 100}
+                                 ]
                     }
         '400':
           description: Invalid status value
