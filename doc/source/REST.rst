@@ -108,7 +108,7 @@ GET ``http://imserver.com/infrastructures``
 POST ``http://imserver.com/infrastructures``
    :body: ``RADL or TOSCA document``
    :body Content-type: text/plain, application/json or text/yaml
-   :input fields: ``async`` (optional), ``dry_rum`` (optional)
+   :input fields: ``async`` (optional), ``dry_run`` (optional)
    :Response Content-type: text/uri-list
    :ok response: 200 OK
    :fail response: 401, 400, 415
@@ -126,7 +126,7 @@ POST ``http://imserver.com/infrastructures``
       "uri" : "http://server.com:8800/infrastructures/inf_id
     }
 
-   The ``dry_rum`` parameter is optional and is a flag to specify if the call will not create the VMs
+   The ``dry_run`` parameter is optional and is a flag to specify if the call will not create the VMs
    and will only return the ammount of resources needed to deploy the infrastructure.
    Acceptable values: yes, no, true, false, 1 or 0. If not specified the flag is set to False.
    In this case no infrastructure ID is returned, only the ammount of resources needed to deploy
