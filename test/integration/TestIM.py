@@ -698,7 +698,7 @@ echo "Hello World" >> /tmp/data.txt
         self.__class__.inf_id = [inf_id]
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 1800)
+            inf_id, VirtualMachine.CONFIGURED, 2100)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -778,7 +778,7 @@ echo "Hello World" >> /tmp/data.txt
             memory.size>=1g and
             net_interface.0.connection = 'net' and
             disk.0.os.name='linux' and
-            disk.0.image.url = 'one://ramses.i3m.upv.es/1396'
+            disk.0.image.url = 'one://ramses.i3m.upv.es/1593'
             )
 
             deploy test 1

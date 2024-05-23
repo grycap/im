@@ -513,7 +513,7 @@ class KubernetesCloudConnector(CloudConnector):
             if resp.status_code != 200:
                 self.log_debug("Creating Namespace: %s" % namespace)
                 namespace_data = {'apiVersion': 'v1', 'kind': 'Namespace',
-                                  'metadata': {'name': namespace}}
+                                  'metadata': {'name': namespace, 'labels': {'inf_id': inf.id}}}
                 resp = self.create_request('POST', uri, auth_data, headers, namespace_data)
 
                 if resp.status_code != 201:
@@ -702,12 +702,22 @@ class KubernetesCloudConnector(CloudConnector):
         namespace = self._get_namespace(vm.inf)
         self.log_debug("Deleting Namespace: %s" % namespace)
         uri = "/api/v1/namespaces/%s" % namespace
-        resp = self.create_request('DELETE', uri, auth_data)
+
+        resp = self.create_request('GET', uri, auth_data)
         if resp.status_code == 404:
-            self.log_warn("Trying to remove a non existing Namespace id: " + vm.inf.id)
-        elif resp.status_code != 200:
-            return (False, "Error deleting the Namespace: " + resp.text)
-        return True, ""
+            self.log_warn("Trying to remove a non existing Namespace: " + namespace)
+        elif resp.status_code == 200:
+            output = resp.json()
+            if output["metadata"].get("labels", {}).get("inf_id") == vm.inf.id:
+                resp = self.create_request('DELETE', uri, auth_data)
+                if resp.status_code != 200:
+                    return (False, "Error deleting the Namespace: " + resp.text)
+                return True, ""
+            else:
+                self.log_info("Namespace %s was not created by the IM. Do not delete it." % namespace)
+                return True, ""
+        else:
+            return (False, "Error getting the Namespace: " + resp.text)
 
     def _delete_service(self, vm, auth_data):
         try:

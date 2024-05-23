@@ -226,6 +226,12 @@ def GetInfrastructureOwners(inf_id, auth_data):
     return WaitRequest(request)
 
 
+def EstimateResources(radl_data, auth_data):
+    request = IMBaseRequest.create_request(
+        IMBaseRequest.ESTIMATE_RESOURCES, (radl_data, auth_data))
+    return WaitRequest(request)
+
+
 def launch_daemon():
     """
     Launch the IM daemon
@@ -286,6 +292,7 @@ def launch_daemon():
         server.register_function(GetCloudQuotas)
         server.register_function(ChangeInfrastructureAuth)
         server.register_function(GetInfrastructureOwners)
+        server.register_function(EstimateResources)
 
         # Launch the API XMLRPC thread
         server.serve_forever_in_thread()

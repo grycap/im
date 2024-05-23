@@ -6,15 +6,10 @@
   "email": "",
   "email_verified": true,
   "phone_number_verified": false,
-  "groups": [
-    {
-      "id": "gid",
-      "name": "Users"
-    },
-    {
-      "id": "gid",
-      "name": "Developers"
-    }
+  "eduperson_entitlement": [
+    "urn:mace:egi.eu:group:demo.fedcloud.egi.eu:members:role=member#aai.egi.eu",
+    "urn:mace:egi.eu:group:demo.fedcloud.egi.eu:role=member#aai.egi.eu",
+    "urn:mace:egi.eu:group:demo.fedcloud.egi.eu:vm_operator:role=member#aai.egi.eu"
   ],
   "organisation_name": "indigo-dc"
 }
