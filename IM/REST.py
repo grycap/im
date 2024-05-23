@@ -183,7 +183,7 @@ def get_media_type(header):
             pos = media_type.find(";")
             if pos != -1:
                 media_type = media_type[:pos]
-            if media_type.strip() in ["text/yaml", "text/x-yaml"]:
+            if media_type.strip() in ["text/yaml", "text/x-yaml", "application/yaml"]:
                 res.append("text/yaml")
             else:
                 res.append(media_type.strip())
@@ -534,18 +534,28 @@ def RESTCreateInfrastructure():
 
         async_call = False
         if "async" in bottle.request.params.keys():
-            str_ctxt = bottle.request.params.get("async").lower()
-            if str_ctxt in ['yes', 'true', '1']:
+            str_async = bottle.request.params.get("async").lower()
+            if str_async in ['yes', 'true', '1']:
                 async_call = True
-            elif str_ctxt in ['no', 'false', '0']:
+            elif str_async in ['no', 'false', '0']:
                 async_call = False
             else:
                 return return_error(400, "Incorrect value in async parameter")
 
+        dry_run = False
+        if "dry_run" in bottle.request.params.keys():
+            str_dry_run = bottle.request.params.get("dry_run").lower()
+            if str_dry_run in ['yes', 'true', '1']:
+                dry_run = True
+            elif str_dry_run in ['no', 'false', '0']:
+                dry_run = False
+            else:
+                return return_error(400, "Incorrect value in dry_run parameter")
+
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
-            elif "text/yaml" in content_type:
+            elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
                 tosca_data = Tosca(radl_data)
                 _, radl_data = tosca_data.to_radl()
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
@@ -553,18 +563,22 @@ def RESTCreateInfrastructure():
             else:
                 return return_error(415, "Unsupported Media Type %s" % content_type)
 
-        inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth, async_call)
+        if dry_run:
+            res = InfrastructureManager.EstimateResouces(radl_data, auth)
+            return format_output(res, "application/json")
+        else:
+            inf_id = InfrastructureManager.CreateInfrastructure(radl_data, auth, async_call)
 
-        # Store the TOSCA document
-        if tosca_data:
-            sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-            sel_inf.extra_info['TOSCA'] = tosca_data
+            # Store the TOSCA document
+            if tosca_data:
+                sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+                sel_inf.extra_info['TOSCA'] = tosca_data
 
-        bottle.response.headers['InfID'] = inf_id
-        bottle.response.content_type = "text/uri-list"
-        res = get_full_url('/infrastructures/%s' % inf_id)
+            bottle.response.headers['InfID'] = inf_id
+            bottle.response.content_type = "text/uri-list"
+            res = get_full_url('/infrastructures/%s' % inf_id)
 
-        return format_output(res, "text/uri-list", "uri")
+            return format_output(res, "text/uri-list", "uri")
     except InvaliddUserException as ex:
         return return_error(401, "Error Getting Inf. info: %s" % get_ex_error(ex))
     except DisabledFunctionException as ex:
@@ -685,7 +699,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
                         break
                 if not sel_vm:
                     # it sometimes happen when the VM is in creation state
-                    logger.warn("Specified vmid in step2 is incorrect!!")
+                    logger.warning("Specified vmid in step2 is incorrect!!")
                     info = "wait"
                 else:
                     ssh = sel_vm.get_ssh_ansible_master(retry=False)
@@ -759,7 +773,7 @@ def RESTAddResource(infid=None):
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
-            elif "text/yaml" in content_type:
+            elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
                 tosca_data = Tosca(radl_data)
                 auth = InfrastructureManager.check_auth_data(auth)
                 sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
@@ -865,7 +879,7 @@ def RESTAlterVM(infid=None, vmid=None):
         if content_type:
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
-            elif "text/yaml" in content_type:
+            elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
                 tosca_data = Tosca(radl_data)
                 _, radl_data = tosca_data.to_radl()
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
@@ -916,7 +930,7 @@ def RESTReconfigureInfrastructure(infid=None):
             if content_type:
                 if "application/json" in content_type:
                     radl_data = parse_radl_json(radl_data)
-                elif "text/yaml" in content_type:
+                elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
                     tosca_data = Tosca(radl_data)
                     _, radl_data = tosca_data.to_radl()
                 elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:

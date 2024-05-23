@@ -210,7 +210,7 @@ class InfrastructureList():
                     msg = ""
                     if inf_id:
                         msg = " for inf ID: %s" % inf_id
-                    InfrastructureList.logger.warn("No data in database%s!." % msg)
+                    InfrastructureList.logger.warning("No data in database%s!." % msg)
 
                 db.close()
                 return inf_list

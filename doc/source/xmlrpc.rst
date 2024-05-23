@@ -416,3 +416,39 @@ This is the list of method names:
    :fail response: [false, ``error``: string]
 
    Return the list of current owners of the infrastructure with ID ``infId``.
+
+.. _EstimateResouces-xmlrpc:
+
+``EstimateResouces``
+   :parameter 0: ``radl``: string
+   :parameter 1: ``auth``: array of structs
+   :ok response: [true, struct]
+   :fail response: [false, ``error``: string]
+
+   Get the estimated amount of resources needed to deploy the infrastructure
+   specified in the RADL document passed as string. The response is a struct
+   with the following format (memory unit MB, disk and storage unit GB)::
+
+      {
+         "ost1": {
+            "cloudType": "OpenStack",
+            "cloudEndpoint": "http://openstack.example.com:5000",
+
+            "compute": [
+                  {
+                     "cpuCores": 2,
+                     "memoryInMegabytes": 4096,
+                     "diskSizeInGigabytes": 20
+                  },
+                  {
+                     "cpuCores": 1,
+                     "memoryInMegabytes": 2048,
+                     "diskSizeInGigabytes": 10
+                  }
+            ],
+            "storage": [
+                     {"sizeInGigabytes": 100, "type": "ceph"},
+                     {"sizeInGigabytes": 100}
+            ]
+         }
+      }

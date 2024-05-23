@@ -56,7 +56,7 @@ topology_template:
             mem_size: 1 GB
         os:
           properties:
-            image: 'one://ramses.i3m.upv.es/1396'
+            image: 'one://ramses.i3m.upv.es/1593'
             type: linux
             credential: 
               token_type: password # or private_key

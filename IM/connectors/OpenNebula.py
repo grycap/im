@@ -1246,7 +1246,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         # Wait the image to be READY (not USED)
         success, msg = self.wait_image(image_id, auth_data)
         if not success:
-            self.logger.warn("Error waiting image to be READY: " + msg)
+            self.logger.warning("Error waiting image to be READY: " + msg)
 
         success, res_info = server.one.image.delete(session_id, image_id)[0:2]
         if success:

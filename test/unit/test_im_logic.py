@@ -135,7 +135,7 @@ class TestIM(unittest.TestCase):
         return cloud
 
     @staticmethod
-    def gen_token(aud=None, exp=None, user_sub="user_sub"):
+    def gen_token(aud=None, exp=None, user_sub="user_sub", groups=None):
         data = {
             "sub": user_sub,
             "iss": "https://iam-test.indigo-datacloud.eu/",
@@ -147,6 +147,8 @@ class TestIM(unittest.TestCase):
             data["aud"] = aud
         if exp:
             data["exp"] = int(time.time()) + exp
+        if groups:
+            data["groups"] = groups
         return ("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.%s.ignored" %
                 base64.urlsafe_b64encode(json.dumps(data).encode("utf-8")).decode("utf-8"))
 
@@ -1126,6 +1128,34 @@ configure step2 (
         self.assertEqual(im_auth['username'], InfrastructureInfo.OPENID_USER_PREFIX + "micafer")
         self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
 
+    @patch('IM.InfrastructureManager.OpenIDClient')
+    def test_check_oidc_groups(self, openidclient):
+        im_auth = {"token": (self.gen_token())}
+
+        user_info = json.loads(read_file_as_string('../files/iam_user_info.json'))
+
+        openidclient.is_access_token_expired.return_value = False, "Valid Token for 100 seconds"
+        openidclient.get_user_info_request.return_value = True, user_info
+
+        Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+        Config.OIDC_AUDIENCE = None
+        Config.OIDC_GROUPS = ["urn:mace:egi.eu:group:demo.fedcloud.egi.eu:role=member#aai.egi.eu"]
+
+        IM.check_oidc_token(im_auth)
+
+        self.assertEqual(im_auth['username'], InfrastructureInfo.OPENID_USER_PREFIX + "micafer")
+        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+
+        Config.OIDC_GROUPS = ["urn:mace:egi.eu:group:demo.fedcloud.egi.eu:role=INVALID#aai.egi.eu"]
+
+        with self.assertRaises(Exception) as ex:
+            IM.check_oidc_token(im_auth)
+        self.assertEqual(str(ex.exception),
+                         "Error trying to validate OIDC auth token: Invalid InfrastructureManager" +
+                         " credentials. User not in configured groups.")
+
+        Config.OIDC_GROUPS = []
+
     def test_inf_auth_with_token(self):
         im_auth = {"token": (self.gen_token())}
         im_auth['username'] = InfrastructureInfo.OPENID_USER_PREFIX + "micafer"
@@ -1487,6 +1517,47 @@ configure step2 (
                        'tenant': 'openid', 'auth_version': '3.x_oidc_access_token', 'vo': 'vo_name',
                        'host': 'https://ostsite.com:5000', 'domain': 'projectid'}, res.auth_list)
         self.assertIn({'type': 'InfrastructureManager', 'token': 'atoken'}, res.auth_list)
+
+    def test_estimate_resources(self):
+        radl = """"
+            network publica (outbound = 'yes')
+            network privada
+
+            system front (
+            cpu.count>=2 and
+            memory.size>=4g and
+            net_interface.0.connection = 'publica' and
+            net_interface.1.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.free_size >= 20GB and
+            disk.0.os.name = 'linux' and
+            disk.1.size=100GB and
+            disk.1.device='hdb' and
+            disk.1.fstype='ext4' and
+            disk.1.mount_path='/mnt/disk'
+            )
+
+            system wn (
+            cpu.count>=1 and
+            memory.size>=2g and
+            net_interface.0.connection = 'privada' and
+            disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.free_size >= 10GB and
+            disk.0.os.name = 'linux'
+            )
+
+            deploy front 1
+            deploy wn 1
+        """
+        res = IM.EstimateResouces(radl, self.getAuth([0], [], [("Dummy", 0)]))
+        self.assertEqual(res, {
+            'cloud0': {
+                'cloudType': 'Dummy',
+                'cloudEndpoint': 'http://server.com:80/path',
+                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4096, 'diskSizeInGigabytes': 20},
+                            {'cpuCores': 1, 'memoryInMegabytes': 2048, 'diskSizeInGigabytes': 10}],
+                'storage': [{'sizeInGigabytes': 100}]
+            }})
 
 
 if __name__ == "__main__":
