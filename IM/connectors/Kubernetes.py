@@ -20,6 +20,7 @@ import requests
 import time
 import os
 import re
+import socket
 from netaddr import IPNetwork, IPAddress
 try:
     from urlparse import urlparse
@@ -650,7 +651,7 @@ class KubernetesCloudConnector(CloudConnector):
             host_ip = str(pod_info["status"]["hostIP"])
             is_private = any([IPAddress(host_ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
             if is_private:
-                public_ips = [self.cloud.server]
+                public_ips = [socket.gethostbyname(self.cloud.server)]
             else:
                 public_ips = [host_ip]
         if 'podIP' in pod_info["status"]:
