@@ -1287,6 +1287,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         blockdevicemappings = self.get_volumes(driver, image, volume, radl)
 
+        if not self.get_private_nets(driver):
+            self.log_info("No private networks found. Force the creation.")
+            self.set_nets_to_create(radl)
+
         with inf._lock:
             self.create_networks(driver, radl, inf)
 
@@ -1381,6 +1385,31 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.log_exception("Error deleting networks.")
 
         return res
+
+    def get_private_nets(self, driver):
+        """
+        Return the list of private networks
+        """
+        res = []
+        pool_names = [pool.name for pool in driver.ex_list_floating_ip_pools()]
+        _, ost_nets = self.get_ost_network_info(driver, pool_names)
+        for net in ost_nets:
+            if net.name not in pool_names:
+                res.append(net)
+        return res
+
+    @staticmethod
+    def set_nets_to_create(radl):
+        """
+        Set the private networks to be created
+        """
+        i = 0
+        while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+            net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+            network = radl.get_network_by_id(net_name)
+            if not network.isPublic():
+                network.setValue('create', 'yes')
+            i += 1
 
     @staticmethod
     def get_ip_pool(driver, pool_name=None):
