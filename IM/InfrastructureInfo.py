@@ -600,7 +600,7 @@ class InfrastructureInfo:
             ctxt_task.append((-2, 0, self, ['check_vm_ips']))
             ctxt_task.append((-1, 0, self, ['wait_all_vm_ips']))
 
-            self.cont_out = "Contextualization disabled by the RADL.\n\n"
+            self.cont_out = "Contextualization disabled by the RADL/TOSCA template.\n\n"
             for vm in self.get_vm_list():
                 vm.configured = True
         else:
