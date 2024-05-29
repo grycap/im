@@ -727,7 +727,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             for net_name, ips in node.extra['addresses'].items():
                 for ipo in ips:
                     ip = ipo['addr']
-                    is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+                    if IPAddress(ip).version == 4:
+                        is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+                    else:
+                        is_private = IPAddress(ip).is_ipv6_unique_local()
 
                     if 'OS-EXT-IPS:type' in ipo and ipo['OS-EXT-IPS:type'] == 'floating':
                         ip_net_map[ip] = (None, not is_private)

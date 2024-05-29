@@ -269,6 +269,7 @@ class KubernetesCloudConnector(CloudConnector):
                     res.append((name, disk_size, disk_mount_path))
                 else:
                     self.log_error("Error creating PersistentVolumeClaim:" + name)
+                    self.error_messages += "Error creating PersistentVolumeClaim for pod %s" % name
 
             cont += 1
 

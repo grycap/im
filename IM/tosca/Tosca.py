@@ -468,13 +468,7 @@ class Tosca:
         """ Get all endpoint associated with a node """
         endpoints = []
 
-        # First add its own endpoints
-        node_caps = node.get_capabilities()
-        if node_caps:
-            if "endpoint" in node_caps and node_caps["endpoint"]:
-                endpoints.append(node_caps["endpoint"])
-
-        # Now other hosted nodes ones
+        # First add hosted nodes ones
         for other_node in nodetemplates:
             root_type = Tosca._get_root_parent_type(other_node).type
             compute = None
@@ -488,6 +482,12 @@ class Tosca:
                     root_type = Tosca._get_root_parent_type(cap).type
                     if root_type == "tosca.capabilities.Endpoint":
                         endpoints.append(cap)
+
+        # Then add its own endpoints
+        node_caps = node.get_capabilities()
+        if node_caps:
+            if "endpoint" in node_caps and node_caps["endpoint"]:
+                endpoints.append(node_caps["endpoint"])
 
         return endpoints
 
