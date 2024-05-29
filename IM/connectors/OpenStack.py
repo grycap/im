@@ -880,7 +880,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     # let's assume that is not public
                     ost_net.extra['is_public'] = False
 
-        return get_subnets, ost_nets
+        # set the networks with the default work in its name first
+        res = ([ost_net for ost_net in ost_nets if "default" in ost_net.name] +
+               [ost_net for ost_net in ost_nets if "default" not in ost_net.name])
+
+        return get_subnets, res
 
     @staticmethod
     def map_networks(radl, ost_nets):
