@@ -725,12 +725,19 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             ip_net_map = {}
 
             for net_name, ips in node.extra['addresses'].items():
+                # Check if the network is private using only IPv4 IP
+                is_private = None
                 for ipo in ips:
                     ip = ipo['addr']
                     if IPAddress(ip).version == 4:
                         is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
-                    else:
-                        is_private = IPAddress(ip).is_ipv6_unique_local()
+                if is_private is None:
+                    self.log_warn("Error getting network type for network %s. Asumming public." % net_name)
+                    is_private = False
+
+                # Now map the IPs
+                for ipo in ips:
+                    ip = ipo['addr']
 
                     if 'OS-EXT-IPS:type' in ipo and ipo['OS-EXT-IPS:type'] == 'floating':
                         ip_net_map[ip] = (None, not is_private)
