@@ -76,7 +76,7 @@ class AnsibleThread(Process):
     """
 
     def __init__(self, result, output, playbook_file, threads=1, pk_file=None, passwd=None, retries=1,
-                 inventory_file=None, user=None, vault_pass=None, extra_vars=None):
+                 inventory_file=None, user=None, vault_pass=None, extra_vars=None, timeout=20):
         super(AnsibleThread, self).__init__()
         self.playbook_file = playbook_file
         self.passwd = passwd
@@ -91,6 +91,7 @@ class AnsibleThread(Process):
         self.output = output
         self.result = result
         self.vault_pass = vault_pass
+        self.timeout = timeout
 
     def teminate(self):
         try:
@@ -222,6 +223,7 @@ class AnsibleThread(Process):
                                             inventory=self.inventory_file,
                                             private_key_file=self.pk_file,
                                             remote_user=self.user,
+                                            timeout=self.timeout,
                                             verbosity=0)
 
         Options = namedtuple('Options',
@@ -236,6 +238,7 @@ class AnsibleThread(Process):
                               'inventory',
                               'private_key_file',
                               'remote_user',
+                              'timeout',
                               'verbosity'])
         options = Options(connection='ssh',
                           module_path=None,
@@ -248,6 +251,7 @@ class AnsibleThread(Process):
                           inventory=self.inventory_file,
                           private_key_file=self.pk_file,
                           remote_user=self.user,
+                          timeout=self.timeout,
                           verbosity=0)
         return options
 
