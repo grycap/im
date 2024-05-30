@@ -1305,7 +1305,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_info("No private networks found. Force the creation.")
             self.set_nets_to_create(radl)
 
-        # TODO:
         if not driver.ex_list_floating_ip_pools():
             self.log_info("No floating IP pools found. Avoid the public VMs"
                           " to be attached to a private one.")
