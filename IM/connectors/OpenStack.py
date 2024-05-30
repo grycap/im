@@ -1305,6 +1305,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_info("No private networks found. Force the creation.")
             self.set_nets_to_create(radl)
 
+        if not driver.ex_list_floating_ip_pools():
+            self.log_info("No floating IP pools found. Avoid the public VMs"
+                          " to be attached to a private one.")
+            self.remove_private_nets(radl)
+
         with inf._lock:
             self.create_networks(driver, radl, inf)
 
@@ -1411,6 +1416,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if net.name not in pool_names:
                 res.append(net)
         return res
+
+    @staticmethod
+    def remove_private_nets(radl):
+        """
+        Remove the private networks
+        """
+        if radl.hasPublicNet(radl.systems[0].name):
+            i = 0
+            while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
+                net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
+                network = radl.get_network_by_id(net_name)
+                if not network.isPublic():
+                    radl.systems[0].remove_net_interface(i)
+                else:
+                    i += 1
 
     @staticmethod
     def set_nets_to_create(radl):
