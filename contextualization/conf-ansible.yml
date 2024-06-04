@@ -125,6 +125,8 @@
       pip:
         name: pip>18.0,<21.0
         executable: pip3
+        extra_args: --trusted-host files.pythonhosted.org --trusted-host pypi.org --trusted-ho
+st pypi.python.org
       when: ansible_python_version is version('3.7', '<')
 
     - name: Upgrade pip in py3.7-py3.8
