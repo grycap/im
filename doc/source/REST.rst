@@ -14,6 +14,8 @@ using "\\n" as separator. If the content cannot be parsed successfully, or the u
 password are not valid, it is returned the HTTP error code 401. In case that Vault
 support has been configured (:ref:`vault-creds`) also a Bearer authorization header
 is supported, using the same access token to authenticate with the Vault server.
+In case of using EGI Check-in authentication, see :ref:`egi-auth` to know how to get
+a valid token.
 
 Next tables summaries the resources and the HTTP methods available.
 
