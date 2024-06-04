@@ -125,6 +125,7 @@
       pip:
         name: pip>18.0,<21.0
         executable: pip3
+        # in some old distros we need to trust in the pypi to avoid SSL errors
         extra_args: --trusted-host files.pythonhosted.org --trusted-host pypi.org --trusted-host pypi.python.org
       when: ansible_python_version is version('3.7', '<')
 
