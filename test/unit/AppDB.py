@@ -3,6 +3,12 @@ try:
     from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
+
+import sys
+
+sys.path.append("..")
+sys.path.append(".")
+
 from IM.AppDB import AppDB
 from mock import patch, MagicMock
 

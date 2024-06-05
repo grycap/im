@@ -18,6 +18,10 @@
 
 import unittest
 import os
+import sys
+
+sys.path.append("..")
+sys.path.append(".")
 
 from IM.SSHRetry import SSHRetry, SSH
 from mock import patch, MagicMock
