@@ -81,16 +81,15 @@ def run(host, port):
         server.stop()
 
 
-
 def return_error(code, msg):
     content_type = get_media_type('Accept')
 
     if "application/json" in content_type:
-        return flask.make_response(json.dumps({'message': msg, 'code': code}), code, {'Content-Type': 'application/json'})
+        return flask.Response(json.dumps({'message': msg, 'code': code}), status=code, mimetype='application/json') 
     elif "text/html" in content_type:
-        return flask.make_response(HTML_ERROR_TEMPLATE % (code, code, msg), code, {'Content-Type': 'text/html'})
+        return flask.Response(HTML_ERROR_TEMPLATE % (code, code, msg), status=code, mimetype='text/html')
     else:
-        return flask.make_response(msg, code, {'Content-Type': 'text/plain'})
+        return flask.Response(msg, status=code, mimetype='text/plain')
 
 
 def stop():
@@ -861,7 +860,7 @@ def RESTReconfigureInfrastructure(infid=None):
 
         res = InfrastructureManager.Reconfigure(infid, radl_data, auth, vm_list)
         # As we have to reconfigure the infra, return the ID for the HAProxy stickiness
-        return flask.make_response(res, 200, {'Content-Type': 'text/plain'}, extra_headers={'InfID': infid})
+        return flask.make_response(res, 200, {'Content-Type': 'text/plain', 'InfID': infid})
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error reconfiguring infrastructure: %s" % get_ex_error(ex))
     except IncorrectInfrastructureException as ex:
@@ -891,16 +890,16 @@ def RESTOperateInfrastructure(infid=None, op=None):
             flask.abort(404)
         return flask.make_response(res, 200, {'Content-Type': 'text/plain'})
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error in %s operation in infrastructure: %s" % (op, get_ex_error(ex)))
+        return return_error(404, "Error in %s operation: %s" % (op, get_ex_error(ex)))
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error %s operation in infrastructure: %s" % (op, get_ex_error(ex)))
+        return return_error(404, "Error in %s operation: %s" % (op, get_ex_error(ex)))
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error %s operation in infrastructure: %s" % (op, get_ex_error(ex)))
+        return return_error(403, "Error in %s operation: %s" % (op, get_ex_error(ex)))
     except DisabledFunctionException as ex:
-        return return_error(403, "Error %s operation in infrastructure: %s" % (op, get_ex_error(ex)))
+        return return_error(403, "Error in %s operation: %s" % (op, get_ex_error(ex)))
     except Exception as ex:
-        logger.exception("Error %s operation in infrastructure" % op)
-        return return_error(400, "Error %s operation in infrastructure: %s" % (op, get_ex_error(ex)))
+        logger.exception("Error in %s operation" % op)
+        return return_error(400, "Error in %s operation: %s" % (op, get_ex_error(ex)))
 
 
 @app.route('/infrastructures/<infid>/vms/<vmid>/<op>', methods=['PUT'])
@@ -1080,19 +1079,19 @@ def RESTChangeInfrastructureAuth(infid=None):
 
 @app.errorhandler(403)
 def error_mesage_403(error):
-    return return_error(403, error.body)
+    return return_error(403, error.description)
 
 
 @app.errorhandler(404)
 def error_mesage_404(error):
-    return return_error(404, error.body)
+    return return_error(404, error.description)
 
 
 @app.errorhandler(405)
 def error_mesage_405(error):
-    return return_error(405, error.body)
+    return return_error(405, error.description)
 
 
 @app.errorhandler(500)
 def error_mesage_500(error):
-    return return_error(500, error.body)
+    return return_error(500, error.description)
