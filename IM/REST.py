@@ -72,9 +72,9 @@ def run(host, port):
     try:
         server = WSGIServer((host, port), PathInfoDispatcher({'/': app}))
         if Config.REST_SSL:
-            server.ssl_adapter =  BuiltinSSLAdapter(Config.REST_SSL_CERTFILE,
-                                                    Config.REST_SSL_KEYFILE,
-                                                    Config.REST_SSL_CA_CERTS)
+            server.ssl_adapter = BuiltinSSLAdapter(Config.REST_SSL_CERTFILE,
+                                                   Config.REST_SSL_KEYFILE,
+                                                   Config.REST_SSL_CA_CERTS)
 
         server.start()
     except KeyboardInterrupt:
@@ -85,7 +85,7 @@ def return_error(code, msg):
     content_type = get_media_type('Accept')
 
     if "application/json" in content_type:
-        return flask.Response(json.dumps({'message': msg, 'code': code}), status=code, mimetype='application/json') 
+        return flask.Response(json.dumps({'message': msg, 'code': code}), status=code, mimetype='application/json')
     elif "text/html" in content_type:
         return flask.Response(HTML_ERROR_TEMPLATE % (code, code, msg), status=code, mimetype='text/html')
     else:
@@ -420,7 +420,7 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
 @app.route('/infrastructures', methods=['GET'])
 def RESTGetInfrastructureList():
     try:
-       auth = get_auth_header()
+        auth = get_auth_header()
     except Exception:
         return return_error(401, "No authentication data provided")
 
@@ -731,7 +731,7 @@ def RESTAddResource(infid=None):
             extra_headers = {}
             # If we have to reconfigure the infra, return the ID for the HAProxy stickiness
             if context:
-                extra_headers={'InfID': infid}
+                extra_headers = {'InfID': infid}
             return format_output(res, "text/uri-list", "uri-list", "uri", extra_headers)
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error Adding resources: %s" % get_ex_error(ex))

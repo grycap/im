@@ -85,7 +85,7 @@ class TestREST(unittest.TestCase):
         headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                      "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                      "username = user; password = pass")}
-        
+
         GetInfrastructureInfo.return_value = ["1", "2"]
         res = self.client.get('/infrastructures/1', headers=headers)
         self.assertEqual(200, res.status_code)
@@ -213,16 +213,19 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res.text, "http://localhost/infrastructures/1")
 
         headers["Content-Type"] = "application/json"
-        res = self.client.post('/infrastructures', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.post('/infrastructures', headers=headers,
+                               data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "http://localhost/infrastructures/1")
 
         headers["Content-Type"] = "text/yaml"
-        res = self.client.post('/infrastructures', headers=headers, data=read_file_as_bytes("../files/tosca_simple.yml"))
+        res = self.client.post('/infrastructures', headers=headers,
+                               data=read_file_as_bytes("../files/tosca_simple.yml"))
         self.assertEqual(res.text, "http://localhost/infrastructures/1")
 
         headers["Content-Type"] = "application/json"
         # Test the dry_run option to get the estimation of the resources
-        res = self.client.post('/infrastructures?dry_run=yes', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.post('/infrastructures?dry_run=yes', headers=headers,
+                               data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.json, {"one": {"cloudType": "OpenNebula",
                                             "cloudEndpoint": "http://ramses.i3m.upv.es:2633",
                                             "compute": [{"cpuCores": 1, "memoryInMegabytes": 1024},
@@ -230,11 +233,13 @@ class TestREST(unittest.TestCase):
 
         headers["Content-Type"] = "application/json"
         CreateInfrastructure.side_effect = InvaliddUserException()
-        res = self.client.post('/infrastructures', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.post('/infrastructures', headers=headers,
+                               data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error Getting Inf. info: Invalid InfrastructureManager credentials")
 
         CreateInfrastructure.side_effect = UnauthorizedUserException()
-        res = self.client.post('/infrastructures', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.post('/infrastructures', headers=headers,
+                               data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error Creating Inf.: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
@@ -243,7 +248,7 @@ class TestREST(unittest.TestCase):
         headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                      "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
                                      "username = user; password = pass"),
-                    "Content-Type": "application/pdf", "Accept": "application/json"}
+                   "Content-Type": "application/pdf", "Accept": "application/json"}
 
         CreateInfrastructure.return_value = "1"
 
@@ -338,24 +343,29 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res.text, "http://localhost/infrastructures/1/vms/1")
 
         headers["Content-Type"] = "application/json"
-        res = self.client.post('/infrastructures/1', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.post('/infrastructures/1', headers=headers,
+                               data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "http://localhost/infrastructures/1/vms/1")
 
         headers["Content-Type"] = "text/yaml"
-        res = self.client.post('/infrastructures/1', headers=headers, data=read_file_as_bytes("../files/tosca_simple.yml"))
+        res = self.client.post('/infrastructures/1', headers=headers,
+                               data=read_file_as_bytes("../files/tosca_simple.yml"))
         self.assertEqual(res.text, "http://localhost/infrastructures/1/vms/1")
 
         headers["Content-Type"] = "application/json"
         AddResource.side_effect = DeletedInfrastructureException()
-        res = self.client.post('/infrastructures/1', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.post('/infrastructures/1', headers=headers,
+                               data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error Adding resources: Deleted infrastructure.")
 
         AddResource.side_effect = IncorrectInfrastructureException()
-        res = self.client.post('/infrastructures/1', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.post('/infrastructures/1', headers=headers,
+                               data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error Adding resources: Invalid infrastructure ID or access not granted.")
 
         AddResource.side_effect = UnauthorizedUserException()
-        res = self.client.post('/infrastructures/1', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.post('/infrastructures/1', headers=headers,
+                               data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error Adding resources: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.RemoveResource")
@@ -403,31 +413,38 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res.text, "vm_info")
 
         headers["Content-Type"] = "text/yaml"
-        res = self.client.put('/infrastructures/1/vms/1', headers=headers, data=read_file_as_bytes("../files/tosca_simple.yml"))
+        res = self.client.put('/infrastructures/1/vms/1', headers=headers,
+                              data=read_file_as_bytes("../files/tosca_simple.yml"))
         self.assertEqual(res.text, "vm_info")
 
         headers["Content-Type"] = "application/json"
-        res = self.client.put('/infrastructures/1/vms/1', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.put('/infrastructures/1/vms/1', headers=headers,
+                              data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "vm_info")
 
         AlterVM.side_effect = DeletedInfrastructureException()
-        res = self.client.put('/infrastructures/1/vms/1', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.put('/infrastructures/1/vms/1', headers=headers,
+                              data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error modifying resources: Deleted infrastructure.")
 
         AlterVM.side_effect = IncorrectInfrastructureException()
-        res = self.client.put('/infrastructures/1/vms/1', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.put('/infrastructures/1/vms/1', headers=headers,
+                              data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error modifying resources: Invalid infrastructure ID or access not granted.")
 
         AlterVM.side_effect = UnauthorizedUserException()
-        res = self.client.put('/infrastructures/1/vms/1', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.put('/infrastructures/1/vms/1', headers=headers,
+                              data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error modifying resources: Access to this infrastructure not granted.")
 
         AlterVM.side_effect = DeletedVMException()
-        res = self.client.put('/infrastructures/1/vms/1', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.put('/infrastructures/1/vms/1', headers=headers,
+                              data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error modifying resources: Deleted VM.")
 
         AlterVM.side_effect = IncorrectVMException()
-        res = self.client.put('/infrastructures/1/vms/1', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.put('/infrastructures/1/vms/1', headers=headers,
+                              data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error modifying resources: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.Reconfigure")
@@ -443,19 +460,24 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res.text, "")
 
         headers["Content-Type"] = "application/json"
-        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
+                              headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "")
 
         Reconfigure.side_effect = DeletedInfrastructureException()
-        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
+                              headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error reconfiguring infrastructure: Deleted infrastructure.")
 
         Reconfigure.side_effect = IncorrectInfrastructureException()
-        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error reconfiguring infrastructure: Invalid infrastructure ID or access not granted.")
+        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
+                              headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        self.assertEqual(res.text, ("Error reconfiguring infrastructure: " +
+                                    "Invalid infrastructure ID or access not granted."))
 
         Reconfigure.side_effect = UnauthorizedUserException()
-        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2', headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
+        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
+                              headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.text, "Error reconfiguring infrastructure: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.StartInfrastructure")
@@ -786,7 +808,7 @@ class TestREST(unittest.TestCase):
         res = self.client.post('/infrastructures/infid/authorization?overwrite=yes',
                                headers=headers, data=b'{"username": "new_user", "password": "new_pass"}')
         self.assertEqual(res.text, "")
-        
+
         self.assertEqual(ChangeInfrastructureAuth.call_args_list[0][0][0], "infid")
         self.assertEqual(ChangeInfrastructureAuth.call_args_list[0][0][1].auth_list, [{"type": "InfrastructureManager",
                                                                                        "username": "new_user",
@@ -794,7 +816,7 @@ class TestREST(unittest.TestCase):
         self.assertEqual(ChangeInfrastructureAuth.call_args_list[0][0][2], True)
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureOwners")
-    def test_GetInfrastructureOwners(self,  GetInfrastructureOwners):
+    def test_GetInfrastructureOwners(self, GetInfrastructureOwners):
         """Test REST StopInfrastructure."""
         headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                      "id = one; type = OpenNebula; host = onedock.i3m.upv.es:2633; "
