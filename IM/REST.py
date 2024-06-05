@@ -261,6 +261,7 @@ def enable_cors(response):
         response.headers['Access-Control-Allow-Origin'] = Config.CORS_ORIGIN
         response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, Authorization'
+    return response
 
 
 @app.route('/infrastructures/<infid>', methods=['DELETE'])
@@ -420,7 +421,7 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
 @app.route('/infrastructures', methods=['GET'])
 def RESTGetInfrastructureList():
     try:
-        auth = get_auth_header()
+       auth = get_auth_header()
     except Exception:
         return return_error(401, "No authentication data provided")
 
@@ -875,7 +876,7 @@ def RESTReconfigureInfrastructure(infid=None):
 
 
 @app.route('/infrastructures/<infid>/<op>', methods=['PUT'])
-def RESTStartInfrastructure(infid=None, op=None):
+def RESTOperateInfrastructure(infid=None, op=None):
     try:
         auth = get_auth_header()
     except Exception:
@@ -902,8 +903,8 @@ def RESTStartInfrastructure(infid=None, op=None):
         return return_error(400, "Error %s operation in infrastructure: %s" % (op, get_ex_error(ex)))
 
 
-@app.route('/infrastructures/<infid>/vms/<vmid>/<op>', method='PUT')
-def RESTStartVM(infid=None, vmid=None, op=None):
+@app.route('/infrastructures/<infid>/vms/<vmid>/<op>', methods=['PUT'])
+def RESTOperateVM(infid=None, vmid=None, op=None):
     try:
         auth = get_auth_header()
     except Exception:
@@ -941,7 +942,7 @@ def ReturnOptions(**kwargs):
     return {}
 
 
-@app.route('/version', method='GET')
+@app.route('/version')
 def RESTGetVersion():
     try:
         from IM import __version__ as version
