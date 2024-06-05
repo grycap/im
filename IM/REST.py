@@ -191,7 +191,7 @@ def format_output_json(res, field_name=None, list_field_name=None):
     return json.dumps(res_dict)
 
 
-def format_output(res, default_type="text/plain", field_name=None, list_field_name=None, extra_headers={}):
+def format_output(res, default_type="text/plain", field_name=None, list_field_name=None, extra_headers=None):
     """
     Format the output of the API responses
     """
@@ -234,7 +234,8 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
 
         if content_type:
             headers = {'Content-Type': content_type}
-            headers.update(extra_headers)
+            if extra_headers:
+                headers.update(extra_headers)
             return flask.make_response(info, 200, headers)
         else:
             return return_error(415, "Unsupported Accept Media Types: %s" % ",".join(accept))
@@ -247,7 +248,8 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
             else:
                 info = "%s" % res
         headers = {'Content-Type': default_type}
-        headers.update(extra_headers)
+        if extra_headers:
+            headers.update(extra_headers)
         return flask.make_response(info, 200, {'Content-Type': default_type})
 
 

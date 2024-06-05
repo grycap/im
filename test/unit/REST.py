@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import json
 import unittest
 import sys
 from io import BytesIO
@@ -30,14 +29,13 @@ from radl.radl_parse import parse_radl
 sys.path.append("..")
 sys.path.append(".")
 
-from IM.config import Config
 from IM import __version__ as version
 from IM.InfrastructureManager import (DeletedInfrastructureException,
                                       IncorrectInfrastructureException,
                                       UnauthorizedUserException,
                                       InvaliddUserException)
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
-from IM.REST import app, return_error, format_output
+from IM.REST import app
 
 
 def read_file_as_bytes(file_name):
@@ -199,7 +197,8 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res.text, "Error Destroying Inf: Invalid State to perform this operation.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
-    def test_CreateInfrastructure(self, CreateInfrastructure):
+    @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
+    def test_CreateInfrastructure(self, get_infrastructure, CreateInfrastructure):
         """Test REST CreateInfrastructure."""
         headers = {"AUTHORIZATION": ("type = InfrastructureManager; username = user; password = pass\\n"
                                      "id = one; type = OpenNebula; host = ramses.i3m.upv.es:2633; "
