@@ -1,7 +1,10 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:24.04
+
+ENV VERSION=1.17.0
+
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.17.0"
+LABEL version="${VERSION}"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -14,14 +17,15 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3-setupto
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
      pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==6.7.0&& \
      pip3 install git+https://github.com/micafer/libcloud@ost_nets_extra && \
-     pip3 install urllib3==1.26.18 IM==1.17.0 && \
+     pip3 install urllib3==1.26.18 IM==${VERSION} && \
      apt-get purge -y python3-pip git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Copy im configuration files
 RUN mkdir /etc/im
-COPY im.cfg /etc/im/im.cfg
-COPY logging.conf /etc/im/logging.conf
+RUN mkdir /var/log/im
+RUN wget https://raw.githubusercontent.com/grycap/im/v${VERSION}/etc/im.cfg -O /etc/im/im.cfg
+RUN wget https://raw.githubusercontent.com/grycap/im/v${VERSION}/etc/logging.conf -O /etc/im/logging.conf
 
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg

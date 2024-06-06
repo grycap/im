@@ -21,8 +21,9 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3-setupto
 
 # Copy im configuration files
 RUN mkdir /etc/im
-COPY im.cfg /etc/im/im.cfg
-COPY logging.conf /etc/im/logging.conf
+RUN wget https://raw.githubusercontent.com/grycap/im/${BRANCH}/etc/im.cfg -O /etc/im/im.cfg
+RUN wget https://raw.githubusercontent.com/grycap/im/${BRANCH}/etc/logging.conf -O /etc/im/logging.conf
+
 
 # Set the VM_NUM_USE_CTXT_DIST to 3 for the tests
 RUN sed -i -e 's/VM_NUM_USE_CTXT_DIST = 30/VM_NUM_USE_CTXT_DIST = 3/g' /etc/im/im.cfg
