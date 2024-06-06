@@ -99,7 +99,7 @@ paths:
           in: query
           description: >-
             The async parameter is optional and is a flag to specify if the call
-            will not wait the VMs to be created. 
+            will not wait for the VMs to be created.
           required: false
           schema:
             type: string

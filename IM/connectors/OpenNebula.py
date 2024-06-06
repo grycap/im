@@ -1069,7 +1069,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         if not success:
             return (False, info)
 
-        # TODO: wait the VM to be running
+        # TODO: wait for the VM to be running
         time.sleep(5)
 
         success, info = self.attach_new_disks(vm, system, session_id)
