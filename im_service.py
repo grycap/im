@@ -367,14 +367,14 @@ def im_stop():
     Function to safely stop the service
     """
     try:
-        # Assure that the IM data are correctly saved
-        InfrastructureManager.logger.info('Stopping Infrastructure Manager daemon...')
-        InfrastructureManager.stop()
-
         if Config.ACTIVATE_REST:
             # we have to stop the REST server
             import IM.REST
             IM.REST.stop()
+
+        # Assure that the IM data are correctly saved
+        InfrastructureManager.logger.info('Stopping Infrastructure Manager daemon...')
+        InfrastructureManager.stop()
     except Exception:
         InfrastructureManager.logger.exception("Error stopping Infrastructure Manager daemon")
 

@@ -465,8 +465,10 @@ So the auth line will be like that::
 
    id = ost; type = OpenStack; host = https://ostserver:5000; username = indigo-dc; tenant = oidc; password = iam_token_value; auth_version = 3.x_oidc_access_token
 
-EGI FedCloud specific parameters
-*******************************
+.. _egi-auth:
+
+EGI Cloud Compute specific parameters
+*************************************
 
 To use the EGI CheckIn to authenticate with a Keystone server properly configured the parameters are the following (see
 more info at `EGI Documentation <https://docs.egi.eu/users/cloud-compute/openstack/#authentication>`_):
@@ -486,8 +488,21 @@ From IM version 1.10.2 the EGI connector is available and you can also use this 
    id = egi; type = EGI; host = CESGA; vo = vo.access.egi.eu; token = egi_aai_token_value
 
 In this case the information needed to access the OpenStack API of the EGI FedCloud site will be obtained from
-`AppDB REST API <https://appdb.egi.eu/rest/1.0>`_). This connector is recommended for non advanced users. If you
+`AppDB REST API <https://appdb.egi.eu/rest/1.0>`_. This connector is recommended for non advanced users. If you
 can get the data to access the OpenStack API directly it is recommened to use it.
+
+There are several ways to get the EGI AAI token:
+
+* One of them is using the `oidc-agent <https://github.com/indigo-dc/oidc-agent>`_, configuring the
+  `EGI CheckIn as a provider <https://indigo-dc.gitbook.io/oidc-agent/user/oidc-gen/provider/egi>`_.
+  Then you can get the token using the command keyworkd in the auth file::
+
+   token = command(oidc-token OIDC_ACCOUNT)
+
+* Another way is using the IM-Dashboard (:ref:`use-dashboard`). In the "Advanced" menu, the "Settings"
+  item enables getting the some configuration settings as the OIDC issuer or the current user's
+  access token.
+
 
 Open Telekom Cloud
 ++++++++++++++++++

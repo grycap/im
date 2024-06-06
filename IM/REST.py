@@ -18,8 +18,11 @@ import logging
 import threading
 import json
 import base64
-import bottle
+import flask
 
+from cheroot.wsgi import Server as WSGIServer, PathInfoDispatcher
+from cheroot.ssl.builtin import BuiltinSSLAdapter
+from werkzeug.middleware.proxy_fix import ProxyFix
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
 from IM.InfrastructureManager import (InfrastructureManager, DeletedInfrastructureException,
                                       IncorrectInfrastructureException, UnauthorizedUserException,
@@ -53,121 +56,41 @@ HTML_ERROR_TEMPLATE = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 """
 
 REST_URL = None
-
-app = bottle.Bottle()
-bottle_server = None
-
-# Declaration of new class that inherits from ServerAdapter
-# It's almost equal to the supported cherrypy class CherryPyServer
-
-
-class MySSLCherryPy(bottle.ServerAdapter):
-
-    def run(self, handler):
-        try:
-            # First try to use the new version
-            from cheroot.ssl.pyopenssl import pyOpenSSLAdapter
-            from cheroot import wsgi
-            server = wsgi.Server((self.host, self.port), handler, request_queue_size=32)
-        except Exception:
-            from cherrypy.wsgiserver.ssl_pyopenssl import pyOpenSSLAdapter
-            from cherrypy import wsgiserver
-            server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
-
-        self.srv = server
-
-        # If cert variable is has a valid path, SSL will be used
-        # You can set it to None to disable SSL
-        server.ssl_adapter = pyOpenSSLAdapter(Config.REST_SSL_CERTFILE,
-                                              Config.REST_SSL_KEYFILE,
-                                              Config.REST_SSL_CA_CERTS)
-        try:
-            server.start()
-        finally:
-            server.stop()
-
-    def shutdown(self):
-        self.srv.stop()
-
-
-class MyCherryPy(bottle.ServerAdapter):
-
-    def run(self, handler):
-        try:
-            # First try to use the new version
-            from cheroot import wsgi
-            server = wsgi.Server((self.host, self.port), handler, request_queue_size=32)
-        except Exception:
-            from cherrypy import wsgiserver
-            server = wsgiserver.CherryPyWSGIServer((self.host, self.port), handler, request_queue_size=32)
-
-        self.srv = server
-        try:
-            server.start()
-        finally:
-            server.stop()
-
-    def shutdown(self):
-        self.srv.stop()
+app = flask.Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
+flask_server = None
 
 
 def run_in_thread(host, port):
-    bottle_thr = threading.Thread(target=run, args=(host, port))
-    bottle_thr.daemon = True
-    bottle_thr.start()
+    flask_thr = threading.Thread(target=run, args=(host, port))
+    flask_thr.daemon = True
+    flask_thr.start()
 
 
 def run(host, port):
-    global bottle_server
+    global flask_server
+    flask_server = WSGIServer((host, port), PathInfoDispatcher({'/': app}))
     if Config.REST_SSL:
-        # Add our new MySSLCherryPy class to the supported servers
-        # under the key 'mysslcherrypy'
-        bottle_server = MySSLCherryPy(host=host, port=port)
-        bottle.run(app, host=host, port=port, server=bottle_server, quiet=True)
-    else:
-        bottle_server = MyCherryPy(host=host, port=port)
-        bottle.run(app, server=bottle_server, quiet=True)
+        flask_server.ssl_adapter = BuiltinSSLAdapter(Config.REST_SSL_CERTFILE,
+                                                     Config.REST_SSL_KEYFILE,
+                                                     Config.REST_SSL_CA_CERTS)
+    flask_server.start()
 
 
 def return_error(code, msg):
     content_type = get_media_type('Accept')
 
     if "application/json" in content_type:
-        bottle.response.status = code
-        bottle.response.content_type = "application/json"
-        return json.dumps({'message': msg, 'code': code})
+        return flask.Response(json.dumps({'message': msg, 'code': code}), status=code, mimetype='application/json')
     elif "text/html" in content_type:
-        bottle.response.status = code
-        bottle.response.content_type = "text/html"
-        return HTML_ERROR_TEMPLATE % (code, code, msg)
+        return flask.Response(HTML_ERROR_TEMPLATE % (code, code, msg), status=code, mimetype='text/html')
     else:
-        bottle.response.status = code
-        bottle.response.content_type = 'text/plain'
-        return msg
-
-
-def get_full_url(path):
-    """
-    Get the full URL to be returned by the API calls
-    """
-    protocol = "http://"
-    if Config.REST_SSL:
-        protocol = "https://"
-
-    # if it is a forwarded call use the original protocol
-    if 'HTTP_X_FORWARDED_PROTO' in bottle.request.environ and bottle.request.environ['HTTP_X_FORWARDED_PROTO']:
-        protocol = bottle.request.environ['HTTP_X_FORWARDED_PROTO'] + "://"
-
-    # if it is a forwarded call add the original prefix
-    if 'HTTP_X_FORWARDED_PREFIX' in bottle.request.environ and bottle.request.environ['HTTP_X_FORWARDED_PREFIX']:
-        path = bottle.request.environ['HTTP_X_FORWARDED_PREFIX'].rstrip('/') + path
-
-    return protocol + bottle.request.environ['HTTP_HOST'] + path
+        return flask.Response(msg, status=code, mimetype='text/plain')
 
 
 def stop():
-    if bottle_server:
-        bottle_server.shutdown()
+    logger.info('Stopping REST API server...')
+    flask_server.stop()
 
 
 def get_media_type(header):
@@ -176,7 +99,7 @@ def get_media_type(header):
     Returns a List of strings.
     """
     res = []
-    accept = bottle.request.headers.get(header)
+    accept = flask.request.headers.get(header)
     if accept:
         media_types = accept.split(",")
         for media_type in media_types:
@@ -199,9 +122,9 @@ def get_auth_header():
     # Initialize REST_URL
     global REST_URL
     if REST_URL is None:
-        REST_URL = get_full_url("")
+        REST_URL = flask.request.url_root
 
-    auth_header = bottle.request.headers['AUTHORIZATION']
+    auth_header = flask.request.headers['AUTHORIZATION']
 
     user_pass = None
     token = None
@@ -265,76 +188,71 @@ def format_output_json(res, field_name=None, list_field_name=None):
     return json.dumps(res_dict)
 
 
-def format_output(res, default_type="text/plain", field_name=None, list_field_name=None):
+def format_output(res, default_type="text/plain", field_name=None, list_field_name=None, extra_headers=None):
     """
     Format the output of the API responses
     """
     accept = get_media_type('Accept')
 
-    if accept:
-        content_type = None
-        for accept_item in accept:
-            if accept_item in ["application/json", "application/*"]:
-                if isinstance(res, RADL):
-                    if field_name:
-                        res_dict = {field_name: radlToSimple(res)}
-                        info = json.dumps(res_dict)
-                    else:
-                        info = dump_radl_json(res, enter="", indent="")
-                # This is the case of the "contains" properties
-                elif isinstance(res, dict) and all(isinstance(x, Feature) for x in res.values()):
-                    features = Features()
-                    features.props = res
-                    res_dict = featuresToSimple(features)
-                    if field_name:
-                        res_dict = {field_name: res_dict}
+    if not accept:
+        accept = [default_type]
+
+    content_type = None
+    for accept_item in accept:
+        if accept_item in ["application/json", "application/*"]:
+            if isinstance(res, RADL):
+                if field_name:
+                    res_dict = {field_name: radlToSimple(res)}
                     info = json.dumps(res_dict)
                 else:
-                    # Always return a complex object to make easier parsing
-                    # steps
-                    info = format_output_json(res, field_name, list_field_name)
-                content_type = "application/json"
-                break
-            elif accept_item in [default_type, "*/*", "text/*"]:
-                if default_type == "application/json":
-                    info = format_output_json(res, field_name, list_field_name)
-                else:
-                    if isinstance(res, list):
-                        info = "\n".join(res)
-                    else:
-                        info = "%s" % res
-                content_type = default_type
-                break
-
-        if content_type:
-            bottle.response.content_type = content_type
-        else:
-            return return_error(415, "Unsupported Accept Media Types: %s" % ",".join(accept))
-    else:
-        if default_type == "application/json":
-            info = format_output_json(res, field_name, list_field_name)
-        else:
-            if isinstance(res, list):
-                info = "\n".join(res)
+                    info = dump_radl_json(res, enter="", indent="")
+            # This is the case of the "contains" properties
+            elif isinstance(res, dict) and all(isinstance(x, Feature) for x in res.values()):
+                features = Features()
+                features.props = res
+                res_dict = featuresToSimple(features)
+                if field_name:
+                    res_dict = {field_name: res_dict}
+                info = json.dumps(res_dict)
             else:
-                info = "%s" % res
-        bottle.response.content_type = default_type
+                # Always return a complex object to make easier parsing
+                # steps
+                info = format_output_json(res, field_name, list_field_name)
+            content_type = "application/json"
+            break
+        elif accept_item in [default_type, "*/*", "text/*"]:
+            if default_type == "application/json":
+                info = format_output_json(res, field_name, list_field_name)
+            else:
+                if isinstance(res, list):
+                    info = "\n".join(res)
+                else:
+                    info = "%s" % res
+            content_type = default_type
+            break
 
-    return info
+    if content_type:
+        headers = {'Content-Type': content_type}
+        if extra_headers:
+            headers.update(extra_headers)
+        return flask.make_response(info, 200, headers)
+    else:
+        return return_error(415, "Unsupported Accept Media Types: %s" % ",".join(accept))
 
 
-@app.hook('after_request')
-def enable_cors():
+@app.after_request
+def enable_cors(response):
     """
     Enable CORS to javascript SDK
     """
     if Config.ENABLE_CORS:
-        bottle.response.headers['Access-Control-Allow-Origin'] = Config.CORS_ORIGIN
-        bottle.response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
-        bottle.response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Origin'] = Config.CORS_ORIGIN
+        response.headers['Access-Control-Allow-Methods'] = 'PUT, GET, POST, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, Authorization'
+    return response
 
 
-@app.route('/infrastructures/:infid', method='DELETE')
+@app.route('/infrastructures/<infid>', methods=['DELETE'])
 def RESTDestroyInfrastructure(infid=None):
     try:
         auth = get_auth_header()
@@ -343,8 +261,8 @@ def RESTDestroyInfrastructure(infid=None):
 
     try:
         force = False
-        if "force" in bottle.request.params.keys():
-            str_force = bottle.request.params.get("force").lower()
+        if "force" in flask.request.args.keys():
+            str_force = flask.request.args.get("force").lower()
             if str_force in ['yes', 'true', '1']:
                 force = True
             elif str_force in ['no', 'false', '0']:
@@ -353,8 +271,8 @@ def RESTDestroyInfrastructure(infid=None):
                 return return_error(400, "Incorrect value in force parameter")
 
         async_call = False
-        if "async" in bottle.request.params.keys():
-            str_ctxt = bottle.request.params.get("async").lower()
+        if "async" in flask.request.args.keys():
+            str_ctxt = flask.request.args.get("async").lower()
             if str_ctxt in ['yes', 'true', '1']:
                 async_call = True
             elif str_ctxt in ['no', 'false', '0']:
@@ -363,8 +281,7 @@ def RESTDestroyInfrastructure(infid=None):
                 return return_error(400, "Incorrect value in async parameter")
 
         InfrastructureManager.DestroyInfrastructure(infid, auth, force, async_call)
-        bottle.response.content_type = "text/plain"
-        return ""
+        return flask.make_response("", 200, {'Content-Type': 'text/plain'})
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error Destroying Inf: %s" % get_ex_error(ex))
     except IncorrectInfrastructureException as ex:
@@ -380,7 +297,7 @@ def RESTDestroyInfrastructure(infid=None):
         return return_error(400, "Error Destroying Inf: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid', method='GET')
+@app.route('/infrastructures/<infid>', methods=['GET'])
 def RESTGetInfrastructureInfo(infid=None):
     try:
         auth = get_auth_header()
@@ -392,7 +309,7 @@ def RESTGetInfrastructureInfo(infid=None):
         res = []
 
         for vm_id in vm_ids:
-            res.append(get_full_url('/infrastructures/' + str(infid) + '/vms/' + str(vm_id)))
+            res.append("%sinfrastructures/%s/vms/%s" % (flask.request.url_root, infid, vm_id))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except DeletedInfrastructureException as ex:
@@ -406,7 +323,7 @@ def RESTGetInfrastructureInfo(infid=None):
         return return_error(400, "Error Getting Inf. info: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid/:prop', method='GET')
+@app.route('/infrastructures/<infid>/<prop>')
 def RESTGetInfrastructureProperty(infid=None, prop=None):
     try:
         auth = get_auth_header()
@@ -416,8 +333,8 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
     try:
         if prop == "contmsg":
             headeronly = False
-            if "headeronly" in bottle.request.params.keys():
-                str_headeronly = bottle.request.params.get("headeronly").lower()
+            if "headeronly" in flask.request.args.keys():
+                str_headeronly = flask.request.args.get("headeronly").lower()
                 if str_headeronly in ['yes', 'true', '1']:
                     headeronly = True
                 elif str_headeronly in ['no', 'false', '0']:
@@ -432,33 +349,28 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
             accept = get_media_type('Accept')
             if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
                 return return_error(415, "Unsupported Accept Media Types: %s" % accept)
-            bottle.response.content_type = "application/json"
             auth = InfrastructureManager.check_auth_data(auth)
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
             if "TOSCA" in sel_inf.extra_info:
                 res = sel_inf.extra_info["TOSCA"].serialize()
             else:
-                bottle.abort(
-                    403, "'tosca' infrastructure property is not valid in this infrastructure")
+                flask.abort(403, "'tosca' infrastructure property is not valid in this infrastructure")
         elif prop == "state":
             accept = get_media_type('Accept')
             if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
                 return return_error(415, "Unsupported Accept Media Types: %s" % accept)
-            bottle.response.content_type = "application/json"
             res = InfrastructureManager.GetInfrastructureState(infid, auth)
             return format_output(res, default_type="application/json", field_name="state")
         elif prop == "outputs":
             accept = get_media_type('Accept')
             if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
                 return return_error(415, "Unsupported Accept Media Types: %s" % accept)
-            bottle.response.content_type = "application/json"
             auth = InfrastructureManager.check_auth_data(auth)
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
             if "TOSCA" in sel_inf.extra_info:
                 res = sel_inf.extra_info["TOSCA"].get_outputs(sel_inf)
             else:
-                bottle.abort(
-                    403, "'outputs' infrastructure property is not valid in this infrastructure")
+                flask.abort(403, "'outputs' infrastructure property is not valid in this infrastructure")
             return format_output(res, default_type="application/json", field_name="outputs")
         elif prop == "data":
             accept = get_media_type('Accept')
@@ -466,8 +378,8 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
                 return return_error(415, "Unsupported Accept Media Types: %s" % accept)
 
             delete = False
-            if "delete" in bottle.request.params.keys():
-                str_delete = bottle.request.params.get("delete").lower()
+            if "delete" in flask.request.args.keys():
+                str_delete = flask.request.args.get("delete").lower()
                 if str_delete in ['yes', 'true', '1']:
                     delete = True
                 elif str_delete in ['no', 'false', '0']:
@@ -494,7 +406,7 @@ def RESTGetInfrastructureProperty(infid=None, prop=None):
         return return_error(400, "Error Getting Inf. prop: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures', method='GET')
+@app.route('/infrastructures', methods=['GET'])
 def RESTGetInfrastructureList():
     try:
         auth = get_auth_header()
@@ -503,14 +415,14 @@ def RESTGetInfrastructureList():
 
     try:
         flt = None
-        if "filter" in bottle.request.params.keys():
-            flt = bottle.request.params.get("filter")
+        if "filter" in flask.request.args.keys():
+            flt = flask.request.args.get("filter")
 
         inf_ids = InfrastructureManager.GetInfrastructureList(auth, flt)
         res = []
 
         for inf_id in inf_ids:
-            res.append(get_full_url('/infrastructures/%s' % inf_id))
+            res.append("%sinfrastructures/%s" % (flask.request.url_root, inf_id))
 
         return format_output(res, "text/uri-list", "uri-list", "uri")
     except InvaliddUserException as ex:
@@ -520,7 +432,7 @@ def RESTGetInfrastructureList():
         return return_error(400, "Error Getting Inf. List: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures', method='POST')
+@app.route('/infrastructures', methods=['POST'])
 def RESTCreateInfrastructure():
     try:
         auth = get_auth_header()
@@ -529,12 +441,12 @@ def RESTCreateInfrastructure():
 
     try:
         content_type = get_media_type('Content-Type')
-        radl_data = bottle.request.body.read().decode("utf-8")
+        radl_data = flask.request.data.decode("utf-8")
         tosca_data = None
 
         async_call = False
-        if "async" in bottle.request.params.keys():
-            str_async = bottle.request.params.get("async").lower()
+        if "async" in flask.request.args.keys():
+            str_async = flask.request.args.get("async").lower()
             if str_async in ['yes', 'true', '1']:
                 async_call = True
             elif str_async in ['no', 'false', '0']:
@@ -543,8 +455,8 @@ def RESTCreateInfrastructure():
                 return return_error(400, "Incorrect value in async parameter")
 
         dry_run = False
-        if "dry_run" in bottle.request.params.keys():
-            str_dry_run = bottle.request.params.get("dry_run").lower()
+        if "dry_run" in flask.request.args.keys():
+            str_dry_run = flask.request.args.get("dry_run").lower()
             if str_dry_run in ['yes', 'true', '1']:
                 dry_run = True
             elif str_dry_run in ['no', 'false', '0']:
@@ -574,11 +486,8 @@ def RESTCreateInfrastructure():
                 sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
                 sel_inf.extra_info['TOSCA'] = tosca_data
 
-            bottle.response.headers['InfID'] = inf_id
-            bottle.response.content_type = "text/uri-list"
-            res = get_full_url('/infrastructures/%s' % inf_id)
-
-            return format_output(res, "text/uri-list", "uri")
+            res = "%sinfrastructures/%s" % (flask.request.url_root, inf_id)
+            return format_output(res, "text/uri-list", "uri", extra_headers={'InfID': inf_id})
     except InvaliddUserException as ex:
         return return_error(401, "Error Getting Inf. info: %s" % get_ex_error(ex))
     except DisabledFunctionException as ex:
@@ -588,7 +497,7 @@ def RESTCreateInfrastructure():
         return return_error(400, "Error Creating Inf.: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures', method='PUT')
+@app.route('/infrastructures', methods=['PUT'])
 def RESTImportInfrastructure():
     try:
         auth = get_auth_header()
@@ -597,7 +506,7 @@ def RESTImportInfrastructure():
 
     try:
         content_type = get_media_type('Content-Type')
-        data = bottle.request.body.read().decode("utf-8")
+        data = flask.request.data.decode("utf-8")
 
         if content_type:
             if "application/json" not in content_type:
@@ -605,8 +514,7 @@ def RESTImportInfrastructure():
 
         new_id = InfrastructureManager.ImportInfrastructure(data, auth)
 
-        bottle.response.content_type = "text/uri-list"
-        res = get_full_url('/infrastructures/%s' % new_id)
+        res = "%sinfrastructures/%s" % (flask.request.url_root, new_id)
 
         return format_output(res, "text/uri-list", "uri")
     except InvaliddUserException as ex:
@@ -618,7 +526,7 @@ def RESTImportInfrastructure():
         return return_error(400, "Error Impporting Inf.: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid/vms/:vmid', method='GET')
+@app.route('/infrastructures/<infid>/vms/<vmid>', methods=['GET'])
 def RESTGetVMInfo(infid=None, vmid=None):
     try:
         auth = get_auth_header()
@@ -643,7 +551,7 @@ def RESTGetVMInfo(infid=None, vmid=None):
         return return_error(400, "Error Getting VM info: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid/vms/:vmid/:prop', method='GET')
+@app.route('/infrastructures/<infid>/vms/<vmid>/<prop>', methods=['GET'])
 def RESTGetVMProperty(infid=None, vmid=None, prop=None):
     try:
         auth = get_auth_header()
@@ -658,11 +566,11 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
 
             step = 1
-            if "step" in bottle.request.params.keys():
-                step = int(bottle.request.params.get("step"))
+            if "step" in flask.request.args.keys():
+                step = int(flask.request.args.get("step"))
 
             if step == 1:
-                url = get_full_url('/infrastructures/' + str(infid) + '/vms/' + str(vmid) + '/command?step=2')
+                url = "%sinfrastructures/%s/vms/%s/command?step=2" % (flask.request.url_root, infid, vmid)
                 auth = sel_inf.auth.getAuthInfo("InfrastructureManager")[0]
                 if 'token' in auth:
                     imauth = "token = %s" % auth['token']
@@ -747,7 +655,7 @@ def RESTGetVMProperty(infid=None, vmid=None, prop=None):
         return return_error(400, "Error Getting VM property: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid', method='POST')
+@app.route('/infrastructures/<infid>', methods=['POST'])
 def RESTAddResource(infid=None):
     try:
         auth = get_auth_header()
@@ -756,8 +664,8 @@ def RESTAddResource(infid=None):
 
     try:
         context = True
-        if "context" in bottle.request.params.keys():
-            str_ctxt = bottle.request.params.get("context").lower()
+        if "context" in flask.request.args.keys():
+            str_ctxt = flask.request.args.get("context").lower()
             if str_ctxt in ['yes', 'true', '1']:
                 context = True
             elif str_ctxt in ['no', 'false', '0']:
@@ -766,7 +674,7 @@ def RESTAddResource(infid=None):
                 return return_error(400, "Incorrect value in context parameter")
 
         content_type = get_media_type('Content-Type')
-        radl_data = bottle.request.body.read().decode("utf-8")
+        radl_data = flask.request.data.decode("utf-8")
         tosca_data = None
         remove_list = []
 
@@ -797,10 +705,6 @@ def RESTAddResource(infid=None):
         if not remove_list and not vm_ids and context:
             InfrastructureManager.Reconfigure(infid, "", auth)
 
-        # If we have to reconfigure the infra, return the ID for the HAProxy stickiness
-        if context:
-            bottle.response.headers['InfID'] = infid
-
         # Replace the TOSCA document
         if tosca_data:
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
@@ -808,12 +712,16 @@ def RESTAddResource(infid=None):
 
         res = []
         for vm_id in vm_ids:
-            res.append(get_full_url("/infrastructures/" + str(infid) + "/vms/" + str(vm_id)))
+            res.append("%sinfrastructures/%s/vms/%s" % (flask.request.url_root, infid, vm_id))
 
         if not vm_ids and remove_list and len(remove_list) != removed_vms:
             return return_error(404, "Error deleting resources %s (removed %s)" % (remove_list, removed_vms))
         else:
-            return format_output(res, "text/uri-list", "uri-list", "uri")
+            extra_headers = {}
+            # If we have to reconfigure the infra, return the ID for the HAProxy stickiness
+            if context:
+                extra_headers = {'InfID': infid}
+            return format_output(res, "text/uri-list", "uri-list", "uri", extra_headers)
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error Adding resources: %s" % get_ex_error(ex))
     except IncorrectInfrastructureException as ex:
@@ -827,7 +735,7 @@ def RESTAddResource(infid=None):
         return return_error(400, "Error Adding resources: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid/vms/:vmid', method='DELETE')
+@app.route('/infrastructures/<infid>/vms/<vmid>', methods=['DELETE'])
 def RESTRemoveResource(infid=None, vmid=None):
     try:
         auth = get_auth_header()
@@ -836,8 +744,8 @@ def RESTRemoveResource(infid=None, vmid=None):
 
     try:
         context = True
-        if "context" in bottle.request.params.keys():
-            str_ctxt = bottle.request.params.get("context").lower()
+        if "context" in flask.request.args.keys():
+            str_ctxt = flask.request.args.get("context").lower()
             if str_ctxt in ['yes', 'true', '1']:
                 context = True
             elif str_ctxt in ['no', 'false', '0']:
@@ -846,8 +754,7 @@ def RESTRemoveResource(infid=None, vmid=None):
                 return return_error(400, "Incorrect value in context parameter")
 
         InfrastructureManager.RemoveResource(infid, vmid, auth, context)
-        bottle.response.content_type = "text/plain"
-        return ""
+        return flask.make_response("", 200, {'Content-Type': 'text/plain'})
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error Removing resources: %s" % get_ex_error(ex))
     except IncorrectInfrastructureException as ex:
@@ -865,7 +772,7 @@ def RESTRemoveResource(infid=None, vmid=None):
         return return_error(400, "Error Removing resources: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid/vms/:vmid', method='PUT')
+@app.route('/infrastructures/<infid>/vms/<vmid>', methods=['PUT'])
 def RESTAlterVM(infid=None, vmid=None):
     try:
         auth = get_auth_header()
@@ -874,7 +781,7 @@ def RESTAlterVM(infid=None, vmid=None):
 
     try:
         content_type = get_media_type('Content-Type')
-        radl_data = bottle.request.body.read().decode("utf-8")
+        radl_data = flask.request.data.decode("utf-8")
 
         if content_type:
             if "application/json" in content_type:
@@ -907,7 +814,7 @@ def RESTAlterVM(infid=None, vmid=None):
         return return_error(400, "Error modifying resources: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid/reconfigure', method='PUT')
+@app.route('/infrastructures/<infid>/reconfigure', methods=['PUT'])
 def RESTReconfigureInfrastructure(infid=None):
     try:
         auth = get_auth_header()
@@ -916,15 +823,15 @@ def RESTReconfigureInfrastructure(infid=None):
 
     try:
         vm_list = None
-        if "vm_list" in bottle.request.params.keys():
-            str_vm_list = bottle.request.params.get("vm_list")
+        if "vm_list" in flask.request.args.keys():
+            str_vm_list = flask.request.args.get("vm_list")
             try:
                 vm_list = [int(vm_id) for vm_id in str_vm_list.split(",")]
             except Exception:
                 return return_error(400, "Incorrect vm_list format.")
 
         content_type = get_media_type('Content-Type')
-        radl_data = bottle.request.body.read().decode("utf-8")
+        radl_data = flask.request.data.decode("utf-8")
 
         if radl_data:
             if content_type:
@@ -939,10 +846,10 @@ def RESTReconfigureInfrastructure(infid=None):
                     return return_error(415, "Unsupported Media Type %s" % content_type)
         else:
             radl_data = ""
+
+        res = InfrastructureManager.Reconfigure(infid, radl_data, auth, vm_list)
         # As we have to reconfigure the infra, return the ID for the HAProxy stickiness
-        bottle.response.headers['InfID'] = infid
-        bottle.response.content_type = "text/plain"
-        return InfrastructureManager.Reconfigure(infid, radl_data, auth, vm_list)
+        return flask.make_response(res, 200, {'Content-Type': 'text/plain', 'InfID': infid})
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error reconfiguring infrastructure: %s" % get_ex_error(ex))
     except IncorrectInfrastructureException as ex:
@@ -956,139 +863,74 @@ def RESTReconfigureInfrastructure(infid=None):
         return return_error(400, "Error reconfiguring infrastructure: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid/start', method='PUT')
-def RESTStartInfrastructure(infid=None):
+@app.route('/infrastructures/<infid>/<op>', methods=['PUT'])
+def RESTOperateInfrastructure(infid=None, op=None):
     try:
         auth = get_auth_header()
     except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
-        bottle.response.content_type = "text/plain"
-        return InfrastructureManager.StartInfrastructure(infid, auth)
+        if op == "start":
+            res = InfrastructureManager.StartInfrastructure(infid, auth)
+        elif op == "stop":
+            res = InfrastructureManager.StopInfrastructure(infid, auth)
+        else:
+            flask.abort(404)
+        return flask.make_response(res, 200, {'Content-Type': 'text/plain'})
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error starting infrastructure: %s" % get_ex_error(ex))
+        return return_error(404, "Error in %s operation: %s" % (op, get_ex_error(ex)))
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error starting infrastructure: %s" % get_ex_error(ex))
+        return return_error(404, "Error in %s operation: %s" % (op, get_ex_error(ex)))
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error starting infrastructure: %s" % get_ex_error(ex))
+        return return_error(403, "Error in %s operation: %s" % (op, get_ex_error(ex)))
     except DisabledFunctionException as ex:
-        return return_error(403, "Error starting infrastructure: %s" % get_ex_error(ex))
+        return return_error(403, "Error in %s operation: %s" % (op, get_ex_error(ex)))
     except Exception as ex:
-        logger.exception("Error starting infrastructure")
-        return return_error(400, "Error starting infrastructure: %s" % get_ex_error(ex))
+        logger.exception("Error in %s operation" % op)
+        return return_error(400, "Error in %s operation: %s" % (op, get_ex_error(ex)))
 
 
-@app.route('/infrastructures/:infid/stop', method='PUT')
-def RESTStopInfrastructure(infid=None):
+@app.route('/infrastructures/<infid>/vms/<vmid>/<op>', methods=['PUT'])
+def RESTOperateVM(infid=None, vmid=None, op=None):
     try:
         auth = get_auth_header()
     except Exception:
         return return_error(401, "No authentication data provided")
 
     try:
-        bottle.response.content_type = "text/plain"
-        return InfrastructureManager.StopInfrastructure(infid, auth)
+        if op == "start":
+            res = InfrastructureManager.StartVM(infid, vmid, auth)
+        elif op == "stop":
+            res = InfrastructureManager.StopVM(infid, vmid, auth)
+        elif op == "reboot":
+            res = InfrastructureManager.RebootVM(infid, vmid, auth)
+        else:
+            flask.abort(404)
+        return flask.make_response(res, 200, {'Content-Type': 'text/plain'})
     except DeletedInfrastructureException as ex:
-        return return_error(404, "Error stopping infrastructure: %s" % get_ex_error(ex))
+        return return_error(404, "Error in %s op in VM: %s" % (op, get_ex_error(ex)))
     except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error stopping infrastructure: %s" % get_ex_error(ex))
+        return return_error(404, "Error in %s op in VM: %s" % (op, get_ex_error(ex)))
     except UnauthorizedUserException as ex:
-        return return_error(403, "Error stopping infrastructure: %s" % get_ex_error(ex))
-    except DisabledFunctionException as ex:
-        return return_error(403, "Error stopping infrastructure: %s" % get_ex_error(ex))
-    except Exception as ex:
-        logger.exception("Error stopping infrastructure")
-        return return_error(400, "Error stopping infrastructure: %s" % get_ex_error(ex))
-
-
-@app.route('/infrastructures/:infid/vms/:vmid/start', method='PUT')
-def RESTStartVM(infid=None, vmid=None):
-    try:
-        auth = get_auth_header()
-    except Exception:
-        return return_error(401, "No authentication data provided")
-
-    try:
-        bottle.response.content_type = "text/plain"
-        return InfrastructureManager.StartVM(infid, vmid, auth)
-    except DeletedInfrastructureException as ex:
-        return return_error(404, "Error starting VM: %s" % get_ex_error(ex))
-    except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error starting VM: %s" % get_ex_error(ex))
-    except UnauthorizedUserException as ex:
-        return return_error(403, "Error starting VM: %s" % get_ex_error(ex))
+        return return_error(403, "Error in %s op in VM: %s" % (op, get_ex_error(ex)))
     except DeletedVMException as ex:
-        return return_error(404, "Error starting VM: %s" % get_ex_error(ex))
+        return return_error(404, "Error in %s op in VM: %s" % (op, get_ex_error(ex)))
     except IncorrectVMException as ex:
-        return return_error(404, "Error starting VM: %s" % get_ex_error(ex))
+        return return_error(404, "Error in %s op in VM: %s" % (op, get_ex_error(ex)))
     except DisabledFunctionException as ex:
-        return return_error(403, "Error starting VM: %s" % get_ex_error(ex))
+        return return_error(403, "Error in %s op in VM: %s" % (op, get_ex_error(ex)))
     except Exception as ex:
-        logger.exception("Error starting VM")
-        return return_error(400, "Error starting VM: %s" % get_ex_error(ex))
+        logger.exception("Error in %s op in VM" % op)
+        return return_error(400, "Error in %s op in VM: %s" % (op, get_ex_error(ex)))
 
 
-@app.route('/infrastructures/:infid/vms/:vmid/stop', method='PUT')
-def RESTStopVM(infid=None, vmid=None):
-    try:
-        auth = get_auth_header()
-    except Exception:
-        return return_error(401, "No authentication data provided")
-
-    try:
-        bottle.response.content_type = "text/plain"
-        return InfrastructureManager.StopVM(infid, vmid, auth)
-    except DeletedInfrastructureException as ex:
-        return return_error(404, "Error stopping VM: %s" % get_ex_error(ex))
-    except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error stopping VM: %s" % get_ex_error(ex))
-    except UnauthorizedUserException as ex:
-        return return_error(403, "Error stopping VM: %s" % get_ex_error(ex))
-    except DeletedVMException as ex:
-        return return_error(404, "Error stopping VM: %s" % get_ex_error(ex))
-    except IncorrectVMException as ex:
-        return return_error(404, "Error stopping VM: %s" % get_ex_error(ex))
-    except DisabledFunctionException as ex:
-        return return_error(403, "Error stopping VM: %s" % get_ex_error(ex))
-    except Exception as ex:
-        logger.exception("Error stopping VM")
-        return return_error(400, "Error stopping VM: %s" % get_ex_error(ex))
-
-
-@app.route('/infrastructures/:infid/vms/:vmid/reboot', method='PUT')
-def RESTRebootVM(infid=None, vmid=None):
-    try:
-        auth = get_auth_header()
-    except Exception:
-        return return_error(401, "No authentication data provided")
-
-    try:
-        bottle.response.content_type = "text/plain"
-        return InfrastructureManager.RebootVM(infid, vmid, auth)
-    except DeletedInfrastructureException as ex:
-        return return_error(404, "Error rebooting VM: %s" % get_ex_error(ex))
-    except IncorrectInfrastructureException as ex:
-        return return_error(404, "Error rebooting VM: %s" % get_ex_error(ex))
-    except UnauthorizedUserException as ex:
-        return return_error(403, "Error rebooting VM: %s" % get_ex_error(ex))
-    except DeletedVMException as ex:
-        return return_error(404, "Error rebooting VM: %s" % get_ex_error(ex))
-    except IncorrectVMException as ex:
-        return return_error(404, "Error rebooting VM: %s" % get_ex_error(ex))
-    except DisabledFunctionException as ex:
-        return return_error(403, "Error rebooting VM: %s" % get_ex_error(ex))
-    except Exception as ex:
-        logger.exception("Error rebooting VM")
-        return return_error(400, "Error rebooting VM: %s" % get_ex_error(ex))
-
-
-@app.route("/<url:re:.+>", method='OPTIONS')
+@app.route('/<path:url>', methods=['OPTIONS'])
 def ReturnOptions(**kwargs):
     return {}
 
 
-@app.route('/version', method='GET')
+@app.route('/version')
 def RESTGetVersion():
     try:
         from IM import __version__ as version
@@ -1097,7 +939,7 @@ def RESTGetVersion():
         return return_error(400, "Error getting IM version: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid/vms/:vmid/disks/:disknum/snapshot', method='PUT')
+@app.route('/infrastructures/<infid>/vms/<vmid>/disks/<disknum>/snapshot', methods=['PUT'])
 def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
     try:
         auth = get_auth_header()
@@ -1105,14 +947,12 @@ def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
         return return_error(401, "No authentication data provided")
 
     try:
-        bottle.response.content_type = "text/plain"
-
-        if "image_name" in bottle.request.params.keys():
-            image_name = bottle.request.params.get("image_name")
+        if "image_name" in flask.request.args.keys():
+            image_name = flask.request.args.get("image_name")
         else:
             return return_error(400, "Parameter image_name required.")
-        if "auto_delete" in bottle.request.params.keys():
-            str_auto_delete = bottle.request.params.get("auto_delete").lower()
+        if "auto_delete" in flask.request.args.keys():
+            str_auto_delete = flask.request.args.get("auto_delete").lower()
             if str_auto_delete in ['yes', 'true', '1']:
                 auto_delete = True
             elif str_auto_delete in ['no', 'false', '0']:
@@ -1122,7 +962,8 @@ def RESTCreateDiskSnapshot(infid=None, vmid=None, disknum=None):
         else:
             auto_delete = False
 
-        return InfrastructureManager.CreateDiskSnapshot(infid, vmid, int(disknum), image_name, auto_delete, auth)
+        res = InfrastructureManager.CreateDiskSnapshot(infid, vmid, int(disknum), image_name, auto_delete, auth)
+        return flask.make_response(res, 200, {'Content-Type': 'text/plain'})
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error creating snapshot: %s" % get_ex_error(ex))
     except IncorrectInfrastructureException as ex:
@@ -1151,7 +992,7 @@ def _filters_str_to_dict(filters_str):
     return filters
 
 
-@app.route('/clouds/:cloudid/:param', method='GET')
+@app.route('/clouds/<cloudid>/<param>', methods=['GET'])
 def RESTGetCloudInfo(cloudid=None, param=None):
     try:
         auth = get_auth_header()
@@ -1161,17 +1002,15 @@ def RESTGetCloudInfo(cloudid=None, param=None):
     try:
         if param == 'images':
             filters = None
-            if "filters" in bottle.request.params.keys():
+            if "filters" in flask.request.args.keys():
                 try:
-                    filters = _filters_str_to_dict(bottle.request.params.get("filters"))
+                    filters = _filters_str_to_dict(flask.request.args.get("filters"))
                 except Exception:
                     return return_error(400, "Invalid format in filters parameter.")
             images = InfrastructureManager.GetCloudImageList(cloudid, auth, filters)
-            bottle.response.content_type = "application/json"
             return format_output(images, default_type="application/json", field_name="images")
         elif param == 'quotas':
             quotas = InfrastructureManager.GetCloudQuotas(cloudid, auth)
-            bottle.response.content_type = "application/json"
             return format_output(quotas, default_type="application/json", field_name="quotas")
     except InvaliddUserException as ex:
         return return_error(401, "Error getting cloud info: %s" % get_ex_error(ex))
@@ -1180,7 +1019,7 @@ def RESTGetCloudInfo(cloudid=None, param=None):
         return return_error(400, "Error getting cloud info: %s" % get_ex_error(ex))
 
 
-@app.route('/infrastructures/:infid/authorization', method='POST')
+@app.route('/infrastructures/<infid>/authorization', methods=['POST'])
 def RESTChangeInfrastructureAuth(infid=None):
     try:
         auth = get_auth_header()
@@ -1189,8 +1028,8 @@ def RESTChangeInfrastructureAuth(infid=None):
 
     try:
         overwrite = False
-        if "overwrite" in bottle.request.params.keys():
-            str_overwrite = bottle.request.params.get("overwrite").lower()
+        if "overwrite" in flask.request.args.keys():
+            str_overwrite = flask.request.args.get("overwrite").lower()
             if str_overwrite in ['yes', 'true', '1']:
                 overwrite = True
             elif str_overwrite in ['no', 'false', '0']:
@@ -1201,7 +1040,7 @@ def RESTChangeInfrastructureAuth(infid=None):
         content_type = get_media_type('Content-Type') or ["application/json"]
 
         if "application/json" in content_type:
-            auth_dict = json.loads(bottle.request.body.read().decode("utf-8"))
+            auth_dict = json.loads(flask.request.data.decode("utf-8"))
             if "type" not in auth_dict:
                 auth_dict["type"] = "InfrastructureManager"
             new_auth = Authentication([auth_dict])
@@ -1209,9 +1048,7 @@ def RESTChangeInfrastructureAuth(infid=None):
             return return_error(415, "Unsupported Media Type %s" % content_type)
 
         InfrastructureManager.ChangeInfrastructureAuth(infid, new_auth, overwrite, auth)
-        bottle.response.content_type = "text/plain"
-        return ""
-
+        return flask.make_response("", 200, {'Content-Type': 'text/plain'})
     except DeletedInfrastructureException as ex:
         return return_error(404, "Error modifying infrastructure owner: %s" % get_ex_error(ex))
     except IncorrectInfrastructureException as ex:
@@ -1229,21 +1066,21 @@ def RESTChangeInfrastructureAuth(infid=None):
         return return_error(400, "Error modifying infrastructure owner: %s" % get_ex_error(ex))
 
 
-@app.error(403)
+@app.errorhandler(403)
 def error_mesage_403(error):
-    return return_error(403, error.body)
+    return return_error(403, error.description)
 
 
-@app.error(404)
+@app.errorhandler(404)
 def error_mesage_404(error):
-    return return_error(404, error.body)
+    return return_error(404, error.description)
 
 
-@app.error(405)
+@app.errorhandler(405)
 def error_mesage_405(error):
-    return return_error(405, error.body)
+    return return_error(405, error.description)
 
 
-@app.error(500)
+@app.errorhandler(500)
 def error_mesage_500(error):
-    return return_error(500, error.body)
+    return return_error(500, error.description)
