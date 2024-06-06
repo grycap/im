@@ -890,7 +890,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 "default" in ost_net.name or
                 "is_default" in ost_net.extra and ost_net.extra['is_default'] or
                 "tags" in ost_net.extra and "default" in ost_net.extra['tags']
-               ):
+            ):
                 first.append(ost_net)
             else:
                 last.append(ost_net)
