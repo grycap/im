@@ -161,23 +161,22 @@ pipelining = True
 
 ### 3.2 OPTIONAL PACKAGES
 
-The Bottle framework (<http://bottlepy.org/>) is used for the REST API.
-It is typically available as the ``python-bottle`` system package or ``bottle``
-pip package.
+The Flask framework (<https://flask.palletsprojects.com/>) is used for the REST API.
+It is typically available as the ``python3-flask`` and ``python3-werkzeug`` system
+packages or ``flask`` and ``werkzeug`` pip packages.
 
 The CherryPy Web framework (<http://www.cherrypy.org/>), is needed for the REST
-API. It is typically available as the ``python-cherrypy`` or
-``python-cherrypy3`` system package or ``CherryPy`` pip package.
-In newer versions (9.0 and later) the functionality has been moved to the
-``cheroot`` library (<https://github.com/cherrypy/cheroot>) it can be
-installed using pip.
+API. It is typically available as the ``python3-cherrypy`` system package or
+``CherryPy`` pip package. In newer versions (9.0 and later) the functionality
+has been moved to the ``cheroot`` library (<https://github.com/cherrypy/cheroot>).
+It is typically available ``python3-cheroot`` system package or ``cheroot`` pip package.
 
 Apache-libcloud (<http://libcloud.apache.org/>) 3.0 or later is used in the
 LibCloud, OpenStack and GCE connectors. It is typically available as the
-``python-libcloud`` system package or ``apache-libcloud`` pip package.
+``python3-libcloud`` system package or ``apache-libcloud`` pip package.
 
 Boto (<http://boto.readthedocs.org>) 2.29.0 or later is used as interface to
-Amazon EC2. It is available as package named ``python-boto`` in Debian based
+Amazon EC2. It is available as package named ``python3-boto`` in Debian based
 distributions or ``boto`` pip package. It can also be downloaded from boto
 GitHub repository (<https://github.com/boto/boto>).
 Download the file and copy the boto subdirectory into the IM install path.
