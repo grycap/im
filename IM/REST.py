@@ -55,7 +55,7 @@ HTML_ERROR_TEMPLATE = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 </html>
 """
 
-
+REST_URL = None
 app = flask.Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 flask_server = None
@@ -119,6 +119,11 @@ def get_auth_header():
     Get the Authentication object from the AUTHORIZATION header
     replacing the new line chars.
     """
+    # Initialize REST_URL
+    global REST_URL
+    if REST_URL is None:
+        REST_URL = flask.request.url_root
+
     auth_header = flask.request.headers['AUTHORIZATION']
 
     user_pass = None
