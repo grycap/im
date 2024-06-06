@@ -1,27 +1,33 @@
 # Dockerfile to create a container with the IM service
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
 LABEL version="1.17.0"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
 # Ensure system is up to date with mandatory python packages installed
-RUN apt-get update && apt-get install --no-install-recommends -y python3 python3-distutils openssh-client sshpass vim libmysqlclient21 python3-mysqldb && \
+RUN apt-get update && apt-get install --no-install-recommends -y python3 openssh-client sshpass vim libmysqlclient21 python3-mysqldb && \
      apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
      pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==6.7.0&& \
+     pip3 install git+https://github.com/micafer/libcloud@ost_nets_extra && \
      pip3 install urllib3==1.26.18 IM==1.17.0 && \
      apt-get purge -y python3-pip git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
+
+# Copy im configuration files
+RUN mkdir /etc/im
+COPY im.cfg /etc/im/im.cfg
+COPY logging.conf /etc/im/logging.conf
 
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
 # Fix boto issue https://github.com/boto/boto/issues/3783
-COPY endpoints.json /usr/local/lib/python3.10/dist-packages/boto/endpoints.json
+COPY endpoints.json /usr/local/lib/python3.12/dist-packages/boto/endpoints.json
 
 # Start IM service
-CMD im_service.py
+CMD /usr/local/bin/im_service

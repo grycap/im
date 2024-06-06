@@ -67,7 +67,7 @@ class Config:
     LOG_FILE = '/var/log/im/inf.log'
     LOG_FILE_MAX_SIZE = 10485760
     LOG_LEVEL = "INFO"
-    CONTEXTUALIZATION_DIR = '/usr/share/im/contextualization'
+    CONTEXTUALIZATION_DIR = IM_PATH + '/../contextualization'
     RECIPES_DIR = CONTEXTUALIZATION_DIR + '/AnsibleRecipes'
     RECIPES_DB_FILE = CONTEXTUALIZATION_DIR + '/recipes_ansible.db'
     MAX_CONTEXTUALIZATION_TIME = 7200

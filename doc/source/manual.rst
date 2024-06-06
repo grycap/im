@@ -338,21 +338,6 @@ Default Virtual Machine Options
 Contextualization
 ^^^^^^^^^^^^^^^^^
 
-.. confval:: CONTEXTUALIZATION_DIR
-
-   Full path to the IM contextualization files.
-   The default value is :file:`/usr/share/im/contextualization`.
-
-.. confval:: RECIPES_DIR 
-
-   Full path to the Ansible recipes directory.
-   The default value is :file:`CONTEXTUALIZATION_DIR/AnsibleRecipes`.
-
-.. confval:: RECIPES_DB_FILE 
-
-   Full path to the Ansible recipes database file.
-   The default value is :file:`CONTEXTUALIZATION_DIR/recipes_ansible.db`.
-
 .. confval:: MAX_CONTEXTUALIZATION_TIME 
 
    Maximum time in seconds spent on contextualize a virtual machine before
