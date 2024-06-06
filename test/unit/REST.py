@@ -207,6 +207,7 @@ class TestREST(unittest.TestCase):
 
         res = self.client.post('/infrastructures', headers=headers, data=BytesIO(b"radl"))
         self.assertEqual(res.text, "http://localhost/infrastructures/1")
+        self.assertEqual(res.headers['InfID'],"1")
 
         res = self.client.post('/infrastructures?async=yes', headers=headers, data=BytesIO(b"radl"))
         self.assertEqual(res.text, "http://localhost/infrastructures/1")
@@ -340,6 +341,7 @@ class TestREST(unittest.TestCase):
 
         res = self.client.post('/infrastructures/1?context=yes', headers=headers, data=BytesIO(b"radl"))
         self.assertEqual(res.text, "http://localhost/infrastructures/1/vms/1")
+        self.assertEqual(res.headers['InfID'],"1")
 
         headers["Content-Type"] = "application/json"
         res = self.client.post('/infrastructures/1', headers=headers,
@@ -457,6 +459,7 @@ class TestREST(unittest.TestCase):
 
         res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2', headers=headers, data=BytesIO(b"radl"))
         self.assertEqual(res.text, "")
+        self.assertEqual(res.headers['InfID'],"1")
 
         headers["Content-Type"] = "application/json"
         res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
