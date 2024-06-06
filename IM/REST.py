@@ -55,7 +55,6 @@ HTML_ERROR_TEMPLATE = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 </html>
 """
 
-REST_URL = None
 
 app = flask.Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
@@ -69,16 +68,13 @@ def run_in_thread(host, port):
 
 
 def run(host, port):
-    try:
-        server = WSGIServer((host, port), PathInfoDispatcher({'/': app}))
-        if Config.REST_SSL:
-            server.ssl_adapter = BuiltinSSLAdapter(Config.REST_SSL_CERTFILE,
-                                                   Config.REST_SSL_KEYFILE,
-                                                   Config.REST_SSL_CA_CERTS)
-
-        server.start()
-    except KeyboardInterrupt:
-        server.stop()
+    global flask_server
+    flask_server = WSGIServer((host, port), PathInfoDispatcher({'/': app}))
+    if Config.REST_SSL:
+        flask_server.ssl_adapter = BuiltinSSLAdapter(Config.REST_SSL_CERTFILE,
+                                                     Config.REST_SSL_KEYFILE,
+                                                     Config.REST_SSL_CA_CERTS)
+    flask_server.start()
 
 
 def return_error(code, msg):
@@ -93,7 +89,8 @@ def return_error(code, msg):
 
 
 def stop():
-    pass
+    logger.info('Stopping REST API server...')
+    flask_server.stop()
 
 
 def get_media_type(header):
@@ -122,11 +119,6 @@ def get_auth_header():
     Get the Authentication object from the AUTHORIZATION header
     replacing the new line chars.
     """
-    # Initialize REST_URL
-    global REST_URL
-    if REST_URL is None:
-        REST_URL = flask.request.url_root
-
     auth_header = flask.request.headers['AUTHORIZATION']
 
     user_pass = None
@@ -197,60 +189,50 @@ def format_output(res, default_type="text/plain", field_name=None, list_field_na
     """
     accept = get_media_type('Accept')
 
-    if accept:
-        content_type = None
-        for accept_item in accept:
-            if accept_item in ["application/json", "application/*"]:
-                if isinstance(res, RADL):
-                    if field_name:
-                        res_dict = {field_name: radlToSimple(res)}
-                        info = json.dumps(res_dict)
-                    else:
-                        info = dump_radl_json(res, enter="", indent="")
-                # This is the case of the "contains" properties
-                elif isinstance(res, dict) and all(isinstance(x, Feature) for x in res.values()):
-                    features = Features()
-                    features.props = res
-                    res_dict = featuresToSimple(features)
-                    if field_name:
-                        res_dict = {field_name: res_dict}
+    if not accept:
+        accept = [default_type]
+
+    content_type = None
+    for accept_item in accept:
+        if accept_item in ["application/json", "application/*"]:
+            if isinstance(res, RADL):
+                if field_name:
+                    res_dict = {field_name: radlToSimple(res)}
                     info = json.dumps(res_dict)
                 else:
-                    # Always return a complex object to make easier parsing
-                    # steps
-                    info = format_output_json(res, field_name, list_field_name)
-                content_type = "application/json"
-                break
-            elif accept_item in [default_type, "*/*", "text/*"]:
-                if default_type == "application/json":
-                    info = format_output_json(res, field_name, list_field_name)
-                else:
-                    if isinstance(res, list):
-                        info = "\n".join(res)
-                    else:
-                        info = "%s" % res
-                content_type = default_type
-                break
-
-        if content_type:
-            headers = {'Content-Type': content_type}
-            if extra_headers:
-                headers.update(extra_headers)
-            return flask.make_response(info, 200, headers)
-        else:
-            return return_error(415, "Unsupported Accept Media Types: %s" % ",".join(accept))
-    else:
-        if default_type == "application/json":
-            info = format_output_json(res, field_name, list_field_name)
-        else:
-            if isinstance(res, list):
-                info = "\n".join(res)
+                    info = dump_radl_json(res, enter="", indent="")
+            # This is the case of the "contains" properties
+            elif isinstance(res, dict) and all(isinstance(x, Feature) for x in res.values()):
+                features = Features()
+                features.props = res
+                res_dict = featuresToSimple(features)
+                if field_name:
+                    res_dict = {field_name: res_dict}
+                info = json.dumps(res_dict)
             else:
-                info = "%s" % res
-        headers = {'Content-Type': default_type}
+                # Always return a complex object to make easier parsing
+                # steps
+                info = format_output_json(res, field_name, list_field_name)
+            content_type = "application/json"
+            break
+        elif accept_item in [default_type, "*/*", "text/*"]:
+            if default_type == "application/json":
+                info = format_output_json(res, field_name, list_field_name)
+            else:
+                if isinstance(res, list):
+                    info = "\n".join(res)
+                else:
+                    info = "%s" % res
+            content_type = default_type
+            break
+
+    if content_type:
+        headers = {'Content-Type': content_type}
         if extra_headers:
             headers.update(extra_headers)
-        return flask.make_response(info, 200, {'Content-Type': default_type})
+        return flask.make_response(info, 200, headers)
+    else:
+        return return_error(415, "Unsupported Accept Media Types: %s" % ",".join(accept))
 
 
 @app.after_request
