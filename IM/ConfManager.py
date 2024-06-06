@@ -1100,7 +1100,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM to be running.
-           - timeout(int): Max time to wait the VM to be running.
+           - timeout(int): Max time to wait for the VM to be running.
         Returns: True if all the VMs are running or false otherwise
         """
         delay = Config.CHECK_CTXT_PROCESS_INTERVAL
@@ -1132,7 +1132,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM to check.
-           - timeout(int): Max time to wait the VM to be to have the SSH port opened.
+           - timeout(int): Max time to wait for the VM to be to have the SSH port opened.
         Returns: True if the VM have the SSH port open or false otherwise
         """
         delay = 10

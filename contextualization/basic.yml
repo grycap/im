@@ -10,7 +10,7 @@
       ignore_errors: yes
       changed_when: false
 
-    - name: Wait the VM to boot
+    - name: Wait for the VM to boot
       raw: systemctl is-system-running --wait
       ignore_errors: yes
       changed_when: false

@@ -70,7 +70,7 @@ This is the list of method names:
 
    Create and configure an infrastructure with the requirements specified in
    the RADL document passed as string. Return the ID associated to the created
-   infrastructure. If ``async`` is set to ``True`` the call will not wait the VMs
+   infrastructure. If ``async`` is set to ``True`` the call will not wait forthe VMs
    to be created.
 
 ``GetInfrastructureInfo``
