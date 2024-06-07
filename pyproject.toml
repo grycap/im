@@ -64,8 +64,7 @@ dependencies = [
     "requests-cache >= 1.0.0",
     "packaging",
     "werkzeug",
-    "xmltodict",
-    "flask-swagger-ui"
+    "xmltodict"
 ]
 license = {text = "GPL version 3, http://www.gnu.org/licenses/gpl-3.0.txt"}
 dynamic = ["version", "readme"]

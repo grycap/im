@@ -570,15 +570,8 @@ class TestREST(unittest.TestCase):
 
     def test_Index(self):
         res = self.client.get('/')
-        self.assertEqual(res.status_code, 302)
-        self.assertEqual(res.headers['Location'], '/api/docs')
-        res = self.client.get('http://localhost/api/docs/')
-        self.assertEqual(res.status_code, 200)
-        self.assertIn("Swagger UI", res.text)
-        self.assertIn('"url": "/swagger.json"', res.text)
-        res = self.client.get('/swagger.json')
-        self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json["openapi"], "3.0.0")
+        self.assertEqual(res.json['openapi'], '3.0.0')
+        self.assertEqual(res.json['servers'][0]['url'], 'http://localhost/')
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot")
     def test_CreateDiskSnapshot(self, CreateDiskSnapshot):
