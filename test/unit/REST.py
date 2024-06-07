@@ -580,7 +580,6 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json["openapi"], "3.0.0")
 
-
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot")
     def test_CreateDiskSnapshot(self, CreateDiskSnapshot):
         """Test REST StopVM."""
