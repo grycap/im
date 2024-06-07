@@ -7,7 +7,7 @@ LABEL description="Container image to run the IM service. (http://www.grycap.upv
 EXPOSE 8899 8800
 
 # Ensure system is up to date with mandatory python packages installed
-RUN apt-get update && apt-get install --no-install-recommends -y wget python3 openssh-client sshpass vim libmysqlclient21 python3-mysqldb && \
+RUN apt-get update && apt-get install --no-install-recommends -y patch wget python3 openssh-client sshpass vim libmysqlclient21 python3-mysqldb && \
      apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Install IM
