@@ -96,5 +96,8 @@ packages = ["IM", "IM.ansible_utils", "IM.connectors", "IM.tosca", "IM.openid", 
 version = {attr = "IM.__version__"}
 readme = {file = ["README.md"], content-type = "text/markdown"}
 
+[tool.setuptools.package-data]
+IM = ["*.yaml"]
+
 [tool.distutils.bdist_wheel]
 universal = true
