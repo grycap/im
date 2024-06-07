@@ -22,6 +22,7 @@ import flask
 import os
 import yaml
 
+from flask_swagger_ui import get_swaggerui_blueprint
 from cheroot.wsgi import Server as WSGIServer, PathInfoDispatcher
 from cheroot.ssl.builtin import BuiltinSSLAdapter
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -61,6 +62,13 @@ REST_URL = None
 app = flask.Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 flask_server = None
+
+# Add the swagger UI
+swaggerui_blueprint = get_swaggerui_blueprint(
+    '/api/docs',  # Swagger UI static files will be mapped to '{SWAGGER_URL}/dist/'
+    '/swagger.json'
+)
+app.register_blueprint(swaggerui_blueprint)
 
 
 def run_in_thread(host, port):
@@ -943,6 +951,11 @@ def RESTGetVersion():
 
 @app.route('/')
 def RESTIndex():
+    return flask.redirect('/api/docs')
+
+
+@app.route('/swagger.json')
+def RESTSwagger():
     rest_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(rest_path, 'swagger_api.yaml')
     api_docs = yaml.safe_load(open(abs_file_path, 'r'))
