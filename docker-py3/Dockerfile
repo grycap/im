@@ -1,5 +1,5 @@
 # Dockerfile to create a container with the IM service
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 
 ENV VERSION=1.17.0
 
@@ -14,10 +14,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y patch wget pyth
 
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
-     pip3 install --break-system-packages -U pip  && \
-     pip3 install --break-system-packages msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
-     pip3 install --break-system-packages pyOpenSSL cheroot xmltodict pymongo ansible==8.7.0&& \
-     pip3 install --break-system-packages git+https://github.com/grycap/im@wheel && \
+     pip3 install -U pip  && \
+     pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
+     pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==8.7.0&& \
+     pip3 install apache-libcloud==3.8.0 git+https://github.com/grycap/im@wheel && \
      apt-get purge -y python3-pip git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
