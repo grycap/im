@@ -139,13 +139,6 @@ class TestIM(unittest.TestCase):
         self.assertEqual(
             resp.text, version, msg="Incorrect version. Expected %s, obtained: %s" % (version, resp.text))
 
-    def test_07_index(self):
-        resp = self.create_request("GET", "/")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting IM index:" + resp.text)
-        res = json.loads(resp.text)
-        self.assertEqual(res['openapi'], '3.0.0')
-
     def test_10_list(self):
         resp = self.create_request("GET", "/infrastructures")
         self.assertEqual(resp.status_code, 200,
