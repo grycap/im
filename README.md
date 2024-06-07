@@ -39,7 +39,7 @@ This software has received a gold badge according to the
 [Software Quality Baseline criteria](https://github.com/indigo-dc/sqa-baseline)
 defined by the [EOSC-Synergy](https://www.eosc-synergy.eu) project.
 
-## 1 DOCKER IMAGE (Recommended Option)
+## 1 DOCKER IMAGE
 
 The recommended option to use the Infrastructure Manager service is using the
 available docker image. A Docker image named `ghcr.io/grycap/im` has been
@@ -106,193 +106,7 @@ helm install --namespace=im --create-namespace im  grycap/IM
 
 All the information about this chart is available at the [IM chart README](https://github.com/grycap/helm-charts/blob/master/IM/README.md).
 
-## 3 INSTALLATION
-
-### 3.1 REQUISITES
-
-IM is based on Python, so Python 2.7 or higher (Python 3.6 or higher
-recommended) runtime and standard library must be installed in the system.
-
-If you use pip to install the IM, all the requisites will be installed.
-However, if you install IM from sources you should install:
-
-* The RADL parser (<https://github.com/grycap/radl>), available in pip
-  as the ``RADL`` package.
-* The paramiko ssh2 protocol library for python version 1.14 or later
-  (<http://www.lag.net/paramiko/>), typically available as the
-  ``python-paramiko`` package.
-* The YAML library for Python, typically available as the ``python-yaml`` or
-  ``PyYAML`` package.
-* The suds library for Python, typically available as the ``python-suds``
-  package.
-* The Netaddr library for Python, typically available as the ``python-netaddr``
-  package.
-* The Requests library for Python, typically available as the
-  ``python-requests`` package.
-* TOSCA parser library for Python, available as the ``tosca-parser`` package in
-  pip.
-* Ansible (<http://www.ansibleworks.com/>) to configure nodes in the
-  infrastructures.
-   In particular, Ansible 2.4+ must be installed.
-   To ensure the functionality the following values must be set in the
-   ansible.cfg file (usually found in /etc/ansible/):
-
-```yml
-[defaults]
-transport  = smart
-host_key_checking = False
-nocolor = 1
-
-become_user      = root
-become_method    = sudo
-
-[paramiko_connection]
-
-record_host_keys=False
-
-[ssh_connection]
-
-# Only in systems with OpenSSH support to ControlPersist
-ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null
-# In systems with older versions of OpenSSH (RHEL 6, CentOS 6, SLES 10 or SLES 11)
-#ssh_args = -o UserKnownHostsFile=/dev/null
-pipelining = True
-```
-
-### 3.2 OPTIONAL PACKAGES
-
-The Flask framework (<https://flask.palletsprojects.com/>) is used for the REST API.
-It is typically available as the ``python3-flask`` and ``python3-werkzeug`` system
-packages or ``flask`` and ``werkzeug`` pip packages.
-
-The CherryPy Web framework (<http://www.cherrypy.org/>), is needed for the REST
-API. It is typically available as the ``python3-cherrypy`` system package or
-``CherryPy`` pip package. In newer versions (9.0 and later) the functionality
-has been moved to the ``cheroot`` library (<https://github.com/cherrypy/cheroot>).
-It is typically available ``python3-cheroot`` system package or ``cheroot`` pip package.
-
-Apache-libcloud (<http://libcloud.apache.org/>) 3.0 or later is used in the
-LibCloud, OpenStack and GCE connectors. It is typically available as the
-``python3-libcloud`` system package or ``apache-libcloud`` pip package.
-
-Boto (<http://boto.readthedocs.org>) 2.29.0 or later is used as interface to
-Amazon EC2. It is available as package named ``python3-boto`` in Debian based
-distributions or ``boto`` pip package. It can also be downloaded from boto
-GitHub repository (<https://github.com/boto/boto>).
-Download the file and copy the boto subdirectory into the IM install path.
-
-In case of using the a MySQL DB as the backend to store IM data. The Python
-interface to MySQL must be installed, typically available as the package
-``python-mysqldb`` or ``MySQL-python`` package. In case of using Python 3 use
-the PyMySQL package, available as the package ``python3-pymysql`` on
-debian systems or ``PyMySQL`` package in pip.
-
-In case of using the a MongoDB as the backend to store IM data. The Python
-interface to MongoDB must be installed, typically available as the package
-``python-pymongo``package in most distributions or ``pymongo`` pip package.
-
-In case of using the SSL secured version of the REST API pyOpenSSL
-(<https://pyopenssl.org/>) must be installed. available as ``pyOpenSSL``
-package in pip.
-
-Azure python SDK (<https://azure.microsoft.com/es-es/develop/python/>) is used
-to connect with the Microsoft Azure platform. The easiest way is to install all
-the required packages with pip:
-
-```sh
-pip install msrest msrestazure azure-common azure-mgmt-storage \
-            azure-mgmt-compute azure-mgmt-network azure-mgmt-resource \
-            azure-mgmt-dns azure-identity
-```
-
-The VMware vSphere API Python Bindings (<https://github.com/vmware/pyvmomi/>)
-are needed by the vSphere connector. It is available as the package ``pyvmomi``
-at the pip repository.
-
-### 3.3 INSTALLING
-
-#### 3.3.1 From PIP
-
-First you need to install pip tool and some packages needed to compile some of
-the IM requirements. To install them in Debian and Ubuntu based distributions,
-do::
-
-```sh
-apt update
-apt install -y gcc python3-dev libffi-dev libssl-dev python3-pip sshpass \
-               default-libmysqlclient-dev
-```
-
-In Red Hat based distributions (RHEL, CentOS, Amazon Linux, Oracle Linux,
-Fedora, etc.), do:
-
-```sh
-yum install -y epel-release
-yum install -y which gcc python3-devel libffi-devel openssl-devel \
-               python3-pip sshpass
-```
-
-Then you only have to call the install command of the pip tool with the IM
-package:
-
-```sh
-pip3 install IM
-```
-
-You can also install an specific branch of the Github repository:
-
-```sh
-pip install git+https://github.com/grycap/im.git@master
-```
-
-Pip will also install the, non installed, pre-requisites needed. So Ansible 2.4
-or later will be installed in the system. Some of the optional packages are
-also installed please check if some of IM features that you need requires to
-install some of the packages of section OPTIONAL PACKAGES.
-
-You must also remember to modify the ansible.cfg file setting as specified in
-the REQUISITES section.
-
-### 3.4 START IM ON BOOT
-
-In case that you want the IM service to be started at boot time, you must
-execute the next set of commands:
-
-On Debian Systems:
-
-```sh
-chkconfig im on
-```
-
-Or for newer systems like ubuntu 14.04:
-
-```sh
-sysv-rc-conf im on
-```
-
-On RedHat Systems:
-
-```sh
-update-rc.d im start 99 2 3 4 5 . stop 05 0 1 6 .
-```
-
-Or you can do it manually:
-
-```sh
-ln -s /etc/init.d/im /etc/rc2.d/S99im
-ln -s /etc/init.d/im /etc/rc3.d/S99im
-ln -s /etc/init.d/im /etc/rc5.d/S99im
-ln -s /etc/init.d/im /etc/rc1.d/K05im
-ln -s /etc/init.d/im /etc/rc6.d/K05im
-```
-
-Adjust the installation path by setting the IMDAEMON variable at /etc/init.d/im
-to the path where the IM im_service.py file is installed (e.g.
-/usr/local/im/im_service.py), or set the name of the script file
-(im_service.py) if the file is in the PATH (pip puts the im_service.py file in
-the PATH as default).
-
-### 4 CONFIGURATION
+### 3 CONFIGURATION
 
 Check the parameters in $IM_PATH/etc/im.cfg or /etc/im/im.cfg.
 See [IM Manual](https://imdocs.readthedocs.io/en/latest/manual.html#configuration)
@@ -308,7 +122,7 @@ DATA_DB - must be set to the URL to access the database to store the IM data.
          SQLite: `sqlite:///etc/im/inf.dat` or MongoDB:
          `mongodb://username:password@server/db_name`,
 
-#### 4.1 SECURITY
+#### 3.1 SECURITY
 
 Security is disabled by default. Please notice that someone with local network
 access can "sniff" the traffic and get the messages with the IM with the
