@@ -37,7 +37,7 @@ RUN wget https://raw.githubusercontent.com/grycap/im/v${VERSION}/etc/logging.con
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
 # Fix boto issue https://github.com/boto/boto/issues/3783
-COPY endpoints.json /usr/local/lib/python3.12/dist-packages/boto/endpoints.json
+COPY endpoints.json /usr/local/lib/python3.10/dist-packages/boto/endpoints.json
 
 # Start IM service
 CMD /usr/local/bin/im_service

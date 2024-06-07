@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3-setupto
 # untill this PR is merged and released
 # https://github.com/apache/libcloud/pull/2016
 COPY ost.patch /tmp/ost.patch
-RUN patch /usr/local/lib/python3.12/dist-packages/libcloud/compute/drivers/openstack.py < /tmp/ost.patch && rm /tmp/ost.patch
+RUN patch /usr/local/lib/python3.10/dist-packages/libcloud/compute/drivers/openstack.py < /tmp/ost.patch && rm /tmp/ost.patch
 
 # Copy im configuration files
 RUN mkdir /etc/im
@@ -39,7 +39,7 @@ RUN sed -i -e 's/VM_NUM_USE_CTXT_DIST = 30/VM_NUM_USE_CTXT_DIST = 3/g' /etc/im/i
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
 # Fix boto issue https://github.com/boto/boto/issues/3783
-COPY endpoints.json /usr/local/lib/python3.12/dist-packages/boto/endpoints.json
+COPY endpoints.json /usr/local/lib/python3.10/dist-packages/boto/endpoints.json
 
 # Start IM service
 CMD /usr/local/bin/im_service
