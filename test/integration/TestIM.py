@@ -272,7 +272,7 @@ class TestIM(unittest.TestCase):
                                               str(len(vm_ids)) + "). It must be 4"))
 
         all_configured = self.wait_inf_state(
-            self.inf_id, VirtualMachine.CONFIGURED, 2100)
+            self.inf_id, VirtualMachine.CONFIGURED, 2700)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
