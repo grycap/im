@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3-setupto
      pip3 install -U pip  && \
      pip3 install msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
      pip3 install pyOpenSSL cheroot xmltodict pymongo ansible==8.7.0&& \
-     pip3 install apache-libcloud==3.8.0 git+https://github.com/grycap/im@wheel && \
+     pip3 install apache-libcloud==3.8.0 IM==${VERSION} && \
      apt-get purge -y python3-pip git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
@@ -25,13 +25,13 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3-setupto
 # untill this PR is merged and released
 # https://github.com/apache/libcloud/pull/2016
 COPY ost.patch /tmp/ost.patch
-RUN patch /usr/local/lib/python3.12/dist-packages/libcloud/compute/drivers/openstack.py < /tmp/ost.patch && rm /tmp/ost.patch
+RUN patch /usr/local/lib/python3.10/dist-packages/libcloud/compute/drivers/openstack.py < /tmp/ost.patch && rm /tmp/ost.patch
 
 # Copy im configuration files
 RUN mkdir /etc/im
 RUN mkdir /var/log/im
-RUN wget https://raw.githubusercontent.com/grycap/im/wheel/etc/im.cfg -O /etc/im/im.cfg
-RUN wget https://raw.githubusercontent.com/grycap/im/wheel/etc/logging.conf -O /etc/im/logging.conf
+RUN wget https://raw.githubusercontent.com/grycap/im/v${VERSION}/etc/im.cfg -O /etc/im/im.cfg
+RUN wget https://raw.githubusercontent.com/grycap/im/v${VERSION}/etc/logging.conf -O /etc/im/logging.conf
 
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
