@@ -571,6 +571,7 @@ class TestREST(unittest.TestCase):
     def test_Index(self):
         res = self.client.get('/')
         self.assertEqual(res.json['openapi'], '3.0.0')
+        self.assertEqual(res.json['servers'][0]['url'], 'http://localhost/')
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot")
     def test_CreateDiskSnapshot(self, CreateDiskSnapshot):

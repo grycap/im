@@ -946,6 +946,7 @@ def RESTIndex():
     rest_path = os.path.dirname(os.path.abspath(__file__))
     abs_file_path = os.path.join(rest_path, 'swagger_api.yaml')
     api_docs = yaml.safe_load(open(abs_file_path, 'r'))
+    api_docs['servers'][0]['url'] = flask.request.url_root
     return flask.make_response(json.dumps(api_docs), 200, {'Content-Type': 'application/json'})
 
 
