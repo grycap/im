@@ -1,0 +1,103 @@
+# IM - Infrastructure Manager
+# Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+[build-system]
+requires = [
+    "setuptools~=66.1",
+    "wheel~=0.37.1"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "IM"
+description = "IM is a tool to manage virtual infrastructures on Cloud deployments"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Framework :: CherryPy",
+    "Framework :: Flask",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
+]
+requires-python = ">=3.6"
+dependencies = [
+    "ansible >=2.4",
+    "paramiko >= 1.14",
+    "PyYAML",
+    "suds-community",
+    "cheroot",
+    "boto >= 2.29",
+    "apache-libcloud >= 3.2.0",
+    "RADL >= 1.3.3",
+    "flask",
+    "netaddr",
+    "requests >= 2.19",
+    "scp",
+    "tosca-parser",
+    "defusedxml",
+    "urllib3>=1.23",
+    "hvac",
+    "psutil",
+    "scar",
+    "requests-cache >= 1.0.0",
+    "packaging",
+    "werkzeug",
+    "xmltodict"
+]
+license = {text = "GPL version 3, http://www.gnu.org/licenses/gpl-3.0.txt"}
+dynamic = ["version", "readme"]
+
+[project.urls]
+Homepage = "https://www.grycap.upv.es/im"
+Documentation = "https://imdocs.readthedocs.io"
+Repository = "https://github.com/grycap/im"
+
+[project.optional-dependencies]
+build = [
+    "build==1.0.3"
+]
+publish = [
+    "twine==4.0.2"
+]
+test = [
+    "mock",
+    "coverage",
+]
+
+[project.scripts]
+im_service = "IM.im_service:main"
+
+[tool.setuptools]
+packages = ["IM", "IM.ansible_utils", "IM.connectors", "IM.tosca", "IM.openid", "IM.tts", "contextualization"]
+
+[tool.setuptools.dynamic]
+version = {attr = "IM.__version__"}
+readme = {file = ["README.md"], content-type = "text/markdown"}
+
+[tool.setuptools.package-data]
+IM = ["*.yaml"]
+
+[tool.distutils.bdist_wheel]
+universal = true

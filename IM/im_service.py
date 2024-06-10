@@ -33,9 +33,6 @@ from IM.InfrastructureList import InfrastructureList
 from IM.ServiceRequests import IMBaseRequest
 from IM import __version__ as version
 
-if sys.version_info <= (2, 6):
-    print("Must use python 2.6 or greater")
-    sys.exit(1)
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -420,7 +417,7 @@ def signal_int_handler(signal, frame):
     im_stop()
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description='IM service')
     parser.add_argument('--version', help='Show IM service version.', dest="version",
                         action="store_true", default=False)
@@ -436,3 +433,7 @@ if __name__ == "__main__":
 
     config_logging()
     launch_daemon()
+
+
+if __name__ == "__main__":
+    main()

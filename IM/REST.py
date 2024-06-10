@@ -19,6 +19,8 @@ import threading
 import json
 import base64
 import flask
+import os
+import yaml
 
 from cheroot.wsgi import Server as WSGIServer, PathInfoDispatcher
 from cheroot.ssl.builtin import BuiltinSSLAdapter
@@ -937,6 +939,15 @@ def RESTGetVersion():
         return format_output(version, field_name="version")
     except Exception as ex:
         return return_error(400, "Error getting IM version: %s" % get_ex_error(ex))
+
+
+@app.route('/')
+def RESTIndex():
+    rest_path = os.path.dirname(os.path.abspath(__file__))
+    abs_file_path = os.path.join(rest_path, 'swagger_api.yaml')
+    api_docs = yaml.safe_load(open(abs_file_path, 'r'))
+    api_docs['servers'][0]['url'] = flask.request.url_root
+    return flask.make_response(json.dumps(api_docs), 200, {'Content-Type': 'application/json'})
 
 
 @app.route('/infrastructures/<infid>/vms/<vmid>/disks/<disknum>/snapshot', methods=['PUT'])
