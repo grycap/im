@@ -1228,7 +1228,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 try:
                     new_volume_id = driver.ex_get_volume(os.path.basename(disk_url)).id
                 except Exception:
-                    self.log_war("Error getting volume %s. Using ID." % disk_url)
+                    self.log_warn("Error getting volume %s. Using ID." % disk_url)
                     new_volume_id = os.path.basename(disk_url)
                 disk = {
                     'boot_index': cont,
