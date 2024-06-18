@@ -472,7 +472,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 for vol_info in node.extra['volumes_attached']:
                     vol_id = vol_info['id']
                     self.log_debug("Getting Volume info %s" % vol_id)
-                    volume = node.driver.ex_get_volume(vol_id)
+                    volume = self.get_volume(node.driver, vol_id)
                     disk_size = None
                     if vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
                         disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
@@ -1184,8 +1184,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return nets
 
-    @staticmethod
-    def get_volumes(driver, image, volume, radl):
+    def get_volumes(self, driver, image, volume, radl):
         """
         Create the required volumes (in the RADL) for the VM.
 
@@ -1226,13 +1225,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             disk_size = None
             if disk_url:
-                new_volume = driver.ex_get_volume(os.path.basename(disk_url))
+                try:
+                    new_volume_id = self.get_volume(driver, os.path.basename(disk_url)).id
+                except Exception:
+                    self.log_warn("Error getting volume %s. Using ID." % disk_url)
+                    new_volume_id = os.path.basename(disk_url)
                 disk = {
                     'boot_index': cont,
                     'source_type': "volume",
                     'delete_on_termination': False,
                     'destination_type': "volume",
-                    'uuid': new_volume.id
+                    'uuid': new_volume_id
                 }
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
@@ -1303,7 +1306,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             volume_id = self.get_volume_id(system.getValue("disk.0.image.url"))
             if not volume_id:
                 raise Exception("Incorrect OpenStack image set.")
-            volume = driver.ex_get_volume(volume_id)
+            volume = self.get_volume(driver, volume_id)
             if not volume:
                 raise Exception("Incorrect OpenStack volume id.")
 
@@ -1720,7 +1723,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             for vol_id in vm.volumes:
                 try:
                     self.log_debug("Dettaching volume %s." % vol_id)
-                    volume = node.driver.ex_get_volume(vol_id)
+                    volume = self.get_volume(node.driver, vol_id)
                     node.driver.detach_volume(volume)
                 except Exception:
                     self.log_exception("Error dettaching volume %s." % vol_id)
@@ -1748,7 +1751,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 for vol_id in vm.volumes:
                     volume = None
                     try:
-                        volume = node.driver.ex_get_volume(vol_id)
+                        volume = self.get_volume(node.driver, vol_id)
                         self.wait_volume(volume)
                     except Exception:
                         self.log_exception("Error getting volume ID: %s. No deleting it." % vol_id)
@@ -1995,7 +1998,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             # wait the volume to be attached
             success = self.wait_volume(volume, state='in-use')
             # update the volume data
-            volume = volume.driver.ex_get_volume(volume.id)
+            volume = self.get_volume(volume.driver, volume.id)
             return success, volume, ""
 
     def add_new_disks(self, vm, radl, auth_data):
@@ -2179,3 +2182,20 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                              "limit": vol_quotas.gigabytes.limit}
 
         return quotas_dict
+
+    def get_volume(self, driver, vol_id):
+        """
+        Get the volume object, if it exists
+        """
+        volume = None
+        try:
+            volume = driver.ex_get_volume(vol_id)
+        except Exception:
+            self.log_warn("Error getting volume ID using Cinder API: %s." % vol_id)
+            try:
+                volume = super(OpenStack_2_NodeDriver, driver).ex_get_volume(vol_id)
+            except Exception:
+                self.log_warn("Error getting volume ID using Nova API: %s." % vol_id)
+        if not volume:
+            raise Exception("Volume %s not found." % vol_id)
+        return volume
