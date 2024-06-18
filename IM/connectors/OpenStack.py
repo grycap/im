@@ -1184,8 +1184,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return nets
 
-    @staticmethod
-    def get_volumes(driver, image, volume, radl):
+    def get_volumes(self, driver, image, volume, radl):
         """
         Create the required volumes (in the RADL) for the VM.
 
@@ -1226,13 +1225,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             disk_size = None
             if disk_url:
-                new_volume = driver.ex_get_volume(os.path.basename(disk_url))
+                try:
+                    new_volume_id = driver.ex_get_volume(os.path.basename(disk_url)).id
+                except Exception:
+                    self.log_war("Error getting volume %s. Using ID." % disk_url)
+                    new_volume_id = os.path.basename(disk_url)
                 disk = {
                     'boot_index': cont,
                     'source_type': "volume",
                     'delete_on_termination': False,
                     'destination_type': "volume",
-                    'uuid': new_volume.id
+                    'uuid': new_volume_id
                 }
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
