@@ -2109,13 +2109,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     except Exception as ex:
                         self.log_warn("Error detaching Floating IP: %s. %s" % (floating_ip.ip_address,
                                                                                get_ex_error(ex)))
-                # if it is in the list do not release it
-                if floating_ip.ip_address in no_delete_ips:
-                    self.log_debug("Do not remove Floating IP: %s" % floating_ip.ip_address)
-                else:
-                    self.log_debug("Remove Floating IP: %s" % floating_ip.ip_address)
-                    # delete the ip
-                    floating_ip.delete()
+                    # if it is in the list do not release it
+                    if floating_ip.ip_address in no_delete_ips:
+                        self.log_debug("Do not remove Floating IP: %s" % floating_ip.ip_address)
+                    else:
+                        self.log_debug("Remove Floating IP: %s" % floating_ip.ip_address)
+                        # delete the ip
+                        floating_ip.delete()
             return True, ""
         except Exception as ex:
             self.log_exception("Error removing Floating IPs to VM ID: " + str(vm.id))
