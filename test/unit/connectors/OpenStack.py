@@ -782,7 +782,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         fip.get_node_id.return_value = node.id
         fip.ip_address = '158.42.1.1'
         fip.delete.return_value = True
-        driver.ex_list_floating_ips.return_value = [fip]
+        fip2 = MagicMock()
+        fip2.get_node_id.return_value = "2"
+        fip2.ip_address = '158.42.1.2'
+        fip2.delete.return_value = True
+        driver.ex_list_floating_ips.return_value = [fip, fip2]
         driver.ex_detach_floating_ip_from_node.return_value = True
 
         sg1 = MagicMock()
@@ -836,6 +840,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(driver.ex_delete_security_group.call_args_list[0][0][0], sg2)
         self.assertEqual(driver.ex_delete_security_group.call_args_list[1][0][0], sg1)
         self.assertEqual(fip.delete.call_args_list, [call()])
+        self.assertEqual(fip2.delete.call_count, 0)
         self.assertEqual(driver.ex_detach_floating_ip_from_node.call_args_list[0][0], (node, fip))
 
         vm.floating_ips = ['158.42.1.1']
