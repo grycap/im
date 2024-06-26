@@ -973,6 +973,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         # try to create a router
         if create and pub_nets:
             try:
+                self.log_debug("Creating public router.")
                 gateway_info = {'network_id': list(pub_nets.keys())[0]}
                 name = "im-%s" % (inf_id)
                 return driver.ex_create_router(name, description="IM created router",
@@ -1033,7 +1034,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         try:
             i = 0
-            router = self.get_router_public(driver, radl, inf.id, create=True)
+            router = self.get_router_public(driver, radl, inf.id, create=False)
 
             while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
                 net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
@@ -1090,8 +1091,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         raise Exception("Error creating ost subnet for net %s: %s" % (net_name,
                                                                                       get_ex_error(ex)))
 
+                    # There are no routers in the site
                     if router is None:
-                        self.log_warn("No public router found.")
+                        self.log_debug("No public router found.")
+                        # Try to create one
+                        router = self.get_router_public(driver, radl, inf.id, create=True)
+
+                    if router is None:
+                        self.log_warn("No public router found and cannot be created.")
                     else:
                         self.log_info("Adding subnet %s to the router %s" % (ost_subnet.name, router.name))
                         try:
