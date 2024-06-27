@@ -1529,6 +1529,7 @@ configure step2 (
             net_interface.0.connection = 'publica' and
             net_interface.1.connection = 'privada' and
             disk.0.image.url = 'mock0://linux.for.ev.er' and
+            disk.0.size = 20GB and
             disk.0.free_size >= 20GB and
             disk.0.os.name = 'linux' and
             disk.1.size=100GB and
@@ -1554,7 +1555,7 @@ configure step2 (
             'cloud0': {
                 'cloudType': 'Dummy',
                 'cloudEndpoint': 'http://server.com:80/path',
-                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4096, 'diskSizeInGigabytes': 20},
+                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4096, 'diskSizeInGigabytes': 40},
                             {'cpuCores': 1, 'memoryInMegabytes': 2048, 'diskSizeInGigabytes': 10}],
                 'storage': [{'sizeInGigabytes': 100}]
             }})

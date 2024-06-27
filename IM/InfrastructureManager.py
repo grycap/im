@@ -2009,8 +2009,15 @@ class InfrastructureManager:
                     vm = {"cpuCores": concrete_system.getValue("cpu.count"),
                           "memoryInMegabytes": concrete_system.getFeature("memory.size").getValue("M")}
 
+                    disk_size = 0
                     if concrete_system.getValue("disk.0.free_size"):
-                        vm['diskSizeInGigabytes'] = concrete_system.getFeature("disk.0.free_size").getValue('G')
+                        disk_size += concrete_system.getFeature("disk.0.free_size").getValue('G')
+
+                    if concrete_system.getValue("disk.0.size"):
+                        disk_size += concrete_system.getFeature("disk.0.size").getValue('G')
+
+                    if disk_size:
+                        vm['diskSizeInGigabytes'] = disk_size
 
                     res[cloud_id]["compute"].append(vm)
 
