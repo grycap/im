@@ -367,13 +367,13 @@ class KubernetesCloudConnector(CloudConnector):
             if dns_url[2]:
                 path = dns_url[2]
 
+        ingress_data["metadata"]["annotations"] = {
+            "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0",
+        }
         # Add Let's Encrypt annotation asuming that the cluster has
         # cert-manager installed and the issuer is letsencrypt-prod
         if secure:
-            ingress_data["metadata"]["annotations"] = {
-                "cert-manager.io/cluster-issuer": "letsencrypt-prod",
-                "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0",
-            }
+            ingress_data["metadata"]["annotations"]["cert-manager.io/cluster-issuer"] = "letsencrypt-prod"
 
         ingress_data["spec"] = {
             "rules": [
