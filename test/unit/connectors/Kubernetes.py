@@ -295,7 +295,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "annotations": {
                     "cert-manager.io/cluster-issuer": "letsencrypt-prod",
                     "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0"
-                    },
+                },
             },
             "spec": {
                 "tls": [
