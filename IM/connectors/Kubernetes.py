@@ -371,7 +371,8 @@ class KubernetesCloudConnector(CloudConnector):
         # cert-manager installed and the issuer is letsencrypt-prod
         if secure:
             ingress_data["metadata"]["annotations"] = {
-                "cert-manager.io/cluster-issuer": "letsencrypt-prod"
+                "cert-manager.io/cluster-issuer": "letsencrypt-prod",
+                "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0",
             }
 
         ingress_data["spec"] = {
