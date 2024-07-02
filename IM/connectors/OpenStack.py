@@ -1743,9 +1743,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 except Exception:
                     self.log_exception("Error dettaching SG %s." % sg_name)
 
-            res = node.destroy()
-            success.append(res)
-
             try:
                 res, msg = self.delete_elastic_ips(node, vm)
             except Exception as ex:
@@ -1753,6 +1750,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 msg = get_ex_error(ex)
             success.append(res)
             msgs.append(msg)
+
+            res = node.destroy()
+            success.append(res)
 
             try:
                 for vol_id in vm.volumes:
