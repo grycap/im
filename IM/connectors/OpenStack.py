@@ -1609,8 +1609,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
                 if not attached:
                     self.log_error("Error attaching a Floating IP to the node.")
-                    self.log_info("We have created it, so release it.")
-                    floating_ip.delete()
+                    if not found:
+                        self.log_info("We have created it, so release it.")
+                        floating_ip.delete()
                     return False, "Error attaching a Floating IP to the node."
 
                 if found:
@@ -1746,7 +1747,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             try:
                 res, msg = self.delete_elastic_ips(node, vm)
             except Exception as ex:
-                res = False
                 msg = get_ex_error(ex)
             success.append(res)
             msgs.append(msg)
