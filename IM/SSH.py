@@ -122,7 +122,8 @@ class SSH:
                     private_key_obj.write(line)
                 pkfile.close()
             else:
-                private_key_obj.write(private_key)
+                # Avoid windows line endings
+                private_key_obj.write(private_key.replace("\r", ""))
 
             private_key_obj.seek(0)
             self.private_key_obj = paramiko.RSAKey.from_private_key(
