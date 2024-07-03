@@ -1387,18 +1387,20 @@ class ConfManager(LoggerMixin, threading.Thread):
                             f.write(ssh.proxy_host.private_key)
                         os.chmod(priv_key_filename, 0o600)
 
+                        ssh_options = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+
                         proxy_command = "ssh -W %%h:%%p -i %s -p %d %s %s@%s" % (priv_key_filename,
                                                                                  ssh.proxy_host.port,
-                                                                                 "-o StrictHostKeyChecking=no",
+                                                                                 ssh_options,
                                                                                  ssh.proxy_host.username,
                                                                                  ssh.proxy_host.host)
                     else:
                         proxy_command = "sshpass -p %s ssh -W %%h:%%p -p %d %s %s@%s" % (ssh.proxy_host.password,
                                                                                          ssh.proxy_host.port,
-                                                                                         "-o StrictHostKeyChecking=no",
+                                                                                         ssh_options,
                                                                                          ssh.proxy_host.username,
                                                                                          ssh.proxy_host.host)
-                    ssh_args = "ansible_ssh_extra_args=\" -oProxyCommand='%s'\"" % proxy_command
+                    ssh_args = "ansible_ssh_extra_args=\"%s -oProxyCommand='%s'\"" % (ssh_options, proxy_command)
                 inv_out.write("%s  ansible_port=%d  ansible_ssh_port=%d %s" % (ssh.host, ssh.port,
                                                                                ssh.port, ssh_args))
 
