@@ -117,6 +117,9 @@ class SSH:
         if (private_key is not None and private_key.strip() != ""):
             # Avoid windows line endings
             private_key = private_key.replace("\r", "")
+            # Assure final newline
+            if not private_key.endswith("\n"):
+                private_key += "\n"
             self.private_key = private_key
             private_key_obj = StringIO()
             if os.path.isfile(private_key):
