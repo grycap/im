@@ -113,6 +113,7 @@ class SSH:
         self.username = user
         self.password = passwd
         self.private_key_obj = None
+        self.private_key = None
         if (private_key is not None and private_key.strip() != ""):
             # Avoid windows line endings
             private_key = private_key.replace("\r", "")
