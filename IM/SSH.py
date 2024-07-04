@@ -112,11 +112,11 @@ class SSH:
         self.host = host
         self.username = user
         self.password = passwd
-        self.private_key = private_key
         self.private_key_obj = None
         if (private_key is not None and private_key.strip() != ""):
             # Avoid windows line endings
             private_key = private_key.replace("\r", "")
+            self.private_key = private_key
             private_key_obj = StringIO()
             if os.path.isfile(private_key):
                 pkfile = open(private_key)
