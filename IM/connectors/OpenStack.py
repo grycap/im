@@ -321,6 +321,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         sgx = radl.getValue('cpu.sgx')
         epc_size = radl.getFeature('cpu.sgx.epc_size')
 
+        # If no disk size is set, set a default value
+        # for flavors with 0 disk size set
+        if disk_free <= 0 and not radl.getValue('disk.0.size'):
+            disk_free = 10
+            disk_free_op = self.OPERATORSMAP.get(">=")
+
         # get the node size with the lowest price, vcpus, memory and disk
         sizes.sort(key=lambda x: (x.price, x.extra['pci_devices'], x.vcpus, x.ram, x.disk))
         for size in sizes:

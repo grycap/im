@@ -81,7 +81,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size.id = '1'
         node_size.ram = 512
         node_size.price = 1
-        node_size.disk = 1
+        node_size.disk = 10
         node_size.vcpus = 1
         node_size.name = "g.small"
         node_size.extra = {'pci_passthrough:alias': 'GPU:2,FPGA:1'}
@@ -89,7 +89,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size.id = '2'
         node_size2.ram = 512
         node_size2.price = 1
-        node_size2.disk = 1
+        node_size2.disk = 10
         node_size2.vcpus = 1
         node_size2.name = "small"
         node_size2.extra = {}
