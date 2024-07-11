@@ -67,6 +67,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     """ Confirm Timeout """
     DEFAULT_AUTH_VERSION = '2.0_password'
     """ Default authentication method """
+    MINMUM_DISK_SIZE = 5
+    """ Default minimum root disk size in GB """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
@@ -324,7 +326,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         # If no disk size is set, set a default value
         # for flavors with 0 disk size set
         if disk_free <= 0 and not radl.getValue('disk.0.size'):
-            disk_free = 10
+            disk_free = self.MINMUM_DISK_SIZE
             disk_free_op = self.OPERATORSMAP.get(">=")
 
         # get the node size with the lowest price, vcpus, memory and disk
