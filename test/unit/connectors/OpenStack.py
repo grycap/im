@@ -156,7 +156,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size = MagicMock()
         node_size.ram = 512
         node_size.price = 1
-        node_size.disk = 1
+        node_size.disk = 10
         node_size.vcpus = 1
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
@@ -219,7 +219,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size = MagicMock()
         node_size.ram = 512
         node_size.price = 1
-        node_size.disk = 1
+        node_size.disk = 10
         node_size.vcpus = 1
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
@@ -654,7 +654,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size = MagicMock()
         node_size.ram = 2048
         node_size.price = 1
-        node_size.disk = 1
+        node_size.disk = 10
         node_size.vcpus = 2
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
