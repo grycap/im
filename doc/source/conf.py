@@ -3,8 +3,8 @@ project = 'IM Documentation'
 copyright = '2023, I3M-GRyCAP'
 author = 'micafer'
 
-version = '1.14'
-release = '1.14.1'
+version = '1.17'
+release = '1.17.0'
 
 master_doc = 'index'
 
@@ -15,7 +15,8 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinx.ext.graphviz'
+    'sphinx.ext.graphviz',
+    'sphinx_toolbox.confval'
 ]
 
 intersphinx_mapping = {
