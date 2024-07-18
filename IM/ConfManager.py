@@ -1285,7 +1285,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         self.ansible_process.start()
 
         wait = 0
-        while result.empty() and self.ansible_process.is_alive():
+        while result.empty() and self.ansible_process.is_alive() and not self._stop_thread:
             if wait >= Config.ANSIBLE_INSTALL_TIMEOUT:
                 self.log_error('Timeout waiting Ansible process to finish')
                 try:
@@ -1299,6 +1299,10 @@ class ConfManager(LoggerMixin, threading.Thread):
                 self.log_info('Waiting Ansible process to finish (%d/%d).' % (wait, Config.ANSIBLE_INSTALL_TIMEOUT))
                 time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
                 wait += Config.CHECK_CTXT_PROCESS_INTERVAL
+
+        if self._stop_thread:
+            self.log_info('Ansible process stopped.')
+            return (False, "Ansible process stopped.")
 
         self.log_info('Ansible process finished.')
 
