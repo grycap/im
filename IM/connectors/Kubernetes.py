@@ -577,7 +577,7 @@ class KubernetesCloudConnector(CloudConnector):
 
             else:
                 output = json.loads(resp.text)
-                vm.id = namespace + "/" +  output["metadata"]["name"]
+                vm.id = namespace + "/" + output["metadata"]["name"]
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
                 vm.info.systems[0].setValue('instance_name', str(vm.id))
                 vm.destroy = False
