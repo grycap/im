@@ -47,12 +47,8 @@ class KubernetesCloudConnector(CloudConnector):
     }
     """Dictionary with a map with the Kubernetes POD states to the IM states."""
 
-    def __init__(self, cloud_info, inf):
-        self.apiVersion = None
-        CloudConnector.__init__(self, cloud_info, inf)
-
     def create_request(self, method, url, auth_data, headers=None, body=None):
-        auth_header = self.get_auth_header(auth_data)
+        auth_header, _ = self.get_auth_header(auth_data)
         if auth_header:
             if headers is None:
                 headers = {}
@@ -91,7 +87,11 @@ class KubernetesCloudConnector(CloudConnector):
         else:
             raise Exception("No correct auth data has been specified to Kubernetes: username and password or token.")
 
-        return auth_header
+        namespace = None
+        if 'namespace' in auth:
+            namespace = auth['namespace']
+
+        return auth_header, namespace
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
@@ -494,20 +494,20 @@ class KubernetesCloudConnector(CloudConnector):
 
         return pod_data
 
-    @staticmethod
-    def _get_namespace(inf):
-        namespace = inf.id
-        if inf.radl.description and inf.radl.description.getValue('namespace'):
-            namespace = inf.radl.description.getValue('namespace')
-        return namespace
-
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
 
         res = []
-        # First create the namespace for the infrastructure
-        namespace = self._get_namespace(inf)
+        _, namespace = self.get_auth_header(auth_data)
+        # If the namespace is set in the auth_data use it
+        if not namespace:
+            # If not by default use the Inf ID as namespace
+            namespace = inf.id
+            if inf.radl.description and inf.radl.description.getValue('namespace'):
+                # finally if it is set in the RADL use it
+                namespace = inf.radl.description.getValue('namespace')
 
+        # First create the namespace for the infrastructure
         headers = {'Content-Type': 'application/json'}
         uri = "/api/v1/namespaces/"
         with inf._lock:
@@ -577,7 +577,7 @@ class KubernetesCloudConnector(CloudConnector):
 
             else:
                 output = json.loads(resp.text)
-                vm.id = output["metadata"]["name"]
+                vm.id = namespace + "/" + output["metadata"]["name"]
                 vm.info.systems[0].setValue('instance_id', str(vm.id))
                 vm.info.systems[0].setValue('instance_name', str(vm.id))
                 vm.destroy = False
@@ -612,8 +612,8 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _get_pod(self, vm, auth_data):
         try:
-            namespace = self._get_namespace(vm.inf)
-            pod_name = vm.id
+            namespace = vm.id.split("/")[0]
+            pod_name = vm.id.split("/")[1]
 
             uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "pods", pod_name)
             resp = self.create_request('GET', uri, auth_data)
@@ -716,7 +716,7 @@ class KubernetesCloudConnector(CloudConnector):
         return success, msg
 
     def _delete_namespace(self, vm, auth_data):
-        namespace = self._get_namespace(vm.inf)
+        namespace = vm.id.split("/")[0]
         self.log_debug("Deleting Namespace: %s" % namespace)
         uri = "/api/v1/namespaces/%s" % namespace
 
@@ -740,8 +740,8 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _delete_service(self, vm, auth_data):
         try:
-            namespace = self._get_namespace(vm.inf)
-            service_name = vm.id
+            namespace = vm.id.split("/")[0]
+            service_name = vm.id.split("/")[1]
 
             self.log_debug("Deleting Service: %s/%s" % (namespace, service_name))
             uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "services", service_name)
@@ -760,8 +760,8 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _delete_ingress(self, vm, auth_data):
         try:
-            namespace = self._get_namespace(vm.inf)
-            ingress_name = vm.id
+            namespace = vm.id.split("/")[0]
+            ingress_name = vm.id.split("/")[1]
 
             self.log_debug("Deleting Ingress: %s/%s" % (namespace, ingress_name))
             uri = "/apis/networking.k8s.io/v1/namespaces/%s/ingresses/%s" % (namespace, ingress_name)
@@ -780,8 +780,8 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _delete_pod(self, vm, auth_data):
         try:
-            namespace = self._get_namespace(vm.inf)
-            pod_name = vm.id
+            namespace = vm.id.split("/")[0]
+            pod_name = vm.id.split("/")[1]
 
             self.log_debug("Deleting POD: %s/%s" % (namespace, pod_name))
             uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "pods", pod_name)
@@ -833,8 +833,8 @@ class KubernetesCloudConnector(CloudConnector):
                 return (True, vm)
 
             # Create the container
-            namespace = self._get_namespace(vm.inf)
-            pod_name = vm.id
+            namespace = vm.id.split("/")[0]
+            pod_name = vm.id.split("/")[1]
 
             headers = {'Content-Type': 'application/json-patch+json'}
             uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "pods", pod_name)
