@@ -47,12 +47,8 @@ class KubernetesCloudConnector(CloudConnector):
     }
     """Dictionary with a map with the Kubernetes POD states to the IM states."""
 
-    def __init__(self, cloud_info, inf):
-        self.namespace = None
-        CloudConnector.__init__(self, cloud_info, inf)
-
     def create_request(self, method, url, auth_data, headers=None, body=None):
-        auth_header = self.get_auth_header(auth_data)
+        auth_header, _ = self.get_auth_header(auth_data)
         if auth_header:
             if headers is None:
                 headers = {}
@@ -91,10 +87,11 @@ class KubernetesCloudConnector(CloudConnector):
         else:
             raise Exception("No correct auth data has been specified to Kubernetes: username and password or token.")
 
+        namespace = None
         if 'namespace' in auth:
-            self.namespace = auth['namespace']
+            namespace = auth['namespace']
 
-        return auth_header
+        return auth_header, namespace
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
@@ -501,15 +498,14 @@ class KubernetesCloudConnector(CloudConnector):
         system = radl.systems[0]
 
         res = []
-        self.get_auth_header(auth_data)
-        # By default use the Inf ID as namespace
-        namespace = inf.id
-        if self.namespace:
-            # if the namespace is set in the auth_data use it
-            namespace = self.namespace
-        elif inf.radl.description and inf.radl.description.getValue('namespace'):
-            # finally if it is set in the RADL use it
-            namespace = inf.radl.description.getValue('namespace')
+        _, namespace = self.get_auth_header(auth_data)
+        # If the namespace is set in the auth_data use it
+        if not namespace:
+            # If not by default use the Inf ID as namespace
+            namespace = inf.id
+            if inf.radl.description and inf.radl.description.getValue('namespace'):
+                # finally if it is set in the RADL use it
+                namespace = inf.radl.description.getValue('namespace')
 
         # First create the namespace for the infrastructure
         headers = {'Content-Type': 'application/json'}
