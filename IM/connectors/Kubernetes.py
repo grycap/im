@@ -502,10 +502,7 @@ class KubernetesCloudConnector(CloudConnector):
 
         return pod_data
 
-    def launch(self, inf, radl, requested_radl, num_vm, auth_data):
-        system = radl.systems[0]
-
-        res = []
+    def _get_namespace(self, inf, auth_data):
         _, namespace = self.get_auth_header(auth_data)
         # If the namespace is set in the auth_data use it
         if not namespace:
@@ -514,6 +511,13 @@ class KubernetesCloudConnector(CloudConnector):
             if inf.radl.description and inf.radl.description.getValue('namespace'):
                 # finally if it is set in the RADL use it
                 namespace = inf.radl.description.getValue('namespace')
+        return namespace
+
+    def launch(self, inf, radl, requested_radl, num_vm, auth_data):
+        system = radl.systems[0]
+
+        res = []
+        namespace = self._get_namespace(inf, auth_data)
 
         # First create the namespace for the infrastructure
         headers = {'Content-Type': 'application/json'}
@@ -622,7 +626,11 @@ class KubernetesCloudConnector(CloudConnector):
         try:
             namespace = vm.id.split("/")[0]
             pod_name = vm.id.split("/")[1]
+        except Exception as ex:
+            self.log_exception("Error invalid VM id")
+            return (False, None, "Error invalid VM id: " + str(ex))
 
+        try:
             uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "pods", pod_name)
             resp = self.create_request('GET', uri, auth_data)
 
@@ -724,7 +732,10 @@ class KubernetesCloudConnector(CloudConnector):
         return success, msg
 
     def _delete_namespace(self, vm, auth_data):
-        namespace = vm.id.split("/")[0]
+        if vm.id:
+            namespace = vm.id.split("/")[0]
+        else:
+            namespace = self._get_namespace(vm.inf, auth_data)
         self.log_debug("Deleting Namespace: %s" % namespace)
         uri = "/api/v1/namespaces/%s" % namespace
 
