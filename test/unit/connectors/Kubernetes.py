@@ -149,6 +149,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             instance_tags = 'key=_inva:lid_' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'docker://someimage' and
+            command = ['/bin/bash', '-c', 'sleep 100'] and
             disk.1.size = 10G and
             disk.1.mount_path = '/mnt' and
             disk.2.mount_path = '/etc/config' and
@@ -230,6 +231,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "containers": [
                     {
                         "name": "test",
+                        "command": ["/bin/bash"],
+                        "args": ["-c", "sleep 100"],
                         "image": "someimage",
                         "imagePullPolicy": "Always",
                         "ports": [{"containerPort": 8080, "protocol": "TCP"}],
