@@ -365,6 +365,8 @@ The available keys are:
   mandatory and it indicates the arn of the IAM role created to correcly execute Lambda functions (see
   `here <https://scar.readthedocs.io/en/latest/configuration.html#iam-role>`_ how to configure it). 
 
+* ``namespace`` indicates a namespace name to be associated to the Kubernetes credential (from version 1.7.1).
+
 Vault Credentials support
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 

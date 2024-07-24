@@ -137,7 +137,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl_data = """
             description desc (
                 name = 'Infrastructure Name' and
-                namespace = 'somenamespace'
+                namespace = 'somenamespace2'
             )
             network net (outbound = 'yes' and outports = '38080-8080')
             system test (
@@ -161,7 +161,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes', 'namespace': 'somenamespace',
                                 'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
@@ -351,8 +351,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
-        inf.id = "namespace"
-        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
+        vm = VirtualMachine(inf, "namespace/1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -386,8 +385,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
-        inf.id = "namespace"
-        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
+        vm = VirtualMachine(inf, "namespace/1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -404,10 +402,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         inf = MagicMock()
         inf.id = "infid"
-        inf.radl = MagicMock()
-        inf.radl.description = MagicMock(["getValue"])
-        inf.radl.description.getValue.return_value = "somenamespace"
-        vm = VirtualMachine(inf, "1", kube_cloud.cloud, "", "", kube_cloud, 1)
+        vm = VirtualMachine(inf, "somenamespace/1", kube_cloud.cloud, "", "", kube_cloud, 1)
 
         requests.side_effect = self.get_response
 
