@@ -461,6 +461,14 @@ class KubernetesCloudConnector(CloudConnector):
         if system.getValue("docker.privileged") == 'yes':
             containers[0]['securityContext'] = {'privileged': True}
 
+        if system.getValue('command'):
+            command = system.getValue('command')
+            if command and not isinstance(command, list):
+                command = command.split()
+            containers[0]["command"] = [command[0]]
+            if len(command) > 1:
+                containers[0]["args"] = command[1:]
+
         pod_data['spec'] = {'restartPolicy': 'OnFailure'}
 
         if volumes:

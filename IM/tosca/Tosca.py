@@ -2205,6 +2205,8 @@ class Tosca:
                             variables += ","
                         variables += "%s=%s" % (k, v)
                     res.setValue("environment.variables", variables)
+                elif prop.name == "command":
+                    res.setValue("command", value)
 
         runtime = self._find_host_node(node, nodetemplates, node_type="tosca.nodes.Container.Runtime.Docker")
 

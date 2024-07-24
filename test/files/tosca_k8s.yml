@@ -33,6 +33,7 @@ topology_template:
     im_container:
       type: tosca.nodes.Container.Application.Docker
       properties:
+        command: ["/bin/sh", "-c", "im_service.py"]
         environment:
           IM_DATA_DB:
             concat:
