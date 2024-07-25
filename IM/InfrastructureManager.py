@@ -400,7 +400,12 @@ class InfrastructureManager:
         res = []
         for c in CloudInfo.get_cloud_list(auth):
             cloud_site = c.getCloudConnector(inf)
-            for image in cloud_site.list_images(auth):
+            try:
+                images = cloud_site.list_images(auth)
+            except Exception:
+                InfrastructureManager.logger.warn("Inf ID: " + inf.id + ": Error getting images from cloud: " + c.id)
+                images = []
+            for image in images:
                 if ((dist is None or dist.lower() in image["name"].lower()) and
                         (version is None or version.lower() in image["name"].lower())):
                     new_sys = system(radl_sys.name)
