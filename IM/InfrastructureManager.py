@@ -402,7 +402,7 @@ class InfrastructureManager:
             cloud_site = c.getCloudConnector(inf)
             try:
                 images = cloud_site.list_images(auth)
-            except Exception as ex:
+            except Exception:
                 InfrastructureManager.logger.warn("Inf ID: " + inf.id + ": Error getting images from cloud: " + c.id)
                 images = []
             for image in images:
