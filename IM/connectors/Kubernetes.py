@@ -208,7 +208,7 @@ class KubernetesCloudConnector(CloudConnector):
 
                 # Let's assume that if content is base64 encoded it is a secret
                 try:
-                    base64.b64decode(content)
+                    base64.b64decode(content, validate=True)
                     secret = True
                 except Exception:
                     secret = False
