@@ -539,6 +539,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
+            if 'vm_state' in node.extra and node.extra['vm_state'] == 'resized':
+                self.log_warn("VM %s in resized state. Try to confirm resize." % vm.id)
+                node.driver.ex_confirm_resize(node)
+                time.sleep(2)
+
             vm.state = self.VM_STATE_MAP.get(node.state, VirtualMachine.UNKNOWN)
 
             if vm.state == VirtualMachine.FAILED:
