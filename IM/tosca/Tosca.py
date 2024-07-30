@@ -793,6 +793,8 @@ class Tosca:
     def _gen_configure_from_interfaces(self, node, compute, interfaces):
         if not interfaces:
             return None
+        if not compute:
+            Tosca.logger.warning("Node %s has not compute node to host in." % node.name)
 
         variables = ""
         tasks = ""

@@ -63,7 +63,9 @@ class TestSSH(unittest.TestCase):
 
     @patch('paramiko.SSHClient')
     def test_execute(self, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
+        tests_path = os.path.dirname(os.path.abspath(__file__))
+        abs_file_path = os.path.join(tests_path, "../files/privatekey.pem")
+        ssh = SSHRetry("host", "user", "passwd", abs_file_path)
 
         client = MagicMock()
         ssh_client.return_value = client
