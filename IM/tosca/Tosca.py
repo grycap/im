@@ -795,6 +795,7 @@ class Tosca:
             return None
         if not compute:
             Tosca.logger.warning("Node %s has not compute node to host in." % node.name)
+            return None
 
         variables = ""
         tasks = ""
