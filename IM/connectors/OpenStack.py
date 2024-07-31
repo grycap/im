@@ -152,9 +152,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             protocol = self.cloud.protocol or "http"
             port = self.cloud.get_port()
+            path = self.cloud.path
+            if path in ["/", "/v3", "/v3/"]:
+                path = ""
 
             parameters = {"auth_version": self.DEFAULT_AUTH_VERSION,
-                          "auth_url": protocol + "://" + self.cloud.server + ":" + str(port),
+                          "auth_url": protocol + "://" + self.cloud.server + ":" + str(port) + path,
                           "auth_token": None,
                           "service_type": None,
                           "service_name": None,
