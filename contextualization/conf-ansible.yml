@@ -7,10 +7,6 @@
     # Ansible specific Version or "latest"
     ANSIBLE_VERSION: 4.10.0
   tasks:
-    - name: Set Ansible version from env if defined
-      set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
-      when: lookup('env','ANSIBLE_VERSION') != ""
-
   ############## To avoid some issues with cloud-init and unattended upgrades ###############
     - name: Avoid unattended upgrades
       raw: |
@@ -185,12 +181,21 @@
         executable: pip3
         extra_args: "{{ extra_args }}"
 
-    - name: Set Ansible newer version for python 3.12
+    - name: Set Ansible newer version for python 3.8+
+      set_fact:
+        ANSIBLE_VERSION:  6.7.0
+      when:
+        - ansible_python_version is version('3.8', '>=')
+
+    - name: Set Ansible newer version for python 3.9+
       set_fact:
         ANSIBLE_VERSION:  8.7.0
       when:
-        - ansible_python_version is version('3.12', '>=')
-        - ANSIBLE_VERSION is version('8.7.0', '<')
+        - ansible_python_version is version('3.9', '>=')
+
+    - name: Set Ansible version from env if defined
+      set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
+      when: lookup('env','ANSIBLE_VERSION') != ""
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip:
