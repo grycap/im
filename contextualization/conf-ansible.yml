@@ -168,8 +168,9 @@
 
     - name: Install cryptography & pyOpenSSL in py3.11+
       pip:
-        name: cryptography>36.0.0
-        name: pyOpenSSL>20.0
+        name: 
+          - cryptography>36.0.0
+          - pyOpenSSL>20.0
         executable: pip3
         extra_args: "{{ extra_args }}"
       when: ansible_python_version is version('3.11', '>=')
