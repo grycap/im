@@ -492,6 +492,15 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(outputs, {'im_service_endpoint': 'https://im.domain.com/im',
                                    'mysql_service_endpoint': 'mysql-container:3306'})
 
+    def test_tosca_repo(self):
+        """Test TOSCA RADL translation with Compute tags"""
+        tosca_data = read_file_as_string('../files/tosca_repo.yml')
+        tosca = Tosca(tosca_data, tosca_repo="https://raw.githubusercontent.com/grycap/tosca/main/templates/")
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        node = radl.get_system_by_name('simple_node')
+        self.assertEqual(node.getValue("cpu.count"), 16)
+
 
 if __name__ == "__main__":
     unittest.main()

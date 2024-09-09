@@ -36,6 +36,7 @@ from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl
 from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
 from IM.openid.JWT import JWT
+from IM.oaipmh.oai import OAI
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -470,7 +471,7 @@ def RESTCreateInfrastructure():
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
             elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
-                tosca_data = Tosca(radl_data)
+                tosca_data = Tosca(radl_data, tosca_repo=Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
                 _, radl_data = tosca_data.to_radl()
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                 content_type = "text/plain"
@@ -1076,6 +1077,24 @@ def RESTChangeInfrastructureAuth(infid=None):
         logger.exception("Error modifying infrastructure owner.")
         return return_error(400, "Error modifying infrastructure owner: %s" % get_ex_error(ex))
 
+
+@app.route('/oai', methods=['GET', 'POST'])
+def oaipmh():
+    if not Config.OAIPMH_REPO_BASE_IDENTIFIER_URL:
+        return return_error(400, "OAI-PMH not enabled.")
+
+    oai = OAI(Config.OAIPMH_REPO_NAME, flask.request.base_url, Config.OAIPMH_REPO_DESCRIPTION,
+                Config.OAIPMH_REPO_BASE_IDENTIFIER_URL, repo_admin_email=Config.OAIPMH_REPO_ADMIN_EMAIL)
+
+    # Get list of TOSCA templates from Config.OAIPMH_REPO_BASE_IDENTIFIER_URL
+    toscaInfo = {}
+    metadata_dict = {}
+    for name, tosca in toscaInfo.items():
+        metadata = tosca["metadata"]
+        metadata_dict[name] = metadata
+
+    response_xml = oai.processRequest(flask.request, metadata_dict)
+    return flask.make_response(response_xml, 200, {'Content-Type': 'text/xml'})
 
 @app.errorhandler(403)
 def error_mesage_403(error):
