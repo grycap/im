@@ -771,3 +771,7 @@ IM 1.17.0:
     * Fix error deleting router in OpenStack.
     * Fix error floating IP is not released in OpenStack.
     * Do not create router in OST if no networks are created.
+
+IM 1.17.1:
+    * Fix problem with 0 disk flavors in OpenStack.
+    * Speed up Ansible installation using newer versions.
