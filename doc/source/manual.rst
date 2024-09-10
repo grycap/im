@@ -542,6 +542,30 @@ and IM name comment or leave empty not to set them
 
    Name of the tag to set the IM string (``'es.grycap.upv.im'```) as tag in the IM created VMs.
 
+OAI-PMH Support and restrict templates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Variables to configure the OAI-PMH repository and restrict the templates that will be deployed
+by the IM service.
+
+.. confval:: OAIPMH_REPO_BASE_IDENTIFIER_URL
+
+   If this value is set the IM service will restrict the templates that can be deployed to the ones
+   available in the repository with the base URL set in this value. Currently it must be a Github
+   repository URL. To activate the OAI-PMH support this value must be set.
+
+.. confval:: OAIPMH_REPO_NAME
+
+   Tne name of the OAI-PMH repository. To activate the OAI-PMH support this value must be set.
+
+.. confval:: OAIPMH_REPO_DESCRIPTION
+
+   The description of the OAI-PMH repository. To activate the OAI-PMH support this value must be set.
+
+.. confval:: OAIPMH_REPO_ADMIN_EMAIL
+
+   The email of the repository administrator.
+
 .. _options-ha:
 
 IM in high availability mode

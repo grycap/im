@@ -1081,7 +1081,8 @@ def RESTChangeInfrastructureAuth(infid=None):
 
 @app.route('/oai', methods=['GET', 'POST'])
 def oaipmh():
-    if not Config.OAIPMH_REPO_BASE_IDENTIFIER_URL:
+    if not (Config.OAIPMH_REPO_BASE_IDENTIFIER_URL and
+            Config.OAIPMH_REPO_NAME and Config.OAIPMH_REPO_DESCRIPTION):
         return return_error(400, "OAI-PMH not enabled.")
 
     oai = OAI(Config.OAIPMH_REPO_NAME, flask.request.base_url, Config.OAIPMH_REPO_DESCRIPTION,
