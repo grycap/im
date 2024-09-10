@@ -1,6 +1,6 @@
 #
-# IM - Infrastructure Manager Dashboard
-# Copyright (C) 2023 - GRyCAP - Universitat Politecnica de Valencia
+# IM - Infrastructure Manager
+# Copyright (C) 2024 - GRyCAP - Universitat Politecnica de Valencia
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file

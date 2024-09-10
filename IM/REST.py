@@ -37,6 +37,7 @@ from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
 from IM.openid.JWT import JWT
 from IM.oaipmh.oai import OAI
+from IM.oaipmh.utils import Repository
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -1084,17 +1085,23 @@ def oaipmh():
         return return_error(400, "OAI-PMH not enabled.")
 
     oai = OAI(Config.OAIPMH_REPO_NAME, flask.request.base_url, Config.OAIPMH_REPO_DESCRIPTION,
-                Config.OAIPMH_REPO_BASE_IDENTIFIER_URL, repo_admin_email=Config.OAIPMH_REPO_ADMIN_EMAIL)
+              Config.OAIPMH_REPO_BASE_IDENTIFIER_URL, repo_admin_email=Config.OAIPMH_REPO_ADMIN_EMAIL)
 
     # Get list of TOSCA templates from Config.OAIPMH_REPO_BASE_IDENTIFIER_URL
-    toscaInfo = {}
     metadata_dict = {}
-    for name, tosca in toscaInfo.items():
-        metadata = tosca["metadata"]
-        metadata_dict[name] = metadata
+    try:
+        repo = Repository.create(Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
+        for name, elem in repo.list().items():
+            tosca = yaml.safe_load(repo.get(elem))
+            metadata = tosca["metadata"]
+            metadata_dict[name] = metadata
+    except Exception as ex:
+        logger.exception("Error getting metadata from TOSCA templates")
+        return return_error(400, "Error getting metadata from TOSCA templates: %s" % get_ex_error(ex))
 
     response_xml = oai.processRequest(flask.request, metadata_dict)
     return flask.make_response(response_xml, 200, {'Content-Type': 'text/xml'})
+
 
 @app.errorhandler(403)
 def error_mesage_403(error):
