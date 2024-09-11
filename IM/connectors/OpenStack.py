@@ -2151,7 +2151,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         for image in driver.list_images():
             if 'status' not in image.extra or image.extra['status'] == 'active':
                 images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
-        return images
+        return self._filter_images(images, filters)
 
     @staticmethod
     def _get_tenant_id(auth):

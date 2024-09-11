@@ -1750,4 +1750,4 @@ class EC2CloudConnector(CloudConnector):
                                        "name": "%s/%s" % (region, image.name)})
             except Exception:
                 continue
-        return images
+        return self._filter_images(images, filters)
