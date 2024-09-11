@@ -1242,15 +1242,17 @@ class EC2CloudConnector(CloudConnector):
 
             self.log_info("Check if the request has been fulfilled and the instance has been deployed")
             job_sir_id = instance_id
-            request_list = conn.describe_spot_instance_requests()['SpotInstanceRequests']
-            for sir in request_list:
-                # TODO: Check if the request had failed and launch it in
-                # another availability zone
-                if sir['State'] == 'failed':
-                    vm.state = VirtualMachine.FAILED
-                if sir['SpotInstanceRequestId'] == job_sir_id:
-                    job_instance_id = sir['InstanceId']
-                    break
+            request_list = conn.describe_spot_instance_requests(Filters=[{'Name': 'spot-instance-request-id',
+                                                                          'Values': ['job_sir_id']}])
+            sir = []
+            if request_list['SpotInstanceRequests']:
+                sir = request_list['SpotInstanceRequests'][0]
+            # TODO: Check if the request had failed and launch it in
+            # another availability zone
+            if sir['State'] == 'failed':
+                vm.state = VirtualMachine.FAILED
+            if sir['SpotInstanceRequestId'] == job_sir_id:
+                job_instance_id = sir['InstanceId']
 
             if job_instance_id:
                 self.log_info("Request fulfilled, instance_id: " + str(job_instance_id))
@@ -1288,6 +1290,12 @@ class EC2CloudConnector(CloudConnector):
 
         return (True, vm)
 
+    def _get_zone(self, conn, domain):
+        zones = conn.list_hosted_zones_by_name(DNSName=domain)['HostedZones']
+        if not zones or len(zones) == 0:
+            return None
+        return zones[0]
+
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
             # Workaround to use EC2 as the default case.
@@ -1299,25 +1307,40 @@ class EC2CloudConnector(CloudConnector):
                     raise Exception("No auth data has been specified to EC2.")
                 else:
                     auth = auths[0]
-                    conn = boto.route53.connect_to_region('universal',
-                                                          aws_access_key_id=auth['username'],
-                                                          aws_secret_access_key=auth['password'])
-            zone = conn.get_zone(domain)
+                    conn = boto3.client('route53', region_name='universal',
+                                        aws_access_key_id=auth['username'],
+                                        aws_secret_access_key=auth['password'])
+
+            zone = self._get_zone(conn, domain)
+            if not zone:
+                raise Exception("Could not find DNS zone to update")
+            zone_id = zone['Id']
+
             if not zone:
                 self.log_info("Creating DNS zone %s" % domain)
-                zone = conn.create_zone(domain)
+                zone = conn.create_hosted_zone(domain)
             else:
                 self.log_info("DNS zone %s exists. Do not create." % domain)
 
             if zone:
                 fqdn = hostname + "." + domain
-                record = zone.get_a(fqdn)
-                if not record:
+                records = conn.list_resource_record_sets(HostedZoneId=zone_id,
+                                                         StartRecordName=fqdn,
+                                                         StartRecordType='A')['ResourceRecordSets']
+                if not records or records[0]['Name'] != fqdn:
                     self.log_info("Creating DNS record %s." % fqdn)
-                    changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
-                    change = changes.add_change("CREATE", fqdn, "A")
-                    change.add_value(ip)
-                    changes.commit()
+                    conn.change_resource_record_sets(
+                        HostedZoneId=zone_id,
+                        ChangeBatch={
+                            'Changes': [{
+                                'Action': 'CREATE',
+                                    'ResourceRecordSet': {
+                                    'Name':  fqdn,
+                                    'Type': 'A',
+                                    'TTL': 300,
+                                    'ResourceRecords': [{'Value': ip}]}
+                                    }]
+                        })
                 else:
                     self.log_info("DNS record %s exists. Do not create." % fqdn)
             return True
@@ -1335,28 +1358,42 @@ class EC2CloudConnector(CloudConnector):
                 raise Exception("No auth data has been specified to EC2.")
             else:
                 auth = auths[0]
-                conn = boto.route53.connect_to_region('universal',
-                                                      aws_access_key_id=auth['username'],
-                                                      aws_secret_access_key=auth['password'])
-        zone = conn.get_zone(domain)
+                conn = boto3.client('route53', region_name='universal',
+                                    aws_access_key_id=auth['username'],
+                                    aws_secret_access_key=auth['password'])
+        zone = self._get_zone(conn, domain)
         if not zone:
             self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
         else:
             fqdn = hostname + "." + domain
-            record = zone.get_a(fqdn)
-            if not record:
+            records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
+                                                     StartRecordName=fqdn,
+                                                     StartRecordType='A')['ResourceRecordSets']
+            if not records or records[0]['Name'] != fqdn:
                 self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
             else:
                 self.log_info("Deleting DNS record %s." % fqdn)
-                changes = boto.route53.record.ResourceRecordSets(conn, zone.id)
-                change = changes.add_change("DELETE", fqdn, "A")
-                change.add_value(ip)
-                changes.commit()
+                conn.change_resource_record_sets(
+                    HostedZoneId=zone['Id'],
+                    ChangeBatch={
+                        'Changes': [{
+                            'Action': 'DELETE',
+                                'ResourceRecordSet': {
+                                'Name':  fqdn,
+                                'Type': 'A',
+                                'TTL': 300,
+                                'ResourceRecords': [{'Value': ip}]}
+                                }]
+                    })
 
             # if there are no A records
-            # all_a_records = [r for r in conn.get_all_rrsets(zone.id) if r.type == "A"]
+            # all_a_records = conn.list_resource_record_sets(
+            #    HostedZoneId=zone['Id'],
+            #    StartRecordType='A'
+            #)['ResourceRecordSets']
             # if not all_a_records:
-            #    conn.delete_hosted_zone(zone.id)
+            #    self.log_info("Deleting DNS zone %s." % domain)
+            #    conn.delete_hosted_zone(zone['Id'])
 
     def cancel_spot_requests(self, conn, vm):
         """
@@ -1369,24 +1406,25 @@ class EC2CloudConnector(CloudConnector):
         instance_id = vm.id.split(";")[1]
         # Check if the instance_id starts with "sir" -> spot request
         if (instance_id[0] == "s"):
-            request_list = conn.get_all_spot_instance_requests([instance_id])
-            for sir in request_list:
-                conn.cancel_spot_instance_requests(sir.id)
-                self.log_info("Spot instance request " + str(sir.id) + " deleted")
-                break
+            request_list = conn.describe_spot_instance_requests(Filters=[{'Name': 'spot-instance-request-id',
+                                                                          'Values': ['job_sir_id']}])
+            if request_list['SpotInstanceRequests']:
+                sir = request_list['SpotInstanceRequests'][0]
+                conn.cancel_spot_instance_requests(sir['SpotInstanceRequestId'])
+                self.log_info("Spot instance request " + sir['SpotInstanceRequestId'] + " deleted")
 
     def delete_networks(self, conn, vm, timeout=240):
         """
         Delete the created networks
         """
-        for subnet in conn.get_all_subnets(filters={"tag:IM-INFRA-ID": vm.inf.id}):
-            self.log_info("Deleting subnet: %s" % subnet.id)
+        for subnet in conn.describe_subnets(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [vm.inf.id]}])['Subnets']:
+            self.log_info("Deleting subnet: %s" % subnet['SubnetId'])
             cont = 0
             deleted = False
             while not deleted and cont < timeout:
                 cont += 5
                 try:
-                    conn.delete_subnet(subnet.id)
+                    conn.delete_subnet(subnet['SubnetId'])
                     deleted = True
                 except Exception as ex:
                     self.log_warn("Error removing subnet: " + str(ex))
@@ -1398,11 +1436,11 @@ class EC2CloudConnector(CloudConnector):
                 self.log_error("Timeout (%s) deleting the subnet %s" % (timeout, subnet.id))
 
         vpc_id = None
-        for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": vm.inf.id}):
-            vpc_id = vpc.id
+        for vpc in conn.describe_vpcs(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [vm.inf.id]}])['Vpcs']:
+            vpc_id = vpc['VpcId']
         ig_id = None
-        for ig in conn.get_all_internet_gateways(filters={"tag:IM-INFRA-ID": vm.inf.id}):
-            ig_id = ig.id
+        for ig in conn.describe_internet_gateways(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [vm.inf.id]}])['InternetGateways']:
+            ig_id = ig['InternetGatewayId']
 
         if ig_id and vpc_id:
             self.log_info("Detacching Internet Gateway: %s from VPC: %s" % (ig_id, vpc_id))
@@ -1488,7 +1526,8 @@ class EC2CloudConnector(CloudConnector):
         sgs = []
         for sg_name in sg_names:
             try:
-                sgs.extend(conn.get_all_security_groups(filters={'group-name': sg_name}))
+                sg = conn.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': [sg_name]}])
+                sgs.extend(sg['SecurityGroups'][0])
             except Exception:
                 self.log_exception("Error getting SG %s" % sg_name)
         return sgs
@@ -1505,68 +1544,69 @@ class EC2CloudConnector(CloudConnector):
 
         if sgs:
             # Get the default SG to set in the instances
-            def_sg_id = conn.get_all_security_groups(filters={'group-name': 'default',
-                                                              'vpc-id': sgs[0].vpc_id})[0].id
+            def_sg_id = conn.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': ['default']},
+                                                               {'Name': 'vpc-id', 'Values': [sgs[0].vpc_id]}]
+                )['SecurityGroups'][0]['GroupId']
 
         for sg in sgs:
-            if sg.description != "Security group created by the IM":
-                self.log_info("SG %s not created by the IM. Do not delete it." % sg.name)
+            if sg['Description'] != "Security group created by the IM":
+                self.log_info("SG %s not created by the IM. Do not delete it." % sg['GroupName'])
                 continue
             try:
-                for instance in sg.instances():
-                    instance.modify_attribute("groupSet", [def_sg_id])
+                instances = conn.describe_instances(Filters=[{'Name': 'instance.group-id', 'Values': [sg['GroupId']]}])
+                for instance in instances['Reservations'][0]['Instances']:
+                    conn.modify_instance_attribute(
+                        InstanceId=instance['InstanceId'],
+                        Groups=[{'GroupId': def_sg_id}]
+                    )
             except Exception as ex:
                 self.log_warn("Error removing the SG %s from the instance: %s. %s" % (sg.name, instance.id, ex))
                 # try to wait some seconds to free the SGs
                 time.sleep(5)
 
-            self.log_info("Remove the SG: " + sg.name)
+            self.log_info("Remove the SG: " + sg['Name'])
             try:
-                sg.revoke('tcp', 0, 65535, src_group=sg)
-                sg.revoke('udp', 0, 65535, src_group=sg)
+                conn.revoke_security_group_ingress()
+                conn.revoke_security_group_ingress(
+                    GroupId=sg['GroupId'],
+                    IpPermissions=[
+                        {'IpProtocol': 'tcp',
+                        'FromPort': 0,
+                        'ToPort': 65535,
+                        'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]},
+                        {'IpProtocol': 'udp',
+                        'FromPort': 0,
+                        'ToPort': 65535,
+                        'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]}
+                    ])
             except Exception as ex:
                 self.log_warn("Error revoking self rules: " + str(ex))
 
-            sg.delete()
+            conn.delete_security_group(GroupId=sg['GroupId'])
 
     def stop(self, vm, auth_data):
-        region_name = vm.id.split(";")[0]
-        instance_id = vm.id.split(";")[1]
-
-        instance = self.get_instance_by_id(instance_id, region_name, auth_data)
-        if (instance is not None):
-            instance.update()
-            instance.stop()
-        else:
-            self.log_warn("Instance %s not found. Not stopping it." % instance_id)
-            return (False, "Instance %s not found." % instance_id)
-
-        return (True, "")
+        self._vm_operation("stop", vm, auth_data)
 
     def start(self, vm, auth_data):
-        region_name = vm.id.split(";")[0]
-        instance_id = vm.id.split(";")[1]
-
-        instance = self.get_instance_by_id(instance_id, region_name, auth_data)
-        if (instance is not None):
-            instance.update()
-            instance.start()
-        else:
-            self.log_warn("Instance %s not found. Not starting it." % instance_id)
-            return (False, "Instance %s not found." % instance_id)
-
-        return (True, "")
+        self._vm_operation("start", vm, auth_data)
 
     def reboot(self, vm, auth_data):
+        self._vm_operation(vm, "reboot", auth_data)
+    
+    def _vm_operation(self, op, vm, auth_data):
         region_name = vm.id.split(";")[0]
         instance_id = vm.id.split(";")[1]
 
         instance = self.get_instance_by_id(instance_id, region_name, auth_data)
         if (instance is not None):
-            instance.update()
-            instance.reboot()
+            if op == "stop":
+                instance.stop()
+            elif op == "start":
+                instance.start()
+            elif op == "reboot":
+                instance.reboot()
         else:
-            self.log_warn("Instance %s not found. Not rebooting it." % instance_id)
+            self.log_warn("Instance %s not found. Not %sing it." % (instance_id, op))
             return (False, "Instance %s not found." % instance_id)
 
         return (True, "")
@@ -1580,8 +1620,7 @@ class EC2CloudConnector(CloudConnector):
         wait = 0
         powered_off = False
         while wait < timeout and not powered_off:
-            instance.update()
-
+            instance.reload()
             powered_off = instance.state == 'stopped'
             if not powered_off:
                 time.sleep(2)
@@ -1595,9 +1634,7 @@ class EC2CloudConnector(CloudConnector):
 
         # Terminate the instance
         instance = self.get_instance_by_id(instance_id, region_name, auth_data)
-        if instance:
-            instance.update()
-        else:
+        if not instance:
             return (False, "The instance has not been found")
 
         new_system = self.resize_vm_radl(vm, radl)
@@ -1611,7 +1648,8 @@ class EC2CloudConnector(CloudConnector):
             if instance_type and instance.instance_type != instance_type.name:
                 stopped = self.waitStop(instance)
                 if stopped:
-                    success = instance.modify_attribute('instanceType', instance_type.name)
+                    success = instance.modify_attribute(Attribute='instanceType',
+                                                        InstanceType=instance_type.name)
                     if success:
                         self.update_system_info_from_instance(vm.info.systems[0], instance_type)
                         instance.start()
@@ -1729,11 +1767,11 @@ class EC2CloudConnector(CloudConnector):
         instance = self.get_instance_by_id(instance_id, region_name, auth_data)
         if instance:
             self.log_info("Creating snapshot: " + image_name)
-            snapshot_id = instance.create_image(image_name,
-                                                description="AMI automatically generated by IM",
-                                                no_reboot=True)
+            snapshot_id = instance.create_image(Name=image_name,
+                                                Description="AMI automatically generated by IM",
+                                                NoReboot=True)
             # Add tags to the snapshot to be recognizable
-            conn.create_tags(snapshot_id, {'instance_id': instance_id})
+            conn.create_tags(Resources=[snapshot_id], Tags=[{'Key': 'instance_id', 'Value': instance_id}])
         else:
             return (False, "Error obtaining details of the instance")
         if snapshot_id != "":
@@ -1750,7 +1788,7 @@ class EC2CloudConnector(CloudConnector):
         self.log_info("Deleting image: %s." % image_url)
         conn = self.get_connection(region_name, auth_data)
 
-        success = conn.deregister_image(ami, delete_snapshot=True)  # https://github.com/boto/boto/issues/3019
+        success = conn.deregister_image(ami)
 
         if success:
             return (True, "")
@@ -1766,7 +1804,7 @@ class EC2CloudConnector(CloudConnector):
             regions = [filters['region']]
             del filters['region']
         if not regions:
-            regions = [region.name for region in boto.ec2.regions()]
+            region = [region['RegionName'] for region in conn.describe_regions()['Regions']]
 
         images_filter = {'architecture': 'x86_64', 'image-type': 'machine',
                          'virtualization-type': 'hvm', 'state': 'available',
@@ -1780,8 +1818,8 @@ class EC2CloudConnector(CloudConnector):
         for region in regions:
             conn = self.get_connection(region, auth_data)
             try:
-                for image in conn.get_all_images(owners=['self', 'aws-marketplace'], filters=images_filter):
-                    if len(image.id) > 12:  # do not add old images
+                for image in conn.describe_images(Owners=['self', 'aws-marketplace'], Filters=images_filter)['Images']:
+                    if len(image['ImageId']) > 12:  # do not add old images
                         images.append({"uri": "aws://%s/%s" % (region, image.id),
                                        "name": "%s/%s" % (region, image.name)})
             except Exception:
