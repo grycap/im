@@ -1524,12 +1524,11 @@ class EC2CloudConnector(CloudConnector):
             sg_names.append(sg_name)
 
         sgs = []
-        for sg_name in sg_names:
-            try:
-                sg = conn.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': [sg_name]}])
-                sgs.extend(sg['SecurityGroups'][0])
-            except Exception:
-                self.log_exception("Error getting SG %s" % sg_name)
+        try:
+            sg = conn.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': sg_names}])
+            sgs.extend(sg['SecurityGroups'])
+        except Exception:
+            self.log_exception("Error getting SG %s" % sg_name)
         return sgs
 
     def delete_security_groups(self, conn, vm, timeout=90):
