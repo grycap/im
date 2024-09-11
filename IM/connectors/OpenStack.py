@@ -2148,10 +2148,42 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     def list_images(self, auth_data, filters=None):
         driver = self.get_driver(auth_data)
         images = []
-        for image in driver.list_images():
+        for image in self._filter_images(driver.list_images(), filters):
             if 'status' not in image.extra or image.extra['status'] == 'active':
                 images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
-        return self._filter_images(images, filters)
+        return images
+
+    def _filter_images(self, image_list, filters=None):
+        dist = None
+        version = None
+        if filters:
+            dist = filters.get('distribution', None)
+            version = filters.get('version', None)
+        res = []
+
+        for image in image_list:
+            add_image = True
+            if dist is not None:
+                add_image = False
+                image_distro = image.extra.get('os_distro', None)
+                if image_distro:
+                    if dist.lower() == image_distro.lower():
+                        add_image = True
+                elif dist.lower() in image.name.lower():
+                    add_image = True
+
+            if version is not None:
+                image_version = image.extra.get('os_version', None)
+                if image_version:
+                    if version.lower() == image_version.lower():
+                        add_image = True
+                elif version.lower() in image.name.lower():
+                    add_image = True
+
+            if add_image:
+                res.append(image)
+
+        return res
 
     @staticmethod
     def _get_tenant_id(auth):
