@@ -1294,7 +1294,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             if image.STATE in [IMAGE.STATE_READY, IMAGE.STATE_USED]:
                 images.append({"uri": "one://%s/%s" % (self.cloud.server, image.ID), "name": image.NAME})
 
-        return images
+        return self._filter_images(images, filters)
 
     @staticmethod
     def _get_public_ip_quota(net_quotas, net_info):

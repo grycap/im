@@ -1502,7 +1502,7 @@ configure step2 (
         self.assertEqual(res[0].name, "s0")
         self.assertEqual(res[0].getValue("disk.0.image.url"), "imageuri")
         self.assertEqual(res[1].name, "s0")
-        self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri3")
+        self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri2")
 
     @patch('IM.InfrastructureManager.AppDB')
     def test_translate_egi_to_ost(self, appdb):
