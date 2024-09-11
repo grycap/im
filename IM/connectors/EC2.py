@@ -20,11 +20,9 @@ import re
 from netaddr import IPNetwork, IPAddress, spanning_cidr
 
 try:
-    import boto.ec2
-    import boto.vpc
-    import boto.route53
+    import boto3
 except Exception as ex:
-    print("WARN: Boto library not correctly installed. EC2CloudConnector will not work!.")
+    print("WARN: Boto3 library not correctly installed. EC2CloudConnector will not work!.")
     print(ex)
 
 try:
@@ -182,19 +180,18 @@ class EC2CloudConnector(CloudConnector):
             return self.connection
         else:
             self.auth = auth_data
-            conn = None
+            client = None
             try:
                 if 'username' in auth and 'password' in auth:
-                    region = boto.ec2.get_region(region_name)
-                    if region:
-                        token = auth.get('token')
-                        conn = boto.vpc.VPCConnection(aws_access_key_id=auth['username'],
-                                                      aws_secret_access_key=auth['password'],
-                                                      security_token=token,
-                                                      region=region)
-                    else:
-                        raise Exception(
-                            "Incorrect region name: " + region_name)
+                    client = boto3.client('ec2')
+                    regions = client.describe_regions()
+                    region_names = [region['RegionName'] for region in regions['Regions']]
+                    if region_name not in region_names:
+                        raise Exception("Incorrect region name: " + region_name)
+                    client = boto3.client('ec2', region_name=region_name,
+                                            aws_access_key_id=auth['username'],
+                                            aws_secret_access_key=auth['password'],
+                                            aws_session_token=auth.get('token'))
                 else:
                     self.log_error("No correct auth data has been specified to EC2: "
                                    "username (Access Key) and password (Secret Key)")
@@ -202,13 +199,11 @@ class EC2CloudConnector(CloudConnector):
                                     "username (Access Key) and password (Secret Key)")
 
             except Exception as ex:
-                self.log_exception(
-                    "Error getting the region " + region_name)
-                raise Exception("Error getting the region " +
-                                region_name + ": " + str(ex))
+                self.log_exception("Error getting the region " + region_name)
+                raise Exception("Error getting the region " + region_name + ": " + str(ex))
 
-            self.connection = conn
-            return conn
+            self.connection = client
+            return client
 
     # Get the Route53 connection object
     def get_route53_connection(self, region_name, auth_data):
@@ -233,9 +228,10 @@ class EC2CloudConnector(CloudConnector):
             conn = None
             try:
                 if 'username' in auth and 'password' in auth:
-                    conn = boto.route53.connect_to_region(region_name,
-                                                          aws_access_key_id=auth['username'],
-                                                          aws_secret_access_key=auth['password'])
+                    conn = boto3.client('route53', region_name=region_name,
+                                        aws_access_key_id=auth['username'],
+                                        aws_secret_access_key=auth['password'],
+                                        aws_session_token=auth.get('token'))
                 else:
                     self.log_error("No correct auth data has been specified to EC2: "
                                    "username (Access Key) and password (Secret Key)")
@@ -342,7 +338,7 @@ class EC2CloudConnector(CloudConnector):
     @staticmethod
     def _get_security_group(conn, sg_name):
         try:
-            return conn.get_all_security_groups(filters={'group-name': sg_name})[0]
+            return conn.describe_security_groups(Filters={'Name': 'group-name', 'Values': [sg_name]})[0]
         except Exception:
             return None
 
@@ -360,10 +356,22 @@ class EC2CloudConnector(CloudConnector):
                 if not sg:
                     self.log_info("Creating security group: %s" % sg_name)
                     try:
-                        sg = conn.create_security_group(sg_name, "Security group created by the IM", vpc_id=vpc)
+                        sg = conn.create_security_group(GroupName=sg_name,
+                                                        Description="Security group created by the IM",
+                                                        VpdId=vpc)
                         # open all the ports for the VMs in the security group
-                        sg.authorize('tcp', 0, 65535, src_group=sg)
-                        sg.authorize('udp', 0, 65535, src_group=sg)
+                        conn.authorize_security_group_ingress(
+                            GroupId=sg['GroupId'],
+                            IpPermissions=[
+                                {'IpProtocol': 'tcp',
+                                'FromPort': 0,
+                                'ToPort': 65535,
+                                'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]},
+                                {'IpProtocol': 'udp',
+                                'FromPort': 0,
+                                'ToPort': 65535,
+                                'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]}
+                            ])
                     except Exception as crex:
                         # First check if the SG does exist
                         sg = self._get_security_group(conn, sg_name)
@@ -389,7 +397,9 @@ class EC2CloudConnector(CloudConnector):
                     if not sg:
                         self.log_info("Creating security group: " + sg_name)
                         try:
-                            sg = conn.create_security_group(sg_name, "Security group created by the IM", vpc_id=vpc)
+                            sg = conn.create_security_group(GroupName=sg_name,
+                                                            Description="Security group created by the IM",
+                                                            VpdId=vpc)
                         except Exception as crex:
                             # First check if the SG does exist
                             sg = self._get_security_group(conn, sg_name)
@@ -403,8 +413,18 @@ class EC2CloudConnector(CloudConnector):
 
                 try:
                     # open all the ports for the VMs in the security group
-                    sg.authorize('tcp', 0, 65535, src_group=sg)
-                    sg.authorize('udp', 0, 65535, src_group=sg)
+                    conn.authorize_security_group_ingress(
+                        GroupId=sg['GroupId'],
+                        IpPermissions=[
+                            {'IpProtocol': 'tcp',
+                             'FromPort': 0,
+                             'ToPort': 65535,
+                             'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]},
+                            {'IpProtocol': 'udp',
+                             'FromPort': 0,
+                             'ToPort': 65535,
+                             'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]}
+                        ])
                 except Exception as addex:
                     self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
 
@@ -415,17 +435,23 @@ class EC2CloudConnector(CloudConnector):
 
                 for outport in outports:
                     if outport.is_range():
-                        try:
-                            sg.authorize(outport.get_protocol(), outport.get_port_init(),
-                                         outport.get_port_end(), outport.get_remote_cidr())
-                        except Exception as addex:
-                            self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+                        from_port = outport.get_port_init()
+                        to_port = outport.get_port_end()
                     else:
-                        try:
-                            sg.authorize(outport.get_protocol(), outport.get_remote_port(),
-                                         outport.get_remote_port(), outport.get_remote_cidr())
-                        except Exception as addex:
-                            self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
+                        from_port = outport.get_remote_port()
+                        to_port = outport.get_remote_port()
+
+                    try:
+                        conn.authorize_security_group_ingress(
+                            GroupId=sg['GroupId'],
+                            IpPermissions=[
+                                {'IpProtocol': outport.get_protocol(),
+                                 'FromPort': from_port,
+                                 'ToPort': to_port,
+                                 'IpRanges': [{'CidrIp': outport.get_remote_cidr()}]}
+                            ])
+                    except Exception as addex:
+                        self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
 
                 i += 1
         except Exception as ex:
@@ -444,13 +470,13 @@ class EC2CloudConnector(CloudConnector):
         vpc_id = None
         subnet_id = None
 
-        for vpc in conn.get_all_vpcs():
-            if vpc.is_default or ('Name' in vpc.tags and vpc.tags['Name'] == "default"):
-                vpc_id = vpc.id
-                for subnet in conn.get_all_subnets(filters={"vpcId": vpc_id}):
-                    subnet_id = subnet.id
-                    break
-                break
+        vpcs = conn.describe_vpcs(Filters=[{'Name': 'is-default', 'Values': ['true']}])['Vpcs']
+        if vpcs:
+            vpc_id = vpcs[0]['VpcId']
+
+        subnets = conn.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['Subnets']
+        if subnets:
+            subnet_id = subnets[0]['SubnetId']
 
         return vpc_id, subnet_id
 
@@ -516,45 +542,46 @@ class EC2CloudConnector(CloudConnector):
                     # First create the VPC
                     if vpc_id is None:
                         # Check if it already exists
-                        vpcs = conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": inf.id})
+                        vpcs = conn.describe_vpcs(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [inf.id]}])['Vpcs']
                         if vpcs:
-                            vpc_id = vpcs[0].id
+                            vpc_id = vpcs[0]['VpcId']
                             self.log_debug("VPC %s exists. Do not create." % vpc_id)
                         else:
                             # if not create it
                             self.log_info("Creating VPC with cidr: %s." % vpc_cird)
-                            vpc = conn.create_vpc(vpc_cird)
-                            time.sleep(1)
-                            vpc.add_tag("IM-INFRA-ID", inf.id)
-                            vpc_id = vpc.id
+                            vpc = conn.create_vpc(CidrBlock=vpc_cird, TagSpecifications=[{'ResourceType': 'vpc',
+                                                                                          'Tags': [{'Key': 'IM-INFRA-ID', 'Value': inf.id}]}])
+                            vpc_id = vpc['Vpc']['VpcId']
                             self.log_info("VPC %s created." % vpc_id)
 
                             self.log_info("Creating Internet Gateway.")
-                            ig = conn.create_internet_gateway()
-                            time.sleep(1)
-                            ig.add_tag("IM-INFRA-ID", inf.id)
-                            self.log_info("Internet Gateway %s created." % ig.id)
-                            conn.attach_internet_gateway(ig.id, vpc_id)
+                            ig = conn.create_internet_gateway(TagSpecifications=[{'ResourceType': 'internet-gateway',
+                                                                                  'Tags': [{'Key': 'IM-INFRA-ID', 'Value': inf.id}]}])
+                            ig_id = ig['InternetGateway']['InternetGatewayId']
+                            self.log_info("Internet Gateway %s created." % ig_id)
+                            conn.attach_internet_gateway(InternetGatewayId=ig_id, VpcId=vpc_id)
 
                             self.log_info("Adding route to the IG.")
-                            for route_table in conn.get_all_route_tables(filters={"vpc-id": vpc_id}):
-                                conn.create_route(route_table.id, "0.0.0.0/0", ig.id)
+                            for route_table in conn.describe_route_tables(Filters={"vpc-id": vpc_id})['RouteTables']:
+                                conn.create_route(RouteTableId=route_table['RouteTableId'],
+                                                  DestinationCidrBlock="0.0.0.0/0",
+                                                  GatewayId=ig_id)
 
                     # Now create the subnet
                     # Check if it already exists
-                    subnets = conn.get_all_subnets(filters={"tag:IM-INFRA-ID": inf.id,
-                                                            "tag:IM-SUBNET-ID": net.id})
+                    subnets = conn.describe_subnets(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [inf.id]},
+                                                             {'Name': 'tag:IM-SUBNET-ID', 'Values': [net.id]}])['Subnets']
                     if subnets:
                         subnet = subnets[0]
                         self.log_debug("Subnet %s exists. Do not create." % net.id)
                         net.setValue('cidr', subnet.cidr_block)
                     else:
                         self.log_info("Create subnet for net %s." % net.id)
-                        subnet = conn.create_subnet(vpc_id, net_cidr)
+                        subnet = conn.create_subnet(VpcId=vpc_id, CidrBlock=net_cidr,
+                                                    TagSpecifications=[{'ResourceType': 'subnet',
+                                                                        'Tags': [{'Key': 'IM-INFRA-ID', 'Value': inf.id},
+                                                                                 {'Key': 'IM-SUBNET-ID', 'Value': net.id}]}])
                         self.log_info("Subnet %s created." % subnet.id)
-                        time.sleep(1)
-                        subnet.add_tag("IM-INFRA-ID", inf.id)
-                        subnet.add_tag("IM-SUBNET-ID", net.id)
                         net.setValue('cidr', net_cidr)
                         # Set also the cidr in the inf RADL
                         inf.radl.get_network_by_id(net.id).setValue('cidr', net_cidr)
@@ -563,13 +590,13 @@ class EC2CloudConnector(CloudConnector):
         except Exception as ex:
             self.log_exception("Error creating subnets or vpc.")
             try:
-                for subnet in conn.get_all_subnets(filters={"tag:IM-INFRA-ID": inf.id}):
+                for subnet in conn.describe_subnets(Filters={"tag:IM-INFRA-ID": inf.id})['Subnets']:
                     self.log_info("Deleting subnet: %s" % subnet.id)
                     conn.delete_subnet(subnet.id)
-                for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": inf.id}):
+                for vpc in conn.describe_vpcs(Filters={"tag:IM-INFRA-ID": inf.id})['Vpcs']:
                     self.log_info("Deleting vpc: %s" % vpc.id)
                     conn.delete_vpc(vpc.id)
-                for ig in conn.get_all_internet_gateways(filters={"tag:IM-INFRA-ID": inf.id}):
+                for ig in conn.describe_internet_gateways(Filters={"tag:IM-INFRA-ID": inf.id})['InternetGateways']:
                     self.log_info("Deleting Internet Gateway: %s" % ig.id)
                     conn.delete_internet_gateways(ig.id)
             except Exception:
@@ -584,10 +611,10 @@ class EC2CloudConnector(CloudConnector):
         if provider_id:
             parts = provider_id.split(".")
             if len(parts) == 2 and parts[0].startswith("vpc-") and parts[1].startswith("subnet-"):
-                vpc = conn.get_all_vpcs([parts[0]])
-                subnet = conn.get_all_subnets([parts[1]])
+                vpc = conn.describe_vpcs(Filters=[{'Name': 'vpc-id', 'Values': [parts[0]]}])['Vpcs']
+                subnet = conn.describe_subnets(Filters=[{'Name': 'subnet-id', 'Values': [parts[1]]}])['Subnets']
                 if vpc and subnet:
-                    return vpc[0].id, subnet[0].id
+                    return vpc[0]['VpcId'], subnet[0]['SubnetId']
                 elif vpc:
                     raise Exception("Incorrect subnet value in provider_id value: %s" % provider_id)
                 else:
@@ -651,16 +678,17 @@ class EC2CloudConnector(CloudConnector):
             for i in range(num_vm):
                 res.append((False, "Error no instance type available for the requirements."))
 
-        image = conn.get_image(ami)
+        image = conn.describe_images(ImageIds=['ami'])['Images']
         if not image:
             for i in range(num_vm):
                 res.append((False, "Incorrect AMI selected"))
             return res
+        image = image[0]
 
         block_device_name = None
-        for name, device in image.block_device_mapping.items():
-            if device.snapshot_id or device.volume_id:
-                block_device_name = name
+        for device in image['BlockDeviceMappings']:
+            if device.get('Ebs', {}).get('SnapshotId'):
+                block_device_name = device.get('DeviceName')
 
         if not block_device_name:
             self.log_error("Error getting correct block_device name from AMI: " + str(ami))
@@ -714,7 +742,6 @@ class EC2CloudConnector(CloudConnector):
                 inf.add_vm(vm)
                 user_data = self.get_cloud_init_data(radl, vm, public_key, user)
 
-                bdm = boto.ec2.blockdevicemapping.BlockDeviceMapping(conn)
                 # Get data for the root disk
                 size = None
                 disk_type = "standard"
@@ -722,16 +749,28 @@ class EC2CloudConnector(CloudConnector):
                     disk_type = system.getValue("disk.0.type")
                 if system.getValue("disk.0.size"):
                     size = system.getFeature("disk.0.size").getValue('G')
-                bdm[block_device_name] = boto.ec2.blockdevicemapping.BlockDeviceType(volume_type=disk_type,
-                                                                                     size=size,
-                                                                                     delete_on_termination=True)
+                bdm = [
+                    {
+                        'DeviceName': block_device_name,
+                        'Ebs': {
+                            'DeleteOnTermination': True,
+                            'VolumeSize': size,
+                            'VolumeType': disk_type
+                        }
+                    }
+                ]
 
                 volumes = self.get_volumes(conn, vm)
                 for device, (size, snapshot_id, volume_id, disk_type) in volumes.items():
-                    bdm[device] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=snapshot_id,
-                                                                              volume_id=volume_id,
-                                                                              volume_type=disk_type,
-                                                                              size=size, delete_on_termination=True)
+                    bdm.append({
+                        'DeviceName': device,
+                        'Ebs': {
+                            'SnapshotId': snapshot_id,
+                            'DeleteOnTermination': True,
+                            'VolumeSize': size,
+                            'VolumeType': disk_type
+                        }
+                    })
 
                 if spot:
                     self.log_info("Launching a spot instance")
@@ -745,27 +784,32 @@ class EC2CloudConnector(CloudConnector):
                     else:
                         availability_zone = 'us-east-1c'
                         historical_price = 1000.0
-                        availability_zone_list = conn.get_all_zones()
+                        availability_zone_list = conn.describe_availability_zones()['AvailabilityZones']
                         for zone in availability_zone_list:
-                            history = conn.get_spot_price_history(instance_type=instance_type.name,
-                                                                  product_description=operative_system,
-                                                                  availability_zone=zone.name,
-                                                                  max_results=1)
-                            self.log_debug("Spot price history for the region " + zone.name)
+                            history = conn.describe_spot_price_history(InstanceTypes=[instance_type.name],
+                                                                        ProductDescriptions=[operative_system],
+                                                                        Filters=[{'Name': 'availability-zone', 'Values': [zone['ZoneName']]}],
+                                                                        MaxResults=1)['SpotPriceHistory']
+  
+                            self.log_debug("Spot price history for the region " + zone['ZoneName'])
                             self.log_debug(history)
-                            if history and history[0].price < historical_price:
-                                historical_price = history[0].price
-                                availability_zone = zone.name
+                            if history and float(history[0]['SpotPrice']) < historical_price:
+                                historical_price = float(history[0]['SpotPrice'])
+                                availability_zone = zone['ZoneName']
                     self.log_info("Launching the spot request in the zone " + availability_zone)
 
-                    request = conn.request_spot_instances(price=price, image_id=image.id, count=1,
-                                                          type='one-time', instance_type=instance_type.name,
-                                                          placement=availability_zone, key_name=keypair_name,
-                                                          security_group_ids=sg_ids, block_device_map=bdm,
-                                                          subnet_id=subnet, user_data=user_data)
+                    request = conn.request_spot_instances(SpotPrice=str(price), InstanceCount=1, Type='one-time',
+                                                          LaunchSpecification={'ImageId': image['ImageId'],
+                                                                               'InstanceType': instance_type.name,
+                                                                               'Placement': {'AvailabilityZone': availability_zone},
+                                                                               'KeyName': keypair_name,
+                                                                               'SecurityGroupIds': sg_ids,
+                                                                               'BlockDeviceMappings': bdm,
+                                                                               'SubnetId': subnet,
+                                                                               'UserData': user_data})['SpotInstanceRequests']
 
                     if request:
-                        ec2_vm_id = region_name + ";" + request[0].id
+                        ec2_vm_id = region_name + ";" + request[0]['SpotInstanceRequestId']
 
                         self.log_debug("RADL:")
                         self.log_debug(system)
@@ -783,23 +827,35 @@ class EC2CloudConnector(CloudConnector):
                     err_msg += " an ondemand instance "
                     err_msg += " of type: %s " % instance_type.name
 
-                    interface = boto.ec2.networkinterface.NetworkInterfaceSpecification(
-                        subnet_id=subnet,
-                        groups=sg_ids,
-                        associate_public_ip_address=add_public_ip)
-                    interfaces = boto.ec2.networkinterface.NetworkInterfaceCollection(interface)
+                    interfaces = [
+                        {
+                            'DeviceIndex': 0,
+                            'SubnetId': subnet,
+                            'Groups': sg_ids,
+                            'AssociatePublicIpAddress': add_public_ip,
+                            'DeleteOnTermination': True
+                        }
+                    ]
 
-                    reservation = conn.run_instances(image.id, min_count=1, max_count=1, key_name=keypair_name,
-                                                     instance_type=instance_type.name, network_interfaces=interfaces,
-                                                     placement=placement, block_device_map=bdm, user_data=user_data)
+                    instances = conn.run_instances(ImageId=image['ImageId'], MinCount=1, MaxCount=1,
+                                                   KeyName=keypair_name, InstanceType=instance_type.name,
+                                                   NetworkInterfaces=interfaces, Placement={'AvailabilityZone': placement},
+                                                   BlockDeviceMappings=bdm, UserData=user_data)['Instances']
 
-                    if len(reservation.instances) == 1:
+                    if len(instances) == 1:
                         time.sleep(1)
-                        instance = reservation.instances[0]
-                        instance.add_tag("Name", self.gen_instance_name(system))
+                        instance = conn.Instance(instances[0])
+
+                        im_username = "im_user"                        
+                        if auth_data.getAuthInfo('InfrastructureManager'):
+                            im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
+                        instace_tags = [{'Key': 'Name', 'Value': self.gen_instance_name(system)},
+                                        {'Key': 'IM-USER', 'Value': im_username}]
                         for key, value in tags.items():
-                            instance.add_tag(key, value)
-                        ec2_vm_id = region_name + ";" + instance.id
+                            instace_tags.append({'Key': key, 'Value': value})
+                        instance.create_tags(Tags=instace_tags)
+
+                        ec2_vm_id = region_name + ";" + instances[0]
 
                         self.log_debug("RADL:")
                         self.log_debug(system)
@@ -844,21 +900,21 @@ class EC2CloudConnector(CloudConnector):
         Returns: a :py:class:`boto.ec2.volume.Volume` of the new volume
         """
         if placement is None:
-            placement = conn.get_all_zones()[0]
+            placement = conn.describe_zones()['Zones'][0]['ZoneName']
         volume = conn.create_volume(disk_size, placement, volume_type=vol_type)
         cont = 0
         err_states = ["error"]
-        while str(volume.status) != 'available' and str(volume.status) not in err_states and cont < timeout:
+        while str(volume['Status']) != 'available' and str(volume['Status']) not in err_states and cont < timeout:
             self.log_info("State: " + str(volume.status))
             cont += 2
             time.sleep(2)
-            volume = conn.get_all_volumes([volume.id])[0]
+            volume = conn.describe_volumes([volume['VolumeId']])['Volumes'][0]
 
-        if str(volume.status) == 'available':
+        if str(volume['Status']) == 'available':
             return volume
         else:
             self.log_error("Error creating the volume %s, deleting it" % (volume.id))
-            conn.delete_volume(volume.id)
+            conn.delete_volume(volume['VolumeId'])
             return None
 
     @staticmethod
@@ -888,17 +944,17 @@ class EC2CloudConnector(CloudConnector):
             if disk_url:
                 _, elem_id = EC2CloudConnector.getAMIData(disk_url)
                 if elem_id.startswith('snap-'):
-                    snapshot_id = conn.get_all_snapshots([elem_id])[0].id
+                    snapshot_id = conn.describe_snapshots(SnapshotIds=[elem_id])['Snapshots'][0]['SnapshotId']
                 elif elem_id.startswith('vol-'):
-                    volume_id = conn.get_all_volumes([elem_id])[0].id
+                    volume_id = conn.describe_volumes(VolumeIds=[elem_id])['Volumes'][0]['VolumeId']
                 else:
-                    snapshot = conn.get_all_snapshots(filters={'tag:Name': elem_id})
+                    snapshot = conn.describe_snapshots(Filters=[{'Name': 'tag:Name', 'Values': [elem_id]}])['Snapshots']
                     if snapshot:
-                        snapshot_id = snapshot[0].id
+                        snapshot_id = snapshot[0]['SnapshotId']
                     else:
-                        volume = conn.get_all_volumes(filters={'tag:Name': elem_id})
+                        volume = conn.describe_volumes(Filters=[{'Name': 'tag:Name', 'Values': [elem_id]}])['Volumes']
                         if volume:
-                            volume_id = volume[0].id
+                            volume_id = volume[0]['VolumeId']
                         else:
                             raise Exception("No snapshot/volume found with name: %s" % elem_id)
             else:
@@ -929,15 +985,13 @@ class EC2CloudConnector(CloudConnector):
 
         try:
             conn = self.get_connection(region_name, auth_data)
-
-            reservations = conn.get_all_instances([instance_id])
-            instance = reservations[0].instances[0]
+            instance = conn.Instance(instance_id)
         except Exception:
             self.log_error("Error getting instance id: %s" % instance_id)
 
         return instance
 
-    def add_elastic_ip(self, vm, instance, fixed_ip=None):
+    def add_elastic_ip(self, vm, instance, conn, fixed_ip=None):
         """
         Add an elastic IP to an instance
 
@@ -955,8 +1009,8 @@ class EC2CloudConnector(CloudConnector):
                 pub_address = None
                 self.log_info("Add an Elastic IP")
                 if fixed_ip:
-                    for address in instance.connection.get_all_addresses():
-                        if str(address.public_ip) == fixed_ip:
+                    for address in conn.describe_addresses()['Addresses']:
+                        if str(address['PublicIp']) == fixed_ip:
                             pub_address = address
 
                     if pub_address:
@@ -965,13 +1019,9 @@ class EC2CloudConnector(CloudConnector):
                         self.log_warn("Setting a fixed IP NOT ALLOCATED! (" + fixed_ip + "). Ignore it.")
                         return None
                 else:
-                    provider_id = self.get_net_provider_id(vm.info)
-                    if provider_id:
-                        pub_address = instance.connection.allocate_address(domain="vpc")
-                        instance.connection.associate_address(instance.id, allocation_id=pub_address.allocation_id)
-                    else:
-                        pub_address = instance.connection.allocate_address()
-                        instance.connection.associate_address(instance.id, pub_address.public_ip)
+                    pub_address = conn.allocate_address(Domain='vpc')
+                
+                conn.associate_address(InstanceId=instance.id, AllocationId=pub_address['AllocationId'])
 
                 self.log_debug(pub_address)
                 return pub_address
@@ -979,7 +1029,7 @@ class EC2CloudConnector(CloudConnector):
                 self.log_exception("Error adding an Elastic IP to VM ID: " + str(vm.id))
                 if pub_address:
                     self.log_exception("The Elastic IP was allocated, release it.")
-                    pub_address.release()
+                    conn.release_address(AllocationId=pub_address['AllocationId'])
                 return None
         else:
             self.log_info("The VM is not running, not adding an Elastic IP.")
@@ -1017,40 +1067,39 @@ class EC2CloudConnector(CloudConnector):
             if pub_ip in fixed_ips:
                 self.log_info("%s is a fixed IP, it is not released" % pub_ip)
             else:
-                for address in conn.get_all_addresses(filters={"public-ip": pub_ip}):
-                    self.log_info("This VM has a Elastic IP %s." % address.public_ip)
+                for address in conn.describe_addresses(Filters={"public-ip": pub_ip})['Addresses']:
+                    self.log_info("This VM has a Elastic IP %s." % address['PublicIp'])
                     cont = 0
-                    while address.instance_id and cont < timeout:
+                    while address['InstanceId'] and cont < timeout:
                         cont += 3
                         try:
                             self.log_debug("Disassociate it.")
-                            address.disassociate()
+                            conn.disassociate_address(PublicIp=address['PublicIp'])
                         except Exception:
                             self.log_debug("Error disassociating the IP.")
-                        address = conn.get_all_addresses(filters={"public-ip": pub_ip})[0]
+                        address = conn.describe_addresses(Filters={"public-ip": pub_ip})['Addresses'][0]
                         self.log_info("It is attached. Wait.")
                         time.sleep(3)
 
-                    address = conn.get_all_addresses(filters={"public-ip": pub_ip})[0]
                     self.log_info("Now release it.")
-                    address.release()
+                    conn.release_address(AllocationId=address['AllocationId'])
 
-    def setIPsFromInstance(self, vm, instance):
+    def setIPsFromInstance(self, vm, instance, conn):
         """
         Adapt the RADL information of the VM to the real IPs assigned by EC2
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - instance(:py:class:`boto.ec2.instance`): object to connect to EC2 instance.
+           - instance(:py:class:`boto3.ec2.Instance`): object to connect to EC2 instance.
         """
 
         vm_system = vm.info.systems[0]
         num_pub_nets = num_nets = 0
         public_ips = []
         private_ips = []
-        if (instance.ip_address is not None and len(instance.ip_address) > 0 and
-                instance.ip_address != instance.private_ip_address):
-            public_ips = [instance.ip_address]
+        if (instance.public_ip_address is not None and len(instance.public_ip_address) > 0 and
+                instance.public_ip_address != instance.private_ip_address):
+            public_ips = [instance.public_ip_address]
             num_nets += 1
             num_pub_nets = 1
         if instance.private_ip_address is not None and len(instance.private_ip_address) > 0:
@@ -1071,13 +1120,13 @@ class EC2CloudConnector(CloudConnector):
 
         elastic_ips = []
         # Get the elastic IPs assigned (there must be only 1)
-        for address in instance.connection.get_all_addresses():
-            if address.instance_id == instance.id:
-                elastic_ips.append(str(address.public_ip))
+        for address in conn.describe_addresses()['Addresses']:
+            if address['InstanceId'] == instance.id:
+                elastic_ips.append(str(address['PublicIp']))
                 # It will be used if it is different to the public IP of the
                 # instance
-                if str(address.public_ip) != instance.ip_address:
-                    vm_system.setValue('net_interface.' + str(num_nets) + '.ip', str(instance.ip_address))
+                if str(address['PublicIp']) != instance.public_ip_address:
+                    vm_system.setValue('net_interface.' + str(num_nets) + '.ip', str(instance.public_ip_address))
                     vm_system.setValue('net_interface.' + str(num_nets) + '.connection', public_net.id)
 
                     num_pub_nets += 1
@@ -1097,14 +1146,14 @@ class EC2CloudConnector(CloudConnector):
                 # It is a fixed IP
                 if ip not in elastic_ips:
                     # It has not been created yet, do it
-                    self.add_elastic_ip(vm, instance, ip)
+                    self.add_elastic_ip(vm, instance, conn, ip)
                     # EC2 only supports 1 elastic IP per instance (without
                     # VPC), so break
                     break
             else:
                 # Check if we have enough public IPs
                 if num >= num_pub_nets:
-                    self.add_elastic_ip(vm, instance)
+                    self.add_elastic_ip(vm, instance, conn)
                     # EC2 only supports 1 elastic IP per instance (without
                     # VPC), so break
                     break
@@ -1193,14 +1242,14 @@ class EC2CloudConnector(CloudConnector):
 
             self.log_info("Check if the request has been fulfilled and the instance has been deployed")
             job_sir_id = instance_id
-            request_list = conn.get_all_spot_instance_requests()
+            request_list = conn.describe_spot_instance_requests()['SpotInstanceRequests']
             for sir in request_list:
                 # TODO: Check if the request had failed and launch it in
                 # another availability zone
-                if sir.state == 'failed':
+                if sir['State'] == 'failed':
                     vm.state = VirtualMachine.FAILED
-                if sir.id == job_sir_id:
-                    job_instance_id = sir.instance_id
+                if sir['SpotInstanceRequestId'] == job_sir_id:
+                    job_instance_id = sir['InstanceId']
                     break
 
             if job_instance_id:
@@ -1214,28 +1263,15 @@ class EC2CloudConnector(CloudConnector):
 
         instance = self.get_instance_by_id(instance_id, region, auth_data)
         if instance:
-            try:
-                # sometime if you try to update a recently created instance
-                # this operation fails
-                instance.update()
-                if "IM-USER" not in instance.tags:
-                    im_username = "im_user"
-                    if auth_data.getAuthInfo('InfrastructureManager'):
-                        im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
-                    instance.add_tag("IM-USER", im_username)
-            except Exception as ex:
-                self.log_exception("Error updating the instance " + instance_id)
-                return (False, "Error updating the instance " + instance_id + ": " + str(ex))
-
             vm.info.systems[0].setValue("virtual_system_type", instance.virtualization_type)
-            vm.info.systems[0].setValue("availability_zone", instance.placement)
+            vm.info.systems[0].setValue("availability_zone", instance.placement['AvailabilityZone'])
 
             vm.state = self.VM_STATE_MAP.get(instance.state, VirtualMachine.UNKNOWN)
 
             instance_type = self.get_instance_type_by_name(instance.instance_type)
             self.update_system_info_from_instance(vm.info.systems[0], instance_type)
 
-            self.setIPsFromInstance(vm, instance)
+            self.setIPsFromInstance(vm, instance, conn)
             self.manage_dns_entries("add", vm, auth_data)
             self.addRouterInstance(vm, conn)
 
