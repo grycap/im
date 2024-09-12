@@ -168,7 +168,7 @@ class EC2CloudConnector(CloudConnector):
         Arguments:
            - region_name(str): EC2 region to connect.
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-        Returns: a :py:class:`boto.ec2.connection` or None in case of error
+        Returns: a :py:class:`boto3.EC2.Client` or None in case of error
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
@@ -213,7 +213,7 @@ class EC2CloudConnector(CloudConnector):
         Arguments:
            - region_name(str): AWS region to connect.
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-        Returns: a :py:class:`boto.route53.connection` or None in case of error
+        Returns: a :py:class:`boto3.Route53.Client` or None in case of error
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
@@ -338,7 +338,7 @@ class EC2CloudConnector(CloudConnector):
     @staticmethod
     def _get_security_group(conn, sg_name):
         try:
-            return conn.describe_security_groups(Filters={'Name': 'group-name', 'Values': [sg_name]})[0]
+            return conn.describe_security_groups(Filters={'Name': 'group-name', 'Values': [sg_name]})['SecurityGroups'][0]
         except Exception:
             return None
 
@@ -504,11 +504,11 @@ class EC2CloudConnector(CloudConnector):
         Get a common CIDR in all the RADL nets
         """
         nets = []
-        for i, net in enumerate(radl.networks):
+        for net in radl.networks:
             provider_id = net.getValue('provider_id')
             if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
                 net_cidr = self.get_free_cidr(net.getValue('cidr'),
-                                              [subnet.cidr_block for subnet in conn.get_all_subnets()] + nets,
+                                              [subnet['CidrBlock'] for subnet in conn.describe_subnets()['Subnets']] + nets,
                                               inf, 127)
                 nets.append(net_cidr)
 
@@ -535,7 +535,7 @@ class EC2CloudConnector(CloudConnector):
                 provider_id = net.getValue('provider_id')
                 if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
                     net_cidr = self.get_free_cidr(net.getValue('cidr'),
-                                                  [subnet.cidr_block for subnet in conn.get_all_subnets()],
+                                                  [subnet['CidrBlock'] for subnet in conn.describe_subnets()['Subnets']],
                                                   inf, 127)
                     net.delValue('cidr')
 
@@ -678,7 +678,7 @@ class EC2CloudConnector(CloudConnector):
             for i in range(num_vm):
                 res.append((False, "Error no instance type available for the requirements."))
 
-        image = conn.describe_images(ImageIds=['ami'])['Images']
+        image = conn.describe_images(ImageIds=[ami])['Images']
         if not image:
             for i in range(num_vm):
                 res.append((False, "Incorrect AMI selected"))
@@ -761,7 +761,7 @@ class EC2CloudConnector(CloudConnector):
                 ]
 
                 volumes = self.get_volumes(conn, vm)
-                for device, (size, snapshot_id, volume_id, disk_type) in volumes.items():
+                for device, (size, snapshot_id, _, disk_type) in volumes.items():
                     bdm.append({
                         'DeviceName': device,
                         'Ebs': {
@@ -842,9 +842,9 @@ class EC2CloudConnector(CloudConnector):
                                                    NetworkInterfaces=interfaces, Placement={'AvailabilityZone': placement},
                                                    BlockDeviceMappings=bdm, UserData=user_data)['Instances']
 
-                    if len(instances) == 1:
+                    if instances:
                         time.sleep(1)
-                        instance = conn.Instance(instances[0])
+                        instance = conn.Instance(instances[0]).load()
 
                         im_username = "im_user"                        
                         if auth_data.getAuthInfo('InfrastructureManager'):
@@ -881,7 +881,7 @@ class EC2CloudConnector(CloudConnector):
                 for sgid in sg_ids:
                     self.log_info("Remove the SG: %s" % sgid)
                     try:
-                        conn.delete_security_group(group_id=sgid)
+                        conn.delete_security_group(GroupId=sgid)
                     except Exception:
                         self.log_exception("Error deleting SG.")
 
@@ -892,20 +892,20 @@ class EC2CloudConnector(CloudConnector):
         Create an EBS volume
 
         Arguments:
-           - conn(:py:class:`boto.ec2.connection`): object to connect to EC2 API.
+           - conn(:py:class:`boto3.EC2.Client`): object to connect to EC2 API.
            - disk_size(int): The size of the new volume, in GiB
            - placement(str): The availability zone in which the Volume will be created.
            - type(str): Type of the volume: standard | io1 | gp2.
            - timeout(int): Time needed to create the volume.
-        Returns: a :py:class:`boto.ec2.volume.Volume` of the new volume
+        Returns: a :py:dict:`boto3.EC2.Volume` of the new volume
         """
         if placement is None:
             placement = conn.describe_zones()['Zones'][0]['ZoneName']
-        volume = conn.create_volume(disk_size, placement, volume_type=vol_type)
+        volume = conn.create_volume(Size=disk_size, AvailabilityZone=placement, VolumeType=vol_type)
         cont = 0
         err_states = ["error"]
         while str(volume['Status']) != 'available' and str(volume['Status']) not in err_states and cont < timeout:
-            self.log_info("State: " + str(volume.status))
+            self.log_info("State: " + str(volume['Status']))
             cont += 2
             time.sleep(2)
             volume = conn.describe_volumes([volume['VolumeId']])['Volumes'][0]
@@ -944,9 +944,13 @@ class EC2CloudConnector(CloudConnector):
             if disk_url:
                 _, elem_id = EC2CloudConnector.getAMIData(disk_url)
                 if elem_id.startswith('snap-'):
-                    snapshot_id = conn.describe_snapshots(SnapshotIds=[elem_id])['Snapshots'][0]['SnapshotId']
+                    snapshot = conn.describe_snapshots(SnapshotIds=[elem_id])['Snapshots']
+                    if snapshot:
+                        snapshot_id = snapshot_id[0]['SnapshotId']
                 elif elem_id.startswith('vol-'):
-                    volume_id = conn.describe_volumes(VolumeIds=[elem_id])['Volumes'][0]['VolumeId']
+                    volume = conn.describe_volumes(VolumeIds=[elem_id])['Volumes']
+                    if volume:
+                        volume_id = volume[0]['VolumeId']
                 else:
                     snapshot = conn.describe_snapshots(Filters=[{'Name': 'tag:Name', 'Values': [elem_id]}])['Snapshots']
                     if snapshot:
@@ -979,13 +983,13 @@ class EC2CloudConnector(CloudConnector):
            - id(str): ID of the EC2 instance.
            - region_name(str): Region name to search the instance.
            - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-        Returns: a :py:class:`boto.ec2.instance` of found instance or None if it was not found
+        Returns: a :py:class:`boto3.EC2.Instance` of found instance or None if it was not found
         """
         instance = None
 
         try:
             conn = self.get_connection(region_name, auth_data)
-            instance = conn.Instance(instance_id)
+            instance = conn.Instance(instance_id).load()
         except Exception:
             self.log_error("Error getting instance id: %s" % instance_id)
 
@@ -997,9 +1001,10 @@ class EC2CloudConnector(CloudConnector):
 
         Arguments:
            - vm(:py:class:`IM.VirtualMachine`): VM information.
-           - instance(:py:class:`boto.ec2.instance`): object to connect to EC2 instance.
+           - instance(:py:class:`boto3.EC2.Instance`): object to connect to EC2 instance.
+           - conn(:py:class:`boto3.EC2.Client`): object to connect to EC2 API.
            - fixed_ip(str, optional): specifies a fixed IP to add to the instance.
-        Returns: a :py:class:`boto.ec2.address.Address` added or None if some problem occur.
+        Returns: a :py:dict:`boto3.EC2.Address` added or None if some problem occur.
         """
         if vm.state == VirtualMachine.RUNNING and "elastic_ip" not in vm.__dict__.keys():
             # Flag to set that this VM has created (or is creating) the elastic
@@ -1174,13 +1179,13 @@ class EC2CloudConnector(CloudConnector):
                 if network.getValue('router'):
                     if not route_table_id:
                         vpc_id = None
-                        for vpc in conn.get_all_vpcs(filters={"tag:IM-INFRA-ID": vm.inf.id}):
-                            vpc_id = vpc.id
+                        for vpc in conn.describe_vpcs(Filters={"tag:IM-INFRA-ID": vm.inf.id})['Vpcs']:
+                            vpc_id = vpc['VpcId']
                         if not vpc_id:
                             self.log_error("No VPC found.")
                             return False
-                        for rt in conn.get_all_route_tables(filters={"vpc-id": vpc_id}):
-                            route_table_id = rt.id
+                        for rt in conn.describe_route_tables(Filters={"vpc-id": vpc_id})['RouteTables']:
+                            route_table_id = rt['RouteTableId']
 
                     if not route_table_id:
                         self.log_error("No Route Table found with name.")
@@ -1208,18 +1213,20 @@ class EC2CloudConnector(CloudConnector):
                         success = False
                         break
 
-                    reservations = conn.get_all_instances([vrouter])
-                    vrouter_instance = reservations[0].instances[0]
+                    reservations = conn.describe_instances(InstanceIds=[vrouter])['Reservations']
+                    vrouter_instance = reservations[0]['Instances'][0]
 
-                    if vrouter_instance.state != "running":
+                    if vrouter_instance['State']['Name'] != "running":
                         self.log_debug("VRouter instance %s is not running." % system_router)
                         success = False
                         break
 
                     self.log_info("Adding route %s to instance ID: %s." % (router_cidr, vrouter))
-                    conn.create_route(route_table_id, router_cidr, instance_id=vrouter)
+                    conn.create_route(RouteTableId=route_table_id,
+                                      DestinationCidrBlock=router_cidr,
+                                      InstanceId=vrouter)
                     self.log_debug("Disabling sourceDestCheck to instance ID: %s." % vrouter)
-                    conn.modify_instance_attribute(vrouter, attribute='sourceDestCheck', value=False)
+                    conn.modify_instance_attribute(InstanceId=vrouter, SourceDestCheck={'Value': False})
 
                     # once set, delete it to not set it again
                     network.delValue('router')
@@ -1268,7 +1275,7 @@ class EC2CloudConnector(CloudConnector):
             vm.info.systems[0].setValue("virtual_system_type", instance.virtualization_type)
             vm.info.systems[0].setValue("availability_zone", instance.placement['AvailabilityZone'])
 
-            vm.state = self.VM_STATE_MAP.get(instance.state, VirtualMachine.UNKNOWN)
+            vm.state = self.VM_STATE_MAP.get(instance.state['Name'], VirtualMachine.UNKNOWN)
 
             instance_type = self.get_instance_type_by_name(instance.instance_type)
             self.update_system_info_from_instance(vm.info.systems[0], instance_type)
@@ -1278,8 +1285,7 @@ class EC2CloudConnector(CloudConnector):
             self.addRouterInstance(vm, conn)
 
             try:
-                vm.info.systems[0].setValue('launch_time', int(time.mktime(
-                    time.strptime(instance.launch_time[:19], '%Y-%m-%dT%H:%M:%S'))))
+                vm.info.systems[0].setValue('launch_time', int(instance.launch_time.timestamp()))
             except Exception as ex:
                 self.log_warn("Error setting the launch_time of the instance. "
                               "Probably the instance is not running:" + str(ex))
@@ -1526,7 +1532,7 @@ class EC2CloudConnector(CloudConnector):
         sgs = []
         try:
             sg = conn.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': sg_names}])
-            sgs.extend(sg['SecurityGroups'])
+            sgs = sg['SecurityGroups']
         except Exception:
             self.log_exception("Error getting SG %s" % sg_name)
         return sgs
@@ -1544,7 +1550,7 @@ class EC2CloudConnector(CloudConnector):
         if sgs:
             # Get the default SG to set in the instances
             def_sg_id = conn.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': ['default']},
-                                                               {'Name': 'vpc-id', 'Values': [sgs[0].vpc_id]}]
+                                                               {'Name': 'vpc-id', 'Values': [sgs[0]['VpcId']]}]
                 )['SecurityGroups'][0]['GroupId']
 
         for sg in sgs:
@@ -1565,7 +1571,6 @@ class EC2CloudConnector(CloudConnector):
 
             self.log_info("Remove the SG: " + sg['Name'])
             try:
-                conn.revoke_security_group_ingress()
                 conn.revoke_security_group_ingress(
                     GroupId=sg['GroupId'],
                     IpPermissions=[
@@ -1648,7 +1653,7 @@ class EC2CloudConnector(CloudConnector):
                 stopped = self.waitStop(instance)
                 if stopped:
                     success = instance.modify_attribute(Attribute='instanceType',
-                                                        InstanceType=instance_type.name)
+                                                        Value=instance_type.name)
                     if success:
                         self.update_system_info_from_instance(vm.info.systems[0], instance_type)
                         instance.start()
@@ -1744,9 +1749,6 @@ class EC2CloudConnector(CloudConnector):
             infrastructure is destroyed.
           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
 
-        http://boto.readthedocs.io/en/latest/ref/ec2.html#module-boto.ec2.volume
-        http://boto.readthedocs.io/en/latest/ref/ec2.html#module-boto.ec2.instance
-
         Returns: a tuple (success, vm).
           - The first value is True if the operation finished successfully or False otherwise.
           - The second value is a str with the url of the new image if the operation finished successfully
@@ -1768,9 +1770,10 @@ class EC2CloudConnector(CloudConnector):
             self.log_info("Creating snapshot: " + image_name)
             snapshot_id = instance.create_image(Name=image_name,
                                                 Description="AMI automatically generated by IM",
-                                                NoReboot=True)
-            # Add tags to the snapshot to be recognizable
-            conn.create_tags(Resources=[snapshot_id], Tags=[{'Key': 'instance_id', 'Value': instance_id}])
+                                                NoReboot=True,
+                                                TagSpecifications=[{'ResourceType': 'snapshot',
+                                                                    'Tags': [{'Key': 'instance_id',
+                                                                              'Value': instance_id}]}])
         else:
             return (False, "Error obtaining details of the instance")
         if snapshot_id != "":
