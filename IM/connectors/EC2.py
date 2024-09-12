@@ -1775,7 +1775,7 @@ class EC2CloudConnector(CloudConnector):
         """
         region_name = vm.id.split(";")[0]
         instance_id = vm.id.split(";")[1]
-        snapshot_id = ""
+        snapshot_id = None
 
         # Obtain the connection object to connect with EC2
         conn = self.get_connection(region_name, auth_data)
@@ -1795,8 +1795,8 @@ class EC2CloudConnector(CloudConnector):
                                                                               'Value': instance_id}]}])
         else:
             return (False, "Error obtaining details of the instance")
-        if snapshot_id != "":
-            new_url = "aws://%s/%s" % (region_name, snapshot_id)
+        if snapshot_id:
+            new_url = "aws://%s/%s" % (region_name, snapshot_id['ImageId'])
             if auto_delete:
                 vm.inf.snapshots.append(new_url)
             return (True, new_url)
@@ -1841,8 +1841,8 @@ class EC2CloudConnector(CloudConnector):
             try:
                 for image in conn.describe_images(Owners=['self', 'aws-marketplace'], Filters=images_filter)['Images']:
                     if len(image['ImageId']) > 12:  # do not add old images
-                        images.append({"uri": "aws://%s/%s" % (region, image.id),
-                                       "name": "%s/%s" % (region, image.name)})
+                        images.append({"uri": "aws://%s/%s" % (region, image['ImageId']),
+                                       "name": "%s/%s" % (region, image['Name'])})
             except Exception:
                 continue
         return self._filter_images(images, filters)
