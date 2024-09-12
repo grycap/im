@@ -24,11 +24,9 @@ from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
-from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.EC2 import EC2CloudConnector
-from IM.config import Config
-from mock import patch, MagicMock, call
+from mock import patch, MagicMock
 
 
 class TestEC2Connector(TestCloudConnectorBase):
@@ -151,8 +149,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         mock_conn.create_security_group.return_value = {'GroupId': 'sg-id'}
         mock_conn.describe_vpcs.return_value = {'Vpcs': [{'VpcId': 'vpc-id'}]}
         mock_conn.describe_subnets.return_value = {'Subnets': [{'SubnetId': 'subnet-id'}]}
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'},
-                                                               {'RegionName': 'us-west-1'}]}
+        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
         mock_conn.describe_images.return_value = {'Images': [{'ImageId': 'ami-id',
                                                               'BlockDeviceMappings': [{'DeviceName': '/dev/sda1',
                                                                                        'Ebs': {
@@ -172,6 +169,65 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(mock_conn.create_security_group.call_args_list[1][1]['GroupName'], "sgname")
         self.assertEqual(mock_conn.create_security_group.call_args_list[2][1]['GroupName'], "im-%s-net2" % inf.id)
         mock_conn.run_instances.assert_called_once()
+
+    @patch('IM.connectors.EC2.boto3.client')
+    @patch('IM.InfrastructureList.InfrastructureList.save_data')
+    def test_25_launch_spot(self, save_data, mock_boto_client):
+        radl_data = """
+            network net1 (outbound = 'yes' and provider_id = 'vpc-id.subnet-id')
+            network net2 ()
+            system test (
+            spot = 'yes' and
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'net1' and
+            net_interface.0.dns_name = 'test' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'aws://us-east-1/ami-id' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.private_key = 'private' and
+            disk.0.os.credentials.public_key = 'public' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'},
+                               {'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
+        ec2_cloud = self.get_ec2_cloud()
+
+        mock_conn = MagicMock()
+        mock_boto_client.return_value = mock_conn
+        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+
+        mock_conn.run_instances.return_value = {'Instances': [{'InstanceId': 'iid'}]}
+        instance = MagicMock()
+        mock_conn.Instance.return_value = instance
+        instance.id = "iid"
+        mock_conn.describe_vpcs.return_value = {'Vpcs': [{'VpcId': 'vpc-id'}]}
+        mock_conn.describe_subnets.return_value = {'Subnets': [{'SubnetId': 'subnet-id'}]}
+        mock_conn.describe_images.return_value = {'Images': [{'ImageId': 'ami-id',
+                                                              'BlockDeviceMappings': [{'DeviceName': '/dev/sda1',
+                                                                                       'Ebs': {
+                                                                                           'SnapshotId': 'snap-12345678'
+                                                                                       }}]}
+                                                             ]}
+        mock_conn.create_security_group.return_value = {'GroupId': 'sg-id'}
+        mock_conn.describe_security_groups.return_value = {'SecurityGroups': []}
+        mock_conn.describe_availability_zones.return_value = {'AvailabilityZones': [{'ZoneName': 'us-east-1'}]}
+        mock_conn.describe_spot_price_history.return_value = {'SpotPriceHistory': [{'SpotPrice': '0.1'}]}
+        mock_conn.request_spot_instances.return_value = {'SpotInstanceRequests': [{'SpotInstanceRequestId': 'sid'}]}
+
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        res = ec2_cloud.launch(inf, radl, radl, 1, auth)
+        success, _ = res[0]
+        self.assertTrue(success, msg="ERROR: launching a VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
 
 if __name__ == '__main__':

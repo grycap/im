@@ -786,6 +786,8 @@ class EC2CloudConnector(CloudConnector):
                     err_msg += " a spot instance "
                     err_msg += " of type: %s " % instance_type.name
                     price = system.getValue("price")
+                    if price:
+                        price = str(price)
                     # Realizamos el request de spot instances
 
                     if system.getValue('availability_zone'):
@@ -808,7 +810,7 @@ class EC2CloudConnector(CloudConnector):
                                 availability_zone = zone['ZoneName']
                     self.log_info("Launching the spot request in the zone " + availability_zone)
 
-                    request = conn.request_spot_instances(SpotPrice=str(price), InstanceCount=1, Type='one-time',
+                    request = conn.request_spot_instances(SpotPrice=price, InstanceCount=1, Type='one-time',
                                                           LaunchSpecification={'ImageId': image['ImageId'],
                                                                                'InstanceType': instance_type.name,
                                                                                'Placement': {
