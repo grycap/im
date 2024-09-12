@@ -17,12 +17,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import sys
 import unittest
+import datetime
 
 sys.path.append(".")
 sys.path.append("..")
 from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
+from IM.config import Config
+from IM.VirtualMachine import VirtualMachine
 from radl import radl_parse
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.EC2 import EC2CloudConnector
@@ -228,6 +231,101 @@ class TestEC2Connector(TestCloudConnectorBase):
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('IM.connectors.EC2.boto3.client')
+    def test_30_updateVMInfo(self, mock_boto_client):
+        radl_data = """
+            network net (outbound = 'yes')
+            network net2 (router = '10.0.10.0/24,vrouter')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.ip = '158.42.1.1' and
+            net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.0.additional_dns_names = ['some.test@domain.com'] and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'one://server.com/1' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        ec2_cloud = self.get_ec2_cloud()
+
+        mock_conn = MagicMock()
+        mock_boto_client.return_value = mock_conn
+        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_conn.describe_instances.return_value = {'Reservations': [{'Instances': [{'InstanceId': 'vrid',
+                                                                                      'State': {'Name': 'running'}}]}]}
+        instance = MagicMock()
+        mock_conn.Instance.return_value = instance
+        instance.id = "iid"
+        instance.tags = []
+        instance.virtualization_type = "vt"
+        instance.placement = {'AvailabilityZone': 'us-east-1'}
+        instance.state = {'Name': 'running'}
+        instance.instance_type = "t1.micro"
+        instance.launch_time = datetime.datetime.now()
+        instance.public_ip_address = "158.42.1.1"
+        instance.private_ip_address = "10.0.0.1"
+        mock_conn.describe_addresses.return_value = {'Addresses': [{'PublicIp': '158.42.1.1',
+                                                                    'InstanceId': 'iid'}]}
+        mock_conn.describe_vpcs.return_value = {'Vpcs': [{'VpcId': 'vpc-id'}]}
+        mock_conn.describe_subnets.return_value = {'Subnets': [{'SubnetId': 'subnet-id'}]}
+        mock_conn.describe_route_tables.return_value = {'RouteTables': [{'RouteTableId': 'routet-id'}]}
+
+        mock_conn.list_hosted_zones_by_name.return_value = {'HostedZones': [{'Name': 'domain.com.',
+                                                                             'Id': 'zone-id'}]}
+        mock_conn.create_hosted_zone.return_value = {'HostedZone': {'Id': 'zone-idc'}}
+        mock_conn.list_resource_record_sets.return_value = {
+            'ResourceRecordSets': [{'Name': 'some.test.domain.com.'}]}
+
+        inf = MagicMock()
+        vm1 = MagicMock()
+        system1 = MagicMock()
+        system1.name = 'vrouter'
+        vm1.info.systems = [system1]
+        vm1.id = "region;int-id"
+        inf.vm_list = [vm1]
+        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
+
+        success, vm = ec2_cloud.updateVMInfo(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(mock_conn.list_hosted_zones_by_name.call_count, 2)
+        self.assertEqual(mock_conn.change_resource_record_sets.call_args_list[0][1]['ChangeBatch']['Changes'],
+                         [{'Action': 'CREATE',
+                           'ResourceRecordSet': {
+                               'Name': 'test.domain.com.',
+                               'Type': 'A',
+                               'TTL': 300,
+                               'ResourceRecords': [{'Value': '158.42.1.1'}]}
+                           }])
+        self.assertEqual(mock_conn.create_route.call_args_list[0][1], {'RouteTableId': 'routet-id',
+                                                                       'DestinationCidrBlock': '10.0.10.0/24',
+                                                                       'InstanceId': 'int-id'})
+
+        # Test using PRIVATE_NET_MASKS setting 10.0.0.0/8 as public net
+        old_priv = Config.PRIVATE_NET_MASKS
+        Config.PRIVATE_NET_MASKS = ["172.16.0.0/12", "192.168.0.0/16"]
+
+        instance.public_ip_address = None
+        instance.private_ip_address = "10.0.0.1"
+        mock_conn.describe_addresses.return_value = {'Addresses': []}
+
+        success, vm = ec2_cloud.updateVMInfo(vm, auth)
+        Config.PRIVATE_NET_MASKS = old_priv
+        self.assertEqual(vm.getPublicIP(), "10.0.0.1")
+        self.assertEqual(vm.getPrivateIP(), None)
 
 
 if __name__ == '__main__':

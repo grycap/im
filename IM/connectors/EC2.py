@@ -1005,7 +1005,8 @@ class EC2CloudConnector(CloudConnector):
 
         try:
             conn = self.get_connection(region_name, auth_data)
-            instance = conn.Instance(instance_id).load()
+            instance = conn.Instance(instance_id)
+            instance.load()
         except Exception:
             self.log_error("Error getting instance id: %s" % instance_id)
 
