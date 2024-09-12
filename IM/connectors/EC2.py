@@ -189,9 +189,9 @@ class EC2CloudConnector(CloudConnector):
                     if region_name not in region_names:
                         raise Exception("Incorrect region name: " + region_name)
                     client = boto3.client('ec2', region_name=region_name,
-                                            aws_access_key_id=auth['username'],
-                                            aws_secret_access_key=auth['password'],
-                                            aws_session_token=auth.get('token'))
+                                          aws_access_key_id=auth['username'],
+                                          aws_secret_access_key=auth['password'],
+                                          aws_session_token=auth.get('token'))
                 else:
                     self.log_error("No correct auth data has been specified to EC2: "
                                    "username (Access Key) and password (Secret Key)")
@@ -338,7 +338,8 @@ class EC2CloudConnector(CloudConnector):
     @staticmethod
     def _get_security_group(conn, sg_name):
         try:
-            return conn.describe_security_groups(Filters={'Name': 'group-name', 'Values': [sg_name]})['SecurityGroups'][0]
+            return conn.describe_security_groups(Filters={'Name': 'group-name',
+                                                          'Values': [sg_name]})['SecurityGroups'][0]
         except Exception:
             return None
 
@@ -364,13 +365,13 @@ class EC2CloudConnector(CloudConnector):
                             GroupId=sg['GroupId'],
                             IpPermissions=[
                                 {'IpProtocol': 'tcp',
-                                'FromPort': 0,
-                                'ToPort': 65535,
-                                'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]},
+                                 'FromPort': 0,
+                                 'ToPort': 65535,
+                                 'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]},
                                 {'IpProtocol': 'udp',
-                                'FromPort': 0,
-                                'ToPort': 65535,
-                                'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]}
+                                 'FromPort': 0,
+                                 'ToPort': 65535,
+                                 'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]}
                             ])
                     except Exception as crex:
                         # First check if the SG does exist
@@ -507,8 +508,9 @@ class EC2CloudConnector(CloudConnector):
         for net in radl.networks:
             provider_id = net.getValue('provider_id')
             if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
+                subnets = [subnet['CidrBlock'] for subnet in conn.describe_subnets()['Subnets']]
                 net_cidr = self.get_free_cidr(net.getValue('cidr'),
-                                              [subnet['CidrBlock'] for subnet in conn.describe_subnets()['Subnets']] + nets,
+                                              subnets + nets,
                                               inf, 127)
                 nets.append(net_cidr)
 
@@ -531,11 +533,12 @@ class EC2CloudConnector(CloudConnector):
             else:
                 vpc_cird = str(common_cird)
             vpc_id = None
-            for i, net in enumerate(radl.networks):
+            for net in radl.networks:
                 provider_id = net.getValue('provider_id')
                 if net.getValue('create') == 'yes' and not net.isPublic() and not provider_id:
+                    subnets = [subnet['CidrBlock'] for subnet in conn.describe_subnets()['Subnets']]
                     net_cidr = self.get_free_cidr(net.getValue('cidr'),
-                                                  [subnet['CidrBlock'] for subnet in conn.describe_subnets()['Subnets']],
+                                                  subnets,
                                                   inf, 127)
                     net.delValue('cidr')
 
@@ -549,14 +552,16 @@ class EC2CloudConnector(CloudConnector):
                         else:
                             # if not create it
                             self.log_info("Creating VPC with cidr: %s." % vpc_cird)
-                            vpc = conn.create_vpc(CidrBlock=vpc_cird, TagSpecifications=[{'ResourceType': 'vpc',
-                                                                                          'Tags': [{'Key': 'IM-INFRA-ID', 'Value': inf.id}]}])
+                            vpc = conn.create_vpc(vpc_cird, TagSpecifications=[{'ResourceType': 'vpc',
+                                                                                'Tags': [{'Key': 'IM-INFRA-ID',
+                                                                                          'Value': inf.id}]}])
                             vpc_id = vpc['Vpc']['VpcId']
                             self.log_info("VPC %s created." % vpc_id)
 
                             self.log_info("Creating Internet Gateway.")
                             ig = conn.create_internet_gateway(TagSpecifications=[{'ResourceType': 'internet-gateway',
-                                                                                  'Tags': [{'Key': 'IM-INFRA-ID', 'Value': inf.id}]}])
+                                                                                  'Tags': [{'Key': 'IM-INFRA-ID',
+                                                                                            'Value': inf.id}]}])
                             ig_id = ig['InternetGateway']['InternetGatewayId']
                             self.log_info("Internet Gateway %s created." % ig_id)
                             conn.attach_internet_gateway(InternetGatewayId=ig_id, VpcId=vpc_id)
@@ -569,8 +574,10 @@ class EC2CloudConnector(CloudConnector):
 
                     # Now create the subnet
                     # Check if it already exists
-                    subnets = conn.describe_subnets(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [inf.id]},
-                                                             {'Name': 'tag:IM-SUBNET-ID', 'Values': [net.id]}])['Subnets']
+                    subnets = conn.describe_subnets(Filters=[{'Name': 'tag:IM-INFRA-ID',
+                                                              'Values': [inf.id]},
+                                                             {'Name': 'tag:IM-SUBNET-ID',
+                                                              'Values': [net.id]}])['Subnets']
                     if subnets:
                         subnet = subnets[0]
                         self.log_debug("Subnet %s exists. Do not create." % net.id)
@@ -579,8 +586,10 @@ class EC2CloudConnector(CloudConnector):
                         self.log_info("Create subnet for net %s." % net.id)
                         subnet = conn.create_subnet(VpcId=vpc_id, CidrBlock=net_cidr,
                                                     TagSpecifications=[{'ResourceType': 'subnet',
-                                                                        'Tags': [{'Key': 'IM-INFRA-ID', 'Value': inf.id},
-                                                                                 {'Key': 'IM-SUBNET-ID', 'Value': net.id}]}])
+                                                                        'Tags': [{'Key': 'IM-INFRA-ID',
+                                                                                  'Value': inf.id},
+                                                                                 {'Key': 'IM-SUBNET-ID',
+                                                                                  'Value': net.id}]}])
                         self.log_info("Subnet %s created." % subnet.id)
                         net.setValue('cidr', net_cidr)
                         # Set also the cidr in the inf RADL
@@ -787,10 +796,11 @@ class EC2CloudConnector(CloudConnector):
                         availability_zone_list = conn.describe_availability_zones()['AvailabilityZones']
                         for zone in availability_zone_list:
                             history = conn.describe_spot_price_history(InstanceTypes=[instance_type.name],
-                                                                        ProductDescriptions=[operative_system],
-                                                                        Filters=[{'Name': 'availability-zone', 'Values': [zone['ZoneName']]}],
-                                                                        MaxResults=1)['SpotPriceHistory']
-  
+                                                                       ProductDescriptions=[operative_system],
+                                                                       Filters=[{'Name': 'availability-zone',
+                                                                                 'Values': [zone['ZoneName']]}],
+                                                                       MaxResults=1)['SpotPriceHistory']
+
                             self.log_debug("Spot price history for the region " + zone['ZoneName'])
                             self.log_debug(history)
                             if history and float(history[0]['SpotPrice']) < historical_price:
@@ -801,15 +811,17 @@ class EC2CloudConnector(CloudConnector):
                     request = conn.request_spot_instances(SpotPrice=str(price), InstanceCount=1, Type='one-time',
                                                           LaunchSpecification={'ImageId': image['ImageId'],
                                                                                'InstanceType': instance_type.name,
-                                                                               'Placement': {'AvailabilityZone': availability_zone},
+                                                                               'Placement': {
+                                                                                   'AvailabilityZone':
+                                                                                   availability_zone},
                                                                                'KeyName': keypair_name,
                                                                                'SecurityGroupIds': sg_ids,
                                                                                'BlockDeviceMappings': bdm,
                                                                                'SubnetId': subnet,
-                                                                               'UserData': user_data})['SpotInstanceRequests']
+                                                                               'UserData': user_data})
 
-                    if request:
-                        ec2_vm_id = region_name + ";" + request[0]['SpotInstanceRequestId']
+                    if request['SpotInstanceRequests']:
+                        ec2_vm_id = region_name + ";" + request['SpotInstanceRequests'][0]['SpotInstanceRequestId']
 
                         self.log_debug("RADL:")
                         self.log_debug(system)
@@ -839,14 +851,15 @@ class EC2CloudConnector(CloudConnector):
 
                     instances = conn.run_instances(ImageId=image['ImageId'], MinCount=1, MaxCount=1,
                                                    KeyName=keypair_name, InstanceType=instance_type.name,
-                                                   NetworkInterfaces=interfaces, Placement={'AvailabilityZone': placement},
+                                                   NetworkInterfaces=interfaces,
+                                                   Placement={'AvailabilityZone': placement},
                                                    BlockDeviceMappings=bdm, UserData=user_data)['Instances']
 
                     if instances:
                         time.sleep(1)
                         instance = conn.Instance(instances[0]).load()
 
-                        im_username = "im_user"                        
+                        im_username = "im_user"
                         if auth_data.getAuthInfo('InfrastructureManager'):
                             im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
                         instace_tags = [{'Key': 'Name', 'Value': self.gen_instance_name(system)},
@@ -1025,7 +1038,7 @@ class EC2CloudConnector(CloudConnector):
                         return None
                 else:
                     pub_address = conn.allocate_address(Domain='vpc')
-                
+
                 conn.associate_address(InstanceId=instance.id, AllocationId=pub_address['AllocationId'])
 
                 self.log_debug(pub_address)
@@ -1340,12 +1353,13 @@ class EC2CloudConnector(CloudConnector):
                         ChangeBatch={
                             'Changes': [{
                                 'Action': 'CREATE',
-                                    'ResourceRecordSet': {
-                                    'Name':  fqdn,
+                                'ResourceRecordSet': {
+                                    'Name': fqdn,
                                     'Type': 'A',
                                     'TTL': 300,
-                                    'ResourceRecords': [{'Value': ip}]}
-                                    }]
+                                    'ResourceRecords': [{'Value': ip}]
+                                }
+                            }]
                         })
                 else:
                     self.log_info("DNS record %s exists. Do not create." % fqdn)
@@ -1384,19 +1398,21 @@ class EC2CloudConnector(CloudConnector):
                     ChangeBatch={
                         'Changes': [{
                             'Action': 'DELETE',
-                                'ResourceRecordSet': {
-                                'Name':  fqdn,
+                            'ResourceRecordSet': {
+                                'Name': fqdn,
                                 'Type': 'A',
                                 'TTL': 300,
-                                'ResourceRecords': [{'Value': ip}]}
-                                }]
-                    })
+                                'ResourceRecords': [{'Value': ip}]
+                            }
+                        }]
+                    }
+                )
 
             # if there are no A records
             # all_a_records = conn.list_resource_record_sets(
             #    HostedZoneId=zone['Id'],
             #    StartRecordType='A'
-            #)['ResourceRecordSets']
+            # )['ResourceRecordSets']
             # if not all_a_records:
             #    self.log_info("Deleting DNS zone %s." % domain)
             #    conn.delete_hosted_zone(zone['Id'])
@@ -1445,7 +1461,8 @@ class EC2CloudConnector(CloudConnector):
         for vpc in conn.describe_vpcs(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [vm.inf.id]}])['Vpcs']:
             vpc_id = vpc['VpcId']
         ig_id = None
-        for ig in conn.describe_internet_gateways(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [vm.inf.id]}])['InternetGateways']:
+        for ig in conn.describe_internet_gateways(Filters=[{'Name': 'tag:IM-INFRA-ID',
+                                                            'Values': [vm.inf.id]}])['InternetGateways']:
             ig_id = ig['InternetGatewayId']
 
         if ig_id and vpc_id:
@@ -1551,7 +1568,7 @@ class EC2CloudConnector(CloudConnector):
             # Get the default SG to set in the instances
             def_sg_id = conn.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': ['default']},
                                                                {'Name': 'vpc-id', 'Values': [sgs[0]['VpcId']]}]
-                )['SecurityGroups'][0]['GroupId']
+                                                      )['SecurityGroups'][0]['GroupId']
 
         for sg in sgs:
             if sg['Description'] != "Security group created by the IM":
@@ -1575,13 +1592,13 @@ class EC2CloudConnector(CloudConnector):
                     GroupId=sg['GroupId'],
                     IpPermissions=[
                         {'IpProtocol': 'tcp',
-                        'FromPort': 0,
-                        'ToPort': 65535,
-                        'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]},
+                         'FromPort': 0,
+                         'ToPort': 65535,
+                         'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]},
                         {'IpProtocol': 'udp',
-                        'FromPort': 0,
-                        'ToPort': 65535,
-                        'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]}
+                         'FromPort': 0,
+                         'ToPort': 65535,
+                         'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]}
                     ])
             except Exception as ex:
                 self.log_warn("Error revoking self rules: " + str(ex))
@@ -1596,7 +1613,7 @@ class EC2CloudConnector(CloudConnector):
 
     def reboot(self, vm, auth_data):
         self._vm_operation(vm, "reboot", auth_data)
-    
+
     def _vm_operation(self, op, vm, auth_data):
         region_name = vm.id.split(";")[0]
         instance_id = vm.id.split(";")[1]
