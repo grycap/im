@@ -1473,10 +1473,10 @@ class EC2CloudConnector(CloudConnector):
             self.log_info("Detacching Internet Gateway: %s from VPC: %s" % (ig_id, vpc_id))
             conn.detach_internet_gateway(ig_id, vpc_id)
         if ig_id:
-            self.log_info("Deleting Internet Gateway: %s" % ig.id)
+            self.log_info("Deleting Internet Gateway: %s" % ig_id)
             conn.delete_internet_gateway(ig_id)
         if vpc_id:
-            self.log_info("Deleting vpc: %s" % vpc.id)
+            self.log_info("Deleting vpc: %s" % vpc_id)
             conn.delete_vpc(vpc_id)
 
     def finalize(self, vm, last, auth_data):
@@ -1558,7 +1558,7 @@ class EC2CloudConnector(CloudConnector):
             self.log_exception("Error getting SG %s" % sg_name)
         return sgs
 
-    def delete_security_groups(self, conn, vm, timeout=90):
+    def delete_security_groups(self, conn, vm):
         """
         Delete the SG of this infrastructure if this is the last VM
 
@@ -1590,7 +1590,7 @@ class EC2CloudConnector(CloudConnector):
                 # try to wait some seconds to free the SGs
                 time.sleep(5)
 
-            self.log_info("Remove the SG: " + sg['Name'])
+            self.log_info("Remove the SG: " + sg['GroupName'])
             try:
                 conn.revoke_security_group_ingress(
                     GroupId=sg['GroupId'],

@@ -29,7 +29,7 @@ from IM.VirtualMachine import VirtualMachine
 from radl import radl_parse
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.EC2 import EC2CloudConnector
-from mock import patch, MagicMock
+from mock import patch, MagicMock, call
 
 
 class TestEC2Connector(TestCloudConnectorBase):
@@ -326,6 +326,88 @@ class TestEC2Connector(TestCloudConnectorBase):
         Config.PRIVATE_NET_MASKS = old_priv
         self.assertEqual(vm.getPublicIP(), "10.0.0.1")
         self.assertEqual(vm.getPrivateIP(), None)
+
+    @patch('IM.connectors.EC2.boto3.client')
+    @patch('time.sleep')
+    def test_60_finalize(self, sleep, mock_boto_client):
+        radl_data = """
+            network net (outbound = 'yes')
+            network net2 (outbound = 'yes')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.ip = '158.42.1.1' and
+            net_interface.0.dns_name = 'test.domain.com' and
+            net_interface.1.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'one://server.com/1' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        ec2_cloud = self.get_ec2_cloud()
+
+        inf = MagicMock()
+        inf.id = "1"
+        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
+        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1')]
+
+        mock_conn = MagicMock()
+        mock_boto_client.return_value = mock_conn
+        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_conn.describe_instances.return_value = {'Reservations': [{'Instances': [{'InstanceId': 'vrid',
+                                                                                      'State': {'Name': 'running'}}]}]}
+        instance = MagicMock()
+        mock_conn.Instance.return_value = instance
+        instance.block_device_mappings = [{'DeviceName': '/dev/sda1', 'Ebs': {'VolumeId': 'volid'}}]
+        mock_conn.describe_addresses.return_value = {'Addresses': [{'PublicIp': '158.42.1.1',
+                                                                    'InstanceId': 'id-1'}]}
+        mock_conn.describe_spot_instance_requests.return_value = {'SpotInstanceRequests': []}
+
+        mock_conn.describe_security_groups.return_value = {'SecurityGroups': [
+            {'GroupId': 'sg1', 'GroupName': 'im-1', 'Description': 'Security group created by the IM',
+             'VpcId': 'vpc-id'},
+            {'GroupId': 'sg2', 'GroupName': 'im-1-net', 'Description': '',
+             'VpcId': 'vpc-id'},
+            {'GroupId': 'sg3', 'GroupName': 'im-1-net2', 'Description': 'Security group created by the IM',
+             'VpcId': 'vpc-id'}
+        ]}
+        mock_conn.describe_vpcs.return_value = {'Vpcs': [{'VpcId': 'vpc-id'}]}
+        mock_conn.describe_subnets.return_value = {'Subnets': [{'SubnetId': 'subnet-id'}]}
+
+        mock_conn.list_hosted_zones_by_name.return_value = {'HostedZones': [{'Name': 'domain.com.',
+                                                                             'Id': 'zone-id'}]}
+        mock_conn.list_resource_record_sets.return_value = {
+            'ResourceRecordSets': [{'Name': 'test.domain.com.'}]}
+        mock_conn.describe_internet_gateways.return_value = {'InternetGateways': [{'InternetGatewayId': 'ig-id'}]}
+
+        success, _ = ec2_cloud.finalize(vm, True, auth)
+
+        self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        self.assertEqual(mock_conn.change_resource_record_sets.call_args_list[0][1]['ChangeBatch']['Changes'],
+                         [{'Action': 'DELETE',
+                           'ResourceRecordSet': {
+                               'Name': 'test.domain.com.',
+                               'Type': 'A',
+                               'TTL': 300,
+                               'ResourceRecords': [{'Value': '158.42.1.1'}]}
+                           }])
+        self.assertEqual(mock_conn.delete_security_group.call_args_list, [call(GroupId='sg1'),
+                                                                          call(GroupId='sg3')])
+        self.assertEqual(instance.terminate.call_args_list, [call()])
+        self.assertEqual(mock_conn.delete_subnet.call_args_list, [call('subnet-id')])
+        self.assertEqual(mock_conn.delete_vpc.call_args_list, [call('vpc-id')])
+        self.assertEqual(mock_conn.delete_internet_gateway.call_args_list, [call('ig-id')])
+        self.assertEqual(mock_conn.detach_internet_gateway.call_args_list, [call('ig-id', 'vpc-id')])
 
 
 if __name__ == '__main__':
