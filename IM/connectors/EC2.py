@@ -382,7 +382,7 @@ class EC2CloudConnector(CloudConnector):
                         else:
                             self.log_info("Security group: " + sg_name + " already created.")
 
-                res.append(sg.id)
+                res.append(sg['GroupId'])
 
             while system.getValue("net_interface." + str(i) + ".connection"):
                 network_name = system.getValue("net_interface." + str(i) + ".connection")
@@ -410,7 +410,7 @@ class EC2CloudConnector(CloudConnector):
                             else:
                                 self.log_info("Security group: " + sg_name + " already created.")
 
-                res.append(sg.id)
+                res.append(sg['GroupId'])
 
                 try:
                     # open all the ports for the VMs in the security group
@@ -857,7 +857,8 @@ class EC2CloudConnector(CloudConnector):
 
                     if instances:
                         time.sleep(1)
-                        instance = conn.Instance(instances[0]).load()
+                        instance = conn.Instance(instances[0])
+                        instance.load()
 
                         im_username = "im_user"
                         if auth_data.getAuthInfo('InfrastructureManager'):
@@ -868,7 +869,7 @@ class EC2CloudConnector(CloudConnector):
                             instace_tags.append({'Key': key, 'Value': value})
                         instance.create_tags(Tags=instace_tags)
 
-                        ec2_vm_id = region_name + ";" + instances[0]
+                        ec2_vm_id = region_name + ";" + instances[0]['InstanceId']
 
                         self.log_debug("RADL:")
                         self.log_debug(system)
