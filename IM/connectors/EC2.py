@@ -1265,9 +1265,8 @@ class EC2CloudConnector(CloudConnector):
             job_instance_id = None
 
             self.log_info("Check if the request has been fulfilled and the instance has been deployed")
-            job_sir_id = instance_id
             request_list = conn.describe_spot_instance_requests(Filters=[{'Name': 'spot-instance-request-id',
-                                                                          'Values': ['job_sir_id']}])
+                                                                          'Values': [instance_id]}])
             sir = []
             if request_list['SpotInstanceRequests']:
                 sir = request_list['SpotInstanceRequests'][0]
@@ -1275,8 +1274,7 @@ class EC2CloudConnector(CloudConnector):
             # another availability zone
             if sir['State'] == 'failed':
                 vm.state = VirtualMachine.FAILED
-            if sir['SpotInstanceRequestId'] == job_sir_id:
-                job_instance_id = sir['InstanceId']
+            job_instance_id = sir['InstanceId']
 
             if job_instance_id:
                 self.log_info("Request fulfilled, instance_id: " + str(job_instance_id))
@@ -1610,13 +1608,13 @@ class EC2CloudConnector(CloudConnector):
             conn.delete_security_group(GroupId=sg['GroupId'])
 
     def stop(self, vm, auth_data):
-        self._vm_operation("stop", vm, auth_data)
+        return self._vm_operation("stop", vm, auth_data)
 
     def start(self, vm, auth_data):
-        self._vm_operation("start", vm, auth_data)
+        return self._vm_operation("start", vm, auth_data)
 
     def reboot(self, vm, auth_data):
-        self._vm_operation(vm, "reboot", auth_data)
+        return self._vm_operation("reboot", vm, auth_data)
 
     def _vm_operation(self, op, vm, auth_data):
         region_name = vm.id.split(";")[0]
@@ -1646,7 +1644,7 @@ class EC2CloudConnector(CloudConnector):
         powered_off = False
         while wait < timeout and not powered_off:
             instance.reload()
-            powered_off = instance.state == 'stopped'
+            powered_off = instance.state['Name'] == 'stopped'
             if not powered_off:
                 time.sleep(2)
                 wait += 2

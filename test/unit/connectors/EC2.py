@@ -328,6 +328,135 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(vm.getPrivateIP(), None)
 
     @patch('IM.connectors.EC2.boto3.client')
+    def test_40_updateVMInfo_spot(self, mock_boto_client):
+        radl_data = """
+            network net (outbound = 'yes')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'one://server.com/1' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass' and
+            disk.1.size=1GB and
+            disk.1.device='hdb' and
+            disk.1.mount_path='/mnt/path'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        ec2_cloud = self.get_ec2_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "us-east-1;sid-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
+
+        mock_conn = MagicMock()
+        mock_boto_client.return_value = mock_conn
+        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        instance = MagicMock()
+        mock_conn.Instance.return_value = instance
+        instance.id = "iid"
+        instance.virtualization_type = "vt"
+        instance.placement = {'AvailabilityZone': 'us-east-1'}
+        instance.state = {'Name': 'running'}
+        instance.instance_type = "t1.micro"
+        instance.launch_time = "2016-12-31T00:00:00"
+        instance.ip_address = "158.42.1.1"
+        instance.private_ip_address = "10.0.0.1"
+
+        mock_conn.describe_addresses.return_value = {'Addresses': []}
+        mock_conn.describe_spot_instance_requests.return_value = {'SpotInstanceRequests': [{'InstanceId': 'id',
+                                                                                            'State': ''}]}
+        mock_conn.create_volume.return_value = {'VolumeId': 'volid', 'State': 'available'}
+
+        success, vm = ec2_cloud.updateVMInfo(vm, auth)
+
+        self.assertTrue(success, msg="ERROR: updating VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('IM.connectors.EC2.boto3.client')
+    def test_50_vmop(self, mock_boto_client):
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        ec2_cloud = self.get_ec2_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, "", "", ec2_cloud, 1)
+
+        mock_conn = MagicMock()
+        mock_boto_client.return_value = mock_conn
+        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+
+        instance = MagicMock()
+        mock_conn.Instance.return_value = instance
+
+        success, _ = ec2_cloud.start(vm, auth)
+        self.assertTrue(success, msg="ERROR: starting VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(instance.start.call_args_list, [call()])
+
+        success, _ = ec2_cloud.stop(vm, auth)
+        self.assertTrue(success, msg="ERROR: stopping VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(instance.stop.call_args_list, [call()])
+
+        success, _ = ec2_cloud.reboot(vm, auth)
+        self.assertTrue(success, msg="ERROR: rebooting VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(instance.reboot.call_args_list, [call()])
+
+    @patch('IM.connectors.EC2.boto3.client')
+    def test_55_alter(self, mock_boto_client):
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'one://server.com/1' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        new_radl_data = """
+            system test (
+            cpu.count>=2 and
+            memory.size>=2048m
+            )"""
+        new_radl = radl_parse.parse_radl(new_radl_data)
+
+        auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
+        ec2_cloud = self.get_ec2_cloud()
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "us-east-1;sid-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
+
+        mock_conn = MagicMock()
+        mock_boto_client.return_value = mock_conn
+        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+
+        instance = MagicMock()
+        mock_conn.Instance.return_value = instance
+        instance.id = "iid"
+        instance.instance_type = "t1.micro"
+        instance.state = {'Name': 'stopped'}
+
+        success, _ = ec2_cloud.alterVM(vm, new_radl, auth)
+
+        self.assertTrue(success, msg="ERROR: modifying VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+        self.assertEqual(instance.stop.call_args_list, [call()])
+        self.assertEqual(instance.start.call_args_list, [call()])
+        self.assertEqual(instance.modify_attribute.call_args_list, [call(InstanceType={'Value': 't2.micro'})])
+
+    @patch('IM.connectors.EC2.boto3.client')
     @patch('time.sleep')
     def test_60_finalize(self, sleep, mock_boto_client):
         radl_data = """
