@@ -547,10 +547,11 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(mock_conn.delete_security_group.call_args_list, [call(GroupId='sg1'),
                                                                           call(GroupId='sg3')])
         self.assertEqual(instance.terminate.call_args_list, [call()])
-        self.assertEqual(mock_conn.delete_subnet.call_args_list, [call('subnet-id')])
-        self.assertEqual(mock_conn.delete_vpc.call_args_list, [call('vpc-id')])
-        self.assertEqual(mock_conn.delete_internet_gateway.call_args_list, [call('ig-id')])
-        self.assertEqual(mock_conn.detach_internet_gateway.call_args_list, [call('ig-id', 'vpc-id')])
+        self.assertEqual(mock_conn.delete_subnet.call_args_list, [call(SubnetId='subnet-id')])
+        self.assertEqual(mock_conn.delete_vpc.call_args_list, [call(VpcId='vpc-id')])
+        self.assertEqual(mock_conn.delete_internet_gateway.call_args_list, [call(InternetGatewayId='ig-id')])
+        self.assertEqual(mock_conn.detach_internet_gateway.call_args_list, [call(InternetGatewayId='ig-id',
+                                                                                 VpcId='vpc-id')])
 
     @patch('IM.connectors.EC2.boto3.session.Session')
     @patch('time.sleep')
@@ -596,7 +597,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         success, msg = ec2_cloud.delete_image('aws://us-east-1/image-ami', auth)
 
         self.assertTrue(success, msg="ERROR: deleting image. %s" % msg)
-        self.assertEqual(mock_conn.deregister_image.call_args_list, [call('image-ami')])
+        self.assertEqual(mock_conn.deregister_image.call_args_list, [call(ImageId='image-ami')])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('IM.connectors.EC2.boto3.session.Session')

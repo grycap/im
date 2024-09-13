@@ -525,9 +525,10 @@ class EC2CloudConnector(CloudConnector):
                         else:
                             # if not create it
                             self.log_info("Creating VPC with cidr: %s." % vpc_cird)
-                            vpc = conn.create_vpc(vpc_cird, TagSpecifications=[{'ResourceType': 'vpc',
-                                                                                'Tags': [{'Key': 'IM-INFRA-ID',
-                                                                                          'Value': inf.id}]}])
+                            vpc = conn.create_vpc(CidrBlock=vpc_cird,
+                                                  TagSpecifications=[{'ResourceType': 'vpc',
+                                                                      'Tags': [{'Key': 'IM-INFRA-ID',
+                                                                                'Value': inf.id}]}])
                             vpc_id = vpc['Vpc']['VpcId']
                             self.log_info("VPC %s created." % vpc_id)
 
@@ -564,26 +565,26 @@ class EC2CloudConnector(CloudConnector):
                                                                                   'Value': inf.id},
                                                                                  {'Key': 'IM-SUBNET-ID',
                                                                                   'Value': net.id}]}])
-                        self.log_info("Subnet %s created." % subnet.id)
+                        self.log_info("Subnet %s created." % subnet['Subnet']['SubnetId'])
                         net.setValue('cidr', net_cidr)
                         # Set also the cidr in the inf RADL
                         inf.radl.get_network_by_id(net.id).setValue('cidr', net_cidr)
 
-                    net.setValue('provider_id', "%s.%s" % (vpc_id, subnet.id))
+                    net.setValue('provider_id', "%s.%s" % (vpc_id, subnet['Subnet']['SubnetId']))
         except Exception as ex:
             self.log_exception("Error creating subnets or vpc.")
             try:
                 for subnet in conn.describe_subnets(Filters=[{"Name": "tag:IM-INFRA-ID",
                                                               "Values": [inf.id]}])['Subnets']:
-                    self.log_info("Deleting subnet: %s" % subnet.id)
-                    conn.delete_subnet(subnet.id)
+                    self.log_info("Deleting subnet: %s" % subnet['Subnets']['SubnetId'])
+                    conn.delete_subnet(SubnetId=subnet['Subnets']['SubnetId'])
                 for vpc in conn.describe_vpcs(Filters=[{"Name": "tag:IM-INFRA-ID", "Values": [inf.id]}])['Vpcs']:
-                    self.log_info("Deleting vpc: %s" % vpc.id)
-                    conn.delete_vpc(vpc.id)
+                    self.log_info("Deleting vpc: %s" % vpc_id)
+                    conn.delete_vpc(VpcId=vpc_id)
                 for ig in conn.describe_internet_gateways(Filters=[{"Name": "tag:IM-INFRA-ID",
                                                                     "Values": [inf.id]}])['InternetGateways']:
-                    self.log_info("Deleting Internet Gateway: %s" % ig.id)
-                    conn.delete_internet_gateways(ig.id)
+                    self.log_info("Deleting Internet Gateway: %s" % ig_id)
+                    conn.delete_internet_gateways(InternetGatewayId=ig_id)
             except Exception:
                 self.log_exception("Error deleting subnets or vpc.")
             raise ex
@@ -884,8 +885,12 @@ class EC2CloudConnector(CloudConnector):
 
             i += 1
 
-        # if all the VMs have failed, remove the sgs
+        # if all the VMs have failed, remove the sgs and nets
         if all_failed:
+            try:
+                self.delete_networks(conn, inf.id)
+            except Exception as ex:
+                self.log_exception("Error deleting networks.")
             if sg_ids:
                 for sgid in sg_ids:
                     self.log_info("Remove the SG: %s" % sgid)
@@ -1434,18 +1439,18 @@ class EC2CloudConnector(CloudConnector):
                 conn.cancel_spot_instance_requests(sir['SpotInstanceRequestId'])
                 self.log_info("Spot instance request " + sir['SpotInstanceRequestId'] + " deleted")
 
-    def delete_networks(self, conn, vm, timeout=240):
+    def delete_networks(self, conn, inf_id, timeout=240):
         """
         Delete the created networks
         """
-        for subnet in conn.describe_subnets(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [vm.inf.id]}])['Subnets']:
+        for subnet in conn.describe_subnets(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [inf_id]}])['Subnets']:
             self.log_info("Deleting subnet: %s" % subnet['SubnetId'])
             cont = 0
             deleted = False
             while not deleted and cont < timeout:
                 cont += 5
                 try:
-                    conn.delete_subnet(subnet['SubnetId'])
+                    conn.delete_subnet(SubnetId=subnet['SubnetId'])
                     deleted = True
                 except Exception as ex:
                     self.log_warn("Error removing subnet: " + str(ex))
@@ -1454,25 +1459,25 @@ class EC2CloudConnector(CloudConnector):
                     time.sleep(5)
 
             if not deleted:
-                self.log_error("Timeout (%s) deleting the subnet %s" % (timeout, subnet.id))
+                self.log_error("Timeout (%s) deleting the subnet %s" % (timeout, subnet['SubnetId']))
 
         vpc_id = None
-        for vpc in conn.describe_vpcs(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [vm.inf.id]}])['Vpcs']:
+        for vpc in conn.describe_vpcs(Filters=[{'Name': 'tag:IM-INFRA-ID', 'Values': [inf_id]}])['Vpcs']:
             vpc_id = vpc['VpcId']
         ig_id = None
         for ig in conn.describe_internet_gateways(Filters=[{'Name': 'tag:IM-INFRA-ID',
-                                                            'Values': [vm.inf.id]}])['InternetGateways']:
+                                                            'Values': [inf_id]}])['InternetGateways']:
             ig_id = ig['InternetGatewayId']
 
         if ig_id and vpc_id:
             self.log_info("Detacching Internet Gateway: %s from VPC: %s" % (ig_id, vpc_id))
-            conn.detach_internet_gateway(ig_id, vpc_id)
+            conn.detach_internet_gateway(InternetGatewayId=ig_id, VpcId=vpc_id)
         if ig_id:
             self.log_info("Deleting Internet Gateway: %s" % ig_id)
-            conn.delete_internet_gateway(ig_id)
+            conn.delete_internet_gateway(InternetGatewayId=ig_id)
         if vpc_id:
             self.log_info("Deleting vpc: %s" % vpc_id)
-            conn.delete_vpc(vpc_id)
+            conn.delete_vpc(VpcId=vpc_id)
 
     def finalize(self, vm, last, auth_data):
 
@@ -1527,7 +1532,7 @@ class EC2CloudConnector(CloudConnector):
 
             # And nets
             try:
-                self.delete_networks(conn, vm)
+                self.delete_networks(conn, vm.inf.id)
             except Exception as ex:
                 self.log_exception("Error deleting networks.")
                 error_msg += "Error deleting networks: %s. " % ex
@@ -1563,6 +1568,12 @@ class EC2CloudConnector(CloudConnector):
         """
         sgs = self._get_security_groups(conn, vm)
 
+        if sgs:
+            # Get the default SG to set in the instances
+            def_sg_id = conn.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': ['default']},
+                                                               {'Name': 'vpc-id', 'Values': [sgs[0]['VpcId']]}]
+                                                      )['SecurityGroups'][0]['GroupId']
+
         for sg in sgs:
             if sg['Description'] != "Security group created by the IM":
                 self.log_info("SG %s not created by the IM. Do not delete it." % sg['GroupName'])
@@ -1572,7 +1583,7 @@ class EC2CloudConnector(CloudConnector):
                                                                  'Values': [sg['GroupId']]}])['Reservations']
                 if reservations:
                     for instance in reservations[0]['Instances']:
-                        conn.modify_instance_attribute(InstanceId=instance['InstanceId'], Groups=[])
+                        conn.modify_instance_attribute(InstanceId=instance['InstanceId'], Groups=[def_sg_id])
             except Exception as ex:
                 self.log_warn("Error removing the SG %s from the instance: %s. %s" % (sg["GroupName"],
                                                                                       instance['InstanceId'], ex))
@@ -1800,7 +1811,7 @@ class EC2CloudConnector(CloudConnector):
         self.log_info("Deleting image: %s." % image_url)
         conn = self.get_connection(region_name, auth_data, 'ec2')
 
-        success = conn.deregister_image(ami)
+        success = conn.deregister_image(ImageId=ami)
 
         if success:
             return (True, "")
