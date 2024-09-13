@@ -177,12 +177,11 @@ class EC2CloudConnector(CloudConnector):
 
         if self.connection and self.auth.compare(auth_data, self.type):
             if object_type == 'resource':
-                client = self.connection.resource('ec2')
+                return self.connection.resource(service_name)
             else:
-                client = self.connection.client('ec2')
+                return self.connection.client(service_name)
         else:
             self.auth = auth_data
-            client = None
             try:
                 if 'username' in auth and 'password' in auth:
                     if region_name != 'universal':
@@ -198,9 +197,9 @@ class EC2CloudConnector(CloudConnector):
                                                     aws_session_token=auth.get('token'))
                     self.connection = session
                     if object_type == 'resource':
-                        client = session.resource(service_name)
+                        return session.resource(service_name)
                     else:
-                        client = session.client(service_name)
+                        return session.client(service_name)
                 else:
                     self.log_error("No correct auth data has been specified to EC2: "
                                    "username (Access Key) and password (Secret Key)")
@@ -210,8 +209,6 @@ class EC2CloudConnector(CloudConnector):
             except Exception as ex:
                 self.log_exception("Error getting the region " + region_name)
                 raise Exception("Error getting the region " + region_name + ": " + str(ex))
-
-        return client
 
     # path format: aws://eu-west-1/ami-00685b74
     @staticmethod
