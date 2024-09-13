@@ -102,7 +102,6 @@ class EC2CloudConnector(CloudConnector):
 
     def __init__(self, cloud_info, inf):
         self.connection = None
-        self.route53_connection = None
         self.auth = None
         CloudConnector.__init__(self, cloud_info, inf)
 
@@ -161,7 +160,7 @@ class EC2CloudConnector(CloudConnector):
             system.addFeature(Feature("gpu.model", "=", instance_type.gpu_model), conflict="other", missing="other")
 
     # Get the EC2 connection object
-    def get_connection(self, region_name, auth_data):
+    def get_connection(self, region_name, auth_data, service_name, object_type='client'):
         """
         Get a :py:class:`boto.ec2.connection` to interact with.
 
@@ -177,21 +176,31 @@ class EC2CloudConnector(CloudConnector):
             auth = auths[0]
 
         if self.connection and self.auth.compare(auth_data, self.type):
-            return self.connection
+            if object_type == 'resource':
+                client = self.connection.resource('ec2')
+            else:
+                client = self.connection.client('ec2')
         else:
             self.auth = auth_data
             client = None
             try:
                 if 'username' in auth and 'password' in auth:
-                    client = boto3.client('ec2')
-                    regions = client.describe_regions()
-                    region_names = [region['RegionName'] for region in regions['Regions']]
-                    if region_name not in region_names:
-                        raise Exception("Incorrect region name: " + region_name)
-                    client = boto3.client('ec2', region_name=region_name,
-                                          aws_access_key_id=auth['username'],
-                                          aws_secret_access_key=auth['password'],
-                                          aws_session_token=auth.get('token'))
+                    if region_name != 'universal':
+                        client = boto3.client('ec2')
+                        regions = client.describe_regions()
+                        region_names = [region['RegionName'] for region in regions['Regions']]
+                        if region_name not in region_names:
+                            raise Exception("Incorrect region name: " + region_name)
+
+                    session = boto3.session.Session(region_name=region_name,
+                                                    aws_access_key_id=auth['username'],
+                                                    aws_secret_access_key=auth['password'],
+                                                    aws_session_token=auth.get('token'))
+                    self.connection = session
+                    if object_type == 'resource':
+                        client = session.resource(service_name)
+                    else:
+                        client = session.client(service_name)
                 else:
                     self.log_error("No correct auth data has been specified to EC2: "
                                    "username (Access Key) and password (Secret Key)")
@@ -202,48 +211,7 @@ class EC2CloudConnector(CloudConnector):
                 self.log_exception("Error getting the region " + region_name)
                 raise Exception("Error getting the region " + region_name + ": " + str(ex))
 
-            self.connection = client
-            return client
-
-    # Get the Route53 connection object
-    def get_route53_connection(self, region_name, auth_data):
-        """
-        Get a :py:class:`boto.route53.connection` to interact with.
-
-        Arguments:
-           - region_name(str): AWS region to connect.
-           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
-        Returns: a :py:class:`boto3.Route53.Client` or None in case of error
-        """
-        auths = auth_data.getAuthInfo(self.type)
-        if not auths:
-            raise Exception("No auth data has been specified to EC2.")
-        else:
-            auth = auths[0]
-
-        if self.route53_connection and self.auth.compare(auth_data, self.type):
-            return self.route53_connection
-        else:
-            self.auth = auth_data
-            conn = None
-            try:
-                if 'username' in auth and 'password' in auth:
-                    conn = boto3.client('route53', region_name=region_name,
-                                        aws_access_key_id=auth['username'],
-                                        aws_secret_access_key=auth['password'],
-                                        aws_session_token=auth.get('token'))
-                else:
-                    self.log_error("No correct auth data has been specified to EC2: "
-                                   "username (Access Key) and password (Secret Key)")
-                    raise Exception("No correct auth data has been specified to EC2: "
-                                    "username (Access Key) and password (Secret Key)")
-
-            except Exception as ex:
-                self.log_exception("Error conneting Route53 in region " + region_name)
-                raise Exception("Error conneting Route53 in region" + region_name + ": " + str(ex))
-
-            self.route53_connection = conn
-            return conn
+        return client
 
     # path format: aws://eu-west-1/ami-00685b74
     @staticmethod
@@ -338,8 +306,8 @@ class EC2CloudConnector(CloudConnector):
     @staticmethod
     def _get_security_group(conn, sg_name):
         try:
-            return conn.describe_security_groups(Filters={'Name': 'group-name',
-                                                          'Values': [sg_name]})['SecurityGroups'][0]
+            return conn.describe_security_groups(Filters=[{'Name': 'group-name',
+                                                           'Values': [sg_name]}])['SecurityGroups'][0]
         except Exception:
             return None
 
@@ -575,8 +543,9 @@ class EC2CloudConnector(CloudConnector):
                             conn.attach_internet_gateway(InternetGatewayId=ig_id, VpcId=vpc_id)
 
                             self.log_info("Adding route to the IG.")
-                            for route_table in conn.describe_route_tables(Filters={"vpc-id": vpc_id})['RouteTables']:
-                                conn.create_route(RouteTableId=route_table['RouteTableId'],
+                            for rt in conn.describe_route_tables(Filters=[{"Name": "vpc-id",
+                                                                           "Values": [vpc_id]}])['RouteTables']:
+                                conn.create_route(RouteTableId=rt['RouteTableId'],
                                                   DestinationCidrBlock="0.0.0.0/0",
                                                   GatewayId=ig_id)
 
@@ -607,13 +576,15 @@ class EC2CloudConnector(CloudConnector):
         except Exception as ex:
             self.log_exception("Error creating subnets or vpc.")
             try:
-                for subnet in conn.describe_subnets(Filters={"tag:IM-INFRA-ID": inf.id})['Subnets']:
+                for subnet in conn.describe_subnets(Filters=[{"Name": "tag:IM-INFRA-ID",
+                                                              "Values": [inf.id]}])['Subnets']:
                     self.log_info("Deleting subnet: %s" % subnet.id)
                     conn.delete_subnet(subnet.id)
-                for vpc in conn.describe_vpcs(Filters={"tag:IM-INFRA-ID": inf.id})['Vpcs']:
+                for vpc in conn.describe_vpcs(Filters=[{"Name": "tag:IM-INFRA-ID", "Values": [inf.id]}])['Vpcs']:
                     self.log_info("Deleting vpc: %s" % vpc.id)
                     conn.delete_vpc(vpc.id)
-                for ig in conn.describe_internet_gateways(Filters={"tag:IM-INFRA-ID": inf.id})['InternetGateways']:
+                for ig in conn.describe_internet_gateways(Filters=[{"Name": "tag:IM-INFRA-ID",
+                                                                    "Values": [inf.id]}])['InternetGateways']:
                     self.log_info("Deleting Internet Gateway: %s" % ig.id)
                     conn.delete_internet_gateways(ig.id)
             except Exception:
@@ -661,7 +632,7 @@ class EC2CloudConnector(CloudConnector):
         (region_name, ami) = self.getAMIData(system.getValue("disk.0.image.url"))
 
         self.log_info("Connecting with the region: " + region_name)
-        conn = self.get_connection(region_name, auth_data)
+        conn = self.get_connection(region_name, auth_data, 'ec2')
 
         res = []
         spot = False
@@ -884,22 +855,18 @@ class EC2CloudConnector(CloudConnector):
                     if placement:
                         params['Placement'] = {'AvailabilityZone': placement}
 
+                    im_username = "im_user"
+                    if auth_data.getAuthInfo('InfrastructureManager'):
+                        im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
+                    instace_tags = [{'Key': 'Name', 'Value': self.gen_instance_name(system)},
+                                    {'Key': 'IM-USER', 'Value': im_username}]
+                    for key, value in tags.items():
+                        instace_tags.append({'Key': key, 'Value': value})
+                    params['TagSpecifications'] = [{'ResourceType': 'instance', 'Tags': instace_tags}]
+
                     instances = conn.run_instances(**params)['Instances']
 
                     if instances:
-                        time.sleep(1)
-                        instance = conn.Instance(instances[0])
-                        instance.load()
-
-                        im_username = "im_user"
-                        if auth_data.getAuthInfo('InfrastructureManager'):
-                            im_username = auth_data.getAuthInfo('InfrastructureManager')[0]['username']
-                        instace_tags = [{'Key': 'Name', 'Value': self.gen_instance_name(system)},
-                                        {'Key': 'IM-USER', 'Value': im_username}]
-                        for key, value in tags.items():
-                            instace_tags.append({'Key': key, 'Value': value})
-                        instance.create_tags(Tags=instace_tags)
-
                         ec2_vm_id = region_name + ";" + instances[0]['InstanceId']
 
                         self.log_debug("RADL:")
@@ -1033,11 +1000,11 @@ class EC2CloudConnector(CloudConnector):
         instance = None
 
         try:
-            conn = self.get_connection(region_name, auth_data)
-            instance = conn.Instance(instance_id)
+            resource = self.get_connection(region_name, auth_data, 'ec2', 'resource')
+            instance = resource.Instance(instance_id)
             instance.load()
         except Exception:
-            self.log_error("Error getting instance id: %s" % instance_id)
+            self.log_exception("Error getting instance id: %s" % instance_id)
 
         return instance
 
@@ -1118,7 +1085,8 @@ class EC2CloudConnector(CloudConnector):
             if pub_ip in fixed_ips:
                 self.log_info("%s is a fixed IP, it is not released" % pub_ip)
             else:
-                for address in conn.describe_addresses(Filters={"public-ip": pub_ip})['Addresses']:
+                for address in conn.describe_addresses(Filters=[{"Name": "public-ip",
+                                                                 "Values": [pub_ip]}])['Addresses']:
                     self.log_info("This VM has a Elastic IP %s." % address['PublicIp'])
                     cont = 0
                     while address['InstanceId'] and cont < timeout:
@@ -1128,7 +1096,8 @@ class EC2CloudConnector(CloudConnector):
                             conn.disassociate_address(PublicIp=address['PublicIp'])
                         except Exception:
                             self.log_debug("Error disassociating the IP.")
-                        address = conn.describe_addresses(Filters={"public-ip": pub_ip})['Addresses'][0]
+                        address = conn.describe_addresses(Filters=[{"Name": "public-ip",
+                                                                    "Values": [pub_ip]}])['Addresses'][0]
                         self.log_info("It is attached. Wait.")
                         time.sleep(3)
 
@@ -1225,12 +1194,14 @@ class EC2CloudConnector(CloudConnector):
                 if network.getValue('router'):
                     if not route_table_id:
                         vpc_id = None
-                        for vpc in conn.describe_vpcs(Filters={"tag:IM-INFRA-ID": vm.inf.id})['Vpcs']:
+                        for vpc in conn.describe_vpcs(Filters=[{"Name": "tag:IM-INFRA-ID",
+                                                                "Values": [vm.inf.id]}])['Vpcs']:
                             vpc_id = vpc['VpcId']
                         if not vpc_id:
                             self.log_error("No VPC found.")
                             return False
-                        for rt in conn.describe_route_tables(Filters={"vpc-id": vpc_id})['RouteTables']:
+                        for rt in conn.describe_route_tables(Filters=[{"Name": "vpc-id",
+                                                                       "Values": [vpc_id]}])['RouteTables']:
                             route_table_id = rt['RouteTableId']
 
                     if not route_table_id:
@@ -1285,7 +1256,7 @@ class EC2CloudConnector(CloudConnector):
     def updateVMInfo(self, vm, auth_data):
         region = vm.id.split(";")[0]
         instance_id = vm.id.split(";")[1]
-        conn = self.get_connection(region, auth_data)
+        conn = self.get_connection(region, auth_data, 'ec2')
 
         # Check if the instance_id starts with "sir" -> spot request
         if (instance_id[0] == "s"):
@@ -1350,7 +1321,7 @@ class EC2CloudConnector(CloudConnector):
         try:
             # Workaround to use EC2 as the default case.
             if self.type == "EC2":
-                conn = self.get_route53_connection('universal', auth_data)
+                conn = self.get_connection('universal', auth_data, 'route53')
             else:
                 auths = auth_data.getAuthInfo("EC2")
                 if not auths:
@@ -1402,7 +1373,7 @@ class EC2CloudConnector(CloudConnector):
     def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         # Workaround to use EC2 as the default case.
         if self.type == "EC2":
-            conn = self.get_route53_connection('universal', auth_data)
+            conn = self.get_connection('universal', auth_data, 'route53')
         else:
             auths = auth_data.getAuthInfo("EC2")
             if not auths:
@@ -1520,7 +1491,7 @@ class EC2CloudConnector(CloudConnector):
         region_name = vm.id.split(";")[0]
         instance_id = vm.id.split(";")[1]
 
-        conn = self.get_connection(region_name, auth_data)
+        conn = self.get_connection(region_name, auth_data, 'ec2')
 
         # Terminate the instance
         instance = self.get_instance_by_id(instance_id, region_name, auth_data)
@@ -1606,14 +1577,16 @@ class EC2CloudConnector(CloudConnector):
                 self.log_info("SG %s not created by the IM. Do not delete it." % sg['GroupName'])
                 continue
             try:
-                instances = conn.describe_instances(Filters=[{'Name': 'instance.group-id', 'Values': [sg['GroupId']]}])
-                for instance in instances['Reservations'][0]['Instances']:
-                    conn.modify_instance_attribute(
-                        InstanceId=instance['InstanceId'],
-                        Groups=[{'GroupId': def_sg_id}]
-                    )
+                reservations = conn.describe_instances(Filters=[{'Name': 'instance.group-id',
+                                                                 'Values': [sg['GroupId']]}])['Reservations']
+                if reservations and reservations[0]['Instances']:
+                    for instance in reservations[0]['Instances']:
+                        conn.modify_instance_attribute(
+                            InstanceId=instance['InstanceId'],
+                            Groups=[{'GroupId': def_sg_id}]
+                        )
             except Exception as ex:
-                self.log_warn("Error removing the SG %s from the instance: %s. %s" % (sg.name, instance.id, ex))
+                self.log_warn("Error removing the SG %s from the instance: %s. %s" % (sg["GroupName"], instance.id, ex))
                 # try to wait some seconds to free the SGs
                 time.sleep(5)
 
@@ -1807,7 +1780,7 @@ class EC2CloudConnector(CloudConnector):
         snapshot_id = None
 
         # Obtain the connection object to connect with EC2
-        conn = self.get_connection(region_name, auth_data)
+        conn = self.get_connection(region_name, auth_data, 'ec2')
 
         if not conn:
             return (False, "Error connecting with EC2, check the credentials")
@@ -1819,7 +1792,7 @@ class EC2CloudConnector(CloudConnector):
             snapshot_id = instance.create_image(Name=image_name,
                                                 Description="AMI automatically generated by IM",
                                                 NoReboot=True,
-                                                TagSpecifications=[{'ResourceType': 'snapshot',
+                                                TagSpecifications=[{'ResourceType': 'image',
                                                                     'Tags': [{'Key': 'instance_id',
                                                                               'Value': instance_id}]}])
         else:
@@ -1836,7 +1809,7 @@ class EC2CloudConnector(CloudConnector):
         (region_name, ami) = self.getAMIData(image_url)
 
         self.log_info("Deleting image: %s." % image_url)
-        conn = self.get_connection(region_name, auth_data)
+        conn = self.get_connection(region_name, auth_data, 'ec2')
 
         success = conn.deregister_image(ami)
 
@@ -1866,7 +1839,7 @@ class EC2CloudConnector(CloudConnector):
 
         images = []
         for region in regions:
-            conn = self.get_connection(region, auth_data)
+            conn = self.get_connection(region, auth_data, 'ec2')
             try:
                 for image in conn.describe_images(Owners=['self', 'aws-marketplace'], Filters=images_filter)['Images']:
                     if len(image['ImageId']) > 12:  # do not add old images

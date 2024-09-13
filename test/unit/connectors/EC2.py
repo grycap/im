@@ -114,9 +114,9 @@ class TestEC2Connector(TestCloudConnectorBase):
             subnet['CidrBlock'] = "10.0.1.0/24"
         return {'Subnets': [subnet]}
 
-    @patch('IM.connectors.EC2.boto3.client')
+    @patch('IM.connectors.EC2.boto3.session.Session')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    def test_20_launch(self, save_data, mock_boto_client):
+    def test_20_launch(self, save_data, mock_boto_session):
         radl_data = """
             network net1 (outbound = 'yes' and outports='8080,9000:9100' and sg_name = 'sgname')
             network net2 ()
@@ -147,7 +147,9 @@ class TestEC2Connector(TestCloudConnectorBase):
         inf.radl = radl
 
         mock_conn = MagicMock()
-        mock_boto_client.return_value = mock_conn
+        mock_res = MagicMock()
+        mock_boto_session.return_value.client.return_value = mock_conn
+        mock_boto_session.return_value.resource.return_value = mock_res
         mock_conn.describe_security_groups.return_value = {'SecurityGroups': []}
         mock_conn.create_security_group.return_value = {'GroupId': 'sg-id'}
         mock_conn.describe_vpcs.return_value = {'Vpcs': [{'VpcId': 'vpc-id'}]}
@@ -161,7 +163,7 @@ class TestEC2Connector(TestCloudConnectorBase):
                                                              ]}
         mock_conn.run_instances.return_value = {'Instances': [{'InstanceId': 'i-12345678'}]}
         instance = MagicMock()
-        mock_conn.Instance.return_value = instance
+        mock_res.Instance.return_value = instance
 
         res = ec2_cloud.launch(inf, radl, radl, 1, auth)
         success, msg = res[0]
@@ -173,9 +175,9 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(mock_conn.create_security_group.call_args_list[2][1]['GroupName'], "im-%s-net2" % inf.id)
         mock_conn.run_instances.assert_called_once()
 
-    @patch('IM.connectors.EC2.boto3.client')
+    @patch('IM.connectors.EC2.boto3.session.Session')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    def test_25_launch_spot(self, save_data, mock_boto_client):
+    def test_25_launch_spot(self, save_data, mock_boto_session):
         radl_data = """
             network net1 (outbound = 'yes' and provider_id = 'vpc-id.subnet-id')
             network net2 ()
@@ -204,12 +206,14 @@ class TestEC2Connector(TestCloudConnectorBase):
         ec2_cloud = self.get_ec2_cloud()
 
         mock_conn = MagicMock()
-        mock_boto_client.return_value = mock_conn
+        mock_res = MagicMock()
+        mock_boto_session.return_value.client.return_value = mock_conn
+        mock_boto_session.return_value.resource.return_value = mock_res
         mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
 
         mock_conn.run_instances.return_value = {'Instances': [{'InstanceId': 'iid'}]}
         instance = MagicMock()
-        mock_conn.Instance.return_value = instance
+        mock_res.Instance.return_value = instance
         instance.id = "iid"
         mock_conn.describe_vpcs.return_value = {'Vpcs': [{'VpcId': 'vpc-id'}]}
         mock_conn.describe_subnets.return_value = {'Subnets': [{'SubnetId': 'subnet-id'}]}
@@ -232,8 +236,8 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.connectors.EC2.boto3.client')
-    def test_30_updateVMInfo(self, mock_boto_client):
+    @patch('IM.connectors.EC2.boto3.session.Session')
+    def test_30_updateVMInfo(self, mock_boto_session):
         radl_data = """
             network net (outbound = 'yes')
             network net2 (router = '10.0.10.0/24,vrouter')
@@ -261,12 +265,14 @@ class TestEC2Connector(TestCloudConnectorBase):
         ec2_cloud = self.get_ec2_cloud()
 
         mock_conn = MagicMock()
-        mock_boto_client.return_value = mock_conn
+        mock_res = MagicMock()
+        mock_boto_session.return_value.client.return_value = mock_conn
+        mock_boto_session.return_value.resource.return_value = mock_res
         mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
         mock_conn.describe_instances.return_value = {'Reservations': [{'Instances': [{'InstanceId': 'vrid',
                                                                                       'State': {'Name': 'running'}}]}]}
         instance = MagicMock()
-        mock_conn.Instance.return_value = instance
+        mock_res.Instance.return_value = instance
         instance.id = "iid"
         instance.tags = []
         instance.virtualization_type = "vt"
@@ -327,8 +333,8 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(vm.getPublicIP(), "10.0.0.1")
         self.assertEqual(vm.getPrivateIP(), None)
 
-    @patch('IM.connectors.EC2.boto3.client')
-    def test_40_updateVMInfo_spot(self, mock_boto_client):
+    @patch('IM.connectors.EC2.boto3.session.Session')
+    def test_40_updateVMInfo_spot(self, mock_boto_session):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -355,10 +361,12 @@ class TestEC2Connector(TestCloudConnectorBase):
         vm = VirtualMachine(inf, "us-east-1;sid-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
 
         mock_conn = MagicMock()
-        mock_boto_client.return_value = mock_conn
+        mock_res = MagicMock()
+        mock_boto_session.return_value.client.return_value = mock_conn
+        mock_boto_session.return_value.resource.return_value = mock_res
         mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
         instance = MagicMock()
-        mock_conn.Instance.return_value = instance
+        mock_res.Instance.return_value = instance
         instance.id = "iid"
         instance.virtualization_type = "vt"
         instance.placement = {'AvailabilityZone': 'us-east-1'}
@@ -378,8 +386,8 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: updating VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.connectors.EC2.boto3.client')
-    def test_50_vmop(self, mock_boto_client):
+    @patch('IM.connectors.EC2.boto3.session.Session')
+    def test_50_vmop(self, mock_boto_session):
         auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
         ec2_cloud = self.get_ec2_cloud()
 
@@ -387,11 +395,13 @@ class TestEC2Connector(TestCloudConnectorBase):
         vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, "", "", ec2_cloud, 1)
 
         mock_conn = MagicMock()
-        mock_boto_client.return_value = mock_conn
+        mock_res = MagicMock()
+        mock_boto_session.return_value.client.return_value = mock_conn
+        mock_boto_session.return_value.resource.return_value = mock_res
         mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
 
         instance = MagicMock()
-        mock_conn.Instance.return_value = instance
+        mock_res.Instance.return_value = instance
 
         success, _ = ec2_cloud.start(vm, auth)
         self.assertTrue(success, msg="ERROR: starting VM.")
@@ -408,8 +418,8 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.assertEqual(instance.reboot.call_args_list, [call()])
 
-    @patch('IM.connectors.EC2.boto3.client')
-    def test_55_alter(self, mock_boto_client):
+    @patch('IM.connectors.EC2.boto3.session.Session')
+    def test_55_alter(self, mock_boto_session):
         radl_data = """
             network net ()
             system test (
@@ -439,11 +449,13 @@ class TestEC2Connector(TestCloudConnectorBase):
         vm = VirtualMachine(inf, "us-east-1;sid-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
 
         mock_conn = MagicMock()
-        mock_boto_client.return_value = mock_conn
+        mock_res = MagicMock()
+        mock_boto_session.return_value.client.return_value = mock_conn
+        mock_boto_session.return_value.resource.return_value = mock_res
         mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
 
         instance = MagicMock()
-        mock_conn.Instance.return_value = instance
+        mock_res.Instance.return_value = instance
         instance.id = "iid"
         instance.instance_type = "t1.micro"
         instance.state = {'Name': 'stopped'}
@@ -456,9 +468,9 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(instance.start.call_args_list, [call()])
         self.assertEqual(instance.modify_attribute.call_args_list, [call(Attribute='instanceType', Value='t3a.small')])
 
-    @patch('IM.connectors.EC2.boto3.client')
+    @patch('IM.connectors.EC2.boto3.session.Session')
     @patch('time.sleep')
-    def test_60_finalize(self, sleep, mock_boto_client):
+    def test_60_finalize(self, sleep, mock_boto_session):
         radl_data = """
             network net (outbound = 'yes')
             network net2 (outbound = 'yes')
@@ -489,12 +501,14 @@ class TestEC2Connector(TestCloudConnectorBase):
         vm.dns_entries = [('test', 'domain.com.', '158.42.1.1')]
 
         mock_conn = MagicMock()
-        mock_boto_client.return_value = mock_conn
+        mock_res = MagicMock()
+        mock_boto_session.return_value.client.return_value = mock_conn
+        mock_boto_session.return_value.resource.return_value = mock_res
         mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
         mock_conn.describe_instances.return_value = {'Reservations': [{'Instances': [{'InstanceId': 'vrid',
                                                                                       'State': {'Name': 'running'}}]}]}
         instance = MagicMock()
-        mock_conn.Instance.return_value = instance
+        mock_res.Instance.return_value = instance
         instance.block_device_mappings = [{'DeviceName': '/dev/sda1', 'Ebs': {'VolumeId': 'volid'}}]
         mock_conn.describe_addresses.return_value = {'Addresses': [{'PublicIp': '158.42.1.1',
                                                                     'InstanceId': 'id-1'}]}
@@ -538,9 +552,9 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(mock_conn.delete_internet_gateway.call_args_list, [call('ig-id')])
         self.assertEqual(mock_conn.detach_internet_gateway.call_args_list, [call('ig-id', 'vpc-id')])
 
-    @patch('IM.connectors.EC2.boto3.client')
+    @patch('IM.connectors.EC2.boto3.session.Session')
     @patch('time.sleep')
-    def test_70_create_snapshot(self, sleep, mock_boto_client):
+    def test_70_create_snapshot(self, sleep, mock_boto_session):
         auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
         ec2_cloud = self.get_ec2_cloud()
 
@@ -548,11 +562,13 @@ class TestEC2Connector(TestCloudConnectorBase):
         vm = VirtualMachine(inf, "us-east-1;id1", ec2_cloud.cloud, "", "", ec2_cloud, 1)
 
         mock_conn = MagicMock()
-        mock_boto_client.return_value = mock_conn
+        mock_res = MagicMock()
+        mock_boto_session.return_value.client.return_value = mock_conn
+        mock_boto_session.return_value.resource.return_value = mock_res
         mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
 
         instance = MagicMock()
-        mock_conn.Instance.return_value = instance
+        mock_res.Instance.return_value = instance
         instance.create_image.return_value = {'ImageId': 'image-ami'}
 
         success, new_image = ec2_cloud.create_snapshot(vm, 0, "image_name", True, auth)
@@ -562,19 +578,19 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(instance.create_image.call_args_list, [call(Name='image_name',
                                                                      Description='AMI automatically generated by IM',
                                                                      NoReboot=True,
-                                                                     TagSpecifications=[{'ResourceType': 'snapshot',
+                                                                     TagSpecifications=[{'ResourceType': 'image',
                                                                                          'Tags': [{'Key': 'instance_id',
                                                                                                    'Value': 'id1'}]}])])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.connectors.EC2.boto3.client')
+    @patch('IM.connectors.EC2.boto3.session.Session')
     @patch('time.sleep')
-    def test_80_delete_image(self, sleep, mock_boto_client):
+    def test_80_delete_image(self, sleep, mock_boto_session):
         auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
         ec2_cloud = self.get_ec2_cloud()
 
         mock_conn = MagicMock()
-        mock_boto_client.return_value = mock_conn
+        mock_boto_session.return_value.client.return_value = mock_conn
         mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
 
         success, msg = ec2_cloud.delete_image('aws://us-east-1/image-ami', auth)
@@ -583,14 +599,14 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertEqual(mock_conn.deregister_image.call_args_list, [call('image-ami')])
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.connectors.EC2.boto3.client')
+    @patch('IM.connectors.EC2.boto3.session.Session')
     @patch('time.sleep')
-    def test_90_list_images(self, sleep, mock_boto_client):
+    def test_90_list_images(self, sleep, mock_boto_session):
         auth = Authentication([{'id': 'ec2', 'type': 'EC2', 'username': 'user', 'password': 'pass'}])
         ec2_cloud = self.get_ec2_cloud()
 
         mock_conn = MagicMock()
-        mock_boto_client.return_value = mock_conn
+        mock_boto_session.return_value.client.return_value = mock_conn
         mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
         mock_conn.describe_images.return_value = {'Images': [{'ImageId': 'ami-123456789012',
                                                               'Name': 'image_name'}]}
