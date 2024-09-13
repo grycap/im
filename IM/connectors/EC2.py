@@ -1824,7 +1824,7 @@ class EC2CloudConnector(CloudConnector):
             regions = [filters['region']]
             del filters['region']
         if not regions:
-            region = [region['RegionName'] for region in conn.describe_regions()['Regions']]
+            region = [region['RegionName'] for region in boto3.client('ec2').describe_regions()['Regions']]
 
         images_filter = {'architecture': 'x86_64', 'image-type': 'machine',
                          'virtualization-type': 'hvm', 'state': 'available',
