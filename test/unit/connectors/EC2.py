@@ -454,7 +454,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.assertEqual(instance.stop.call_args_list, [call()])
         self.assertEqual(instance.start.call_args_list, [call()])
-        self.assertEqual(instance.modify_attribute.call_args_list, [call(InstanceType={'Value': 't2.micro'})])
+        self.assertEqual(instance.modify_attribute.call_args_list, [call(Attribute='instanceType', Value='t3a.small')])
 
     @patch('IM.connectors.EC2.boto3.client')
     @patch('time.sleep')

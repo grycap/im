@@ -1,5 +1,5 @@
 # IM - Infrastructure Manager
-# Copyright (C) 2011 - GRyCAP - Universitat Politecnica de Valencia
+# Copyright (C) 2024 - GRyCAP - Universitat Politecnica de Valencia
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -359,7 +359,7 @@ class EC2CloudConnector(CloudConnector):
                     try:
                         sg = conn.create_security_group(GroupName=sg_name,
                                                         Description="Security group created by the IM",
-                                                        VpdId=vpc)
+                                                        VpcId=vpc)
                         # open all the ports for the VMs in the security group
                         conn.authorize_security_group_ingress(
                             GroupId=sg['GroupId'],
@@ -400,7 +400,7 @@ class EC2CloudConnector(CloudConnector):
                         try:
                             sg = conn.create_security_group(GroupName=sg_name,
                                                             Description="Security group created by the IM",
-                                                            VpdId=vpc)
+                                                            VpcId=vpc)
                         except Exception as crex:
                             # First check if the SG does exist
                             sg = self._get_security_group(conn, sg_name)
@@ -475,9 +475,17 @@ class EC2CloudConnector(CloudConnector):
         if vpcs:
             vpc_id = vpcs[0]['VpcId']
 
-        subnets = conn.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['Subnets']
-        if subnets:
-            subnet_id = subnets[0]['SubnetId']
+        # Just in case there is no default VPC, in some old accounts
+        # get the VPC named default
+        if not vpc_id:
+            vpcs = conn.describe_vpcs(Filters=[{'Name': 'tag:Name', 'Values': ['default']}])['Vpcs']
+            if vpcs:
+                vpc_id = vpcs[0]['VpcId']
+
+        if vpc_id:
+            subnets = conn.describe_subnets(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])['Subnets']
+            if subnets:
+                subnet_id = subnets[0]['SubnetId']
 
         return vpc_id, subnet_id
 
@@ -763,23 +771,28 @@ class EC2CloudConnector(CloudConnector):
                         'DeviceName': block_device_name,
                         'Ebs': {
                             'DeleteOnTermination': True,
-                            'VolumeSize': size,
                             'VolumeType': disk_type
                         }
                     }
                 ]
+                if size:
+                    bdm[0]['Ebs']['VolumeSize'] = size
 
                 volumes = self.get_volumes(conn, vm)
                 for device, (size, snapshot_id, _, disk_type) in volumes.items():
-                    bdm.append({
+                    bd = {
                         'DeviceName': device,
                         'Ebs': {
-                            'SnapshotId': snapshot_id,
                             'DeleteOnTermination': True,
-                            'VolumeSize': size,
-                            'VolumeType': disk_type
                         }
-                    })
+                    }
+                    if size:
+                        bd['Ebs']['VolumeSize'] = size
+                    if snapshot_id:
+                        bd['Ebs']['SnapshotId'] = snapshot_id
+                    if disk_type:
+                        bd['Ebs']['VolumeType'] = disk_type
+                    bdm.append(bd)
 
                 if spot:
                     self.log_info("Launching a spot instance")
@@ -810,17 +823,24 @@ class EC2CloudConnector(CloudConnector):
                                 availability_zone = zone['ZoneName']
                     self.log_info("Launching the spot request in the zone " + availability_zone)
 
-                    request = conn.request_spot_instances(SpotPrice=price, InstanceCount=1, Type='one-time',
-                                                          LaunchSpecification={'ImageId': image['ImageId'],
-                                                                               'InstanceType': instance_type.name,
-                                                                               'Placement': {
-                                                                                   'AvailabilityZone':
-                                                                                   availability_zone},
-                                                                               'KeyName': keypair_name,
-                                                                               'SecurityGroupIds': sg_ids,
-                                                                               'BlockDeviceMappings': bdm,
-                                                                               'SubnetId': subnet,
-                                                                               'UserData': user_data})
+                    launch_spec = {'ImageId': image['ImageId'],
+                                   'InstanceType': instance_type.name,
+                                   'SecurityGroupIds': sg_ids,
+                                   'BlockDeviceMappings': bdm,
+                                   'SubnetId': subnet,
+                                   'UserData': user_data}
+
+                    if keypair_name:
+                        launch_spec['KeyName'] = keypair_name
+                    if availability_zone:
+                        launch_spec['Placement'] = {'AvailabilityZone': availability_zone}
+
+                    params = {'InstanceCount': 1,
+                              'Type': 'one-time',
+                              'LaunchSpecification': launch_spec}
+                    if price:
+                        params['SpotPrice'] = price
+                    request = conn.request_spot_instances(**params)
 
                     if request['SpotInstanceRequests']:
                         ec2_vm_id = region_name + ";" + request['SpotInstanceRequests'][0]['SpotInstanceRequestId']
@@ -851,11 +871,20 @@ class EC2CloudConnector(CloudConnector):
                         }
                     ]
 
-                    instances = conn.run_instances(ImageId=image['ImageId'], MinCount=1, MaxCount=1,
-                                                   KeyName=keypair_name, InstanceType=instance_type.name,
-                                                   NetworkInterfaces=interfaces,
-                                                   Placement={'AvailabilityZone': placement},
-                                                   BlockDeviceMappings=bdm, UserData=user_data)['Instances']
+                    params = {'ImageId': image['ImageId'],
+                              'MinCount': 1,
+                              'MaxCount': 1,
+                              'InstanceType': instance_type.name,
+                              'NetworkInterfaces': interfaces,
+                              'BlockDeviceMappings': bdm,
+                              'UserData': user_data}
+
+                    if keypair_name:
+                        params['KeyName'] = keypair_name
+                    if placement:
+                        params['Placement'] = {'AvailabilityZone': placement}
+
+                    instances = conn.run_instances(**params)['Instances']
 
                     if instances:
                         time.sleep(1)
