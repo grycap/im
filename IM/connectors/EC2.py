@@ -1563,12 +1563,6 @@ class EC2CloudConnector(CloudConnector):
         """
         sgs = self._get_security_groups(conn, vm)
 
-        if sgs:
-            # Get the default SG to set in the instances
-            def_sg_id = conn.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': ['default']},
-                                                               {'Name': 'vpc-id', 'Values': [sgs[0]['VpcId']]}]
-                                                      )['SecurityGroups'][0]['GroupId']
-
         for sg in sgs:
             if sg['Description'] != "Security group created by the IM":
                 self.log_info("SG %s not created by the IM. Do not delete it." % sg['GroupName'])
@@ -1576,14 +1570,12 @@ class EC2CloudConnector(CloudConnector):
             try:
                 reservations = conn.describe_instances(Filters=[{'Name': 'instance.group-id',
                                                                  'Values': [sg['GroupId']]}])['Reservations']
-                if reservations and reservations[0]['Instances']:
+                if reservations:
                     for instance in reservations[0]['Instances']:
-                        conn.modify_instance_attribute(
-                            InstanceId=instance['InstanceId'],
-                            Groups=[{'GroupId': def_sg_id}]
-                        )
+                        conn.modify_instance_attribute(InstanceId=instance['InstanceId'], Groups=[])
             except Exception as ex:
-                self.log_warn("Error removing the SG %s from the instance: %s. %s" % (sg["GroupName"], instance.id, ex))
+                self.log_warn("Error removing the SG %s from the instance: %s. %s" % (sg["GroupName"],
+                                                                                      instance['InstanceId'], ex))
                 # try to wait some seconds to free the SGs
                 time.sleep(5)
 
