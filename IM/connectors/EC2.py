@@ -1314,7 +1314,7 @@ class EC2CloudConnector(CloudConnector):
         return (True, vm)
 
     def _get_zone(self, conn, domain):
-        zones = conn.list_hosted_zones_by_name(DNSName=domain)['HostedZones']
+        zones = conn.list_hosted_zones_by_name(DNSName=domain, MaxItems='1')['HostedZones']
         if not zones or len(zones) == 0:
             return None
         return zones[0]
@@ -1349,7 +1349,8 @@ class EC2CloudConnector(CloudConnector):
                 fqdn = hostname + "." + domain
                 records = conn.list_resource_record_sets(HostedZoneId=zone_id,
                                                          StartRecordName=fqdn,
-                                                         StartRecordType='A')['ResourceRecordSets']
+                                                         StartRecordType='A',
+                                                         MaxItems='1')['ResourceRecordSets']
                 if not records or records[0]['Name'] != fqdn:
                     self.log_info("Creating DNS record %s." % fqdn)
                     conn.change_resource_record_sets(
@@ -1392,7 +1393,8 @@ class EC2CloudConnector(CloudConnector):
             fqdn = hostname + "." + domain
             records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
                                                      StartRecordName=fqdn,
-                                                     StartRecordType='A')['ResourceRecordSets']
+                                                     StartRecordType='A',
+                                                     MaxItems='1')['ResourceRecordSets']
             if not records or records[0]['Name'] != fqdn:
                 self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
             else:
@@ -1413,10 +1415,8 @@ class EC2CloudConnector(CloudConnector):
                 )
 
             # if there are no A records
-            # all_a_records = conn.list_resource_record_sets(
-            #    HostedZoneId=zone['Id'],
-            #    StartRecordType='A'
-            # )['ResourceRecordSets']
+            # all_a_records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
+            #                                                StartRecordType='A')['ResourceRecordSets']
             # if not all_a_records:
             #    self.log_info("Deleting DNS zone %s." % domain)
             #    conn.delete_hosted_zone(zone['Id'])
