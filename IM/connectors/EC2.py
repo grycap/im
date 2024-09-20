@@ -185,9 +185,7 @@ class EC2CloudConnector(CloudConnector):
             try:
                 if 'username' in auth and 'password' in auth:
                     if region_name != 'universal':
-                        client = boto3.client('ec2')
-                        regions = client.describe_regions()
-                        region_names = [region['RegionName'] for region in regions['Regions']]
+                        region_names = boto3.session.Session().get_available_regions('ec2')
                         if region_name not in region_names:
                             raise Exception("Incorrect region name: " + region_name)
 

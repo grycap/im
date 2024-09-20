@@ -154,7 +154,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         mock_conn.create_security_group.return_value = {'GroupId': 'sg-id'}
         mock_conn.describe_vpcs.return_value = {'Vpcs': [{'VpcId': 'vpc-id'}]}
         mock_conn.describe_subnets.return_value = {'Subnets': [{'SubnetId': 'subnet-id'}]}
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_boto_session.return_value.get_available_regions.return_value = ['us-east-1']
         mock_conn.describe_images.return_value = {'Images': [{'ImageId': 'ami-id',
                                                               'BlockDeviceMappings': [{'DeviceName': '/dev/sda1',
                                                                                        'Ebs': {
@@ -209,7 +209,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         mock_res = MagicMock()
         mock_boto_session.return_value.client.return_value = mock_conn
         mock_boto_session.return_value.resource.return_value = mock_res
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_boto_session.return_value.get_available_regions.return_value = ['us-east-1']
 
         mock_conn.run_instances.return_value = {'Instances': [{'InstanceId': 'iid'}]}
         instance = MagicMock()
@@ -268,7 +268,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         mock_res = MagicMock()
         mock_boto_session.return_value.client.return_value = mock_conn
         mock_boto_session.return_value.resource.return_value = mock_res
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_boto_session.return_value.get_available_regions.return_value = ['us-east-1']
         mock_conn.describe_instances.return_value = {'Reservations': [{'Instances': [{'InstanceId': 'vrid',
                                                                                       'State': {'Name': 'running'}}]}]}
         instance = MagicMock()
@@ -364,7 +364,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         mock_res = MagicMock()
         mock_boto_session.return_value.client.return_value = mock_conn
         mock_boto_session.return_value.resource.return_value = mock_res
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_boto_session.return_value.get_available_regions.return_value = ['us-east-1']
         instance = MagicMock()
         mock_res.Instance.return_value = instance
         instance.id = "iid"
@@ -398,7 +398,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         mock_res = MagicMock()
         mock_boto_session.return_value.client.return_value = mock_conn
         mock_boto_session.return_value.resource.return_value = mock_res
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_boto_session.return_value.get_available_regions.return_value = ['us-east-1']
 
         instance = MagicMock()
         mock_res.Instance.return_value = instance
@@ -452,7 +452,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         mock_res = MagicMock()
         mock_boto_session.return_value.client.return_value = mock_conn
         mock_boto_session.return_value.resource.return_value = mock_res
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_boto_session.return_value.get_available_regions.return_value = ['us-east-1']
 
         instance = MagicMock()
         mock_res.Instance.return_value = instance
@@ -504,7 +504,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         mock_res = MagicMock()
         mock_boto_session.return_value.client.return_value = mock_conn
         mock_boto_session.return_value.resource.return_value = mock_res
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_boto_session.return_value.get_available_regions.return_value = ['us-east-1']
         mock_conn.describe_instances.return_value = {'Reservations': [{'Instances': [{'InstanceId': 'vrid',
                                                                                       'State': {'Name': 'running'}}]}]}
         instance = MagicMock()
@@ -566,7 +566,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         mock_res = MagicMock()
         mock_boto_session.return_value.client.return_value = mock_conn
         mock_boto_session.return_value.resource.return_value = mock_res
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_boto_session.return_value.get_available_regions.return_value = ['us-east-1']
 
         instance = MagicMock()
         mock_res.Instance.return_value = instance
@@ -592,7 +592,7 @@ class TestEC2Connector(TestCloudConnectorBase):
 
         mock_conn = MagicMock()
         mock_boto_session.return_value.client.return_value = mock_conn
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_boto_session.return_value.get_available_regions.return_value = ['us-east-1']
 
         success, msg = ec2_cloud.delete_image('aws://us-east-1/image-ami', auth)
 
@@ -608,7 +608,7 @@ class TestEC2Connector(TestCloudConnectorBase):
 
         mock_conn = MagicMock()
         mock_boto_session.return_value.client.return_value = mock_conn
-        mock_conn.describe_regions.return_value = {'Regions': [{'RegionName': 'us-east-1'}]}
+        mock_boto_session.return_value.get_available_regions.return_value = ['us-east-1']
         mock_conn.describe_images.return_value = {'Images': [{'ImageId': 'ami-123456789012',
                                                               'Name': 'image_name'}]}
         res = ec2_cloud.list_images(auth, filters={'region': 'us-east-1'})
