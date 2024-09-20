@@ -308,6 +308,23 @@ class EC2CloudConnector(CloudConnector):
         except Exception:
             return None
 
+    @staticmethod
+    def _get_default_security_rules(sg):
+        return [
+            {
+                "IpProtocol": "tcp",
+                "FromPort": 0,
+                "ToPort": 65535,
+                "UserIdGroupPairs": [{"GroupId": sg["GroupId"]}],
+            },
+            {
+                "IpProtocol": "udp",
+                "FromPort": 0,
+                "ToPort": 65535,
+                "UserIdGroupPairs": [{"GroupId": sg["GroupId"]}],
+            },
+        ]
+
     def create_security_groups(self, conn, inf, radl, vpc):
         res = []
         try:
@@ -326,18 +343,8 @@ class EC2CloudConnector(CloudConnector):
                                                         Description="Security group created by the IM",
                                                         VpcId=vpc)
                         # open all the ports for the VMs in the security group
-                        conn.authorize_security_group_ingress(
-                            GroupId=sg['GroupId'],
-                            IpPermissions=[
-                                {'IpProtocol': 'tcp',
-                                 'FromPort': 0,
-                                 'ToPort': 65535,
-                                 'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]},
-                                {'IpProtocol': 'udp',
-                                 'FromPort': 0,
-                                 'ToPort': 65535,
-                                 'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]}
-                            ])
+                        conn.authorize_security_group_ingress(GroupId=sg['GroupId'],
+                                                              IpPermissions=self._get_default_security_rules(sg))
                     except Exception as crex:
                         # First check if the SG does exist
                         sg = self._get_security_group(conn, sg_name)
@@ -379,18 +386,8 @@ class EC2CloudConnector(CloudConnector):
 
                 try:
                     # open all the ports for the VMs in the security group
-                    conn.authorize_security_group_ingress(
-                        GroupId=sg['GroupId'],
-                        IpPermissions=[
-                            {'IpProtocol': 'tcp',
-                             'FromPort': 0,
-                             'ToPort': 65535,
-                             'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]},
-                            {'IpProtocol': 'udp',
-                             'FromPort': 0,
-                             'ToPort': 65535,
-                             'UserIdGroupPairs': [{'GroupId': sg['GroupId']}]}
-                        ])
+                    conn.authorize_security_group_ingress(GroupId=sg['GroupId'],
+                                                          IpPermissions=self._get_default_security_rules(sg))
                 except Exception as addex:
                     self.log_warn("Exception adding SG rules. Probably the rules exists:" + str(addex))
 
@@ -889,7 +886,7 @@ class EC2CloudConnector(CloudConnector):
         if all_failed:
             try:
                 self.delete_networks(conn, inf.id)
-            except Exception as ex:
+            except Exception:
                 self.log_exception("Error deleting networks.")
             if sg_ids:
                 for sgid in sg_ids:
@@ -1256,8 +1253,7 @@ class EC2CloudConnector(CloudConnector):
         return success
 
     def updateVMInfo(self, vm, auth_data):
-        region = vm.id.split(";")[0]
-        instance_id = vm.id.split(";")[1]
+        region, instance_id = vm.id.split(";")
         conn = self.get_connection(region, auth_data, 'ec2')
 
         # Check if the instance_id starts with "sir" -> spot request
@@ -1319,6 +1315,22 @@ class EC2CloudConnector(CloudConnector):
             return None
         return zones[0]
 
+    @staticmethod
+    def _get_change_batch(action, fqdn, ip):
+        return {
+            "Changes": [
+                {
+                    "Action": action,
+                    "ResourceRecordSet": {
+                        "Name": fqdn,
+                        "Type": "A",
+                        "TTL": 300,
+                        "ResourceRecords": [{"Value": ip}],
+                    },
+                }
+            ]
+        }
+
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
             # Workaround to use EC2 as the default case.
@@ -1353,19 +1365,8 @@ class EC2CloudConnector(CloudConnector):
                                                          MaxItems='1')['ResourceRecordSets']
                 if not records or records[0]['Name'] != fqdn:
                     self.log_info("Creating DNS record %s." % fqdn)
-                    conn.change_resource_record_sets(
-                        HostedZoneId=zone_id,
-                        ChangeBatch={
-                            'Changes': [{
-                                'Action': 'CREATE',
-                                'ResourceRecordSet': {
-                                    'Name': fqdn,
-                                    'Type': 'A',
-                                    'TTL': 300,
-                                    'ResourceRecords': [{'Value': ip}]
-                                }
-                            }]
-                        })
+                    conn.change_resource_record_sets(HostedZoneId=zone_id,
+                                                     ChangeBatch=self._get_change_batch('CREATE', fqdn, ip))
                 else:
                     self.log_info("DNS record %s exists. Do not create." % fqdn)
             return True
@@ -1399,20 +1400,8 @@ class EC2CloudConnector(CloudConnector):
                 self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
             else:
                 self.log_info("Deleting DNS record %s." % fqdn)
-                conn.change_resource_record_sets(
-                    HostedZoneId=zone['Id'],
-                    ChangeBatch={
-                        'Changes': [{
-                            'Action': 'DELETE',
-                            'ResourceRecordSet': {
-                                'Name': fqdn,
-                                'Type': 'A',
-                                'TTL': 300,
-                                'ResourceRecords': [{'Value': ip}]
-                            }
-                        }]
-                    }
-                )
+                conn.change_resource_record_sets(HostedZoneId=zone['Id'],
+                                                 ChangeBatch=self._get_change_batch('DELETE', fqdn, ip))
 
             # if there are no A records
             # all_a_records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
@@ -1490,8 +1479,7 @@ class EC2CloudConnector(CloudConnector):
             self.log_info("VM with no ID. Ignore.")
             return True, ""
 
-        region_name = vm.id.split(";")[0]
-        instance_id = vm.id.split(";")[1]
+        region_name, instance_id = vm.id.split(";")
 
         conn = self.get_connection(region_name, auth_data, 'ec2')
 
@@ -1619,8 +1607,7 @@ class EC2CloudConnector(CloudConnector):
         return self._vm_operation("reboot", vm, auth_data)
 
     def _vm_operation(self, op, vm, auth_data):
-        region_name = vm.id.split(";")[0]
-        instance_id = vm.id.split(";")[1]
+        region_name, instance_id = vm.id.split(";")
 
         instance = self.get_instance_by_id(instance_id, region_name, auth_data)
         if (instance is not None):
@@ -1654,8 +1641,7 @@ class EC2CloudConnector(CloudConnector):
         return powered_off
 
     def alterVM(self, vm, radl, auth_data):
-        region_name = vm.id.split(";")[0]
-        instance_id = vm.id.split(";")[1]
+        region_name, instance_id = vm.id.split(";")
 
         # Terminate the instance
         instance = self.get_instance_by_id(instance_id, region_name, auth_data)
@@ -1775,8 +1761,7 @@ class EC2CloudConnector(CloudConnector):
           - The second value is a str with the url of the new image if the operation finished successfully
             or an error message otherwise.
         """
-        region_name = vm.id.split(";")[0]
-        instance_id = vm.id.split(";")[1]
+        region_name, instance_id = vm.id.split(";")
         snapshot_id = None
 
         # Obtain the connection object to connect with EC2
