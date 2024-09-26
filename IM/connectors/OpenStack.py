@@ -1653,6 +1653,24 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_exception("Error getting security groups.")
             return None
 
+    def add_security_group_rules(self, driver, outports, sg):
+        """Add the security group rules to the security group"""
+        for outport in outports:
+            if outport.is_range():
+                to_port = outport.get_port_end()
+                from_port = outport.get_port_init()
+            else:
+                to_port = from_port = outport.get_remote_port()
+
+            try:
+                driver.ex_create_security_group_rule(sg, outport.get_protocol(),
+                                                     from_port, to_port,
+                                                     outport.get_remote_cidr())
+            except Exception as ex:
+                self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
+                self.error_messages += ("Exception adding port range: %s-%s to SG rules.\n" %
+                                        (from_port, to_port))
+
     def create_security_groups(self, driver, inf, radl):
         res = []
         system = radl.systems[0]
@@ -1709,27 +1727,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if network.isPublic() or network.getValue("proxy_host"):
                 outports = self.add_ssh_port(outports)
 
-            for outport in outports:
-                if outport.is_range():
-                    try:
-                        driver.ex_create_security_group_rule(sg, outport.get_protocol(),
-                                                             outport.get_port_init(),
-                                                             outport.get_port_end(),
-                                                             outport.get_remote_cidr())
-                    except Exception as ex:
-                        self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
-                        self.error_messages += ("Exception adding port range: %s-%s to SG rules.\n" %
-                                                (outport.get_port_init(), outport.get_port_end()))
-                else:
-                    try:
-                        driver.ex_create_security_group_rule(sg, outport.get_protocol(),
-                                                             outport.get_remote_port(),
-                                                             outport.get_remote_port(),
-                                                             outport.get_remote_cidr())
-                    except Exception as ex:
-                        self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
-                        self.error_messages += ("Exception adding port %s to SG rules.\n" %
-                                                outport.get_remote_port())
+            self.add_security_group_rules(driver, outports, sg)
 
         return res
 
@@ -1957,6 +1955,67 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         success, msg = self.alter_public_ips(vm, radl, auth_data)
         if not success:
             return (success, msg)
+
+        success, msg = self.alter_security_groups(vm, radl, auth_data)
+        if not success:
+            return (success, msg)
+
+        return (True, "")
+
+    def alter_security_groups(self, vm, radl, auth_data):
+        driver = self.get_driver(auth_data)
+
+        # First check if the node is "routed"
+        for network in radl.networks:
+            if network.getValue('router'):
+                self.log_info("Network has a router set. Skip SG rules modification.")
+                return (True, "")
+
+        for network in radl.networks:
+            outports = network.getOutPorts() or []
+
+            old_network = vm.info.get_network_by_id(network.id)
+            old_outports = []
+            if old_network:
+                old_outports = old_network.getOutPorts() or []
+
+            if old_outports == outports:
+                self.log_debug("No changes in the SG rules for network %s." % network.id)
+                break
+
+            # open always SSH port on public nets or private with proxy host
+            if old_network and old_network.isPublic() or old_network.getValue("proxy_host"):
+                old_outports = self.add_ssh_port(old_outports)
+            if network.isPublic() or network.getValue("proxy_host"):
+                outports = self.add_ssh_port(outports)
+
+            sg_name = network.getValue("sg_name")
+            if not sg_name:
+                sg_name = "im-%s-%s" % (str(vm.inf.id), network.id)
+
+            sg = self._get_security_group(driver, sg_name)
+            if not sg:
+                self.log_error("Error updating security group: %s. It does not exist." % sg_name)
+                break
+
+            # Delete old SG rules
+            for rule in sg.rules:
+                # For each rule in the SG, check if it is in the old_outports and remove it
+                for outport in old_outports:
+                    protocol = outport.get_protocol()
+                    if outport.is_range():
+                        to_port = outport.get_port_end()
+                        from_port = outport.get_port_init()
+                    else:
+                        to_port = from_port = outport.get_remote_port()
+                    if rule.from_port == from_port and rule.to_port == to_port and rule.ip_protocol == protocol:
+                        try:
+                            driver.ex_delete_security_group_rule(rule)
+                        except Exception as ex:
+                            self.log_warn("Exception removing old SG rules: %s" % get_ex_error(ex))
+
+            # Add new SG rules
+            self.add_security_group_rules(driver, outports, sg)
 
         return (True, "")
 
