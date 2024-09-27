@@ -847,6 +847,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_security_groups.return_value = [sg1, sg2, sg3]
 
         net1 = MagicMock()
+        net1.id = 'net1id'
         net1.name = "im-infid-private"
         net1.cidr = None
         net1.extra = {'subnets': ["subnet1"]}
@@ -868,6 +869,12 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.detach_volume.return_value = True
         driver.ex_remove_security_group_from_node.return_value = True
 
+        port = MagicMock()
+        port.id = "port1"
+        port.extra = {'network_id': net1.id}
+        port.delete.return_value = True
+        driver.ex_list_ports.return_value = [port]
+
         vm.volumes = ['volid']
         vm.dns_entries = [('dydns:secret@test', 'domain.com.', '8.8.8.8')]
         success, _ = ost_cloud.finalize(vm, True, auth)
@@ -888,6 +895,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(fip.delete.call_args_list, [call()])
         self.assertEqual(fip2.delete.call_count, 0)
         self.assertEqual(driver.ex_detach_floating_ip_from_node.call_args_list[0][0], (node, fip))
+        self.assertEqual(port.delete.call_args_list, [call()])
 
         vm.floating_ips = ['158.42.1.1']
         success, _ = ost_cloud.finalize(vm, True, auth)
