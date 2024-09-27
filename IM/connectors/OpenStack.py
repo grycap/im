@@ -1019,6 +1019,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                                        router.name,
                                                                                        get_ex_error(ex))
 
+                    for port in driver.ex_list_ports():
+                        if port.extra.get('network_id') == ost_net.id:
+                            try:
+                                self.log_debug("Deleting port %s." % port.id)
+                                port.delete()
+                            except Exception:
+                                self.log_exception("Error deleting port %s." % port.id)
+
                     self.log_info("Deleting net %s." % ost_net.name)
                     driver.ex_delete_network(ost_net)
 
