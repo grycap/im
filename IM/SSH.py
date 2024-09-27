@@ -112,8 +112,8 @@ class SSH:
         self.host = host
         self.username = user
         self.password = passwd
-        self.private_key = private_key
         self.private_key_obj = None
+        self.private_key = None
         if (private_key is not None and private_key.strip() != ""):
             private_key_obj = StringIO()
             if os.path.isfile(private_key):
@@ -122,8 +122,14 @@ class SSH:
                     private_key_obj.write(line)
                 pkfile.close()
             else:
+                # Avoid windows line endings
+                private_key = private_key.replace("\r", "")
+                # Assure final newline
+                if not private_key.endswith("\n"):
+                    private_key += "\n"
                 private_key_obj.write(private_key)
 
+            self.private_key = private_key
             private_key_obj.seek(0)
             self.private_key_obj = paramiko.RSAKey.from_private_key(
                 private_key_obj)

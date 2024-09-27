@@ -137,7 +137,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl_data = """
             description desc (
                 name = 'Infrastructure Name' and
-                namespace = 'somenamespace'
+                namespace = 'somenamespace2'
             )
             network net (outbound = 'yes' and outports = '38080-8080')
             system test (
@@ -149,6 +149,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             instance_tags = 'key=_inva:lid_' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'docker://someimage' and
+            command = ['/bin/bash', '-c', 'sleep 100'] and
             disk.1.size = 10G and
             disk.1.mount_path = '/mnt' and
             disk.2.mount_path = '/etc/config' and
@@ -161,7 +162,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         radl = radl_parse.parse_radl(radl_data)
         radl.check()
 
-        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes', 'namespace': 'somenamespace',
                                 'host': 'http://server.com:8080', 'token': 'token'}])
         kube_cloud = self.get_kube_cloud()
 
@@ -230,6 +231,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "containers": [
                     {
                         "name": "test",
+                        "command": ["/bin/bash"],
+                        "args": ["-c", "sleep 100"],
                         "image": "someimage",
                         "imagePullPolicy": "Always",
                         "ports": [{"containerPort": 8080, "protocol": "TCP"}],
@@ -292,7 +295,10 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "labels": {"name": "test"},
                 "name": "test",
                 "namespace": "somenamespace",
-                "annotations": {"cert-manager.io/cluster-issuer": "letsencrypt-prod"},
+                "annotations": {
+                    "cert-manager.io/cluster-issuer": "letsencrypt-prod",
+                    "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0"
+                },
             },
             "spec": {
                 "tls": [
@@ -348,8 +354,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
-        inf.id = "namespace"
-        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
+        vm = VirtualMachine(inf, "namespace/1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -383,8 +388,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         kube_cloud = self.get_kube_cloud()
 
         inf = MagicMock()
-        inf.id = "namespace"
-        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
+        vm = VirtualMachine(inf, "namespace/1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
 
         requests.side_effect = self.get_response
 
@@ -401,10 +405,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         inf = MagicMock()
         inf.id = "infid"
-        inf.radl = MagicMock()
-        inf.radl.description = MagicMock(["getValue"])
-        inf.radl.description.getValue.return_value = "somenamespace"
-        vm = VirtualMachine(inf, "1", kube_cloud.cloud, "", "", kube_cloud, 1)
+        vm = VirtualMachine(inf, "somenamespace/1", kube_cloud.cloud, "", "", kube_cloud, 1)
 
         requests.side_effect = self.get_response
 

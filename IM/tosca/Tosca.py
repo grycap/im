@@ -793,6 +793,9 @@ class Tosca:
     def _gen_configure_from_interfaces(self, node, compute, interfaces):
         if not interfaces:
             return None
+        if not compute:
+            Tosca.logger.warning("Node %s has not compute node to host in." % node.name)
+            return None
 
         variables = ""
         tasks = ""
@@ -2205,6 +2208,8 @@ class Tosca:
                             variables += ","
                         variables += "%s=%s" % (k, v)
                     res.setValue("environment.variables", variables)
+                elif prop.name == "command":
+                    res.setValue("command", value)
 
         runtime = self._find_host_node(node, nodetemplates, node_type="tosca.nodes.Container.Runtime.Docker")
 

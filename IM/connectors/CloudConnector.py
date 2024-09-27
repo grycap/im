@@ -338,6 +338,29 @@ class CloudConnector(LoggerMixin):
         """
         raise NotImplementedError("Should have implemented this")
 
+    def _filter_images(self, image_list, filters=None):
+        """
+        Get a list of images on the cloud provider using IM URI format.
+
+        Arguments:
+          - image_list(:py:class:`list` of objects): List of images objects.
+          - filters(:py:class:`dict` of str objects): Pair key value to filter the list of images.
+                                                     It is cloud provider specific.
+
+        Returns: a filtered list of images.
+        """
+        dist = None
+        version = None
+        if filters:
+            dist = filters.get('distribution', None)
+            version = filters.get('version', None)
+        res = []
+        for image in image_list:
+            if ((dist is None or dist.lower() in image["name"].lower()) and
+                    (version is None or version.lower() in image["name"].lower())):
+                res.append(image)
+        return res
+
     def get_quotas(self, auth_data):
         """
         Get the number of used and available resources in the cloud provider

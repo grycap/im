@@ -293,18 +293,20 @@ class CtxtAgentBase:
                 f.write(proxy['private_key'])
             os.chmod(priv_key_filename, 0o600)
 
+            ssh_options = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+
             cmd = "ssh -W %%h:%%p -i %s -p %d %s %s@%s" % (priv_key_filename,
                                                            proxy['port'],
-                                                           "-o StrictHostKeyChecking=no",
+                                                           ssh_options,
                                                            proxy['user'],
                                                            proxy['host'])
         else:
             cmd = "sshpass -p %s ssh -W %%h:%%p -p %d %s %s@%s" % (proxy['password'],
                                                                    proxy['port'],
-                                                                   "-o StrictHostKeyChecking=no",
+                                                                   ssh_options,
                                                                    proxy['user'],
                                                                    proxy['host'])
-        proxy_command = "ansible_ssh_extra_args=\" -oProxyCommand='%s'\"" % cmd
+        proxy_command = "ansible_ssh_extra_args=\"%s -oProxyCommand='%s'\"" % (ssh_options, cmd)
 
         with open(filename) as f:
             inventoy_data = ""

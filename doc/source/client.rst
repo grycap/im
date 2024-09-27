@@ -215,7 +215,7 @@ The :program:`im_client` is called like this::
    ``wait infId [max_time]``
       Wait infrastructure with ID ``infId`` to get a final state. It will return code ``0`` if it
       becomes ``configured`` or ``1`` otherwhise. Optional parameter ``max_time`` to set the max time
-      to wait.
+      to wait in seconds.
 
    ``create_wait_outputs inputfile``
       This operation is a combination of the create, wait and getoutputs functions. First it creates the
@@ -364,6 +364,8 @@ The available keys are:
   Lambda types. In case of Vault this field is optional with default value ``im``. In case of Lambda is 
   mandatory and it indicates the arn of the IAM role created to correcly execute Lambda functions (see
   `here <https://scar.readthedocs.io/en/latest/configuration.html#iam-role>`_ how to configure it). 
+
+* ``namespace`` indicates a namespace name to be associated to the Kubernetes credential (from version 1.7.1).
 
 Vault Credentials support
 ^^^^^^^^^^^^^^^^^^^^^^^^^

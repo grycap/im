@@ -81,7 +81,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size.id = '1'
         node_size.ram = 512
         node_size.price = 1
-        node_size.disk = 1
+        node_size.disk = 10
         node_size.vcpus = 1
         node_size.name = "g.small"
         node_size.extra = {'pci_passthrough:alias': 'GPU:2,FPGA:1'}
@@ -89,7 +89,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size.id = '2'
         node_size2.ram = 512
         node_size2.price = 1
-        node_size2.disk = 1
+        node_size2.disk = 10
         node_size2.vcpus = 1
         node_size2.name = "small"
         node_size2.extra = {}
@@ -156,7 +156,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size = MagicMock()
         node_size.ram = 512
         node_size.price = 1
-        node_size.disk = 1
+        node_size.disk = 10
         node_size.vcpus = 1
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
@@ -219,7 +219,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size = MagicMock()
         node_size.ram = 512
         node_size.price = 1
-        node_size.disk = 1
+        node_size.disk = 10
         node_size.vcpus = 1
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
@@ -654,7 +654,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         node_size = MagicMock()
         node_size.ram = 2048
         node_size.price = 1
-        node_size.disk = 1
+        node_size.disk = 10
         node_size.vcpus = 2
         node_size.name = "small"
         driver.list_sizes.return_value = [node_size]
@@ -967,15 +967,34 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver = MagicMock()
         get_driver.return_value = driver
 
-        image = MagicMock(['id', 'name'])
-        image.id = "image_id"
-        image.name = "image_name"
-        image.extra = {'status': 'active'}
-        driver.list_images.return_value = [image]
+        image1 = MagicMock(['id', 'name'])
+        image1.id = "image_id1"
+        image1.name = "image_name1"
+        image1.extra = {'status': 'active'}
+        image2 = MagicMock(['id', 'name'])
+        image2.id = "image_id2"
+        image2.name = "image_name2"
+        image2.extra = {'status': 'active', 'os_distro': 'ubuntu', 'os_version': '24.04'}
+        driver.list_images.return_value = [image1, image2]
 
         res = ost_cloud.list_images(auth)
+        self.assertEqual(len(res), 2)
 
-        self.assertEqual(res, [{"uri": "ost://server.com/image_id", "name": "image_name"}])
+        res = ost_cloud.list_images(auth, {"distribution": "ubuntu", "version": "24.04"})
+        self.assertEqual(res, [{"uri": "ost://server.com/image_id2", "name": "image_name2"}])
+
+        image1 = MagicMock(['id', 'name'])
+        image1.id = "image_id1"
+        image1.name = "image_name1"
+        image1.extra = {'status': 'active'}
+        image2 = MagicMock(['id', 'name'])
+        image2.id = "image_id2"
+        image2.name = "ubuntu_24.04_image2"
+        image2.extra = {'status': 'active'}
+        driver.list_images.return_value = [image1, image2]
+
+        res = ost_cloud.list_images(auth, {"distribution": "ubuntu", "version": "24.04"})
+        self.assertEqual(res, [{"uri": "ost://server.com/image_id2", "name": "ubuntu_24.04_image2"}])
 
         quotas = MagicMock(['cores', 'ram', 'instances', 'floating_ips', 'security_groups'])
         quotas.cores = MagicMock(['in_use', 'reserved', 'limit'])

@@ -67,6 +67,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     """ Confirm Timeout """
     DEFAULT_AUTH_VERSION = '2.0_password'
     """ Default authentication method """
+    MINMUM_DISK_SIZE = 5
+    """ Default minimum root disk size in GB """
 
     def __init__(self, cloud_info, inf):
         self.auth = None
@@ -150,9 +152,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             protocol = self.cloud.protocol or "http"
             port = self.cloud.get_port()
+            path = self.cloud.path
+            if path in ["/", "/v3", "/v3/"]:
+                path = ""
 
             parameters = {"auth_version": self.DEFAULT_AUTH_VERSION,
-                          "auth_url": protocol + "://" + self.cloud.server + ":" + str(port),
+                          "auth_url": protocol + "://" + self.cloud.server + ":" + str(port) + path,
                           "auth_token": None,
                           "service_type": None,
                           "service_name": None,
@@ -320,6 +325,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         gpu_vendor = radl.getValue('gpu.vendor')
         sgx = radl.getValue('cpu.sgx')
         epc_size = radl.getFeature('cpu.sgx.epc_size')
+
+        # If no disk size is set, set a default value
+        # for flavors with 0 disk size set
+        if disk_free <= 0 and not radl.getValue('disk.0.size'):
+            disk_free = self.MINMUM_DISK_SIZE
+            disk_free_op = self.OPERATORSMAP.get(">=")
 
         # get the node size with the lowest price, vcpus, memory and disk
         sizes.sort(key=lambda x: (x.price, x.extra['pci_devices'], x.vcpus, x.ram, x.disk))
@@ -531,6 +542,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     def updateVMInfo(self, vm, auth_data):
         node = self.get_node_with_id(vm.id, auth_data)
         if node:
+            if 'vm_state' in node.extra and node.extra['vm_state'] == 'resized':
+                self.log_warn("VM %s in resized state. Try to confirm resize." % vm.id)
+                node.driver.ex_confirm_resize(node)
+                time.sleep(2)
+
             vm.state = self.VM_STATE_MAP.get(node.state, VirtualMachine.UNKNOWN)
 
             if vm.state == VirtualMachine.FAILED:
@@ -973,6 +989,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         # try to create a router
         if create and pub_nets:
             try:
+                self.log_debug("Creating public router.")
                 gateway_info = {'network_id': list(pub_nets.keys())[0]}
                 name = "im-%s" % (inf_id)
                 return driver.ex_create_router(name, description="IM created router",
@@ -1041,7 +1058,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         try:
             i = 0
-            router = self.get_router_public(driver, radl, inf.id, create=True)
+            router = self.get_router_public(driver, radl, inf.id, create=False)
 
             while radl.systems[0].getValue("net_interface." + str(i) + ".connection"):
                 net_name = radl.systems[0].getValue("net_interface." + str(i) + ".connection")
@@ -1098,8 +1115,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         raise Exception("Error creating ost subnet for net %s: %s" % (net_name,
                                                                                       get_ex_error(ex)))
 
+                    # There are no routers in the site
                     if router is None:
-                        self.log_warn("No public router found.")
+                        self.log_debug("No public router found.")
+                        # Try to create one
+                        router = self.get_router_public(driver, radl, inf.id, create=True)
+
+                    if router is None:
+                        self.log_warn("No public router found and cannot be created.")
                     else:
                         self.log_info("Adding subnet %s to the router %s" % (ost_subnet.name, router.name))
                         try:
@@ -1610,8 +1633,9 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
                 if not attached:
                     self.log_error("Error attaching a Floating IP to the node.")
-                    self.log_info("We have created it, so release it.")
-                    floating_ip.delete()
+                    if not found:
+                        self.log_info("We have created it, so release it.")
+                        floating_ip.delete()
                     return False, "Error attaching a Floating IP to the node."
 
                 if found:
@@ -1744,16 +1768,15 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 except Exception:
                     self.log_exception("Error dettaching SG %s." % sg_name)
 
-            res = node.destroy()
-            success.append(res)
-
             try:
                 res, msg = self.delete_elastic_ips(node, vm)
             except Exception as ex:
-                res = False
                 msg = get_ex_error(ex)
             success.append(res)
             msgs.append(msg)
+
+            res = node.destroy()
+            success.append(res)
 
             try:
                 for vol_id in vm.volumes:
@@ -1971,7 +1994,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             if node.extra['vm_state'] == 'resized':
                                 success = node.driver.ex_confirm_resize(node)
                             else:
-                                return (False, "Error resizing VM: Resize cannot be confirmed.")
+                                return (False, "Error resizing VM: Resize cannot be confirmed."
+                                        " VM state: %s" % node.extra['vm_state'])
                     except Exception as ex:
                         self.log_exception("Error resizing VM.")
                         return (False, "Error resizing VM: " + str(ex))
@@ -2132,10 +2156,42 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     def list_images(self, auth_data, filters=None):
         driver = self.get_driver(auth_data)
         images = []
-        for image in driver.list_images():
+        for image in self._filter_images(driver.list_images(), filters):
             if 'status' not in image.extra or image.extra['status'] == 'active':
                 images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
         return images
+
+    def _filter_images(self, image_list, filters=None):
+        dist = None
+        version = None
+        if filters:
+            dist = filters.get('distribution', None)
+            version = filters.get('version', None)
+        res = []
+
+        for image in image_list:
+            add_image = True
+            if dist is not None:
+                add_image = False
+                image_distro = image.extra.get('os_distro', None)
+                if image_distro:
+                    if dist.lower() == image_distro.lower():
+                        add_image = True
+                elif dist.lower() in image.name.lower():
+                    add_image = True
+
+            if version is not None:
+                image_version = image.extra.get('os_version', None)
+                if image_version:
+                    if version.lower() == image_version.lower():
+                        add_image = True
+                elif version.lower() in image.name.lower():
+                    add_image = True
+
+            if add_image:
+                res.append(image)
+
+        return res
 
     @staticmethod
     def _get_tenant_id(auth):

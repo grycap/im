@@ -400,13 +400,17 @@ class InfrastructureManager:
         res = []
         for c in CloudInfo.get_cloud_list(auth):
             cloud_site = c.getCloudConnector(inf)
-            for image in cloud_site.list_images(auth):
-                if ((dist is None or dist.lower() in image["name"].lower()) and
-                        (version is None or version.lower() in image["name"].lower())):
-                    new_sys = system(radl_sys.name)
-                    new_sys.setValue("disk.0.image.url", image["uri"])
-                    res.append(new_sys)
-                    break
+            try:
+                images = cloud_site.list_images(auth, filters={"distribution": dist, "version": version})
+            except Exception:
+                images = []
+                InfrastructureManager.logger.warn("Inf ID: " + inf.id + ": Error getting images from cloud: " + c.id)
+
+            if images:
+                new_sys = system(radl_sys.name)
+                new_sys.setValue("disk.0.image.url", images[0]["uri"])
+                res.append(new_sys)
+
         return res
 
     @staticmethod
@@ -2009,8 +2013,15 @@ class InfrastructureManager:
                     vm = {"cpuCores": concrete_system.getValue("cpu.count"),
                           "memoryInMegabytes": concrete_system.getFeature("memory.size").getValue("M")}
 
+                    disk_size = 0
                     if concrete_system.getValue("disk.0.free_size"):
-                        vm['diskSizeInGigabytes'] = concrete_system.getFeature("disk.0.free_size").getValue('G')
+                        disk_size += concrete_system.getFeature("disk.0.free_size").getValue('G')
+
+                    if concrete_system.getValue("disk.0.size"):
+                        disk_size += concrete_system.getFeature("disk.0.size").getValue('G')
+
+                    if disk_size:
+                        vm['diskSizeInGigabytes'] = disk_size
 
                     res[cloud_id]["compute"].append(vm)
 
