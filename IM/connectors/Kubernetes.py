@@ -443,7 +443,7 @@ class KubernetesCloudConnector(CloudConnector):
         if tags:
             for k, v in tags.items():
                 # Remove special characters
-                pod_data['metadata']['labels'][k] = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~]', '', v).lstrip("_-")
+                pod_data['metadata']['labels'][k] = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~ ]', '', v).lstrip("_-")
 
         containers = [{
             'name': name,
