@@ -501,6 +501,9 @@ There are several ways to get the EGI AAI token:
 
    token = command(oidc-token OIDC_ACCOUNT)
 
+* It is also possible to get the token using the EGI AAI endpoint. The token can be obtained in the
+   `Check-in Token Portal <https://aai.egi.eu/token/>`_.
+
 * Another way is using the IM-Dashboard (:ref:`use-dashboard`). In the "Advanced" menu, the "Settings"
   item enables getting the some configuration settings as the OIDC issuer or the current user's
   access token.
