@@ -553,7 +553,7 @@ class KubernetesCloudConnector(CloudConnector):
             vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
             vm.destroy = True
             inf.add_vm(vm)
-            pod_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_]', '-', system.name)
+            pod_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_ ]', '-', system.name)
 
             volumes = self._create_volumes(namespace, system, pod_name, auth_data)
 
