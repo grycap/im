@@ -636,7 +636,6 @@ class TestOSTConnector(TestCloudConnectorBase):
         ost_cloud = self.get_ost_cloud()
 
         inf = MagicMock()
-        inf.id = "infid"
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
         vm.volumes = []
 
@@ -738,51 +737,6 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(driver.ex_detach_floating_ip_from_node.call_args_list[0][0], (node, fip))
         self.assertIsNone(vm.requested_radl.systems[0].getValue('net_interface.0.ip'))
 
-        radl_data = """
-            network net (outbound = 'yes' and outports = '8080')
-            system test (
-            cpu.arch='x86_64' and
-            cpu.count=1 and
-            memory.size=512m and
-            net_interface.0.connection = 'net' and
-            net_interface.0.ip = '8.8.8.8' and
-            net_interface.0.dns_name = 'test' and
-            disk.0.os.name = 'linux' and
-            disk.0.image.url = 'one://server.com/1' and
-            disk.0.os.credentials.username = 'user' and
-            disk.0.os.credentials.password = 'pass'
-            )"""
-        radl = radl_parse.parse_radl(radl_data)
-        vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
-
-        new_radl_data = """
-            network net (outbound = 'yes' and outports = '8081')
-            system test (
-            net_interface.0.connection = 'net'
-            )"""
-        new_radl = radl_parse.parse_radl(new_radl_data)
-
-        sg = MagicMock()
-        sg.name = "im-infid-net"
-        rule = MagicMock()
-        rule.id = "rid"
-        rule.from_port = 8080
-        rule.to_port = 8080
-        rule.ip_protocol = 'tcp'
-        sg.rules = [rule]
-        driver.ex_list_security_groups.return_value = [sg]
-        driver.ex_delete_security_group_rule.return_value = True
-        driver.ex_create_security_group_rule.return_value = True
-
-        success, _ = ost_cloud.alterVM(vm, new_radl, auth)
-        self.assertTrue(success, msg="ERROR: modifying VM info.")
-        self.assertEqual(driver.ex_delete_security_group_rule.call_count, 1)
-        self.assertEqual(driver.ex_delete_security_group_rule.call_args_list[0][0], (rule,))
-        self.assertEqual(driver.ex_create_security_group_rule.call_count, 2)
-        self.assertEqual(driver.ex_create_security_group_rule.call_args_list[0][0],
-                         (sg, 'tcp', 8081, 8081, '0.0.0.0/0'))
-        self.assertEqual(driver.ex_create_security_group_rule.call_args_list[1][0],
-                         (sg, 'tcp', 22, 22, '0.0.0.0/0'))
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')

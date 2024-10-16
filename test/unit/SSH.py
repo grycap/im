@@ -47,7 +47,7 @@ class TestSSH(unittest.TestCase):
 
     @patch('paramiko.SSHClient')
     def test_test_connectivity(self, ssh_client):
-        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekey.pem"))
+        ssh = SSHRetry("host", "user", "passwd", read_file_as_string("../files/privatekeyec.pem"))
         success = ssh.test_connectivity(5)
         self.assertTrue(success)
 
