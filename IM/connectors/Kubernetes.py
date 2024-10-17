@@ -424,12 +424,13 @@ class KubernetesCloudConnector(CloudConnector):
     def _get_env_variables(radl_system):
         env_vars = []
         if radl_system.getValue('environment.variables'):
-            keypairs = radl_system.getValue('environment.variables').split(",")
-            for keypair in keypairs:
-                parts = keypair.split("=")
-                key = parts[0].strip()
-                value = parts[1].strip()
-                env_vars.append({'name': key, 'value': value})
+            # Parse the environment variables
+            # The pattern is: key="value" or key=value
+            # in case of value with commas it should be enclosed in double quotes
+            pattern = r'([^,=]+)=(".*?(?<!\\)"|[^,]*)'
+            keypairs = re.findall(pattern, radl_system.getValue('environment.variables'))
+            for key, value in keypairs:
+                env_vars.append({'name': key.strip(), 'value': value.strip(' "')})
         return env_vars
 
     def _generate_pod_data(self, namespace, name, outports, system, volumes, configmaps, tags):

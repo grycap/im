@@ -2206,6 +2206,8 @@ class Tosca:
                     for k, v in value.items():
                         if variables != "":
                             variables += ","
+                        if ',' in v:
+                            v = '"%s"' % v
                         variables += "%s=%s" % (k, v)
                     res.setValue("environment.variables", variables)
                 elif prop.name == "command":

@@ -86,6 +86,7 @@ topology_template:
         environment:
           MYSQL_ROOT_PASSWORD: { get_input: mysql_root_password }
           MYSQL_DATABASE: "im-db"
+          TEST: "some,value"
       requirements:
         - host: mysql_runtime
       artifacts:

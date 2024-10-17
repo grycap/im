@@ -442,7 +442,8 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("memory.size"), 1000000000)
         self.assertEqual(node.getValue("disk.1.size"), 10000000000)
         self.assertEqual(node.getValue("disk.1.mount_path"), '/var/lib/mysql')
-        self.assertEqual(node.getValue("environment.variables"), 'MYSQL_ROOT_PASSWORD=my-secret,MYSQL_DATABASE=im-db')
+        self.assertEqual(node.getValue("environment.variables"),
+                         'MYSQL_ROOT_PASSWORD=my-secret,MYSQL_DATABASE=im-db,TEST="some,value"')
         self.assertEqual(node.getValue("net_interface.0.connection"), 'mysql_container_priv')
         self.assertIsNone(node.getValue("net_interface.1.connection"))
         net = radl.get_network_by_id('mysql_container_priv')
