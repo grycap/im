@@ -370,7 +370,9 @@ class KubernetesCloudConnector(CloudConnector):
             if dns_url[1]:
                 host = dns_url[1]
                 if apps_dns and not host.endswith(apps_dns):
-                    host += "." + apps_dns
+                    if not host.endswith(".") and not apps_dns.startswith("."):
+                        host += "."
+                    host += apps_dns
             if dns_url[2]:
                 path = dns_url[2]
 
