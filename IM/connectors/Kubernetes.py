@@ -48,7 +48,7 @@ class KubernetesCloudConnector(CloudConnector):
     """Dictionary with a map with the Kubernetes POD states to the IM states."""
 
     def create_request(self, method, url, auth_data, headers=None, body=None):
-        auth_header, _ = self.get_auth_header(auth_data)
+        auth_header, _, _ = self.get_auth_header(auth_data)
         if auth_header:
             if headers is None:
                 headers = {}
@@ -91,7 +91,11 @@ class KubernetesCloudConnector(CloudConnector):
         if 'namespace' in auth:
             namespace = auth['namespace']
 
-        return auth_header, namespace
+        apps_dns = None
+        if 'apps_dns' in auth:
+            apps_dns = auth['apps_dns']
+
+        return auth_header, namespace, apps_dns
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
@@ -331,7 +335,8 @@ class KubernetesCloudConnector(CloudConnector):
 
     def create_ingress(self, namespace, name, dns, port, auth_data):
         try:
-            ingress_data = self._generate_ingress_data(namespace, name, dns, port)
+            _, _, apps_dns = self.get_auth_header(auth_data)
+            ingress_data = self._generate_ingress_data(namespace, name, dns, port, apps_dns)
             self.log_debug("Creating Ingress: %s/%s" % (namespace, name))
             headers = {'Content-Type': 'application/json'}
             uri = "/apis/networking.k8s.io/v1/namespaces/%s/ingresses" % namespace
@@ -347,7 +352,7 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error creating ingress.")
             return False
 
-    def _generate_ingress_data(self, namespace, name, dns, port):
+    def _generate_ingress_data(self, namespace, name, dns, port, apps_dns):
         ingress_data = self._gen_basic_k8s_elem(namespace, name, 'Ingress', 'networking.k8s.io/v1')
 
         host = None
@@ -364,6 +369,8 @@ class KubernetesCloudConnector(CloudConnector):
                 secure = True
             if dns_url[1]:
                 host = dns_url[1]
+                if apps_dns and not host.endswith(apps_dns):
+                    host += "." + apps_dns
             if dns_url[2]:
                 path = dns_url[2]
 
@@ -503,7 +510,7 @@ class KubernetesCloudConnector(CloudConnector):
         return pod_data
 
     def _get_namespace(self, inf, auth_data):
-        _, namespace = self.get_auth_header(auth_data)
+        _, namespace, _ = self.get_auth_header(auth_data)
         # If the namespace is set in the auth_data use it
         if not namespace:
             # If not by default use the Inf ID as namespace
