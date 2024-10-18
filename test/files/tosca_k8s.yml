@@ -56,9 +56,12 @@ topology_template:
             # when the content is not provided, the file is downloaded from the URL
             # otherwise, the file is ignored
             # If the content is base64 encoded, it is assumed to be a K8s Secret
-            content: |
-              [im]
-              REST_API = True
+            content:
+              concat:
+                - |-
+                    [im]
+                    REST_API = 
+                - "True"
         my_secret:
           deploy_path: /etc/secret
           type: tosca.artifacts.File
