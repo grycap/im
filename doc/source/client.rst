@@ -367,6 +367,9 @@ The available keys are:
 
 * ``namespace`` indicates a namespace name to be associated to the Kubernetes credential (from version 1.7.1).
 
+* ``apps_dns`` indicates a DNS domain used by the Kubernetes provider to expose application URLs.
+  (from version 1.7.1).
+
 Vault Credentials support
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 

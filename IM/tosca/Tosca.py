@@ -2150,13 +2150,13 @@ class Tosca:
             cont += 1
         return volumes
 
-    def _gen_k8s_configmaps(self, res, cms):
+    def _gen_k8s_configmaps(self, res, cms, node):
         """Get the configmaps attached to an K8s container."""
         cont = 1
         for cm in cms:
             mount_path = cm.get("deploy_path")
             cm_file = cm.get("file")
-            content = cm.get("properties", {}).get("content", "")
+            content = self._final_function_result(cm.get("properties", {}).get("content", ""), node)
             if content:
                 res.setValue('disk.%d.content' % cont, content)
             # if content is not empty file is ignored
@@ -2186,7 +2186,7 @@ class Tosca:
         if not image:
             raise Exception("No image specified for K8s container.")
 
-        cont = self._gen_k8s_configmaps(res, cms)
+        cont = self._gen_k8s_configmaps(res, cms, node)
 
         repo = artifact.get("repository", None)
         if repo:
@@ -2206,6 +2206,8 @@ class Tosca:
                     for k, v in value.items():
                         if variables != "":
                             variables += ","
+                        if ',' in v:
+                            v = '"%s"' % v
                         variables += "%s=%s" % (k, v)
                     res.setValue("environment.variables", variables)
                 elif prop.name == "command":
