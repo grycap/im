@@ -383,6 +383,8 @@ class KubernetesCloudConnector(CloudConnector):
         # cert-manager installed and the issuer is letsencrypt-prod
         if secure:
             ingress_data["metadata"]["annotations"]["cert-manager.io/cluster-issuer"] = "letsencrypt-prod"
+            ingress_data["metadata"]["annotations"]["route.openshift.io/termination"] = "edge"
+            ingress_data["metadata"]["annotations"]["haproxy.router.openshift.io/redirect-to-https"] = "True"
 
         ingress_data["spec"] = {
             "rules": [
@@ -405,7 +407,7 @@ class KubernetesCloudConnector(CloudConnector):
         if host:
             ingress_data["spec"]["rules"][0]["host"] = host
 
-        if secure and host:
+        if secure and host and not apps_dns:
             ingress_data["spec"]["tls"] = [{"hosts": [host], "secretName": name + "-tls"}]
 
         return ingress_data
