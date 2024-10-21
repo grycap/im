@@ -333,10 +333,10 @@ class KubernetesCloudConnector(CloudConnector):
 
         return service_data
 
-    def create_ingress(self, namespace, name, dns, port, auth_data):
+    def create_ingress(self, namespace, name, dns, port, auth_data, vm):
         try:
             _, _, apps_dns = self.get_auth_header(auth_data)
-            ingress_data = self._generate_ingress_data(namespace, name, dns, port, apps_dns)
+            ingress_data = self._generate_ingress_data(namespace, name, dns, port, apps_dns, vm)
             self.log_debug("Creating Ingress: %s/%s" % (namespace, name))
             headers = {'Content-Type': 'application/json'}
             uri = "/apis/networking.k8s.io/v1/namespaces/%s/ingresses" % namespace
@@ -352,7 +352,7 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error creating ingress.")
             return False
 
-    def _generate_ingress_data(self, namespace, name, dns, port, apps_dns):
+    def _generate_ingress_data(self, namespace, name, dns, port, apps_dns, vm):
         ingress_data = self._gen_basic_k8s_elem(namespace, name, 'Ingress', 'networking.k8s.io/v1')
 
         host = None
@@ -375,6 +375,8 @@ class KubernetesCloudConnector(CloudConnector):
                     host += apps_dns
             if dns_url[2]:
                 path = dns_url[2]
+
+            vm.info.systems[0].setValue('net_interface.0.dns_name', '%s://%s%s' % (dns_url[0], host, path))
 
         ingress_data["metadata"]["annotations"] = {
             "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0",
@@ -611,7 +613,7 @@ class KubernetesCloudConnector(CloudConnector):
 
                 if dns_name and outports:
                     port = outports[0].get_local_port()
-                    ingress_created = self.create_ingress(namespace, pod_name, dns_name, port, auth_data)
+                    ingress_created = self.create_ingress(namespace, pod_name, dns_name, port, auth_data, vm)
                     if not ingress_created:
                         vm.info.systems[0].delValue("net_interface.0.dns_name")
 
