@@ -48,7 +48,7 @@ class KubernetesCloudConnector(CloudConnector):
     """Dictionary with a map with the Kubernetes POD states to the IM states."""
 
     def create_request(self, method, url, auth_data, headers=None, body=None):
-        auth_header, _ = self.get_auth_header(auth_data)
+        auth_header, _, _ = self.get_auth_header(auth_data)
         if auth_header:
             if headers is None:
                 headers = {}
@@ -91,7 +91,11 @@ class KubernetesCloudConnector(CloudConnector):
         if 'namespace' in auth:
             namespace = auth['namespace']
 
-        return auth_header, namespace
+        apps_dns = None
+        if 'apps_dns' in auth:
+            apps_dns = auth['apps_dns']
+
+        return auth_header, namespace, apps_dns
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
@@ -329,9 +333,10 @@ class KubernetesCloudConnector(CloudConnector):
 
         return service_data
 
-    def create_ingress(self, namespace, name, dns, port, auth_data):
+    def create_ingress(self, namespace, name, dns, port, auth_data, vm):
         try:
-            ingress_data = self._generate_ingress_data(namespace, name, dns, port)
+            _, _, apps_dns = self.get_auth_header(auth_data)
+            ingress_data = self._generate_ingress_data(namespace, name, dns, port, apps_dns, vm)
             self.log_debug("Creating Ingress: %s/%s" % (namespace, name))
             headers = {'Content-Type': 'application/json'}
             uri = "/apis/networking.k8s.io/v1/namespaces/%s/ingresses" % namespace
@@ -347,7 +352,7 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error creating ingress.")
             return False
 
-    def _generate_ingress_data(self, namespace, name, dns, port):
+    def _generate_ingress_data(self, namespace, name, dns, port, apps_dns, vm):
         ingress_data = self._gen_basic_k8s_elem(namespace, name, 'Ingress', 'networking.k8s.io/v1')
 
         host = None
@@ -364,8 +369,14 @@ class KubernetesCloudConnector(CloudConnector):
                 secure = True
             if dns_url[1]:
                 host = dns_url[1]
+                if apps_dns and not host.endswith(apps_dns):
+                    if not host.endswith(".") and not apps_dns.startswith("."):
+                        host += "."
+                    host += apps_dns
             if dns_url[2]:
                 path = dns_url[2]
+
+            vm.info.systems[0].setValue('net_interface.0.dns_name', '%s://%s%s' % (dns_url[0], host, path))
 
         ingress_data["metadata"]["annotations"] = {
             "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0",
@@ -374,6 +385,8 @@ class KubernetesCloudConnector(CloudConnector):
         # cert-manager installed and the issuer is letsencrypt-prod
         if secure:
             ingress_data["metadata"]["annotations"]["cert-manager.io/cluster-issuer"] = "letsencrypt-prod"
+            ingress_data["metadata"]["annotations"]["route.openshift.io/termination"] = "edge"
+            ingress_data["metadata"]["annotations"]["haproxy.router.openshift.io/redirect-to-https"] = "True"
 
         ingress_data["spec"] = {
             "rules": [
@@ -396,7 +409,7 @@ class KubernetesCloudConnector(CloudConnector):
         if host:
             ingress_data["spec"]["rules"][0]["host"] = host
 
-        if secure and host:
+        if secure and host and not apps_dns:
             ingress_data["spec"]["tls"] = [{"hosts": [host], "secretName": name + "-tls"}]
 
         return ingress_data
@@ -415,12 +428,13 @@ class KubernetesCloudConnector(CloudConnector):
     def _get_env_variables(radl_system):
         env_vars = []
         if radl_system.getValue('environment.variables'):
-            keypairs = radl_system.getValue('environment.variables').split(",")
-            for keypair in keypairs:
-                parts = keypair.split("=")
-                key = parts[0].strip()
-                value = parts[1].strip()
-                env_vars.append({'name': key, 'value': value})
+            # Parse the environment variables
+            # The pattern is: key="value" or key=value
+            # in case of value with commas it should be enclosed in double quotes
+            pattern = r'([^,=]+)=(".*?(?<!\\)"|[^,]*)'
+            keypairs = re.findall(pattern, radl_system.getValue('environment.variables'))
+            for key, value in keypairs:
+                env_vars.append({'name': key.strip(), 'value': value.strip(' "')})
         return env_vars
 
     def _generate_pod_data(self, namespace, name, outports, system, volumes, configmaps, tags):
@@ -443,7 +457,7 @@ class KubernetesCloudConnector(CloudConnector):
         if tags:
             for k, v in tags.items():
                 # Remove special characters
-                pod_data['metadata']['labels'][k] = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~]', '', v).lstrip("_-")
+                pod_data['metadata']['labels'][k] = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~ ]', '', v).lstrip("_-")
 
         containers = [{
             'name': name,
@@ -503,7 +517,7 @@ class KubernetesCloudConnector(CloudConnector):
         return pod_data
 
     def _get_namespace(self, inf, auth_data):
-        _, namespace = self.get_auth_header(auth_data)
+        _, namespace, _ = self.get_auth_header(auth_data)
         # If the namespace is set in the auth_data use it
         if not namespace:
             # If not by default use the Inf ID as namespace
@@ -553,7 +567,7 @@ class KubernetesCloudConnector(CloudConnector):
             vm = VirtualMachine(inf, None, self.cloud, radl, requested_radl, self)
             vm.destroy = True
             inf.add_vm(vm)
-            pod_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_]', '-', system.name)
+            pod_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_ ]', '-', system.name)
 
             volumes = self._create_volumes(namespace, system, pod_name, auth_data)
 
@@ -599,7 +613,7 @@ class KubernetesCloudConnector(CloudConnector):
 
                 if dns_name and outports:
                     port = outports[0].get_local_port()
-                    ingress_created = self.create_ingress(namespace, pod_name, dns_name, port, auth_data)
+                    ingress_created = self.create_ingress(namespace, pod_name, dns_name, port, auth_data, vm)
                     if not ingress_created:
                         vm.info.systems[0].delValue("net_interface.0.dns_name")
 

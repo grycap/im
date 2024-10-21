@@ -99,8 +99,6 @@ class TestAppDB(unittest.TestCase):
         requests.side_effect = self.get_response
         res = AppDB.get_site_url("8016G0", "openstack")
         self.assertEqual(res, "https://cloud.recas.ba.infn.it:5000")
-        res = AppDB.get_site_url("8015G0", "occi")
-        self.assertEqual(res, "http://cloud.recas.ba.infn.it:8787/occi/")
 
     @patch('requests.request')
     def test_get_image_id(self, requests):

@@ -145,7 +145,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'https://ingress.domain.com/path' and
-            environment.variables = 'var=some_val' and
+            environment.variables = 'var=some_val,var2="some,val2"' and
             instance_tags = 'key=_inva:lid_' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'docker://someimage' and
@@ -240,7 +240,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                             "limits": {"cpu": "1", "memory": "536870912"},
                             "requests": {"cpu": "1", "memory": "536870912"},
                         },
-                        "env": [{"name": "var", "value": "some_val"}],
+                        "env": [{"name": "var", "value": "some_val"},
+                                {"name": "var2", "value": "some,val2"}],
                         "volumeMounts": [{"name": "test-1", "mountPath": "/mnt"},
                                          {'mountPath': '/etc/config', 'name': 'test-cm-2',
                                           'readOnly': True, 'subPath': 'config'},
@@ -297,7 +298,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "namespace": "somenamespace",
                 "annotations": {
                     "cert-manager.io/cluster-issuer": "letsencrypt-prod",
-                    "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0"
+                    "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0",
+                    "haproxy.router.openshift.io/redirect-to-https": "True",
+                    "route.openshift.io/termination": "edge"
                 },
             },
             "spec": {

@@ -367,6 +367,9 @@ The available keys are:
 
 * ``namespace`` indicates a namespace name to be associated to the Kubernetes credential (from version 1.7.1).
 
+* ``apps_dns`` indicates a DNS domain used by the Kubernetes provider to expose application URLs.
+  (from version 1.7.1).
+
 Vault Credentials support
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -500,6 +503,9 @@ There are several ways to get the EGI AAI token:
   Then you can get the token using the command keyworkd in the auth file::
 
    token = command(oidc-token OIDC_ACCOUNT)
+
+* It is also possible to get the token using the EGI AAI endpoint. The token can be obtained in the
+   `Check-in Token Portal <https://aai.egi.eu/token/>`_.
 
 * Another way is using the IM-Dashboard (:ref:`use-dashboard`). In the "Advanced" menu, the "Settings"
   item enables getting the some configuration settings as the OIDC issuer or the current user's

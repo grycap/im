@@ -131,8 +131,15 @@ class SSH:
 
             self.private_key = private_key
             private_key_obj.seek(0)
-            self.private_key_obj = paramiko.RSAKey.from_private_key(
-                private_key_obj)
+
+            if "BEGIN RSA PRIVATE KEY" in private_key:
+                self.private_key_obj = paramiko.RSAKey.from_private_key(private_key_obj)
+            elif "BEGIN DSA PRIVATE KEY" in private_key:
+                self.private_key_obj = paramiko.DSSKey.from_private_key(private_key_obj)
+            elif "BEGIN EC PRIVATE KEY" in private_key:
+                self.private_key_obj = paramiko.ECDSAKey.from_private_key(private_key_obj)
+            elif "BEGIN OPENSSH PRIVATE KEY" in private_key:
+                self.private_key_obj = paramiko.Ed25519Key.from_private_key(private_key_obj)
 
     def __del__(self):
         self.close()
