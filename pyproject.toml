@@ -48,7 +48,7 @@ dependencies = [
     "PyYAML",
     "suds-community",
     "cheroot",
-    "boto >= 2.29",
+    "boto3",
     "apache-libcloud >= 3.2.0",
     "RADL >= 1.3.3",
     "flask",
