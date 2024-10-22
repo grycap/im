@@ -298,7 +298,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "namespace": "somenamespace",
                 "annotations": {
                     "cert-manager.io/cluster-issuer": "letsencrypt-prod",
-                    "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0"
+                    "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0",
+                    "haproxy.router.openshift.io/redirect-to-https": "True",
+                    "route.openshift.io/termination": "edge"
                 },
             },
             "spec": {
