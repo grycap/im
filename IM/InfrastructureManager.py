@@ -402,9 +402,10 @@ class InfrastructureManager:
             cloud_site = c.getCloudConnector(inf)
             try:
                 images = cloud_site.list_images(auth, filters={"distribution": dist, "version": version})
-            except Exception:
+            except Exception as ex:
                 images = []
-                InfrastructureManager.logger.warn("Inf ID: " + inf.id + ": Error getting images from cloud: " + c.id)
+                InfrastructureManager.logger.warning("Inf ID: %s: Error getting images " % inf.id +
+                                                     "from cloud: %s (%s)" % (c.id, ex))
 
             if images:
                 new_sys = system(radl_sys.name)
