@@ -675,11 +675,15 @@ class CloudConnector(LoggerMixin):
         if new_gpu:
             orig_system.delValue('gpu.count')
             orig_system.addFeature(new_gpu)
+        new_disk = radl.systems[0].getFeature('disks.free_size')
+        if new_disk:
+            orig_system.delValue('disks.free_size')
+            orig_system.addFeature(new_disk)
 
-        if any([new_cpu, new_memory, instance_type, new_gpu]):
+        if any([new_cpu, new_memory, instance_type, new_gpu, new_disk]):
             return orig_system
         else:
-            self.log_debug("No memory nor cpu nor instance_type nor gpu specified. VM not resized.")
+            self.log_debug("No memory nor cpu nor instance_type nor gpu nor disk specified. VM not resized.")
             return None
 
     @staticmethod
