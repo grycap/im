@@ -21,6 +21,7 @@ import base64
 import flask
 import os
 import yaml
+import datetime
 
 from cheroot.wsgi import Server as WSGIServer, PathInfoDispatcher
 from cheroot.ssl.builtin import BuiltinSSLAdapter
@@ -1075,6 +1076,49 @@ def RESTChangeInfrastructureAuth(infid=None):
     except Exception as ex:
         logger.exception("Error modifying infrastructure owner.")
         return return_error(400, "Error modifying infrastructure owner: %s" % get_ex_error(ex))
+
+
+@app.route('/stats', methods=['GET'])
+def RESTGetStats():
+    try:
+        auth = get_auth_header()
+    except Exception:
+        return return_error(401, "No authentication data provided")
+
+    try:
+        init_date = None
+        if "init_date" in flask.request.args.keys():
+            init_date = flask.request.args.get("init_date").lower()
+            init_date = init_date.replace("/", "-")
+            parts = init_date.split("-")
+            try:
+                year = int(parts[0])
+                month = int(parts[1])
+                day = int(parts[2])
+                datetime.date(year, month, day)
+            except Exception:
+                return return_error(400, "Incorrect format in init_date parameter: YYYY/MM/dd")
+        else:
+            init_date = "1970-01-01"
+
+        end_date = None
+        if "end_date" in flask.request.args.keys():
+            end_date = flask.request.args.get("end_date").lower()
+            end_date = end_date.replace("/", "-")
+            parts = end_date.split("-")
+            try:
+                year = int(parts[0])
+                month = int(parts[1])
+                day = int(parts[2])
+                datetime.date(year, month, day)
+            except Exception:
+                return return_error(400, "Incorrect format in end_date parameter: YYYY/MM/dd")
+
+        stats = InfrastructureManager.GetStats(init_date, end_date, auth)
+        return format_output(stats, default_type="application/json", field_name="stats")
+    except Exception as ex:
+        logger.exception("Error getting stats")
+        return return_error(400, "Error getting stats: %s" % get_ex_error(ex))
 
 
 @app.errorhandler(403)

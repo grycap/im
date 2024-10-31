@@ -838,6 +838,21 @@ class TestREST(unittest.TestCase):
         res = self.client.get('/infrastructures/1/authorization', headers=headers)
         self.assertEqual(res.json, {"authorization": ["user1", "user2"]})
 
+    @patch("IM.InfrastructureManager.InfrastructureManager.GetStats")
+    def test_GetStats(self, GetStats):
+        """Test REST GetStats."""
+        headers = {"AUTHORIZATION": "type = InfrastructureManager; username = user; password = pass"}
+        GetStats.return_value = [{"key": 1}]
+
+        res = self.client.get('/stats?init_date=2010-01-01&end_date=2022-01-01', headers=headers)
+
+        self.assertEqual(res.json, {"stats": [{"key": 1}]})
+        self.assertEqual(GetStats.call_args_list[0][0][0], '2010-01-01')
+        self.assertEqual(GetStats.call_args_list[0][0][1], '2022-01-01')
+        self.assertEqual(GetStats.call_args_list[0][0][2].auth_list, [{"type": "InfrastructureManager",
+                                                                       "username": "user",
+                                                                       "password": "pass"}])
+
 
 if __name__ == "__main__":
     unittest.main()

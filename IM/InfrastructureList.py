@@ -250,7 +250,7 @@ class InfrastructureList():
             return None
 
     @staticmethod
-    def _gen_where_from_auth(auth):
+    def _gen_where_from_auth(auth, deleted=0):
         like = ""
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
@@ -260,12 +260,12 @@ class InfrastructureList():
                     like += "auth like '%%\"" + elem.get("username") + "\"%%'"
 
         if like:
-            return "where deleted = 0 and (" + like + ")"
+            return "where deleted = %d and (%s)" % (deleted, like)
         else:
-            return "where deleted = 0"
+            return "where deleted = %d" % deleted
 
     @staticmethod
-    def _gen_filter_from_auth(auth):
+    def _gen_filter_from_auth(auth, deleted=0):
         like = ""
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
@@ -275,9 +275,9 @@ class InfrastructureList():
                     like += '"%s"' % elem.get("username")
 
         if like:
-            return {"deleted": 0, "auth": {"$regex": like}}
+            return {"deleted": deleted, "auth": {"$regex": like}}
         else:
-            return {"deleted": 0}
+            return {"deleted": deleted}
 
     @staticmethod
     def _get_inf_ids_from_db(auth=None):
