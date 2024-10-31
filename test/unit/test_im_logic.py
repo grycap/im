@@ -1597,6 +1597,7 @@ configure step2 (
                          'cloud_type': 'OSCAR',
                          'cloud_host': 'sharp-elbakyan5.im.grycap.net',
                          'hybrid': False,
+                         'deleted': False,
                          'im_user': '__OPENID__mcaballer',
                          'inf_id': '1',
                          'last_date': '2022-03-23'}]

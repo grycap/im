@@ -59,6 +59,7 @@ class Stats():
         resp['cloud_type'] = None
         resp['cloud_host'] = None
         resp['hybrid'] = False
+        resp['deleted'] = True if 'deleted' in dic and dic['deleted'] else False
         for str_vm_data in dic['vm_list']:
             vm_data = json.loads(str_vm_data)
             cloud_data = json.loads(vm_data["cloud"])
@@ -104,16 +105,21 @@ class Stats():
              'hybrid': False,
              'im_user': '__OPENID__mcaballer',
              'inf_id': '1',
+             'deleted': False,
              'last_date': '2022-03-23'}
         """
         stats = []
         db = DataBase(Config.DATA_DB)
         if db.connect():
             if db.db_type == DataBase.MONGO:
-                filt = InfrastructureList._gen_filter_from_auth(auth)
+                filt = InfrastructureList._gen_filter_from_auth(auth, 1)
+                if end_date:
+                    filt["date"] = {"$lte": end_date}
                 res = db.find("inf_list", filt, {"id": True, "data": True, "date": True}, [('id', -1)])
             else:
-                where = InfrastructureList._gen_where_from_auth(auth)
+                where = InfrastructureList._gen_where_from_auth(auth, 1)
+                if end_date:
+                    where += " and date <= '%s'" % end_date
                 res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)
 
             for elem in res:

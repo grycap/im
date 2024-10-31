@@ -511,6 +511,7 @@ GET ``http://imserver.com/stats``
                   "cloud_type": "OSCAR",
                   "cloud_host": "server.com",
                   "hybrid": false,
+                  "deleted": false,
                   "im_user": "username",
                   "inf_id": "1",
                   "last_date": "2022-03-23"}
