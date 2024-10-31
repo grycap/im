@@ -452,3 +452,28 @@ This is the list of method names:
             ]
          }
       }
+
+``GetStat``
+   :parameter 0: ``init_date``: string
+   :parameter 1: ``end_date``: string
+   :parameter 2: ``auth``: array of structs
+   :ok response: [true, list of dicts]
+   :fail response: [false, ``error``: string]
+
+   Return the stats of the current user in the IM service.
+   Return all the infrastructures in the interval ``init_date``-``end-date`` deployed by the user
+   showing some aggregated information. In JSON format::
+      
+      [
+         {"creation_date": "2022-03-07 13:16:14",
+         "tosca_name": "kubernetes",
+         "vm_count": 2,
+         "cpu_count": 4,
+         "memory_size": 1024,
+         "cloud_type": "OSCAR",
+         "cloud_host": "server.com",
+         "hybrid": false,
+         "im_user": "username",
+         "inf_id": "1",
+         "last_date": "2022-03-23"}
+      ]
