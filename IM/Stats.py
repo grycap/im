@@ -111,7 +111,7 @@ class Stats():
         if db.connect():
             if db.db_type == DataBase.MONGO:
                 filt = InfrastructureList._gen_filter_from_auth(auth)
-                res = db.find("inf_list", filt, {"id": True, "date": True, "date": True}, [('id', -1)])
+                res = db.find("inf_list", filt, {"id": True, "data": True, "date": True}, [('id', -1)])
             else:
                 where = InfrastructureList._gen_where_from_auth(auth)
                 res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)
