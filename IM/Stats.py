@@ -114,7 +114,7 @@ class Stats():
             if db.db_type == DataBase.MONGO:
                 filt = InfrastructureList._gen_filter_from_auth(auth)
                 if end_date:
-                    filt["date"] = {"$lte": datetime.datetime.strptime(end_date, "%Y-%m-%d").timestamp}
+                    filt["date"] = {"$lte": datetime.datetime.strptime(end_date, "%Y-%m-%d").timestamp()}
                 res = db.find("inf_list", filt, {"id": True, "data": True, "date": True}, [('id', -1)])
             else:
                 where = InfrastructureList._gen_where_from_auth(auth)
