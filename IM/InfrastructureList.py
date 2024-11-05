@@ -254,6 +254,8 @@ class InfrastructureList():
         like = ""
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
+                if elem.get("admin"):
+                    return ""
                 if elem.get("username"):
                     if like:
                         like += " or "
@@ -266,6 +268,8 @@ class InfrastructureList():
         like = ""
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
+                if elem.get("admin"):
+                    return {}
                 if elem.get("username"):
                     if like:
                         like += "|"
