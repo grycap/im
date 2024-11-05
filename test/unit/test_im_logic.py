@@ -1157,8 +1157,9 @@ configure step2 (
 
         Config.OIDC_GROUPS = []
 
-    def test_inf_auth_with_token(self):
-        im_auth = {"token": (self.gen_token())}
+    @patch('IM.InfrastructureManager.OpenIDClient.get_user_info_request')
+    def test_inf_auth_with_token(self, get_user_info_request):
+        im_auth = {"token": (self.gen_token(exp=120))}
         im_auth['username'] = InfrastructureInfo.OPENID_USER_PREFIX + "micafer"
         im_auth['password'] = "https://iam-test.indigo-datacloud.eu/user_sub"
         # Check that a user/pass cred cannot access OpenID ones
@@ -1176,37 +1177,31 @@ configure step2 (
         self.assertEqual(str(ex.exception), "No token provided for the InfrastructureManager.")
         Config.FORCE_OIDC_AUTH = False
 
+        Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+        user_auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
+                                     'token': im_auth['token']}])
+        get_user_info_request.return_value = True, {'sub': 'micafer'}
         inf = InfrastructureInfo()
         inf.id = "1"
         inf.auth = user_auth
+        user_auth = IM.check_auth_data(user_auth)
         res = inf.is_authorized(user_auth)
-        self.assertFalse(res)
+        self.assertTrue(res)
 
+        get_user_info_request.return_value = True, {'sub': 'user_sub'}
         user_auth1 = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
-                                      'username': im_auth['username'],
-                                      'password': im_auth['password'],
-                                      'token': im_auth['token']}])
+                                      'token': self.gen_token(user_sub="user_sub", exp=120)}])
+        user_auth1 = IM.check_auth_data(user_auth1)
         res = inf.is_authorized(user_auth1)
-        self.assertTrue(res)
-
-        inf.auth = user_auth1
-        new_token = self.gen_token()
-        user_auth2 = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
-                                      'username': im_auth['username'],
-                                      'password': im_auth['password'],
-                                      'token': new_token}])
-        res = inf.is_authorized(user_auth2)
-        self.assertTrue(res)
-        self.assertEqual(inf.auth.getAuthInfo("InfrastructureManager")[0]['token'], new_token)
+        self.assertFalse(res)
 
         inf.auth = user_auth1
         Config.ADMIN_USER = {"username": "",
                              "password": "https://iam-test.indigo-datacloud.eu/admin_user",
                              "token": ""}
         admin_auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
-                                      'username': InfrastructureInfo.OPENID_USER_PREFIX + "admin",
-                                      'password': "https://iam-test.indigo-datacloud.eu/admin_user",
-                                      'token': self.gen_token(user_sub="admin_user")}])
+                                      'token': self.gen_token(user_sub="admin_user", exp=120)}])
+        admin_auth = IM.check_auth_data(admin_auth)
         res = inf.is_authorized(admin_auth)
         self.assertTrue(res)
 

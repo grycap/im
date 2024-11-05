@@ -685,51 +685,13 @@ class InfrastructureInfo:
         """
         Checks if the auth data provided is authorized to access this infrastructure
         """
-        res = False
         for other_im_auth in auth.getAuthInfo("InfrastructureManager"):
-            res = True
-
-            if 'token' in self_im_auth:
-                if 'token' not in other_im_auth:
-                    res = False
-                    break
-                decoded_token = JWT().get_info(other_im_auth['token'])
-                issuer = str(decoded_token['iss'])
-                if not issuer.endswith('/'):
-                    issuer += '/'
-                password = issuer + str(decoded_token['sub'])
-                # check that the token provided is associated with the current owner of the inf.
-                if self_im_auth['password'] != password:
-                    res = False
-                    break
-
-                # Username must start with the defined prefix
-                if not other_im_auth['username'].startswith(InfrastructureInfo.OPENID_USER_PREFIX):
-                    res = False
-                    break
-
-                # In case of OIDC token update it in each call to get a fresh version
-                self_im_auth['token'] = other_im_auth['token']
-            else:
-                for elem in ['username', 'password']:
-                    if elem not in other_im_auth:
-                        res = False
-                        break
-                    if elem not in self_im_auth:
-                        InfrastructureInfo.logger.error("Inf ID %s has not elem %s in the auth data" % (self.id, elem))
-                    if self_im_auth[elem] != other_im_auth[elem]:
-                        res = False
-                        break
-
-            if (self_im_auth['username'].startswith(InfrastructureInfo.OPENID_USER_PREFIX) and
-                    'token' not in other_im_auth):
-                # This is a OpenID user do not enable to get data using user/pass creds
-                InfrastructureInfo.logger.warning("Inf ID %s: A non OpenID user tried to access it." % self.id)
-                res = False
-                break
-
-            if res:
-                return res
+            if self_im_auth.get("admin"):
+                return True
+            if ((self_im_auth.get("token") is None or other_im_auth.get("token") is not None) and
+                    self_im_auth.get("username") == other_im_auth.get("username") and
+                    self_im_auth.get("password") == other_im_auth.get("password")):
+                return True
 
     def is_authorized(self, auth):
         """
@@ -739,11 +701,6 @@ class InfrastructureInfo:
             for self_im_auth in self.auth.getAuthInfo("InfrastructureManager"):
                 if self._is_authorized(self_im_auth, auth):
                     return True
-                if Config.ADMIN_USER:
-                    admin_auth = dict(Config.ADMIN_USER)
-                    admin_auth["type"] = "InfrastructureManager"
-                    if self._is_authorized(admin_auth, auth):
-                        return True
 
             return False
         else:
