@@ -1574,7 +1574,7 @@ class InfrastructureManager:
                 if ((im_auth_item.get("token") is None or admin_auth.get("token") is not None) and
                         im_auth_item.get("username") == admin_auth.get("username") and
                         im_auth_item.get("password") == admin_auth.get("password")):
-                    im_auth['admin'] = True
+                    im_auth_item['admin'] = True
 
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
