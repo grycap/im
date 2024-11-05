@@ -686,7 +686,7 @@ class InfrastructureInfo:
         Checks if the auth data provided is authorized to access this infrastructure
         """
         for other_im_auth in auth.getAuthInfo("InfrastructureManager"):
-            if self_im_auth.get("admin"):
+            if other_im_auth.get("admin"):
                 return True
             if ((self_im_auth.get("token") is None or other_im_auth.get("token") is not None) and
                     self_im_auth.get("username") == other_im_auth.get("username") and
