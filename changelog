@@ -773,5 +773,7 @@ IM 1.17.0:
     * Do not create router in OST if no networks are created.
 
 IM 1.17.1:
-    * Fix problem with 0 disk flavors in OpenStack.
+    * Add support to other format SSH keys.
     * Speed up Ansible installation using newer versions.
+    * Fix problem with 0 disk flavors in OpenStack.
+    * Flush Inf data to DB in case of service termination.
