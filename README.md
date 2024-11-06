@@ -36,7 +36,7 @@ Journal of Grid Computing, Volume 13, Issue 1, Pages 53-70, 2015, ISSN
 [![SQAaaS badge][badge-img]][badge-link]
 
 [badge-img]: https://github.com/EOSC-synergy/SQAaaS/raw/master/badges/badges_150x116/badge_software_gold.png
-[badge-link]: https://eu.badgr.com/public/assertions/rkXyQH9FRj-EAMPgccz5ug "SQAaaS gold badge achieved"
+[badge-link]: https://api.eu.badgr.io/public/assertions/2DN4fpCNSFyCJD_TTTycjA "SQAaaS gold badge achieved"
 
 This software has received a gold badge according to the
 [Software Quality Baseline criteria](https://github.com/indigo-dc/sqa-baseline)
