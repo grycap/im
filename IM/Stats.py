@@ -117,9 +117,14 @@ class Stats():
                     filt["date"] = {"$lte": datetime.datetime.strptime(end_date, "%Y-%m-%d").timestamp()}
                 res = db.find("inf_list", filt, {"id": True, "data": True, "date": True}, [('id', -1)])
             else:
-                where = InfrastructureList._gen_where_from_auth(auth)
+                like = InfrastructureList._gen_where_from_auth(auth)
+                where = "where"
+                if like:
+                    where += " (%s)" % like
                 if end_date:
-                    where += " and date <= '%s'" % end_date
+                    if like:
+                        where += " and"
+                    where += " date <= '%s'" % end_date
                 res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)
 
             for elem in res:
