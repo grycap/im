@@ -60,6 +60,7 @@ class IMBaseRequest(AsyncRequest):
     CHANGE_INFRASTRUCTURE_AUTH = "ChangeInfrastructureAuth"
     GET_INFRASTRUCTURE_OWNERS = "GetInfrastructureOwners"
     ESTIMATE_RESOURCES = "EstimateResouces"
+    GET_STATS = "GetStats"
 
     @staticmethod
     def create_request(function, arguments=()):
@@ -119,6 +120,8 @@ class IMBaseRequest(AsyncRequest):
             return Request_GetInfrastructureOwners(arguments)
         elif function == IMBaseRequest.ESTIMATE_RESOURCES:
             return Request_EstimateResouces(arguments)
+        elif function == IMBaseRequest.GET_STATS:
+            return Request_GetStats(arguments)
         else:
             raise NotImplementedError("Function not Implemented")
 
@@ -473,3 +476,14 @@ class Request_EstimateResouces(IMBaseRequest):
         self._error_mesage = "Error getting the resources estimation"
         (radl_data, auth_data) = self.arguments
         return IM.InfrastructureManager.InfrastructureManager.EstimateResouces(radl_data, Authentication(auth_data))
+
+
+class Request_GetStats(IMBaseRequest):
+    """
+    Request class for the GetStats function
+    """
+
+    def _call_function(self):
+        self._error_mesage = "Error getting stats"
+        (init_date, end_date, auth_data) = self.arguments
+        return IM.InfrastructureManager.InfrastructureManager.GetStats(init_date, end_date, Authentication(auth_data))

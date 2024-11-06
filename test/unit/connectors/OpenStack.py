@@ -233,6 +233,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         net2.name = "private"
         net2.id = "net2id"
         net2.cidr = "10.0.0.0/24"
+        net2.extra = {}
         driver.ex_list_networks.return_value = [net2, net1]
 
         sg = MagicMock()
@@ -806,6 +807,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         net1.cidr = None
         net1.extra = {'subnets': ["subnet1"]}
         net2 = MagicMock()
+        net2.id = 'net2id'
         net2.name = "public"
         net2.cidr = None
         net2.extra = {'subnets': [], 'router:external': True}

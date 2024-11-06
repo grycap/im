@@ -42,6 +42,7 @@ from radl.radl_json import dump_radl as dump_radl_json
 from IM.openid.JWT import JWT
 from IM.openid.OpenIDClient import OpenIDClient
 from IM.vault import VaultCredentials
+from IM.Stats import Stats
 
 
 if Config.MAX_SIMULTANEOUS_LAUNCHES > 1:
@@ -402,9 +403,10 @@ class InfrastructureManager:
             cloud_site = c.getCloudConnector(inf)
             try:
                 images = cloud_site.list_images(auth, filters={"distribution": dist, "version": version})
-            except Exception:
+            except Exception as ex:
                 images = []
-                InfrastructureManager.logger.warn("Inf ID: " + inf.id + ": Error getting images from cloud: " + c.id)
+                InfrastructureManager.logger.warning("Inf ID: %s: Error getting images " % inf.id +
+                                                     "from cloud: %s (%s)" % (c.id, ex))
 
             if images:
                 new_sys = system(radl_sys.name)
@@ -1548,6 +1550,7 @@ class InfrastructureManager:
             raise InvaliddUserException("No credentials provided for the InfrastructureManager.")
 
         for im_auth_item in im_auth:
+            im_auth_item['admin'] = False
             if Config.FORCE_OIDC_AUTH and "token" not in im_auth_item:
                 raise InvaliddUserException("No token provided for the InfrastructureManager.")
 
@@ -1564,6 +1567,14 @@ class InfrastructureManager:
                     raise InvaliddUserException()
             else:
                 raise InvaliddUserException("No username nor token for the InfrastructureManager.")
+
+            if Config.ADMIN_USER:
+                admin_auth = dict(Config.ADMIN_USER)
+                admin_auth["type"] = "InfrastructureManager"
+                if ((im_auth_item.get("token") is None or admin_auth.get("token") is not None) and
+                        im_auth_item.get("username") == admin_auth.get("username") and
+                        im_auth_item.get("password") == admin_auth.get("password")):
+                    im_auth_item['admin'] = True
 
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
@@ -2035,3 +2046,21 @@ class InfrastructureManager:
                         cont += 1
 
         return res
+
+    @staticmethod
+    def GetStats(init_date, end_date, auth):
+        """
+        Get the statistics from the IM DB.
+        Args:
+        - init_date(str): Only will be returned infrastructure created afther this date.
+        - end_date(str): Only will be returned infrastructure created before this date.
+        - auth(Authentication): parsed authentication tokens.
+        Return: a list of dict with the stats.
+        """
+        # First check the auth data
+        auth = InfrastructureManager.check_auth_data(auth)
+        stats = Stats.get_stats(init_date, end_date, auth)
+        if stats is None:
+            raise Exception("ERROR connecting with the database!.")
+        else:
+            return stats
