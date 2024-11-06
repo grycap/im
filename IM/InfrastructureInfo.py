@@ -25,7 +25,6 @@ from datetime import datetime, timedelta
 from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
 from radl.radl_json import radlToSimple
-from IM.openid.JWT import JWT
 from IM.config import Config
 try:
     from Queue import PriorityQueue
