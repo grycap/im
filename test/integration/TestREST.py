@@ -367,7 +367,7 @@ class TestIM(unittest.TestCase):
         resp = self.create_request("GET", "/stats")
         self.assertEqual(resp.status_code, 200, msg="ERROR getting stats:" + resp.text)
         stats = resp.json()["stats"]
-        self.assertEqual(len(stats), 1, msg="Incorrect number of stats: " + resp.text)
+        self.assertEqual(len(stats), 2, msg="Incorrect number of stats: " + resp.text)
 
     def test_60_stop(self):
         time.sleep(10)
