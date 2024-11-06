@@ -363,6 +363,12 @@ class TestIM(unittest.TestCase):
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
+    def test_58_stats(self):
+        resp = self.create_request("GET", "/stats")
+        self.assertEqual(resp.status_code, 200, msg="ERROR getting stats:" + resp.text)
+        stats = resp.json()["stats"]
+        self.assertEqual(len(stats), 1, msg="Incorrect number of stats: " + resp.text)
+
     def test_60_stop(self):
         time.sleep(10)
         resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/stop")
