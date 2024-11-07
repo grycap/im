@@ -21,6 +21,8 @@ import time
 import os
 import re
 import socket
+from random import choice
+from string import ascii_letters, digits
 from netaddr import IPNetwork, IPAddress
 try:
     from urlparse import urlparse
@@ -372,7 +374,7 @@ class KubernetesCloudConnector(CloudConnector):
                 if apps_dns and not host.endswith(apps_dns):
                     if not host.endswith(".") and not apps_dns.startswith("."):
                         host += "."
-                    host += apps_dns
+                    host += ''.join(choice(ascii_letters + digits) for _ in range(4)) + "." + apps_dns
             if dns_url[2]:
                 path = dns_url[2]
 
