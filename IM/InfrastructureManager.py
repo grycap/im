@@ -1434,10 +1434,7 @@ class InfrastructureManager:
 
                 if Config.OIDC_GROUPS:
                     # Get user groups from any of the possible fields
-                    user_groups = userinfo.get('groups',  # Generic
-                                               userinfo.get('entitlements',  # GEANT
-                                                            userinfo.get('eduperson_entitlement',  # EGI Check-in
-                                                                         [])))
+                    user_groups = userinfo.get(Config.OIDC_GROUPS_CLAIM, [])
 
                     if not set(Config.OIDC_GROUPS).issubset(user_groups):
                         raise InvaliddUserException("Invalid InfrastructureManager credentials. " +
