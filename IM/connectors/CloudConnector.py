@@ -738,10 +738,6 @@ class CloudConnector(LoggerMixin):
                 vm.dns_entries = []
             if op == "add":
                 dns_entries = [entry for entry in self.get_dns_entries(vm) if entry not in vm.dns_entries]
-                dns_entries = []
-                for entry in self.get_dns_entries(vm):
-                    if entry not in vm.dns_entries:
-                        dns_entries.append(entry)
             else:
                 dns_entries = list(vm.dns_entries)
             if dns_entries:

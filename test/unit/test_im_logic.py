@@ -1141,6 +1141,7 @@ configure step2 (
         Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
         Config.OIDC_AUDIENCE = None
         Config.OIDC_GROUPS = ["urn:mace:egi.eu:group:demo.fedcloud.egi.eu:role=member#aai.egi.eu"]
+        Config.OIDC_GROUPS_CLAIM = "eduperson_entitlement"
 
         IM.check_oidc_token(im_auth)
 
