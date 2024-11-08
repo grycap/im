@@ -777,3 +777,7 @@ IM 1.17.1:
     * Speed up Ansible installation using newer versions.
     * Fix problem with 0 disk flavors in OpenStack.
     * Flush Inf data to DB in case of service termination.
+
+IM 1.18.0:
+    * Enable to get IM stats.
+    * Migrate EC2 conn to boto3 library.
