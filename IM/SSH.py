@@ -118,8 +118,10 @@ class SSH:
             private_key_obj = StringIO()
             if os.path.isfile(private_key):
                 pkfile = open(private_key)
+                self.private_key = ""
                 for line in pkfile.readlines():
                     private_key_obj.write(line)
+                    self.private_key += line
                 pkfile.close()
             else:
                 # Avoid windows line endings
@@ -128,18 +130,31 @@ class SSH:
                 if not private_key.endswith("\n"):
                     private_key += "\n"
                 private_key_obj.write(private_key)
+                self.private_key = private_key
 
-            self.private_key = private_key
+            self.private_key_obj = self._load_private_key(private_key_obj)
+
+    @staticmethod
+    def _load_private_key(private_key_obj):
+        """ Load a private key from a file-like object"""
+        private_key_obj.seek(0)
+        try:
+            return paramiko.RSAKey.from_private_key(private_key_obj)
+        except Exception:
             private_key_obj.seek(0)
-
-            if "BEGIN RSA PRIVATE KEY" in private_key:
-                self.private_key_obj = paramiko.RSAKey.from_private_key(private_key_obj)
-            elif "BEGIN DSA PRIVATE KEY" in private_key:
-                self.private_key_obj = paramiko.DSSKey.from_private_key(private_key_obj)
-            elif "BEGIN EC PRIVATE KEY" in private_key:
-                self.private_key_obj = paramiko.ECDSAKey.from_private_key(private_key_obj)
-            elif "BEGIN OPENSSH PRIVATE KEY" in private_key:
-                self.private_key_obj = paramiko.Ed25519Key.from_private_key(private_key_obj)
+        try:
+            return paramiko.DSSKey.from_private_key(private_key_obj)
+        except Exception:
+            private_key_obj.seek(0)
+        try:
+            return paramiko.ECDSAKey.from_private_key(private_key_obj)
+        except Exception:
+            private_key_obj.seek(0)
+        try:
+            return paramiko.Ed25519Key.from_private_key(private_key_obj)
+        except Exception:
+            private_key_obj.seek(0)
+        raise Exception("Invalid private key")
 
     def __del__(self):
         self.close()

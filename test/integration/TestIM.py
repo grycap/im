@@ -261,7 +261,7 @@ class TestIM(unittest.TestCase):
         Test AddResource function
         """
         (success, res) = self.server.AddResource(
-            self.inf_id, RADL_ADD_WIN, self.auth_data)
+            self.inf_id, RADL_ADD, self.auth_data)
         self.assertTrue(success, msg="ERROR calling AddResource: " + str(res))
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(
@@ -272,7 +272,7 @@ class TestIM(unittest.TestCase):
                                               str(len(vm_ids)) + "). It must be 4"))
 
         all_configured = self.wait_inf_state(
-            self.inf_id, VirtualMachine.CONFIGURED, 2700)
+            self.inf_id, VirtualMachine.CONFIGURED, 2400)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 

@@ -211,7 +211,7 @@ class CtxtAgent(CtxtAgentBase):
         return SSHRetry(vm_ip, ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
 
     @staticmethod
-    def get_ssh(vm, pk_file, changed_pass=None):
+    def get_ssh(vm, pk_file, changed_pass=None, use_proxy=False):
         passwd = vm['passwd']
         if 'new_passwd' in vm and vm['new_passwd'] and changed_pass:
             passwd = vm['new_passwd']
