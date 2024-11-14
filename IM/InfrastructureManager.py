@@ -2056,6 +2056,8 @@ class InfrastructureManager:
         """
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
+        if not init_date:
+            init_date = "1970-01-01"
         stats = Stats.get_stats(init_date, end_date, auth)
         if stats is None:
             raise Exception("ERROR connecting with the database!.")
