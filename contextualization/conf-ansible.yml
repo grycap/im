@@ -130,7 +130,6 @@
       pip:
         name: virtualenv
         executable: pip3
-        extra_args: "{{ extra_args }}"
 
     # Version over 21 does not work with python 3.6 or older
     - name: Upgrade pip in py3.6-
