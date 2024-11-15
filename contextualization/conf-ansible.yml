@@ -119,17 +119,18 @@
 
     - name: Set extra_args var
       set_fact:
-        extra_args: --prefer-binary
+        extra_args: ''
 
     - name: Set extra_args var in py3.11
       set_fact:
-        extra_args: --prefer-binary --break-system-packages
+        extra_args: --break-system-packages
       when: ansible_python_version is version('3.11', '>=')
 
     - name: Install virtualenv with pip
       pip:
         name: virtualenv
         executable: pip3
+        extra_args: "{{ extra_args }}"
 
     # Version over 21 does not work with python 3.6 or older
     - name: Upgrade pip in py3.6-
