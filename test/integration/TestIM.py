@@ -510,10 +510,10 @@ class TestIM(unittest.TestCase):
             success, msg="ERROR calling ImportInfrastructure: " + str(res))
 
     def test_45_stats(self):
-        (success, res) = self.server.GetStats(None, None, self.auth_data)
+        (success, res) = self.server.GetStats('', '', self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling GetStats: " + str(res))
-        self.assertEqual(len(res), 3, msg="ERROR getting stats: Incorrect number of infrastructures")
+        self.assertEqual(len(res), 4, msg="ERROR getting stats: Incorrect number of infrastructures")
 
     def test_50_destroy(self):
         """

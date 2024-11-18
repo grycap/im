@@ -132,28 +132,17 @@ class SSH:
                 private_key_obj.write(private_key)
                 self.private_key = private_key
 
+            private_key_obj.seek(0)
             self.private_key_obj = self._load_private_key(private_key_obj)
 
     @staticmethod
     def _load_private_key(private_key_obj):
         """ Load a private key from a file-like object"""
-        private_key_obj.seek(0)
-        try:
-            return paramiko.RSAKey.from_private_key(private_key_obj)
-        except Exception:
-            private_key_obj.seek(0)
-        try:
-            return paramiko.DSSKey.from_private_key(private_key_obj)
-        except Exception:
-            private_key_obj.seek(0)
-        try:
-            return paramiko.ECDSAKey.from_private_key(private_key_obj)
-        except Exception:
-            private_key_obj.seek(0)
-        try:
-            return paramiko.Ed25519Key.from_private_key(private_key_obj)
-        except Exception:
-            private_key_obj.seek(0)
+        for kype in [paramiko.RSAKey, paramiko.DSSKey, paramiko.ECDSAKey, paramiko.Ed25519Key]:
+            try:
+                return kype.from_private_key(private_key_obj)
+            except Exception:
+                private_key_obj.seek(0)
         raise Exception("Invalid private key")
 
     def __del__(self):
