@@ -501,6 +501,11 @@ class TestTosca(unittest.TestCase):
         node = radl.get_system_by_name('simple_node')
         self.assertEqual(node.getValue("cpu.count"), 16)
 
+        tosca_data = read_file_as_string('../files/tosca_create.yml')
+        with self.assertRaises(Exception) as ex:
+            tosca = Tosca(tosca_data, tosca_repo="https://raw.githubusercontent.com/grycap/tosca/main/templates/")
+        self.assertIn("template_file metadata field not set.", str(ex.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

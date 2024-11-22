@@ -41,9 +41,8 @@ class Tosca:
         self.tosca_repo = tosca_repo
         self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
-        self.yaml = yaml.safe_load(yaml_str)
-        if self.tosca_repo:
-            self.yaml = self._get_tosca_from_repo(self.yaml)
+        yamlo = yaml.safe_load(yaml_str)
+        self.yaml = self._get_tosca_from_repo(yamlo)
         if not verify:
             def verify_fake(tpl):
                 return True
@@ -61,7 +60,13 @@ class Tosca:
     def _get_tosca_from_repo(self, input_yaml):
         if 'tosca_definitions_version' not in input_yaml:
             return input_yaml
-        template_file = self.tosca_repo + "/" + input_yaml.get('metadata', {}).get('template_file')
+        template_file = input_yaml.get('metadata', {}).get('template_file')
+        if self.tosca_repo and template_file:
+            template_file = self.tosca_repo + "/" + template_file
+        elif not template_file and not self.tosca_repo:
+            return input_yaml
+        elif not template_file:
+            raise Exception("template_file metadata field not set.")
 
         try:
             resp = self.cache_session.get(template_file, timeout=self.GET_TIMEOUT)
