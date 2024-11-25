@@ -1104,7 +1104,7 @@ def oaipmh():
     response_xml = oai.processRequest(flask.request, metadata_dict)
     return flask.make_response(response_xml, 200, {'Content-Type': 'text/xml'})
 
- 
+
 @app.route('/stats', methods=['GET'])
 def RESTGetStats():
     try:
