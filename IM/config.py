@@ -107,6 +107,7 @@ class Config:
     OIDC_USER_INFO_PATH = "/userinfo"
     OIDC_INSTROSPECT_PATH = "/introspect"
     OIDC_GROUPS = []
+    OIDC_GROUPS_CLAIM = "groups"
     VM_NUM_USE_CTXT_DIST = 30
     DELAY_BETWEEN_VM_RETRIES = 5
     VERIFI_SSL = False

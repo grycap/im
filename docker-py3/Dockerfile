@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:24.04
 
-ENV VERSION=1.17.0
+ENV VERSION=1.17.1
 
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
 LABEL version="${VERSION}"
@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y patch wget pyth
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
      pip3 install --break-system-packages msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
      pip3 install --break-system-packages pyOpenSSL cheroot xmltodict pymongo ansible==8.7.0&& \
-     pip3 install --break-system-packages apache-libcloud==3.8.0 IM==${VERSION} && \
+     pip3 install --break-system-packages apache-libcloud==3.8.0 IM==${VERSION} &&\
      apt-get purge -y python3-pip git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
@@ -34,9 +34,6 @@ RUN wget https://raw.githubusercontent.com/grycap/im/v${VERSION}/etc/logging.con
 
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
-
-# Fix boto issue https://github.com/boto/boto/issues/3783
-COPY endpoints.json /usr/local/lib/python3.12/dist-packages/boto/endpoints.json
 
 # Start IM service
 CMD ["/usr/local/bin/im_service"]

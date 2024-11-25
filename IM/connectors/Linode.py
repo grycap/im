@@ -560,4 +560,4 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         images = []
         for image in driver.list_images():
             images.append({"uri": "lin://%s" % image.id, "name": image.name})
-        return images
+        return self._filter_images(images, filters)

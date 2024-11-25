@@ -503,3 +503,31 @@ GET ``http://imserver.com/oai``
 
    Return the OAI-PMH REST API about available TOSCA templates in the IM service.
    See more details in `OAI-PMH spec <https://www.openarchives.org/pmh/>`_..
+
+GET ``http://imserver.com/stats``
+   :Response Content-type: application/json
+   :ok response: 200 OK
+   :input fields: ``init_date`` (optional)
+   :input fields: ``end_date`` (optional)
+   :fail response: 401, 400
+
+   Return the stats of the current user in the IM service.
+   Return all the infrastructures deployed by the user showing some
+   aggregated information. In JSON format::
+
+    {
+      "stats": [
+                  {"creation_date": "2022-03-07 13:16:14",
+                  "tosca_name": "kubernetes",
+                  "vm_count": 2,
+                  "cpu_count": 4,
+                  "memory_size": 1024,
+                  "cloud_type": "OSCAR",
+                  "cloud_host": "server.com",
+                  "hybrid": false,
+                  "deleted": false,
+                  "im_user": "username",
+                  "inf_id": "1",
+                  "last_date": "2022-03-23"}
+      ]
+    }

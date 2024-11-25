@@ -118,8 +118,10 @@ class SSH:
             private_key_obj = StringIO()
             if os.path.isfile(private_key):
                 pkfile = open(private_key)
+                self.private_key = ""
                 for line in pkfile.readlines():
                     private_key_obj.write(line)
+                    self.private_key += line
                 pkfile.close()
             else:
                 # Avoid windows line endings
@@ -128,11 +130,20 @@ class SSH:
                 if not private_key.endswith("\n"):
                     private_key += "\n"
                 private_key_obj.write(private_key)
+                self.private_key = private_key
 
-            self.private_key = private_key
             private_key_obj.seek(0)
-            self.private_key_obj = paramiko.RSAKey.from_private_key(
-                private_key_obj)
+            self.private_key_obj = self._load_private_key(private_key_obj)
+
+    @staticmethod
+    def _load_private_key(private_key_obj):
+        """ Load a private key from a file-like object"""
+        for kype in [paramiko.RSAKey, paramiko.DSSKey, paramiko.ECDSAKey, paramiko.Ed25519Key]:
+            try:
+                return kype.from_private_key(private_key_obj)
+            except Exception:
+                private_key_obj.seek(0)
+        raise Exception("Invalid private key")
 
     def __del__(self):
         self.close()

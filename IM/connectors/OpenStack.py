@@ -959,9 +959,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     break
 
             # Get the OST public net ids and names
+            pool_names = [pool.name for pool in driver.ex_list_floating_ip_pools()]
+            _, ost_nets = self.get_ost_network_info(driver, pool_names)
             pub_nets = {}
-            for net in driver.ex_list_networks():
-                if 'router:external' in net.extra and net.extra['router:external']:
+            for net in ost_nets:
+                if net.extra['is_public']:
                     pub_nets[net.id] = net.name
 
             # Get the routers associated with public nets
@@ -1035,6 +1037,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             msg = "Error deleting subnet %s from the router %s: %s" % (subnet_id,
                                                                                        router.name,
                                                                                        get_ex_error(ex))
+
+                    for port in driver.ex_list_ports():
+                        if port.extra.get('network_id') == ost_net.id:
+                            try:
+                                self.log_debug("Deleting port %s." % port.id)
+                                port.delete()
+                            except Exception:
+                                self.log_exception("Error deleting port %s." % port.id)
 
                     self.log_info("Deleting net %s." % ost_net.name)
                     driver.ex_delete_network(ost_net)
@@ -2148,10 +2158,42 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
     def list_images(self, auth_data, filters=None):
         driver = self.get_driver(auth_data)
         images = []
-        for image in driver.list_images():
+        for image in self._filter_images(driver.list_images(), filters):
             if 'status' not in image.extra or image.extra['status'] == 'active':
                 images.append({"uri": "ost://%s/%s" % (self.cloud.server, image.id), "name": image.name})
         return images
+
+    def _filter_images(self, image_list, filters=None):
+        dist = None
+        version = None
+        if filters:
+            dist = filters.get('distribution', None)
+            version = filters.get('version', None)
+        res = []
+
+        for image in image_list:
+            add_image = True
+            if dist is not None:
+                add_image = False
+                image_distro = image.extra.get('os_distro', None)
+                if image_distro:
+                    if dist.lower() == image_distro.lower():
+                        add_image = True
+                elif dist.lower() in image.name.lower():
+                    add_image = True
+
+            if version is not None:
+                image_version = image.extra.get('os_version', None)
+                if image_version:
+                    if version.lower() == image_version.lower():
+                        add_image = True
+                elif version.lower() in image.name.lower():
+                    add_image = True
+
+            if add_image:
+                res.append(image)
+
+        return res
 
     @staticmethod
     def _get_tenant_id(auth):
