@@ -609,6 +609,7 @@ class. The new connector must implement at least the following methods:
 - ``finalize``: Terminates a VM and all the associated resources.
 
 To have full support you have to implement the following methods:
+
 - ``alterVM``: Modifies/resizes the features of a VM.
 - ``start``: Starts a (previously stopped) VM.
 - ``stop``: Stops (but not finalizes) a VM.
