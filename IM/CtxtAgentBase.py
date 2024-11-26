@@ -37,6 +37,7 @@ class CtxtAgentBase:
     # the ConfManager
     PLAYBOOK_RETRIES = 1
     INTERNAL_PLAYBOOK_RETRIES = 1
+    VENV_DIR = "/var/tmp/.ansible"
 
     def __init__(self, conf_data_filename):
         self.logger = None
@@ -508,7 +509,7 @@ class CtxtAgentBase:
                 task["name"] = "Create YAML file to install the collections with ansible-galaxy"
                 yaml_data[0]['tasks'].append(task)
 
-                task = {"command": "/var/tmp/.ansible/bin/ansible-galaxy collection install -c -r %s" % filename}
+                task = {"command": self.VENV_DIR + "/bin/ansible-galaxy collection install -c -r %s" % filename}
                 task["name"] = "Install galaxy collections"
                 task["become"] = "yes"
                 task["register"] = "collections_install"
@@ -562,7 +563,7 @@ class CtxtAgentBase:
                 task["name"] = "Create YAML file to install the roles with ansible-galaxy"
                 yaml_data[0]['tasks'].append(task)
 
-                task = {"command": "/var/tmp/.ansible/bin/ansible-galaxy install -c -r %s" % filename}
+                task = {"command": self.VENV_DIR + "/bin/ansible-galaxy install -c -r %s" % filename}
                 task["name"] = "Install galaxy roles"
                 task["become"] = "yes"
                 task["register"] = "roles_install"
