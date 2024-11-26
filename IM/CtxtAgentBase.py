@@ -508,7 +508,7 @@ class CtxtAgentBase:
                 task["name"] = "Create YAML file to install the collections with ansible-galaxy"
                 yaml_data[0]['tasks'].append(task)
 
-                task = {"command": "ansible-galaxy collection install -c -r %s" % filename}
+                task = {"command": "/var/tmp/.ansible/bin/ansible-galaxy collection install -c -r %s" % filename}
                 task["name"] = "Install galaxy collections"
                 task["become"] = "yes"
                 task["register"] = "collections_install"
@@ -562,7 +562,7 @@ class CtxtAgentBase:
                 task["name"] = "Create YAML file to install the roles with ansible-galaxy"
                 yaml_data[0]['tasks'].append(task)
 
-                task = {"command": "ansible-galaxy install -c -r %s" % filename}
+                task = {"command": "/var/tmp/.ansible/bin/ansible-galaxy install -c -r %s" % filename}
                 task["name"] = "Install galaxy roles"
                 task["become"] = "yes"
                 task["register"] = "roles_install"
