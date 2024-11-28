@@ -300,7 +300,7 @@ class TestFogBowConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.assertEqual(vm.info.systems[0].getValue("net_interface.1.ip"), "10.0.0.1")
         self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
-        self.assertEqual(vm.info.systems[0].getValue("memory.size"), 1073741824)
+        self.assertEqual(vm.info.systems[0].getValue("memory.size"), 1024000000)
         self.assertEqual(vm.info.systems[0].getValue("disk.1.device"), "/dev/sdb")
 
         data = json.loads(requests.call_args_list[1][1]["data"])

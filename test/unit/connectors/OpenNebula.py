@@ -144,7 +144,7 @@ class TestONEConnector(TestCloudConnectorBase):
             OS = [ ARCH = "x86_64" ]
 
             DISK = [ IMAGE_ID = "1" ]
- DISK = [ SAVE = no, TYPE = fs , FORMAT = qcow2, SIZE = 1024, TARGET = hdb ]
+ DISK = [ SAVE = no, TYPE = fs , FORMAT = qcow2, SIZE = 1000, TARGET = hdb ]
 
 
             SCHED_REQUIREMENTS = "CLUSTER_ID=\\"0\\""\n"""

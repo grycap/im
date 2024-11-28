@@ -129,7 +129,7 @@ class TestGCEConnector(TestCloudConnectorBase):
 
         concrete = gce_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
-        self.assertEqual(concrete[0].getValue("memory.size"), 2147483648)
+        self.assertEqual(concrete[0].getValue("memory.size"), 2048000000)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.gce.GCENodeDriver')
