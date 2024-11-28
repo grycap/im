@@ -37,7 +37,7 @@ class CtxtAgentBase:
     # the ConfManager
     PLAYBOOK_RETRIES = 1
     INTERNAL_PLAYBOOK_RETRIES = 1
-    VENV_DIR = "/var/tmp/.ansible"
+    VENV_DIR = "/var/tmp/.ansible"  # nosec
 
     def __init__(self, conf_data_filename):
         self.logger = None
