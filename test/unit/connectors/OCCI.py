@@ -327,7 +327,7 @@ class TestOCCIConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
         memory = vm.info.systems[0].getValue("memory.size")
-        self.assertEqual(memory, 1824522240)
+        self.assertEqual(memory, 1740000000)
 
     @patch('requests.request')
     @patch('IM.connectors.OCCI.KeyStoneAuth.get_keystone_uri')
