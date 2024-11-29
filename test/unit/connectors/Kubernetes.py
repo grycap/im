@@ -188,7 +188,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                          'labels': {'name': 'test-1'}},
             "spec": {
                 "accessModes": ["ReadWriteOnce"],
-                "resources": {"requests": {"storage": 10737418240}},
+                "resources": {"requests": {"storage": 10000000000}},
             },
         }
         self.assertEqual(requests.call_args_list[1][0][1],
@@ -237,8 +237,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                         "imagePullPolicy": "Always",
                         "ports": [{"containerPort": 8080, "protocol": "TCP"}],
                         "resources": {
-                            "limits": {"cpu": "1", "memory": "536870912"},
-                            "requests": {"cpu": "1", "memory": "536870912"},
+                            "limits": {"cpu": "1", "memory": "512000000"},
+                            "requests": {"cpu": "1", "memory": "512000000"},
                         },
                         "env": [{"name": "var", "value": "some_val"},
                                 {"name": "var2", "value": "some,val2"}],

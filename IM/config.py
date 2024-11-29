@@ -58,10 +58,10 @@ class Config:
     WAIT_SSH_ACCCESS_TIMEOUT = 300
     WAIT_PUBLIC_IP_TIMEOUT = 90
     XMLRCP_PORT = 8899
-    XMLRCP_ADDRESS = "0.0.0.0"
+    XMLRCP_ADDRESS = "0.0.0.0"  # nosec
     ACTIVATE_REST = True
     REST_PORT = 8800
-    REST_ADDRESS = "0.0.0.0"
+    REST_ADDRESS = "0.0.0.0"  # nosec
     USER_DB = ""
     IM_PATH = os.path.dirname(os.path.realpath(__file__))
     LOG_FILE = '/var/log/im/inf.log'
@@ -85,7 +85,7 @@ class Config:
     VM_INFO_UPDATE_FREQUENCY = 10
     # This value must be always higher than VM_INFO_UPDATE_FREQUENCY
     VM_INFO_UPDATE_ERROR_GRACE_PERIOD = 120
-    REMOTE_CONF_DIR = "/var/tmp/.im"
+    REMOTE_CONF_DIR = "/var/tmp/.im"  # nosec
     MAX_SSH_ERRORS = 5
     PRIVATE_NET_MASKS = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
                          "169.254.0.0/16", "100.64.0.0/10", "192.0.0.0/24", "198.18.0.0/15"]

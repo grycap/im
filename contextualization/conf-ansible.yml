@@ -6,6 +6,7 @@
   vars:
     # Ansible specific Version or "latest"
     ANSIBLE_VERSION: 4.10.0
+    VENV_PATH: /var/tmp/.ansible
   tasks:
   ############## To avoid some issues with cloud-init and unattended upgrades ###############
     - name: Avoid unattended upgrades
@@ -99,15 +100,15 @@
   ################### Install Ansible/pip requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python3-pip,wget,python3-setuptools,python3-psutil,sshpass,openssh-client,unzip install_recommends=no
+      apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Yum install requisites RH 7/8 or Fedora
-      command: yum install -y python3-pip python3-setuptools python3-psutil sshpass openssh-clients
+      command: yum install -y python3-pip python3-setuptools sshpass openssh-clients
       when: ansible_os_family == "RedHat"
 
     - name: Zypper install requirements Suse
-      zypper: name=python3-pip,python3-setuptools,python3-psutil,wget,python3-cryptography state=present
+      zypper: name=python3-pip,python3-setuptools,wget,python3-cryptography state=present
       when: ansible_os_family == "Suse"
 
     - name: Install python-setuptools
@@ -116,11 +117,26 @@
 
   ######################################### Use pip to enable to set the version #############################################
 
+    - name: Set extra_args var
+      set_fact:
+        extra_args: ''
+
+    - name: Set extra_args var in py3.11
+      set_fact:
+        extra_args: --break-system-packages
+      when: ansible_python_version is version('3.11', '>=')
+
+    - name: Install virtualenv with pip
+      pip:
+        name: virtualenv
+        executable: pip3
+        extra_args: "{{ extra_args }}"
+
     # Version over 21 does not work with python 3.6 or older
     - name: Upgrade pip in py3.6-
       pip:
         name: pip>18.0,<21.0
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
         # in some old distros we need to trust in the pypi to avoid SSL errors
         extra_args: --trusted-host files.pythonhosted.org --trusted-host pypi.org --trusted-host pypi.python.org
       when: ansible_python_version is version('3.7', '<')
@@ -128,37 +144,38 @@
     - name: Upgrade pip in py3.7-py3.8
       pip:
         name: pip>20.0
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
       when: ansible_python_version is version('3.7', '>=') and ansible_python_version is version('3.9', '<')
 
     - name: Upgrade pip in py3.9-py3.10
       pip:
         name: pip>=22.0
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
       when: ansible_python_version is version('3.9', '>=') and ansible_python_version is version('3.11', '<')
 
     # Version 66 (#2497) fails
     - name: Upgrade setuptools with Pip in py3.11-
       pip:
         name: setuptools<66.0.0
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
       when: ansible_python_version is version('3.11', '<')
 
     - name: Set extra_args var
       set_fact:
         extra_args: --prefer-binary
 
-    - name: Set extra_args var in py3.11
-      set_fact:
-        extra_args: --prefer-binary --break-system-packages
-      when: ansible_python_version is version('3.11', '>=')
+    - name: Install psutil
+      pip:
+        name: psutil
+        virtualenv: "{{ VENV_PATH }}"
+        extra_args: "{{ extra_args }}"
 
     - name: Install cryptography & pyOpenSSL in py3.11-
       pip:
         name:
           - cryptography>36.0.0,<39.0.0
           - pyOpenSSL>20.0,<22.1.0
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
       when: ansible_python_version is version('3.11', '<')
 
@@ -167,7 +184,7 @@
         name: 
           - cryptography>36.0.0
           - pyOpenSSL>20.0
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
       when: ansible_python_version is version('3.11', '>=')
 
@@ -178,7 +195,7 @@
           - pyyaml
           - paramiko>=2.9.5
           - packaging
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
 
     - name: Set Ansible newer version for python 3.8+
@@ -201,14 +218,14 @@
       pip:
         name: ansible
         version: "{{ ANSIBLE_VERSION }}"
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
       when: ANSIBLE_VERSION != "latest"
 
     - name: Install latest ansible version with Pip
       pip:
         name: ansible
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
       when: ANSIBLE_VERSION == "latest"
 
@@ -219,13 +236,13 @@
         name:
           - jmespath
           - scp
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
 
     - name: Install pywinrm with Pip
       pip:
         name: pywinrm
-        executable: pip3
+        virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
       ignore_errors: yes
 
