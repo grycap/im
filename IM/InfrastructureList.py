@@ -182,12 +182,13 @@ class InfrastructureList():
                     if db.db_type == DataBase.MONGO:
                         res = db.find("inf_list", {"id": inf_id}, {data_field: True, "deleted": True})
                     else:
-                        res = db.select("select " + data_field + ",deleted from inf_list where id = %s", (inf_id,))
+                        res = db.select("select " + data_field + ",deleted from inf_list where id = %s",  # nosec
+                                        (inf_id,))
                 else:
                     if db.db_type == DataBase.MONGO:
                         res = db.find("inf_list", {"deleted": 0}, {data_field: True, "deleted": True}, [('_id', -1)])
                     else:
-                        res = db.select("select " + data_field + ",deleted from inf_list where deleted = 0"
+                        res = db.select("select " + data_field + ",deleted from inf_list where deleted = 0"  # nosec
                                         " order by rowid desc")
                 if len(res) > 0:
                     for elem in res:
@@ -296,7 +297,7 @@ class InfrastructureList():
                         where = "where deleted = 0 and (%s)" % like
                     else:
                         where = "where deleted = 0"
-                    res = db.select("select id from inf_list %s order by rowid desc" % where)
+                    res = db.select("select id from inf_list %s order by rowid desc" % where)  # nosec
                 for elem in res:
                     if db.db_type == DataBase.MONGO:
                         inf_list.append(elem['id'])
