@@ -228,8 +228,8 @@ class TestREST(unittest.TestCase):
                                data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.json, {"one": {"cloudType": "OpenNebula",
                                             "cloudEndpoint": "http://ramses.i3m.upv.es:2633",
-                                            "compute": [{"cpuCores": 1, "memoryInMegabytes": 1024},
-                                                        {"cpuCores": 1, "memoryInMegabytes": 1024}], "storage": []}})
+                                            "compute": [{"cpuCores": 1, "memoryInMegabytes": 1074},
+                                                        {"cpuCores": 1, "memoryInMegabytes": 1074}], "storage": []}})
 
         headers["Content-Type"] = "application/json"
         CreateInfrastructure.side_effect = InvaliddUserException()
@@ -837,6 +837,21 @@ class TestREST(unittest.TestCase):
         headers["Accept"] = "application/json"
         res = self.client.get('/infrastructures/1/authorization', headers=headers)
         self.assertEqual(res.json, {"authorization": ["user1", "user2"]})
+
+    @patch("IM.InfrastructureManager.InfrastructureManager.GetStats")
+    def test_GetStats(self, GetStats):
+        """Test REST GetStats."""
+        headers = {"AUTHORIZATION": "type = InfrastructureManager; username = user; password = pass"}
+        GetStats.return_value = [{"key": 1}]
+
+        res = self.client.get('/stats?init_date=2010-01-01&end_date=2022-01-01', headers=headers)
+
+        self.assertEqual(res.json, {"stats": [{"key": 1}]})
+        self.assertEqual(GetStats.call_args_list[0][0][0], '2010-01-01')
+        self.assertEqual(GetStats.call_args_list[0][0][1], '2022-01-01')
+        self.assertEqual(GetStats.call_args_list[0][0][2].auth_list, [{"type": "InfrastructureManager",
+                                                                       "username": "user",
+                                                                       "password": "pass"}])
 
 
 if __name__ == "__main__":

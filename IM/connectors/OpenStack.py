@@ -959,9 +959,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     break
 
             # Get the OST public net ids and names
+            pool_names = [pool.name for pool in driver.ex_list_floating_ip_pools()]
+            _, ost_nets = self.get_ost_network_info(driver, pool_names)
             pub_nets = {}
-            for net in driver.ex_list_networks():
-                if 'router:external' in net.extra and net.extra['router:external']:
+            for net in ost_nets:
+                if net.extra['is_public']:
                     pub_nets[net.id] = net.name
 
             # Get the routers associated with public nets

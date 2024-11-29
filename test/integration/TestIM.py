@@ -154,7 +154,7 @@ class TestIM(unittest.TestCase):
         self.__class__.inf_id = inf_id
 
         all_configured = self.wait_inf_state(
-            inf_id, VirtualMachine.CONFIGURED, 2400)
+            inf_id, VirtualMachine.CONFIGURED, 2700)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -261,7 +261,7 @@ class TestIM(unittest.TestCase):
         Test AddResource function
         """
         (success, res) = self.server.AddResource(
-            self.inf_id, RADL_ADD_WIN, self.auth_data)
+            self.inf_id, RADL_ADD, self.auth_data)
         self.assertTrue(success, msg="ERROR calling AddResource: " + str(res))
 
         (success, vm_ids) = self.server.GetInfrastructureInfo(
@@ -272,7 +272,7 @@ class TestIM(unittest.TestCase):
                                               str(len(vm_ids)) + "). It must be 4"))
 
         all_configured = self.wait_inf_state(
-            self.inf_id, VirtualMachine.CONFIGURED, 2700)
+            self.inf_id, VirtualMachine.CONFIGURED, 2400)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
@@ -508,6 +508,12 @@ class TestIM(unittest.TestCase):
         (success, res) = self.server.ImportInfrastructure(res, self.auth_data)
         self.assertTrue(
             success, msg="ERROR calling ImportInfrastructure: " + str(res))
+
+    def test_45_stats(self):
+        (success, res) = self.server.GetStats('', '', self.auth_data)
+        self.assertTrue(
+            success, msg="ERROR calling GetStats: " + str(res))
+        self.assertEqual(len(res), 4, msg="ERROR getting stats: Incorrect number of infrastructures")
 
     def test_50_destroy(self):
         """

@@ -229,6 +229,12 @@ def EstimateResources(radl_data, auth_data):
     return WaitRequest(request)
 
 
+def GetStats(init_date, end_date, auth_data):
+    request = IMBaseRequest.create_request(
+        IMBaseRequest.GET_STATS, (init_date, end_date, auth_data))
+    return WaitRequest(request)
+
+
 def launch_daemon():
     """
     Launch the IM daemon
@@ -290,6 +296,7 @@ def launch_daemon():
         server.register_function(ChangeInfrastructureAuth)
         server.register_function(GetInfrastructureOwners)
         server.register_function(EstimateResources)
+        server.register_function(GetStats)
 
         # Launch the API XMLRPC thread
         server.serve_forever_in_thread()
