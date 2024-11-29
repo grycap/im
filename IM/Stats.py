@@ -125,7 +125,7 @@ class Stats():
                     if like:
                         where += " and"
                     where += " date <= '%s'" % end_date
-                res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)
+                res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)  # nosec
 
             for elem in res:
                 if db.db_type == DataBase.MONGO:

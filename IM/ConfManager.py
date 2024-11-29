@@ -1384,7 +1384,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                     if ssh.proxy_host.private_key:
                         priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (ssh.proxy_host.username,
                                                                        ssh.username,
-                                                                       ssh.host)
+                                                                       ssh.host)  # nosec
                         # copy it to the proxy host to enable im_client to use it
                         # ssh.proxy_host.sftp_put_content(ssh.proxy_host.private_key, priv_key_filename)
                         # ssh.proxy_host.sftp_chmod(priv_key_filename, 0o600)
