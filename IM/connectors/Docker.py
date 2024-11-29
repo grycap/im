@@ -182,7 +182,7 @@ class DockerCloudConnector(CloudConnector):
         command += " ; "
         command += "mkdir /var/run/sshd"
         command += " ; "
-        command += "sed -i '/PermitRootLogin/c\PermitRootLogin yes' /etc/ssh/sshd_config"
+        command += "sed -i '/PermitRootLogin/c\\PermitRootLogin yes' /etc/ssh/sshd_config"
         command += " ; "
         command += "rm -f /etc/ssh/ssh_host_rsa_key*"
         command += " ; "
@@ -190,7 +190,7 @@ class DockerCloudConnector(CloudConnector):
         command += " ; "
         command += "echo 'root:" + self._root_password + "' | chpasswd"
         command += " ; "
-        command += "sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd"
+        command += "sed 's@session\\s*required\\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd"
         command += " ; "
         command += " /usr/sbin/sshd -D"
 
@@ -264,7 +264,7 @@ class DockerCloudConnector(CloudConnector):
         command += " ; "
         command += "echo 'root:" + self._root_password + "' | chpasswd"
         command += " ; "
-        command += "sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd"
+        command += "sed 's@session\\s*required\\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd"
         command += " ; "
         command += " /usr/sbin/sshd -D"
 

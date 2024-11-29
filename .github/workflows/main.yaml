@@ -24,6 +24,9 @@ jobs:
       - name: Check code style
         run: tox -e style
 
+      - name: Check security
+        run: tox -e bandit
+
       - name: Unit tests
         run: tox -e coverage
 

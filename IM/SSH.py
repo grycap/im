@@ -77,7 +77,7 @@ class ThreadSSH(Thread):
             channel = self.client.get_transport().open_session()
             if self.ssh.tty:
                 channel.get_pty()
-            channel.exec_command(self.command + "\n")
+            channel.exec_command(self.command + "\n")  # nosec
             stdout = channel.makefile()
             stderr = channel.makefile_stderr()
             exit_status = channel.recv_exit_status()
@@ -264,7 +264,7 @@ class SSH:
         if self.tty:
             channel.get_pty()
 
-        channel.exec_command(command + "\n")
+        channel.exec_command(command + "\n")  # nosec
         stdout = channel.makefile()
         stderr = channel.makefile_stderr()
         exit_status = channel.recv_exit_status()
