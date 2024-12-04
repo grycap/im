@@ -8,5 +8,12 @@ metadata:
 topology_template:
 
   inputs:
-    num_cpus:
-      default: 16
+    num_cpus: 16
+
+    new_input:
+      type: integer
+      default: 1
+
+  outputs:
+    new_output:
+      value: { get_input: new_input }

@@ -79,13 +79,13 @@ class Tosca:
                 new_input = input_yaml['topology_template'].get('inputs', {}).get(input_elem, {})
                 if new_input:
                     if res_input:
-                        res_input['default'] = new_input.get('default', res_input.get('default'))
+                        res_input['default'] = new_input
                     else:
                         res_yaml['topology_template']['inputs'][input_elem] = new_input
             for output_elem in input_yaml['topology_template'].get('outputs', {}):
                 new_output = input_yaml['topology_template'].get('outputs', {}).get(output_elem, {})
                 if new_output:
-                    res_yaml['topology_template']['output'][input_elem] = new_output
+                    res_yaml['topology_template']['outputs'][output_elem] = new_output
             return res_yaml
         except Exception as ex:
             raise Exception("Invalid TOSCA template '%s': %s" % (template_file, str(ex)))

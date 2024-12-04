@@ -511,6 +511,8 @@ class TestTosca(unittest.TestCase):
         radl = parse_radl(str(radl))
         node = radl.get_system_by_name('simple_node')
         self.assertEqual(node.getValue("cpu.count"), 16)
+        outputs = tosca.get_outputs(None)
+        self.assertEqual(outputs.get('new_output'), 1)
 
 
 if __name__ == "__main__":
