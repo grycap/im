@@ -73,11 +73,18 @@ class Tosca:
             if resp.status_code != 200:
                 raise Exception(resp.reason + "\n" + resp.text)
             res_yaml = yaml.safe_load(resp.text)
+            # Set values from the inputs in the template
             for input_elem in res_yaml['topology_template'].get('inputs', {}):
                 res_input = res_yaml['topology_template'].get('inputs', {}).get(input_elem)
                 new_input_value = input_yaml['topology_template'].get('inputs', {}).get(input_elem, {}).get('default')
                 if res_input and new_input_value:
                     res_input['default'] = new_input_value
+            # And add the inputs not present in the template
+            for input_elem in input_yaml['topology_template'].get('inputs', {}):
+                res_input = res_yaml['topology_template'].get('inputs', {}).get(input_elem)
+                new_input = input_yaml['topology_template'].get('inputs', {}).get(input_elem, {})
+                if not res_input and new_input:
+                    res_yaml['topology_template']['inputs'][input_elem] = new_input
             return res_yaml
         except Exception as ex:
             raise Exception("Invalid TOSCA template '%s': %s" % (template_file, str(ex)))
