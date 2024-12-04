@@ -338,6 +338,29 @@ class CloudConnector(LoggerMixin):
         """
         raise NotImplementedError("Should have implemented this")
 
+    def _filter_images(self, image_list, filters=None):
+        """
+        Get a list of images on the cloud provider using IM URI format.
+
+        Arguments:
+          - image_list(:py:class:`list` of objects): List of images objects.
+          - filters(:py:class:`dict` of str objects): Pair key value to filter the list of images.
+                                                     It is cloud provider specific.
+
+        Returns: a filtered list of images.
+        """
+        dist = None
+        version = None
+        if filters:
+            dist = filters.get('distribution', None)
+            version = filters.get('version', None)
+        res = []
+        for image in image_list:
+            if ((dist is None or dist.lower() in image["name"].lower()) and
+                    (version is None or version.lower() in image["name"].lower())):
+                res.append(image)
+        return res
+
     def get_quotas(self, auth_data):
         """
         Get the number of used and available resources in the cloud provider
@@ -652,11 +675,15 @@ class CloudConnector(LoggerMixin):
         if new_gpu:
             orig_system.delValue('gpu.count')
             orig_system.addFeature(new_gpu)
+        new_disk = radl.systems[0].getFeature('disks.free_size')
+        if new_disk:
+            orig_system.delValue('disks.free_size')
+            orig_system.addFeature(new_disk)
 
-        if any([new_cpu, new_memory, instance_type, new_gpu]):
+        if any([new_cpu, new_memory, instance_type, new_gpu, new_disk]):
             return orig_system
         else:
-            self.log_debug("No memory nor cpu nor instance_type nor gpu specified. VM not resized.")
+            self.log_debug("No memory nor cpu nor instance_type nor gpu nor disk specified. VM not resized.")
             return None
 
     @staticmethod
@@ -711,10 +738,6 @@ class CloudConnector(LoggerMixin):
                 vm.dns_entries = []
             if op == "add":
                 dns_entries = [entry for entry in self.get_dns_entries(vm) if entry not in vm.dns_entries]
-                dns_entries = []
-                for entry in self.get_dns_entries(vm):
-                    if entry not in vm.dns_entries:
-                        dns_entries.append(entry)
             else:
                 dns_entries = list(vm.dns_entries)
             if dns_entries:

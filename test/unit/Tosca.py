@@ -442,7 +442,8 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("memory.size"), 1000000000)
         self.assertEqual(node.getValue("disk.1.size"), 10000000000)
         self.assertEqual(node.getValue("disk.1.mount_path"), '/var/lib/mysql')
-        self.assertEqual(node.getValue("environment.variables"), 'MYSQL_ROOT_PASSWORD=my-secret,MYSQL_DATABASE=im-db')
+        self.assertEqual(node.getValue("environment.variables"),
+                         'MYSQL_ROOT_PASSWORD=my-secret,MYSQL_DATABASE=im-db,TEST="some,value"')
         self.assertEqual(node.getValue("net_interface.0.connection"), 'mysql_container_priv')
         self.assertIsNone(node.getValue("net_interface.1.connection"))
         net = radl.get_network_by_id('mysql_container_priv')
@@ -457,7 +458,7 @@ class TestTosca(unittest.TestCase):
         net = radl.get_network_by_id('im_container_pub')
         self.assertEqual(net.getValue("outports"), '30880/tcp-8800/tcp')
         self.assertEqual(net.getValue("outbound"), 'yes')
-        self.assertEqual(node.getValue("disk.1.content"), '[im]\nREST_API = True\n')
+        self.assertEqual(node.getValue("disk.1.content"), '[im]\nREST_API = True')
         self.assertEqual(node.getValue("disk.1.mount_path"), '/etc/im/im.cfg')
         self.assertEqual(node.getValue("disk.2.content"), 'c29tZSBlbmNvZGVkIGNvbnRlbnQ=')
         self.assertEqual(node.getValue("disk.2.mount_path"), '/etc/secret')
@@ -501,10 +502,15 @@ class TestTosca(unittest.TestCase):
         node = radl.get_system_by_name('simple_node')
         self.assertEqual(node.getValue("cpu.count"), 16)
 
-        tosca_data = read_file_as_string('../files/tosca_create.yml')
-        with self.assertRaises(Exception) as ex:
-            tosca = Tosca(tosca_data, tosca_repo="https://raw.githubusercontent.com/grycap/tosca/main/templates/")
-        self.assertIn("template_file metadata field not set.", str(ex.exception))
+        # Test with a full URL in the template_file and not in the repo
+        tosca_yaml = yaml.safe_load(tosca_data)
+        tosca_yaml["metadata"]["template_file"] = \
+            "https://raw.githubusercontent.com/grycap/tosca/main/templates/simple-node-disk.yml"
+        tosca = Tosca(yaml.safe_dump(tosca_yaml))
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        node = radl.get_system_by_name('simple_node')
+        self.assertEqual(node.getValue("cpu.count"), 16)
 
 
 if __name__ == "__main__":

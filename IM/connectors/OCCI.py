@@ -229,7 +229,7 @@ class OCCICloudConnector(CloudConnector):
                                 mask) for mask in Config.PRIVATE_NET_MASKS])
                     elif kv[0].strip() == "occi.networkinterface.interface":
                         net_interface = kv[1].strip('"')
-                        num_interface = re.findall('\d+', net_interface)[0]
+                        num_interface = re.findall(r'\d+', net_interface)[0]
                     elif kv[0].strip() == "self":
                         link = kv[1].strip('"')
                 if num_interface and ip_address:

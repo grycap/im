@@ -162,7 +162,8 @@ class CtxtAgent(CtxtAgentBase):
         vm_dir = os.path.abspath(os.path.dirname(self.vm_conf_data_filename))
         remote_dir = os.path.abspath(os.path.dirname(self.conf_data_filename))
         try:
-            (pid, _, _) = ssh_client.execute(vault_export + "nohup python3 " + remote_dir + "/ctxt_agent_dist.py " +
+            (pid, _, _) = ssh_client.execute(vault_export + "nohup " + CtxtAgentBase.VENV_DIR + "/bin/python3 " +
+                                             remote_dir + "/ctxt_agent_dist.py " +
                                              self.conf_data_filename + " " + self.vm_conf_data_filename +
                                              " 1 > " + vm_dir + "/stdout 2> " + vm_dir +
                                              "/stderr < /dev/null & echo -n $!")
@@ -211,7 +212,7 @@ class CtxtAgent(CtxtAgentBase):
         return SSHRetry(vm_ip, ctxt_vm['user'], passwd, private_key, ctxt_vm['remote_port'])
 
     @staticmethod
-    def get_ssh(vm, pk_file, changed_pass=None):
+    def get_ssh(vm, pk_file, changed_pass=None, use_proxy=False):
         passwd = vm['passwd']
         if 'new_passwd' in vm and vm['new_passwd'] and changed_pass:
             passwd = vm['new_passwd']

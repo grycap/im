@@ -182,12 +182,13 @@ class InfrastructureList():
                     if db.db_type == DataBase.MONGO:
                         res = db.find("inf_list", {"id": inf_id}, {data_field: True, "deleted": True})
                     else:
-                        res = db.select("select " + data_field + ",deleted from inf_list where id = %s", (inf_id,))
+                        res = db.select("select " + data_field + ",deleted from inf_list where id = %s",  # nosec
+                                        (inf_id,))
                 else:
                     if db.db_type == DataBase.MONGO:
                         res = db.find("inf_list", {"deleted": 0}, {data_field: True, "deleted": True}, [('_id', -1)])
                     else:
-                        res = db.select("select " + data_field + ",deleted from inf_list where deleted = 0"
+                        res = db.select("select " + data_field + ",deleted from inf_list where deleted = 0"  # nosec
                                         " order by rowid desc")
                 if len(res) > 0:
                     for elem in res:
@@ -254,30 +255,31 @@ class InfrastructureList():
         like = ""
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
+                if elem.get("admin"):
+                    return ""
                 if elem.get("username"):
                     if like:
                         like += " or "
                     like += "auth like '%%\"" + elem.get("username") + "\"%%'"
 
-        if like:
-            return "where deleted = 0 and (" + like + ")"
-        else:
-            return "where deleted = 0"
+        return like
 
     @staticmethod
     def _gen_filter_from_auth(auth):
         like = ""
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
+                if elem.get("admin"):
+                    return {}
                 if elem.get("username"):
                     if like:
                         like += "|"
                     like += '"%s"' % elem.get("username")
 
         if like:
-            return {"deleted": 0, "auth": {"$regex": like}}
+            return {"auth": {"$regex": like}}
         else:
-            return {"deleted": 0}
+            return {}
 
     @staticmethod
     def _get_inf_ids_from_db(auth=None):
@@ -287,10 +289,15 @@ class InfrastructureList():
                 inf_list = []
                 if db.db_type == DataBase.MONGO:
                     filt = InfrastructureList._gen_filter_from_auth(auth)
+                    filt["deleted"] = 0
                     res = db.find("inf_list", filt, {"id": True}, [('id', -1)])
                 else:
-                    where = InfrastructureList._gen_where_from_auth(auth)
-                    res = db.select("select id from inf_list %s order by rowid desc" % where)
+                    like = InfrastructureList._gen_where_from_auth(auth)
+                    if like:
+                        where = "where deleted = 0 and (%s)" % like
+                    else:
+                        where = "where deleted = 0"
+                    res = db.select("select id from inf_list %s order by rowid desc" % where)  # nosec
                 for elem in res:
                     if db.db_type == DataBase.MONGO:
                         inf_list.append(elem['id'])

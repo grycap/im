@@ -124,7 +124,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         radl_data = """
             system test (
                 name = 'plants' and
-                memory.size = 2G and
+                memory.size = 2GI and
                 cpu.count = 1.0 and
                 cpu.sgx = 1 and
                 gpu.count = 1 and
@@ -288,7 +288,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         new_radl_data = """
             system test (
             cpu.count>=2 and
-            memory.size>=4G
+            memory.size>=4GI
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 
@@ -306,7 +306,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
         self.assertEqual(new_vm.info.systems[0].getValue("cpu.count"), 2)
-        self.assertEqual(new_vm.info.systems[0].getFeature("memory.size").getValue("M"), 4096)
+        self.assertEqual(new_vm.info.systems[0].getFeature("memory.size").getValue("M"), 4295)
         self.assertEqual(requests.call_args_list[0][0][0], "PUT")
         self.assertEqual(requests.call_args_list[0][0][1], "http://oscar.com:80/system/services/fname")
         self.assertEqual(json.loads(requests.call_args_list[0][1]['data']), {'memory': '4096Mi', 'cpu': '2'})

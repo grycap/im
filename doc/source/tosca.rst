@@ -5,9 +5,9 @@ TOSCA
 
 The Infrastructure Manager supports the definition of Cloud topologies using `OASIS TOSCA Simple Profile in YAML Version 1.0 <http://docs.oasis-open.org/tosca/TOSCA-Simple-Profile-YAML/v1.0/TOSCA-Simple-Profile-YAML-v1.0.html>`_.
 
-The TOSCA support has been developed under de framework of the `INDIGO DataCloud EU project <http://http://www.indigo-datacloud.eu>`_.
+The TOSCA support was developed under the framework of the `INDIGO DataCloud EU project <http://http://www.indigo-datacloud.eu>`_.
 You can see some input examples at 
-`https://github.com/indigo-dc/tosca-types/tree/master/examples <https://github.com/indigo-dc/tosca-types/tree/master/examples>`_.
+`https://github.com/grycap/tosca/tree/main/templates <https://github.com/grycap/tosca/tree/main/templates>`_.
 
 Basic example
 ^^^^^^^^^^^^^
@@ -55,7 +55,7 @@ the SSH credentials to access it::
 Setting VMI URI
 ^^^^^^^^^^^^^^^^
 
-As in RADL you can set an specific URI identifying the VMI to use in the VM.
+As in RADL, you can set a specific URI identifying the VMI to use in the VM.
 The URI format is the same used in RADL (:ref:`radl_system`). In this case
 the type must be changed to ``tosca.nodes.indigo.Compute`` (the Compute normative
 type does not support the ``os image`` property), and the image property must
@@ -82,7 +82,7 @@ be added in the ``os`` capability::
 Advanced Compute host properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``tosca.nodes.indigo.Compute`` custom type add a new set of advanced features to the
+The ``tosca.nodes.indigo.Compute`` custom type adds a new set of advanced features to the
 host properties, enabling the request of GPUs and
 `Intel SGX <https://www.intel.com/content/www/us/en/architecture-and-technology/software-guard-extensions.html>`_ CPU support
 in the compute node::
@@ -109,8 +109,8 @@ Network properties
 Basic properties
 -----------------
 
-The easiest way to specify network requirements of the Compute node is sing the endpoint capability properties.
-For example the following example the compute node requests for a public IP::
+The easiest way to specify network requirements of the Compute node is using the endpoint capability properties.
+For example, the following example the compute node requests for a public IP::
 
     ...
         simple_node:
@@ -123,15 +123,15 @@ For example the following example the compute node requests for a public IP::
 
 Possible values of the ``network_name`` endpoint property:
 
-  * PRIVATE: The Compute node does not requires a public IP. **This is the default behavior if no
+  * PRIVATE: The Compute node does not require a public IP. **This is the default behaviour if no
     endpoint capability is defined**.
   * PUBLIC: The Compute node requires a public IP.
   * Network provider ID: As the `provider_id` network property in RADL
     It defines the name of the network in a specific Cloud provider
     (see :ref:`_radl_network`):
 
-Furthermore the endpoint capability has a set of additional properties
-to set the DNS name of the node or the set of ports to be externally accesible::
+Furthermore, the endpoint capability has a set of additional properties
+to set the DNS name of the node or the set of ports to be externally accessible::
 
     ...
 
@@ -151,7 +151,7 @@ to set the DNS name of the node or the set of ports to be externally accesible::
 Advanced properties
 -------------------
 
-In case that you need a more detailed definition of the networks, you can use the 
+In case you need a more detailed definition of the networks, you can use the 
 ``tosca.nodes.network.Network`` and ``tosca.nodes.network.Port`` TOSCA normative types.
 In this way you can define the set of networks needed in your topology using the ports to 
 link the networks with the Compute nodes::
@@ -198,7 +198,7 @@ Custom defined Port type ``tosca.nodes.indigo.network.Port`` has a set of additi
 Software Components
 ^^^^^^^^^^^^^^^^^^^
 
-IM enable to use Ansible playbooks as implementation scripts. Furthermore it enables to specify
+IM enable the use of Ansible playbooks as implementation scripts. Furthermore, it enables to specify
 Ansible roles (``tosca.artifacts.AnsibleGalaxy.role``) and collections (``tosca.artifacts.AnsibleGalaxy.collections``)
 to be installed and used in the playbooks::
 
@@ -255,8 +255,8 @@ some cloud providers, in general is better not to add it::
 Policies & groups
 ^^^^^^^^^^^^^^^^^
 
-IM enables the definition of the specific cloud provider where the Compute nodes will be deployed in an hybrid deployment.
-For example, in the following code we assume that we have defined three computes nodes (compute_one, compute_two and compute_three).
+IM enables the definition of the specific cloud provider where the Compute nodes will be deployed in a hybrid deployment.
+For example, in the following code we assume that we have defined three compute nodes (compute_one, compute_two and compute_three).
 We can create a placement group with two of them (compute_one and compute_two) and then set a placement policy with a cloud_id
 (that must be defined in the :ref:`auth-file`), and create a second placement policy where we can set a different cloud provider
 and, optionally, an availability zone::
@@ -285,10 +285,10 @@ Container Applications (Kubernetes connector)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 IM also enables the definition of container applications to be deployed in a Kubernetes cluster.
-In the following example we can see how to define a container application (IM) that uses a
+In the following example, we can see how to define a container application (IM) that uses a
 ConfigMap for a configuration file. The IM application is connected with a MySQL backend
 using the ``IM_DATA_DB`` environment variable. The MySQL container is defined with a Persistent
-Volume Claim (PVC) of 10GB. Furthermore the IM application specifies an endpoint to be published
+Volume Claim (PVC) of 10GB. Furthermore, the IM application specifies an endpoint to be published
 that will result in the creation of a Kubernetes Ingress.
 
     ...
@@ -384,14 +384,14 @@ Advanced Output values
 The ``tosca.nodes.indigo.Compute`` node type adds a new
 attribute named: ``ansible_output``. It is a map that has one element per each IM
 configuration step, so you can access it by name. The steps have the keyword
-``tasks`` that is also a map that has one element per ansible task. In this case
-it can bes accessed using the task name as defined in the playbook. Finally
+``tasks``, that is also a map that has one element per ansible task. In this case
+it can be accessed using the task name as defined in the playbook. Finally
 there is an ``output`` keyword that returns the output of the task.
 In most of the cases the task is a ``debug`` ansible task that shows anything you
 want to return.
 
-In the following example the specified task was a debug ansible task that shows the
-value of a internal defined value::
+In the following example, the specified task was a debug ansible task that shows the
+value of a internally defined value::
 
     ...
 

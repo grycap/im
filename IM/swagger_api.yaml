@@ -19,6 +19,8 @@ tags:
     description: Get cloud information.
   - name: oai
     description: Get OAI-PMH information.
+  - name: stats
+    description: Get IM server stats.
 
 paths:
 
@@ -39,6 +41,58 @@ paths:
                 example: 1.10.0
         '400':
           description: Invalid status value
+
+  /stats:
+    get:
+      tags:
+        - stats
+      summary: Get IM server stats.
+      description: >-
+        Return the stats of the current user in the IM service.
+        Return all the infrastructures in the interval init_date-end_date parameters deployed
+        by the user showing some aggregated information.
+      operationId: GetStats
+      parameters:
+        - name: init_date
+          in: query
+          description: >-
+            The init_date parameter is optional and it is a date with format
+            YYYY/MM/dd. Only will be returned infrastructure created afther this date.
+          required: false
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          description: >-
+            The end_date parameter is optional and it is a date with format
+            YYYY/MM/dd. Only will be returned infrastructure created before this date.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              examples:
+                response:
+                  value:
+                    - creation_date: '2022-03-07 13:16:14'
+                      tosca_name: 'kubernetes'
+                      vm_count: 2
+                      cpu_count: 4
+                      memory_size: 1024
+                      cloud_type: 'OSCAR'
+                      cloud_host: 'server.com'
+                      hybrid: false
+                      deleted: false
+                      im_user: 'username'
+                      inf_id: '1'
+                      last_date: '2022-03-23'
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
 
   /infrastructures:
     get:

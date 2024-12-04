@@ -1240,4 +1240,4 @@ class AzureCloudConnector(CloudConnector):
         for pub, offer, sku in images:
             res.append({"uri": "azr://%s/%s/%s/latest" % (pub, offer, sku),
                                "name": "%s %s %s" % (pub, offer, sku)})
-        return res
+        return self._filter_images(res, filters)

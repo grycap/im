@@ -37,6 +37,7 @@ class CtxtAgentBase:
     # the ConfManager
     PLAYBOOK_RETRIES = 1
     INTERNAL_PLAYBOOK_RETRIES = 1
+    VENV_DIR = "/var/tmp/.ansible"  # nosec
 
     def __init__(self, conf_data_filename):
         self.logger = None
@@ -288,7 +289,7 @@ class CtxtAgentBase:
             # we must create it in the localhost to use it later with ansible
             priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (proxy['user'],
                                                            vm_data['user'],
-                                                           vm_data['ip'])
+                                                           vm_data['ip'])  # nosec
             with open(priv_key_filename, 'w') as f:
                 f.write(proxy['private_key'])
             os.chmod(priv_key_filename, 0o600)
@@ -501,14 +502,14 @@ class CtxtAgentBase:
 
             if galaxy_collections:
                 now = str(int(time.time() * 100))
-                filename = "/tmp/galaxy_collections_%s.yml" % now
+                filename = "/tmp/galaxy_collections_%s.yml" % now  # nosec
                 yaml_deps = yaml.safe_dump({"collections": galaxy_collections}, default_flow_style=True)
                 self.logger.debug("Galaxy collections file: %s" % yaml_deps)
                 task = {"copy": 'dest=%s content="%s"' % (filename, yaml_deps)}
                 task["name"] = "Create YAML file to install the collections with ansible-galaxy"
                 yaml_data[0]['tasks'].append(task)
 
-                task = {"command": "ansible-galaxy collection install -c -r %s" % filename}
+                task = {"command": self.VENV_DIR + "/bin/ansible-galaxy collection install -c -r %s" % filename}
                 task["name"] = "Install galaxy collections"
                 task["become"] = "yes"
                 task["register"] = "collections_install"
@@ -555,14 +556,14 @@ class CtxtAgentBase:
 
             if galaxy_dependencies:
                 now = str(int(time.time() * 100))
-                filename = "/tmp/galaxy_roles_%s.yml" % now
+                filename = "/tmp/galaxy_roles_%s.yml" % now  # nosec
                 yaml_deps = yaml.safe_dump(galaxy_dependencies, default_flow_style=True)
                 self.logger.debug("Galaxy depencies file: %s" % yaml_deps)
                 task = {"copy": 'dest=%s content="%s"' % (filename, yaml_deps)}
                 task["name"] = "Create YAML file to install the roles with ansible-galaxy"
                 yaml_data[0]['tasks'].append(task)
 
-                task = {"command": "ansible-galaxy install -c -r %s" % filename}
+                task = {"command": self.VENV_DIR + "/bin/ansible-galaxy install -c -r %s" % filename}
                 task["name"] = "Install galaxy roles"
                 task["become"] = "yes"
                 task["register"] = "roles_install"
@@ -597,7 +598,7 @@ class CtxtAgentBase:
                 gen_pk_file = pk_file
             else:
                 if vm['private_key'] and not vm['passwd']:
-                    gen_pk_file = "/tmp/pk_" + vm['ip'] + ".pem"
+                    gen_pk_file = "/tmp/pk_" + vm['ip'] + ".pem"  # nosec
                     pk_out = open(gen_pk_file, 'w')
                     pk_out.write(vm['private_key'])
                     pk_out.close()

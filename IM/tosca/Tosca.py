@@ -41,8 +41,7 @@ class Tosca:
         self.tosca_repo = tosca_repo
         self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
-        yamlo = yaml.safe_load(yaml_str)
-        self.yaml = self._get_tosca_from_repo(yamlo)
+        self.yaml = self._get_tosca_from_repo(yaml.safe_load(yaml_str))
         if not verify:
             def verify_fake(tpl):
                 return True
@@ -60,13 +59,14 @@ class Tosca:
     def _get_tosca_from_repo(self, input_yaml):
         if 'tosca_definitions_version' not in input_yaml:
             return input_yaml
+
         template_file = input_yaml.get('metadata', {}).get('template_file')
         if self.tosca_repo and template_file:
             template_file = self.tosca_repo + "/" + template_file
-        elif not template_file and not self.tosca_repo:
+        elif not template_file and self.tosca_repo:
+            raise Exception("TOSCA template file not found in metadata section.")
+        elif not self.tosca_repo and not template_file:
             return input_yaml
-        elif not template_file:
-            raise Exception("template_file metadata field not set.")
 
         try:
             resp = self.cache_session.get(template_file, timeout=self.GET_TIMEOUT)
@@ -832,7 +832,7 @@ class Tosca:
         variables = ""
         tasks = ""
         recipe_list = []
-        remote_artifacts_path = "/tmp"
+        remote_artifacts_path = "/tmp"  # nosec
         # Take the interfaces in correct order
         for name in ['create', 'pre_configure_source', 'pre_configure_target', 'configure_rel',
                      'configure', 'post_configure_source', 'post_configure_target', 'start',
@@ -2177,13 +2177,13 @@ class Tosca:
             cont += 1
         return volumes
 
-    def _gen_k8s_configmaps(self, res, cms):
+    def _gen_k8s_configmaps(self, res, cms, node):
         """Get the configmaps attached to an K8s container."""
         cont = 1
         for cm in cms:
             mount_path = cm.get("deploy_path")
             cm_file = cm.get("file")
-            content = cm.get("properties", {}).get("content", "")
+            content = self._final_function_result(cm.get("properties", {}).get("content", ""), node)
             if content:
                 res.setValue('disk.%d.content' % cont, content)
             # if content is not empty file is ignored
@@ -2213,7 +2213,7 @@ class Tosca:
         if not image:
             raise Exception("No image specified for K8s container.")
 
-        cont = self._gen_k8s_configmaps(res, cms)
+        cont = self._gen_k8s_configmaps(res, cms, node)
 
         repo = artifact.get("repository", None)
         if repo:
@@ -2233,6 +2233,8 @@ class Tosca:
                     for k, v in value.items():
                         if variables != "":
                             variables += ","
+                        if ',' in v:
+                            v = '"%s"' % v
                         variables += "%s=%s" % (k, v)
                     res.setValue("environment.variables", variables)
                 elif prop.name == "command":

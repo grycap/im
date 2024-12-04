@@ -56,6 +56,7 @@ from IM.SSHRetry import SSHRetry
 from IM.recipe import Recipe
 from IM.config import Config
 from radl.radl import system, contextualize_item
+from IM.CtxtAgentBase import CtxtAgentBase
 
 
 class ConfManager(LoggerMixin, threading.Thread):
@@ -397,7 +398,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
                         vault_export = "export VAULT_PASS='%s' && " % vault_password
-                    (pid, _, _) = ssh.execute("nohup sh -c \"" + vault_export + "python3 " + Config.REMOTE_CONF_DIR +
+                    (pid, _, _) = ssh.execute("nohup sh -c \"" + vault_export + CtxtAgentBase.VENV_DIR +
+                                              "/bin/python3 " + Config.REMOTE_CONF_DIR +
                                               "/" + str(self.inf.id) + "/" + ctxt_agent_command +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
@@ -1382,7 +1384,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                     if ssh.proxy_host.private_key:
                         priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (ssh.proxy_host.username,
                                                                        ssh.username,
-                                                                       ssh.host)
+                                                                       ssh.host)  # nosec
                         # copy it to the proxy host to enable im_client to use it
                         # ssh.proxy_host.sftp_put_content(ssh.proxy_host.private_key, priv_key_filename)
                         # ssh.proxy_host.sftp_chmod(priv_key_filename, 0o600)

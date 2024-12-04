@@ -1,11 +1,10 @@
-ansible >= 2.4
-ansible-base
+ansible == 8.7.0
 paramiko >= 1.14
 PyYAML
 cheroot
-boto >= 2.29
+boto3
 apache-libcloud >= 3.3.1
-RADL >= 1.3.3
+RADL >= 1.3.4
 flask
 werkzeug
 netaddr
@@ -36,3 +35,4 @@ mock
 coverage
 requests-cache
 packaging
+lxml

@@ -1008,4 +1008,4 @@ class GCECloudConnector(LibCloudCloudConnector):
                 for image in gce_images:
                     images.append({"uri": "gce://%s/%s" % (location.name, image.name),
                                    "name": "%s/%s" % (location.name, image.name)})
-        return images
+        return self._filter_images(images, filters)

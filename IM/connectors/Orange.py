@@ -252,4 +252,4 @@ class OrangeCloudConnector(OpenStackCloudConnector):
         images = []
         for image in driver.list_images():
             images.append({"uri": "ora://%s/%s" % (region, image.id), "name": image.name})
-        return images
+        return self._filter_images(images, filters)

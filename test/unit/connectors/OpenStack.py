@@ -233,6 +233,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         net2.name = "private"
         net2.id = "net2id"
         net2.cidr = "10.0.0.0/24"
+        net2.extra = {}
         driver.ex_list_networks.return_value = [net2, net1]
 
         sg = MagicMock()
@@ -801,10 +802,12 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_security_groups.return_value = [sg1, sg2, sg3]
 
         net1 = MagicMock()
+        net1.id = 'net1id'
         net1.name = "im-infid-private"
         net1.cidr = None
         net1.extra = {'subnets': ["subnet1"]}
         net2 = MagicMock()
+        net2.id = 'net2id'
         net2.name = "public"
         net2.cidr = None
         net2.extra = {'subnets': [], 'router:external': True}
@@ -821,6 +824,12 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_get_volume.return_value = volume
         driver.detach_volume.return_value = True
         driver.ex_remove_security_group_from_node.return_value = True
+
+        port = MagicMock()
+        port.id = "port1"
+        port.extra = {'network_id': net1.id}
+        port.delete.return_value = True
+        driver.ex_list_ports.return_value = [port]
 
         vm.volumes = ['volid']
         vm.dns_entries = [('dydns:secret@test', 'domain.com.', '8.8.8.8')]
@@ -842,6 +851,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(fip.delete.call_args_list, [call()])
         self.assertEqual(fip2.delete.call_count, 0)
         self.assertEqual(driver.ex_detach_floating_ip_from_node.call_args_list[0][0], (node, fip))
+        self.assertEqual(port.delete.call_args_list, [call()])
 
         vm.floating_ips = ['158.42.1.1']
         success, _ = ost_cloud.finalize(vm, True, auth)
@@ -959,15 +969,34 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver = MagicMock()
         get_driver.return_value = driver
 
-        image = MagicMock(['id', 'name'])
-        image.id = "image_id"
-        image.name = "image_name"
-        image.extra = {'status': 'active'}
-        driver.list_images.return_value = [image]
+        image1 = MagicMock(['id', 'name'])
+        image1.id = "image_id1"
+        image1.name = "image_name1"
+        image1.extra = {'status': 'active'}
+        image2 = MagicMock(['id', 'name'])
+        image2.id = "image_id2"
+        image2.name = "image_name2"
+        image2.extra = {'status': 'active', 'os_distro': 'ubuntu', 'os_version': '24.04'}
+        driver.list_images.return_value = [image1, image2]
 
         res = ost_cloud.list_images(auth)
+        self.assertEqual(len(res), 2)
 
-        self.assertEqual(res, [{"uri": "ost://server.com/image_id", "name": "image_name"}])
+        res = ost_cloud.list_images(auth, {"distribution": "ubuntu", "version": "24.04"})
+        self.assertEqual(res, [{"uri": "ost://server.com/image_id2", "name": "image_name2"}])
+
+        image1 = MagicMock(['id', 'name'])
+        image1.id = "image_id1"
+        image1.name = "image_name1"
+        image1.extra = {'status': 'active'}
+        image2 = MagicMock(['id', 'name'])
+        image2.id = "image_id2"
+        image2.name = "ubuntu_24.04_image2"
+        image2.extra = {'status': 'active'}
+        driver.list_images.return_value = [image1, image2]
+
+        res = ost_cloud.list_images(auth, {"distribution": "ubuntu", "version": "24.04"})
+        self.assertEqual(res, [{"uri": "ost://server.com/image_id2", "name": "ubuntu_24.04_image2"}])
 
         quotas = MagicMock(['cores', 'ram', 'instances', 'floating_ips', 'security_groups'])
         quotas.cores = MagicMock(['in_use', 'reserved', 'limit'])
