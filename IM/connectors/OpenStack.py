@@ -24,6 +24,7 @@ import base64
 import re
 from IM.CloudInfo import CloudInfo
 from IM.SSH import SSH
+from IM.config import ConfigOpenStack
 
 try:
     from libcloud.common.exceptions import BaseHTTPError
@@ -1349,11 +1350,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         blockdevicemappings = self.get_volumes(driver, image, volume, radl)
 
-        if not self.get_private_nets(driver):
+        # The standard way of work in OpenStack is to attach a private network to a VM
+        # and then assign a floating IP to the VM. So, if there are no private networks
+        # we force the creation of them
+        if not self.get_private_nets(driver) and ConfigOpenStack.FORCE_CREATE_PRIVATE_NETWORK:
             self.log_info("No private networks found. Force the creation.")
             self.set_nets_to_create(radl)
 
-        if not driver.ex_list_floating_ip_pools():
+        # Added for the Safespring network configuration
+        # to avoid attahching two nics to the same VM (usually does not work)
+        if not driver.ex_list_floating_ip_pools() and not ConfigOpenStack.ENABLE_TWO_NICS:
             self.log_info("No floating IP pools found. Avoid the public VMs"
                           " to be attached to a private one.")
             self.remove_private_nets(radl)

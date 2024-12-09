@@ -154,8 +154,17 @@ class ConfigOpenNebula:
     TTS_URL = 'https://localhost:8443'
 
 
+class ConfigOpenStack:
+    ENABLE_TWO_NICS = False
+    FORCE_CREATE_PRIVATE_NETWORK = True
+
+
 if config.has_section("OpenNebula"):
     parse_options(config, 'OpenNebula', ConfigOpenNebula)
+
+
+if config.has_section("OpenStack"):
+    parse_options(config, 'OpenStack', ConfigOpenStack)
 
 
 # In this case set assume that the TTS server is in the same server
