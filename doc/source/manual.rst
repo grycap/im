@@ -593,3 +593,29 @@ you can use the ``delete_old_infs`` script. It will delete from DB all the infra
 created before a specified date::
 
   python delete_old_infs.py <date>
+
+Add new Cloud Connectors
+========================
+
+To add a new Cloud Connector you have to create a new Python file in the directory
+``IM/connectors/`` of the IM source code. The file must have a class with the same
+name as the file that inherits from the `CloudConnector <https://github.com/grycap/im/blob/master/IM/connectors/CloudConnector.py>`_
+class. This class must implement all the abstract methods of the ``CloudConnector``
+class. The new connector must implement at least the following methods:
+
+- ``concrete_system``: Return a list of compatible systems with the cloud provider.
+- ``updateVMInfo``: Updates the information of a VM.
+- ``launch``: Launch a set of VMs to the Cloud provider.
+- ``finalize``: Terminates a VM and all the associated resources.
+
+To have full support you have to implement the following methods:
+
+- ``alterVM``: Modifies/resizes the features of a VM.
+- ``start``: Starts a (previously stopped) VM.
+- ``stop``: Stops (but not finalizes) a VM.
+- ``reboot``: Reboots a VM.
+- ``list_images``: Get a list of images on the cloud provider using IM URI format.
+- ``get_quotas``: Get the number of used and available resources in the cloud provider
+
+The new connector must be added to the ``__all__`` variable in ``__init__.py`` file 
+of the ``IM/connectors/``
