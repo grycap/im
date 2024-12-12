@@ -1544,11 +1544,15 @@ configure step2 (
             net_interface.0.connection = 'privada' and
             disk.0.image.url = 'mock0://linux.for.ev.er' and
             disk.0.free_size >= 10GB and
-            disk.0.os.name = 'linux'
+            disk.0.os.name = 'linux' and
+            disk.1.size=20GB and
+            disk.1.device='hdb' and
+            disk.1.fstype='ext4' and
+            disk.1.mount_path='/mnt/disk'
             )
 
             deploy front 1
-            deploy wn 1
+            deploy wn 2
         """
         res = IM.EstimateResouces(radl, self.getAuth([0], [], [("Dummy", 0)]))
         self.assertEqual(res, {
@@ -1556,8 +1560,11 @@ configure step2 (
                 'cloudType': 'Dummy',
                 'cloudEndpoint': 'http://server.com:80/path',
                 'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40},
+                            {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10}],
-                'storage': [{'sizeInGigabytes': 100}]
+                'storage': [{'sizeInGigabytes': 100},
+                            {'sizeInGigabytes': 20},
+                            {'sizeInGigabytes': 20}]
             }})
 
 
