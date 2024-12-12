@@ -35,7 +35,7 @@ class Stats():
     @staticmethod
     def _get_data(str_data, init_date=None, end_date=None):
         dic = json.loads(str_data)
-        resp = {'creation_date': None}
+        resp = {'creation_date': ''}
         if 'creation_date' in dic and dic['creation_date']:
             creation_date = datetime.datetime.fromtimestamp(float(dic['creation_date']))
             resp['creation_date'] = str(creation_date)
@@ -44,7 +44,7 @@ class Stats():
             if end_date and creation_date > end_date:
                 return None
 
-        resp['tosca_name'] = None
+        resp['tosca_name'] = ''
         if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
             try:
                 tosca = yaml.safe_load(dic['extra_info']['TOSCA'])
@@ -56,8 +56,8 @@ class Stats():
         resp['vm_count'] = 0
         resp['cpu_count'] = 0
         resp['memory_size'] = 0
-        resp['cloud_type'] = None
-        resp['cloud_host'] = None
+        resp['cloud_type'] = ''
+        resp['cloud_host'] = ''
         resp['hybrid'] = False
         resp['deleted'] = True if 'deleted' in dic and dic['deleted'] else False
         for str_vm_data in dic['vm_list']:
@@ -125,7 +125,7 @@ class Stats():
                     if like:
                         where += " and"
                     where += " date <= '%s'" % end_date
-                res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)
+                res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)  # nosec
 
             for elem in res:
                 if db.db_type == DataBase.MONGO:

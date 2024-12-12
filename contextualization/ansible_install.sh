@@ -39,6 +39,10 @@ distribution_id() {
     echo ${RETVAL}
 }
 
+# Create a symbolic link to python3 in case of not venv created
+ls /var/tmp/.ansible/bin/ || mkdir -p /var/tmp/.ansible/bin/
+ls /var/tmp/.ansible/bin/python3 || ln -s /usr/bin/python3 /var/tmp/.ansible/bin/python3
+
 if [ $(which ansible-playbook) ]; then
     echo "Ansible installed. Do not install."
 else

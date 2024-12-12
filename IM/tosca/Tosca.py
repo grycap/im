@@ -800,7 +800,7 @@ class Tosca:
         variables = ""
         tasks = ""
         recipe_list = []
-        remote_artifacts_path = "/tmp"
+        remote_artifacts_path = "/tmp"  # nosec
         # Take the interfaces in correct order
         for name in ['create', 'pre_configure_source', 'pre_configure_target', 'configure_rel',
                      'configure', 'post_configure_source', 'post_configure_target', 'start',

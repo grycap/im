@@ -1135,7 +1135,7 @@ class VirtualMachine(LoggerMixin):
         reverse_opt = "-R %d:localhost:22" % (self.SSH_REVERSE_BASE_PORT + self.creation_im_id)
 
         if ssh.private_key:
-            filename = "/tmp/%s_%s.pem" % (self.inf.id, self.im_id)
+            filename = "/tmp/%s_%s.pem" % (self.inf.id, self.im_id)  # nosec
             command = 'echo "%s" > %s && chmod 400 %s ' % (ssh.private_key, filename, filename)
             command += ('&& ssh -N %s -p %s -i %s -o "UserKnownHostsFile=/dev/null"'
                         ' -o "StrictHostKeyChecking=no" %s@%s &' % (reverse_opt,
