@@ -2172,26 +2172,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         res = []
 
         for image in image_list:
-            add_image = True
             if dist is not None:
-                add_image = False
                 image_distro = image.extra.get('os_distro', None)
                 if image_distro:
-                    if dist.lower() == image_distro.lower():
-                        add_image = True
-                elif dist.lower() in image.name.lower():
-                    add_image = True
-
+                    if dist.lower() != image_distro.lower():
+                        continue
+                elif dist.lower() not in image.name.lower():
+                    continue
             if version is not None:
                 image_version = image.extra.get('os_version', None)
                 if image_version:
-                    if version.lower() == image_version.lower():
-                        add_image = True
-                elif version.lower() in image.name.lower():
-                    add_image = True
-
-            if add_image:
-                res.append(image)
+                    if version.lower() != image_version.lower():
+                        continue
+                elif version.lower() not in image.name.lower():
+                    continue
+            res.append(image)
 
         return res
 
