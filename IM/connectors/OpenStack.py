@@ -1354,9 +1354,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.set_nets_to_create(radl)
 
         if not driver.ex_list_floating_ip_pools():
-            self.log_info("No floating IP pools found. Avoid the public VMs"
-                          " to be attached to a private one.")
-            self.remove_private_nets(radl)
+            self.log_info("No floating IP pools found.")
+            if self.get_enable_two_nics(driver):
+                self.log_info("But the site supports two NICs.")
+            else:
+                self.log_info("Avoid the public VMs to be attached to a private one.")
+                self.remove_private_nets(radl)
 
         with inf._lock:
             self.create_networks(driver, radl, inf)
@@ -2172,26 +2175,21 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         res = []
 
         for image in image_list:
-            add_image = True
             if dist is not None:
-                add_image = False
                 image_distro = image.extra.get('os_distro', None)
                 if image_distro:
-                    if dist.lower() == image_distro.lower():
-                        add_image = True
-                elif dist.lower() in image.name.lower():
-                    add_image = True
-
+                    if dist.lower() != image_distro.lower():
+                        continue
+                elif dist.lower() not in image.name.lower():
+                    continue
             if version is not None:
                 image_version = image.extra.get('os_version', None)
                 if image_version:
-                    if version.lower() == image_version.lower():
-                        add_image = True
-                elif version.lower() in image.name.lower():
-                    add_image = True
-
-            if add_image:
-                res.append(image)
+                    if version.lower() != image_version.lower():
+                        continue
+                elif version.lower() not in image.name.lower():
+                    continue
+            res.append(image)
 
         return res
 
@@ -2265,3 +2263,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if not volume:
             raise Exception("Volume %s not found." % vol_id)
         return volume
+
+    @staticmethod
+    def get_enable_two_nics(driver):
+        """
+        Get the list of NICs that can be enabled
+        """
+        ost_nets = driver.ex_list_networks()
+        for ost_net in ost_nets:
+            if "tags" in ost_net.extra and "enable_two_nics" in ost_net.extra['tags']:
+                return True
+        return False
