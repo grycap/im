@@ -423,7 +423,7 @@ class Tosca:
         return current_num
 
     @staticmethod
-    def _format_outports(ports):
+    def _format_outports(ports, local_to_remote=True):
         res = ""
         if isinstance(ports, dict):
             ports = list(ports.values())
@@ -438,18 +438,18 @@ class Tosca:
             if "source_range" in port:
                 source_range = port["source_range"]
             else:
-                remote_port = None
-                local_port = None
+                remote_port = 0
+                local_port = 0
                 if "source" in port:
                     remote_port = port["source"]
                 if "target" in port:
                     local_port = port["target"]
-                elif remote_port:
+                elif remote_port and local_to_remote:
                     local_port = remote_port
-                if not remote_port and local_port:
+                if not remote_port and local_port and local_to_remote:
                     remote_port = local_port
 
-                if not remote_port or not local_port:
+                if not remote_port and not local_port:
                     raise Exception("source or target port must be specified in PortSpec type.")
 
             # In case of source_range do not use port mapping only direct ports
@@ -2239,7 +2239,7 @@ class Tosca:
                         # Asume that publish_ports must be published as NodePort
                         pub = network("%s_pub" % node.name)
                         pub.setValue("outbound", "yes")
-                        pub.setValue("outports", self._format_outports(value))
+                        pub.setValue("outports", self._format_outports(value, False))
                         nets.append(pub)
                         res.setValue("net_interface.0.connection", "%s_pub" % node.name)
                         if value and value[0] and 'endpoint' in value[0]:
