@@ -1354,9 +1354,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.set_nets_to_create(radl)
 
         if not driver.ex_list_floating_ip_pools():
-            self.log_info("No floating IP pools found. Avoid the public VMs"
-                          " to be attached to a private one.")
-            self.remove_private_nets(radl)
+            self.log_info("No floating IP pools found.")
+            if self.get_enable_two_nics(driver):
+                self.log_info("But the site supports two NICs.")
+            else:
+                self.log_info("Avoid the public VMs to be attached to a private one.")
+                self.remove_private_nets(radl)
 
         with inf._lock:
             self.create_networks(driver, radl, inf)
@@ -2265,3 +2268,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if not volume:
             raise Exception("Volume %s not found." % vol_id)
         return volume
+
+    @staticmethod
+    def get_enable_two_nics(driver):
+        """
+        Get the list of NICs that can be enabled
+        """
+        ost_nets = driver.ex_list_networks()
+        for ost_net in ost_nets:
+            if "tags" in ost_net.extra and "enable_two_nics" in ost_net.extra['tags']:
+                return True
+        return False
