@@ -98,7 +98,7 @@ class LEASE(XMLObject):
 
 
 class TEMPLATE_VNET(XMLObject):
-    values = ['BRIDGE', 'NAME', 'TYPE', 'NETWORK_ADDRESS']
+    values = ['BRIDGE', 'NAME', 'TYPE', 'NETWORK_ADDRESS', 'DEFAULT']
     tuples_lists = {'LEASES': LEASE}
 
 
@@ -841,8 +841,17 @@ class OpenNebulaCloudConnector(CloudConnector):
             self.log_error("Error in the function one.vnpool.info: " + info)
             return None
 
-        res = []
+        # set first the networks with the DEFAULT setting
+        first = []
+        last = []
         for net in pool_info.VNET:
+            if net.TEMPLATE.DEFAULT:
+                first.append(net)
+            else:
+                last.append(net)
+
+        res = []
+        for net in first + last:
             if net.TEMPLATE.NETWORK_ADDRESS:
                 ip = net.TEMPLATE.NETWORK_ADDRESS
             elif net.TEMPLATE.LEASES and len(net.TEMPLATE.LEASES) > 0:
