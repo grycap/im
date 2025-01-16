@@ -53,6 +53,9 @@
         state: present
         line: "{{partition}} none swap sw 0 0"
 
+    - name: Activate swap
+      command: swapon {{partition}}
+
 - when: fstype != 'swap'
   block:
 
