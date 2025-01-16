@@ -132,6 +132,14 @@
         executable: pip3
         extra_args: "{{ extra_args }}"
 
+    - name: Create virtualenv link in PATH
+      file:
+        state: link
+        src: /usr/local/bin/virtualenv
+        dest: /usr/local/sbin/virtualenv
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
+
     # Version over 21 does not work with python 3.6 or older
     - name: Upgrade pip in py3.6-
       pip:

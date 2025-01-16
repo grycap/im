@@ -2031,16 +2031,17 @@ class InfrastructureManager:
                     if disk_size:
                         vm['diskSizeInGigabytes'] = disk_size
 
-                    res[cloud_id]["compute"].append(vm)
+                    for _ in range(0, deploy.vm_number):
+                        res[cloud_id]["compute"].append(vm)
 
-                    cont = 1
-                    while (concrete_system.getValue("disk." + str(cont) + ".size")):
-                        volume_size = concrete_system.getFeature("disk." + str(cont) + ".size").getValue('G')
-                        vol_info = {"sizeInGigabytes": volume_size}
-                        if concrete_system.getValue("disk." + str(cont) + ".type"):
-                            vol_info["type"] = concrete_system.getValue("disk." + str(cont) + ".type")
-                        res[cloud_id]["storage"].append(vol_info)
-                        cont += 1
+                        cont = 1
+                        while (concrete_system.getValue("disk." + str(cont) + ".size")):
+                            volume_size = concrete_system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                            vol_info = {"sizeInGigabytes": volume_size}
+                            if concrete_system.getValue("disk." + str(cont) + ".type"):
+                                vol_info["type"] = concrete_system.getValue("disk." + str(cont) + ".type")
+                            res[cloud_id]["storage"].append(vol_info)
+                            cont += 1
 
         return res
 

@@ -24,23 +24,44 @@
 #  args:
 #    creates: "{{partition}}"
 
-- package: name=parted
+- name: Install parted package
+  package: name=parted
   ignore_errors: yes
 
-- stat:
+- name: Check if partition exists
+  stat:
     path: "{{partition}}"
   register: partition_stat
 
-- parted: device={{device}} number=1 state=present part_type=primary label=gpt
+- name: Create partition
+  parted: device={{device}} number=1 state=present part_type=primary label=gpt
   when: not partition_stat.stat.exists
 
-- filesystem: fstype={{fstype}} dev={{partition}}
+- name: Format partition
+  filesystem: fstype={{fstype}} dev={{partition}}
   ignore_errors: yes
   register: format
 
-- file: path={{mount_path}} state=directory
+- when: fstype == 'swap' and not format is failed
+  block:
+    - name: Create swap
+      command: mkswap {{partition}}
 
-- mount: name={{mount_path}} src={{partition}} state=mounted fstype={{fstype}}
-  when: not format is failed
+    - name: Add swap entry in /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        state: present
+        line: "{{partition}} none swap sw 0 0"
 
-                    
+    - name: Activate swap
+      command: swapon {{partition}}
+
+- when: fstype != 'swap'
+  block:
+
+  - name: Create mount point
+    file: path={{mount_path}} state=directory
+
+  - name: Mount partition
+    mount: name={{mount_path}} src={{partition}} state=mounted fstype={{fstype}}
+    when: not format is failed
