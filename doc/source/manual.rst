@@ -619,3 +619,39 @@ To have full support you have to implement the following methods:
 
 The new connector must be added to the ``__all__`` variable in ``__init__.py`` file 
 of the ``IM/connectors/``
+
+Cloud Providers Configuration
+==============================
+
+The IM tries to select the most appropriate resources to launch the VMs. But sometimes it may select
+the wrong resources. To avoid this situation you can set some tags in the cloud provider configuration
+to help the IM to select the correct resources.
+
+OpenStack
+^^^^^^^^^
+
+In case that there are more that one private or public network in the OpenStack cloud provider
+to enable the IM to select the correct network to launch the VMs you can set a ``default`` tag
+in the network that you want to use as the default network. The IM will use this network to launch
+the VMs if the network is not specified in the RADL file (from version 1.17.0).
+
+The IM expects as default network configuration having one or more private networks and one or more
+floating IP networks. The private networks are used to launch the VMs and the floating IP networks
+are used to assign a public IP to the VMs. The IM will use the first private network found as the
+default network to launch the VMs and the first floating IP network found as the default network to
+assign the public IP to the VMs.
+
+In case that your site does not have this configuration and it does not uses floating IPs, the IM
+by default will avoid to attach two NICs to the VMs. So the VMs will have only one NIC attached to
+either to the public or private network. To enable the IM to attach two NICs to the VMs
+you have to set a tag  ``enable_two_nics`` to some of the networks of the site. In this case the IM
+will attach two NICs to the VMs, one to the private network and the other to the public network, if
+it is required by the RADL file (from version 1.18.0).
+
+OpenNebula
+^^^^^^^^^^
+
+Similar to OpenStack, in case that there are more that one private or public network in the OpenNebula cloud provider
+to enable the IM to select the correct network to launch the VMs you can set a ``DEFAULT`` attribute in the network
+definition in the OpenNebula template. The IM will use this network to launch the VMs if the network is not specified
+(from version 1.18.0).
