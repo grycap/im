@@ -347,7 +347,7 @@ machine.  The supported features are:
    Set the source of the disk image by its name in the VMRC server.
 
 ``disk.<diskId>.device = <string>``
-   Set the device name, if it is disk with no source set.
+   Set the device name, in case of disk with no source set.
    It specifies the device where the disk will be located in the system
    (hdb, hdc, etc.). Depending on the Cloud provider the meaning of this
    field may change. In Docker connector the device
@@ -355,23 +355,24 @@ machine.  The supported features are:
    character ``/`` or the name of a volume otherwise.
    
 ``disk.<diskId>.mount_path = <string>``
-   Set the mount point, if it is disk with no source set.
+   Set the mount point, in case of disk with no source set.
    It specifies a path to mount the device. In Docker and Kubernetes 
    connectors this path refers to the directory in the container to 
    mount a PVC or the bind host directory specified in ``device``.
    
 ``disk.<diskId>.fstype = <string>``
-   Set the filesystem, if it is disk with no source set.
+   Set the filesystem, in case of disk with no source set.
    It specifies the type of the filesystem of this disk. If specified
    the contextualization agent will try to format and mount this disk
    in the path specified in ``mount_path`` field. In case of Docker 
    the fstype refers to the driver to use in case of using a volume.
+   If set to ``swap`` the disk will be used as swap space.
 
 ``disk.<diskId>.size = <positive integer value>B|K|M|G``
-   Set the size of the disk, if it is a disk with no source set.
+   Set the size of the disk, in case of disk with no source set.
 
 ``disk.<diskId>.type = <string>``
-   Set the type of the disk, if it is a disk with no source set.
+   Set the type of the disk, in case of disk with no source set.
    The types depends on the provider: e.g. in GCE posible types are: pd-standard | pd-ssd,
    in EC2 possible values are: standard | io1 | gp2. In OpenStack possible values are ephemeral,
    or any volume type supported by the provider.
