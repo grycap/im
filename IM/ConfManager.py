@@ -670,6 +670,9 @@ class ConfManager(LoggerMixin, threading.Thread):
                 disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
                 disk_fstype = system.getValue("disk." + str(cont) + ".fstype")
 
+                if disk_fstype == 'swap':
+                    disk_mount_path = 'swap'
+
                 # Only add the tasks if the user has specified a mount_path and a filesystem
                 if disk_mount_path and disk_fstype:
                     # This recipe works with EC2, OpenNebula and Azure. It must be
