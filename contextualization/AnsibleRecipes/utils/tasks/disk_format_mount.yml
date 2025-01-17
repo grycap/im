@@ -29,7 +29,7 @@
   ignore_errors: yes
 
 - name: Check if partition exists
-- stat:
+  stat:
     path: "{{partition}}"
   register: partition_stat
 
@@ -52,6 +52,9 @@
         path: /etc/fstab
         state: present
         line: "{{partition}} none swap sw 0 0"
+
+    - name: Activate swap
+      command: swapon {{partition}}
 
 - when: fstype != 'swap'
   block:
