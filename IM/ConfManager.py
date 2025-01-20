@@ -821,17 +821,20 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         if self.inf.ansible_configured:
             # Check that remote_dir exists
-            try:
-                remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
-                ssh = self.inf.vm_master.get_ssh(retry=True)
-                files = ssh.sftp_list(remote_dir)
-            except Exception:
-                self.log_exception("Error listing remote dir %s." % remote_dir)
-                files = []
-            # if there are no files, reconfigure ansible
-            if len(files) < 4:
-                self.log_warn("Remote dir %s not found. Reinstall ansible on master node." % remote_dir)
-                self.inf.ansible_configured = False
+            # Also check if virtual env exists (new in version 1.18.0)
+            remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
+            venv_dir = CtxtAgentBase.VENV_DIR + "/bin/"
+            for rd in [remote_dir, venv_dir]:
+                try:
+                    ssh = self.inf.vm_master.get_ssh(retry=True)
+                    files = ssh.sftp_list(rd)
+                except Exception:
+                    self.log_exception("Error listing remote dir %s." % rd)
+                    files = []
+                # if there are no files, reconfigure ansible
+                if len(files) < 4:
+                    self.log_warn("Remote dir %s not found. Reinstall ansible on master node." % rd)
+                    self.inf.ansible_configured = False
 
         if not self.inf.ansible_configured:
             success = False
