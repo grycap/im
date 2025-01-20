@@ -828,8 +828,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                 try:
                     ssh = self.inf.vm_master.get_ssh(retry=True)
                     files = ssh.sftp_list(rd)
-                except Exception:
-                    self.log_exception("Error listing remote dir %s." % rd)
+                except Exception as ex:
+                    self.log_exception("Error listing remote dir %s (%s)." % (rd, str(ex)))
                     files = []
                 # if there are no files, reconfigure ansible
                 if len(files) < 4:
