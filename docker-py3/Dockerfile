@@ -14,17 +14,12 @@ RUN apt-get update && apt-get install --no-install-recommends -y patch wget pyth
 
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
-     pip3 install --break-system-packages msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity==1.8.0 && \
+     pip3 install --break-system-packages msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity && \
      pip3 install --break-system-packages pyOpenSSL cheroot xmltodict pymongo ansible==8.7.0&& \
-     pip3 install --break-system-packages apache-libcloud==3.8.0 IM==${VERSION} &&\
+     pip3 install --break-system-packages git+https://github.com/micafer/libcloud@im && \
+     pip3 install --break-system-packages IM==${VERSION} &&\
      apt-get purge -y python3-pip git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
-
-# Patch libcloud to add network extra
-# untill this PR is merged and released
-# https://github.com/apache/libcloud/pull/2016
-COPY ost.patch /tmp/ost.patch
-RUN patch /usr/local/lib/python3.12/dist-packages/libcloud/compute/drivers/openstack.py < /tmp/ost.patch && rm /tmp/ost.patch
 
 # Copy im configuration files
 RUN mkdir /etc/im
