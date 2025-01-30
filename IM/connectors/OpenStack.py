@@ -1627,7 +1627,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 delay = 5
                 attached = False
                 ports = node.driver.ex_get_node_ports(node)
-                while not attached and cont < retries:
+                while ports and not attached and cont < retries:
+                    # Use each port to attach the IP
                     port_num = cont % len(ports)
                     port_id = ports[port_num].id
                     try:
