@@ -1626,9 +1626,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 retries = 5
                 delay = 5
                 attached = False
+                ports = node.driver.ex_get_node_ports(node)
                 while not attached and cont < retries:
+                    port_num = cont % len(ports)
+                    port_id = ports[port_num].id
                     try:
-                        node.driver.ex_attach_floating_ip_to_node(node, floating_ip)
+                        node.driver.ex_attach_floating_ip_to_node(node, floating_ip, port_id)
                         attached = True
                     except Exception as atex:
                         self.log_warn("Error attaching a Floating IP to the node: %s" % get_ex_error(atex))
