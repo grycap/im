@@ -33,16 +33,15 @@ class Tosca:
 
     """
 
-    ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/artifacts"
-    ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/grycap/tosca/main/artifacts/"
     GET_TIMEOUT = 20
 
     logger = logging.getLogger('InfrastructureManager')
 
-    def __init__(self, yaml_str, verify=True):
+    def __init__(self, yaml_str, verify=True, tosca_repo=None):
+        self.tosca_repo = tosca_repo
         self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
-        self.yaml = yaml.safe_load(yaml_str)
+        self.yaml = self._get_tosca_from_repo(yaml.safe_load(yaml_str))
         if not verify:
             def verify_fake(tpl):
                 return True
@@ -56,6 +55,40 @@ class Tosca:
     def deserialize(str_data):
         # avoid validation in this case
         return Tosca(str_data, False)
+
+    def _get_tosca_from_repo(self, input_yaml):
+        if 'tosca_definitions_version' not in input_yaml:
+            return input_yaml
+
+        template_file = input_yaml.get('metadata', {}).get('template_file')
+        if self.tosca_repo and template_file:
+            template_file = self.tosca_repo + "/" + template_file
+        elif not template_file and self.tosca_repo:
+            raise Exception("TOSCA template file not found in metadata section.")
+        elif not self.tosca_repo and not template_file:
+            return input_yaml
+
+        try:
+            resp = self.cache_session.get(template_file, timeout=self.GET_TIMEOUT)
+            if resp.status_code != 200:
+                raise Exception(resp.reason + "\n" + resp.text)
+            res_yaml = yaml.safe_load(resp.text)
+            # Set values from the inputs in the template
+            for input_elem in input_yaml['topology_template'].get('inputs', {}):
+                res_input = res_yaml['topology_template'].get('inputs', {}).get(input_elem, {})
+                new_input = input_yaml['topology_template'].get('inputs', {}).get(input_elem, {})
+                if new_input:
+                    if res_input:
+                        res_input['default'] = new_input
+                    else:
+                        res_yaml['topology_template']['inputs'][input_elem] = new_input
+            for output_elem in input_yaml['topology_template'].get('outputs', {}):
+                new_output = input_yaml['topology_template'].get('outputs', {}).get(output_elem, {})
+                if new_output:
+                    res_yaml['topology_template']['outputs'][output_elem] = new_output
+            return res_yaml
+        except Exception as ex:
+            raise Exception("Invalid TOSCA template '%s': %s" % (template_file, str(ex)))
 
     def _get_placement_property(self, sys_name, prop):
         """
@@ -843,7 +876,12 @@ class Tosca:
                 implementation = self._get_implementation_url(node, interface.implementation)
                 implementation_url = urlparse(implementation)
 
-                if implementation_url[0] in ['http', 'https', 'ftp']:
+                if implementation_url[0] in ['http', 'https', 'ftp'] or self.tosca_repo is not None:
+                    # In case of setting tosca_repo and not url, get artifacts from the tosca_repo
+                    if implementation_url[0] == '':
+                        implementation = self.tosca_repo + "../artifacts/" + implementation
+                        implementation_url = urlparse(implementation)
+
                     script_path = implementation_url[2]
                     try:
                         resp = self.cache_session.get(implementation, timeout=self.GET_TIMEOUT)
@@ -853,27 +891,17 @@ class Tosca:
                     except Exception as ex:
                         raise Exception("Error downloading the implementation script '%s': %s" % (
                             implementation, str(ex)))
-                else:
-                    if implementation_url[0] == 'file':
-                        script_path = implementation_url[2]
-                    else:
-                        script_path = os.path.join(Tosca.ARTIFACTS_PATH, implementation)
+                elif implementation_url[0] == 'file':
+                    script_path = implementation_url[2]
+
                     if os.path.isfile(script_path):
                         f = open(script_path)
                         script_content = f.read()
                         f.close()
                     else:
-                        try:
-                            resp = self.cache_session.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation,
-                                                          timeout=self.GET_TIMEOUT)
-                            script_content = resp.text
-                            if resp.status_code != 200:
-                                raise Exception(resp.reason + "\n" + resp.text)
-                        except Exception:
-                            raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' "
-                                            "or in the artifacts remote url '%s'." % (implementation,
-                                                                                      Tosca.ARTIFACTS_PATH,
-                                                                                      Tosca.ARTIFACTS_REMOTE_REPO))
+                        raise Exception("Implementation file: '%s' cannot be found." % (implementation))
+                else:
+                    raise Exception("Incorrect implementation file: '%s'." % (implementation))
 
                 if script_path.endswith(".yaml") or script_path.endswith(".yml"):
                     if env:
