@@ -533,8 +533,8 @@ class KubernetesCloudConnector(CloudConnector):
         return namespace
 
     @staticmethod
-    def _random_string(len=4):
-        return ''.join(choice(ascii_lowercase + digits) for _ in range(len))
+    def _random_string(chars=4):
+        return ''.join(choice(ascii_lowercase + digits) for _ in range(chars))
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
