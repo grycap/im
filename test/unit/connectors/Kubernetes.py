@@ -133,7 +133,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
     @patch('requests.request')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    def test_20_launch(self, save_data, requests):
+    @patch('IM.connectors.Kubernetes.KubernetesCloudConnector._random_string', return_value='aaaa')
+    def test_20_launch(self, random_string, save_data, requests):
         radl_data = """
             description desc (
                 name = 'Infrastructure Name' and
@@ -183,9 +184,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         exp_pvc = {
             "apiVersion": "v1",
             "kind": "PersistentVolumeClaim",
-            "metadata": {"name": "test-1",
+            "metadata": {"name": "test-aaaa-1",
                          "namespace": "somenamespace",
-                         'labels': {'name': 'test-1'}},
+                         'labels': {'name': 'test-aaaa-1'}},
             "spec": {
                 "accessModes": ["ReadWriteOnce"],
                 "resources": {"requests": {"storage": 10000000000}},
@@ -198,9 +199,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         exp_cm = {
             "apiVersion": "v1",
             "kind": "ConfigMap",
-            "metadata": {"name": "test-cm-2",
+            "metadata": {"name": "test-aaaa-cm-2",
                          "namespace": "somenamespace",
-                         'labels': {'name': 'test-cm-2'}},
+                         'labels': {'name': 'test-aaaa-cm-2'}},
             "data": {"config": "\n            some content\n            "},
         }
         self.assertEqual(requests.call_args_list[2][0][1],
@@ -210,9 +211,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         exp_cm = {
             "apiVersion": "v1",
             "kind": "Secret",
-            "metadata": {"name": "test-cm-3",
+            "metadata": {"name": "test-aaaa-cm-3",
                          "namespace": "somenamespace",
-                         'labels': {'name': 'test-cm-3'}},
+                         'labels': {'name': 'test-aaaa-cm-3'}},
             "data": {"secret": "dmFsdWUtMg0KDQo="},
         }
         self.assertEqual(requests.call_args_list[3][0][1],
@@ -223,14 +224,14 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             "apiVersion": "v1",
             "kind": "Pod",
             "metadata": {
-                "name": "test",
+                "name": "test-aaaa",
                 "namespace": "somenamespace",
-                "labels": {"name": "test", "IM_INFRA_ID": "infid", "key": "invalid_"},
+                "labels": {"name": "test-aaaa", "IM_INFRA_ID": "infid", "key": "invalid_"},
             },
             "spec": {
                 "containers": [
                     {
-                        "name": "test",
+                        "name": "test-aaaa",
                         "command": ["/bin/bash"],
                         "args": ["-c", "sleep 100"],
                         "image": "someimage",
@@ -242,18 +243,18 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                         },
                         "env": [{"name": "var", "value": "some_val"},
                                 {"name": "var2", "value": "some,val2"}],
-                        "volumeMounts": [{"name": "test-1", "mountPath": "/mnt"},
-                                         {'mountPath': '/etc/config', 'name': 'test-cm-2',
+                        "volumeMounts": [{"name": "test-aaaa-1", "mountPath": "/mnt"},
+                                         {'mountPath': '/etc/config', 'name': 'test-aaaa-cm-2',
                                           'readOnly': True, 'subPath': 'config'},
-                                         {'mountPath': '/etc/secret', 'name': 'test-cm-3',
+                                         {'mountPath': '/etc/secret', 'name': 'test-aaaa-cm-3',
                                           'readOnly': True, 'subPath': 'secret'}],
                     }
                 ],
                 "restartPolicy": "OnFailure",
                 "volumes": [
-                    {"name": "test-1", "persistentVolumeClaim": {"claimName": "test-1"}},
-                    {"name": "test-cm-2", "configMap": {"name": "test-cm-2"}},
-                    {"name": "test-cm-3", "secret": {"secretName": "test-cm-3"}},
+                    {"name": "test-aaaa-1", "persistentVolumeClaim": {"claimName": "test-aaaa-1"}},
+                    {"name": "test-aaaa-cm-2", "configMap": {"name": "test-aaaa-cm-2"}},
+                    {"name": "test-aaaa-cm-3", "secret": {"secretName": "test-aaaa-cm-3"}},
                 ],
             },
         }
@@ -266,9 +267,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             "apiVersion": "v1",
             "kind": "Service",
             "metadata": {
-                "name": "test",
+                "name": "test-aaaa",
                 "namespace": "somenamespace",
-                "labels": {"name": "test"},
+                "labels": {"name": "test-aaaa"},
             },
             "spec": {
                 "type": "NodePort",
@@ -281,7 +282,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                         "nodePort": 38080,
                     }
                 ],
-                "selector": {"name": "test"},
+                "selector": {"name": "test-aaaa"},
             },
         }
         self.assertEqual(requests.call_args_list[5][0][1],
@@ -293,8 +294,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             "apiVersion": "networking.k8s.io/v1",
             "kind": "Ingress",
             "metadata": {
-                "labels": {"name": "test"},
-                "name": "test",
+                "labels": {"name": "test-aaaa"},
+                "name": "test-aaaa",
                 "namespace": "somenamespace",
                 "annotations": {
                     "cert-manager.io/cluster-issuer": "letsencrypt-prod",
@@ -307,7 +308,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "tls": [
                     {
                         "hosts": ["ingress.domain.com"],
-                        "secretName": "test-tls"
+                        "secretName": "test-aaaa-tls"
                     }
                 ],
                 "rules": [
@@ -318,7 +319,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                                 {
                                     "backend": {
                                         "service": {
-                                            "name": "test",
+                                            "name": "test-aaaa",
                                             "port": {"number": 8080},
                                         }
                                     },
