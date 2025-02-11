@@ -374,7 +374,7 @@ class KubernetesCloudConnector(CloudConnector):
                 if apps_dns and not host.endswith(apps_dns):
                     if host.endswith("."):
                         host = host[:-1]
-                    host += "-" + ''.join(choice(ascii_lowercase + digits) for _ in range(4))
+                    host += "-" + self._random_string()
                     if apps_dns.startswith("."):
                         apps_dns = apps_dns[1:]
                     host += "." + apps_dns
@@ -532,6 +532,10 @@ class KubernetesCloudConnector(CloudConnector):
                 namespace = inf.radl.description.getValue('namespace')
         return namespace
 
+    @staticmethod
+    def _random_string(len=4):
+        return ''.join(choice(ascii_lowercase + digits) for _ in range(len))
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
 
@@ -573,6 +577,7 @@ class KubernetesCloudConnector(CloudConnector):
             vm.destroy = True
             inf.add_vm(vm)
             pod_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_ ]', '-', system.name)
+            pod_name += '-%s' % self._random_string()
 
             volumes = self._create_volumes(namespace, system, pod_name, auth_data)
 
