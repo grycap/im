@@ -1566,12 +1566,15 @@ class InfrastructureManager:
                 raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
             if Config.ADMIN_USER:
-                admin_auth = dict(Config.ADMIN_USER)
-                admin_auth["type"] = "InfrastructureManager"
-                if ((im_auth_item.get("token") is None or admin_auth.get("token") is not None) and
-                        im_auth_item.get("username") == admin_auth.get("username") and
-                        im_auth_item.get("password") == admin_auth.get("password")):
-                    im_auth_item['admin'] = True
+                admin_users = Config.ADMIN_USER
+                if isinstance(Config.ADMIN_USER, dict):
+                    admin_users = [Config.ADMIN_USER]
+                for admin_auth in admin_users:
+                    if ((im_auth_item.get("token") is None or admin_auth.get("token") is not None) and
+                            im_auth_item.get("username") == admin_auth.get("username") and
+                            im_auth_item.get("password") == admin_auth.get("password")):
+                        im_auth_item['admin'] = True
+                        break
 
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
