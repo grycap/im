@@ -131,17 +131,6 @@ class Tosca:
 
         return input_yaml
 
-
-        template_file = input_yaml.get('metadata', {}).get('template_file')
-        if self.tosca_repo and template_file:
-            template_file = self.tosca_repo + "/" + template_file
-        elif not template_file and self.tosca_repo:
-            raise Exception("TOSCA template file not found in metadata section.")
-        elif not self.tosca_repo and not template_file:
-            return input_yaml
-
-
-
     def to_radl(self, inf_info=None):
         """
         Converts the current ToscaTemplate object in a RADL object
