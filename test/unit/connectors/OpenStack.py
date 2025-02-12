@@ -28,6 +28,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OpenStack import OpenStackCloudConnector
+from libcloud.compute.base import NodeState
 from mock import patch, MagicMock, call
 
 
@@ -186,6 +187,7 @@ class TestOSTConnector(TestCloudConnectorBase):
     @patch('IM.AppDB.AppDB.get_image_data')
     def test_20_launch(self, get_image_data, save_data, get_driver):
         radl_data = """
+            description desc (name = 'SimpleRADL')
             network net1 (outbound = 'yes' and provider_id = 'public' and
                           outports = '8080,9000:9100' and sg_name= 'test')
             network net2 (dnsserver='1.1.1.1' and create = 'yes')
@@ -293,6 +295,9 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
         self.assertEqual(driver.ex_create_subnet.call_args_list[0][0][2], "10.0.1.0/24")
         self.assertEqual(driver.ex_create_security_group_rule.call_args_list[8][0][1:], ('tcp', 22, 22, '0.0.0.0/0'))
+        self.assertEqual(driver.ex_create_security_group.call_args_list[0][0][0], 'im-%s' % inf.id)
+        sg_desc = "Security group created by the IM for Inf: SimpleRADL"
+        self.assertEqual(driver.ex_create_security_group.call_args_list[0][0][1], sg_desc)
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
@@ -403,7 +408,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small', 'volumes_attached': [{'id': 'vol0'}, {'id': 'vol1'}],
                       'addresses': {'os-lan': [{'addr': '10.0.0.1', 'OS-EXT-IPS:type': 'fixed'},
                                                {'addr': 'fd8c:8d88:f133:71::24d', 'OS-EXT-IPS:type': 'fixed'}],
@@ -505,7 +510,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         # the node has a IPv6 IP
         node = MagicMock()
         node.id = "2"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small'}
         node.public_ips = ['8.8.8.8', '2001:630:12:581:f816:3eff:fe92:2146']
         node.private_ips = ['10.0.0.1']
@@ -537,7 +542,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small'}
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
@@ -565,7 +570,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small'}
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
@@ -593,7 +598,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small'}
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
@@ -608,8 +613,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
-    @patch('IM.connectors.OpenStack.OpenStackCloudConnector.add_elastic_ip_from_pool')
-    def test_55_alter(self, add_elastic_ip_from_pool, get_driver):
+    def test_55_alter(self, get_driver):
         radl_data = """
             network net ()
             system test (
@@ -639,13 +643,14 @@ class TestOSTConnector(TestCloudConnectorBase):
         inf = MagicMock()
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
         vm.volumes = []
+        vm.floating_ips = []
 
         driver = MagicMock()
         get_driver.return_value = driver
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small', 'vm_state': 'resized'}
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
@@ -697,11 +702,21 @@ class TestOSTConnector(TestCloudConnectorBase):
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 
-        add_elastic_ip_from_pool.return_value = True, ""
+        pool = MagicMock()
+        pool.name = "pool1"
+        driver.ex_list_floating_ip_pools.return_value = [pool]
+        fip = MagicMock()
+        fip.ip_address = '8.8.8.8'
+        pool.create_floating_ip.return_value = fip
+        p1 = MagicMock()
+        p1.id = 'port1'
+        p2 = MagicMock()
+        p2.id = 'port2'
+        driver.ex_get_node_ports.return_value = [p1, p2]
 
         success, _ = ost_cloud.alterVM(vm, new_radl, auth)
         self.assertTrue(success, msg="ERROR: modifying VM info.")
-        self.assertEqual(add_elastic_ip_from_pool.call_args_list[0][0], (vm, node, None, 'pool1'))
+        self.assertEqual(driver.ex_attach_floating_ip_to_node.call_args_list[0][0], (node, fip, p1.id))
 
         radl_data = """
             network net (outbound = 'yes' and provider_id = 'pool1')
@@ -719,6 +734,7 @@ class TestOSTConnector(TestCloudConnectorBase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
+        vm.floating_ips = []
 
         new_radl_data = """
             network net ()
@@ -769,7 +785,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small'}
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
