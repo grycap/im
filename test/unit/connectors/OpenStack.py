@@ -373,8 +373,8 @@ class TestOSTConnector(TestCloudConnectorBase):
             network net1 (outbound = 'yes')
             network net2 ()
             system test (
-            cpu.count=1 and
-            memory.size=512m and
+            cpu.count=2 and
+            memory.size=2g and
             net_interface.1.connection = 'net1' and
             net_interface.0.connection = 'net2' and
             disk.0.os.name = 'linux' and
