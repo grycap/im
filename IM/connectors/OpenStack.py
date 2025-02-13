@@ -1317,6 +1317,28 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             return url_path[7:]
         return None
 
+    def get_compute_reservation(self, lease):
+        for reservation in lease.reservations:
+            if reservation.get('resource_type') == "physical:host":
+                return reservation.get('id')
+
+    def get_reservation_id(self, driver, lease_id=None):
+        try:
+            leases = driver.ex_list_leases()
+            if len(leases) == 0:
+                self.log_debug("No leases found.")
+            elif len(leases) == 1 and leases[0].status == "ACTIVE" and not lease_id:
+                return self.get_compute_reservation(leases[0])
+            else:
+                for lease in leases:
+                    if lease.status == "ACTIVE" and (lease_id is None or lease.id == lease_id):
+                        return self.get_compute_reservation(lease)
+                self.log_warn("Lease %s not found." % lease_id)
+            return None
+        except Exception as ex:
+            self.log_warn("Error getting leases: %s." % get_ex_error(ex))
+            return None
+
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         driver = self.get_driver(auth_data)
 
@@ -1343,9 +1365,24 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if not volume:
                 raise Exception("Incorrect OpenStack volume id.")
 
-        instance_type = self.get_instance_type(driver, system)
-        if not instance_type:
-            raise Exception("No flavor found for the specified VM requirements.")
+        # In case of using the blazar reservation service
+        reservation = None
+        if system.getValue("reservation.id"):
+            reservation = system.getValue("reservation.id")
+        reservation = self.get_reservation_id(driver, reservation)
+        if reservation:
+            sizes = driver.list_sizes()
+            if sizes:
+                # in case of using leases assume that there is only one flavor
+                instance_type = sizes[0]
+                if len(sizes) > 1:
+                    self.log_warn("More than one flavor found. Using the first one.")
+            else:
+                raise Exception("No flavor found.")
+        else:
+            instance_type = self.get_instance_type(driver, system)
+            if not instance_type:
+                raise Exception("No flavor found for the specified VM requirements.")
 
         blockdevicemappings = self.get_volumes(driver, image, volume, radl)
 
@@ -1404,6 +1441,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if system.getValue('availability_zone'):
             self.log_debug("Setting availability_zone: %s" % system.getValue('availability_zone'))
             args['ex_availability_zone'] = system.getValue('availability_zone')
+
+        # In case of using the blazar reservation service
+        if reservation:
+            self.log_info("Reservation found: %s." % reservation)
+            args['ex_os_scheduler_hints'] = {'reservation': reservation}
 
         res = []
         i = 0
