@@ -362,6 +362,37 @@ class TestOSTConnector(TestCloudConnectorBase):
                                                                         'external_gateway_info':
                                                                             {'network_id': 'net1id'}})
 
+        # Test the creation using reservations
+        lease = MagicMock()
+        lease.id = 'leaseid'
+        lease.status = 'ACTIVE'
+        lease.reservations = [{'id': 'resid', 'resource_type': 'physical:host'}]
+        driver.ex_list_leases.return_value = [lease]
+
+        radl_data = """
+            network net1 (outbound = 'yes')
+            network net2 ()
+            system test (
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.1.connection = 'net1' and
+            net_interface.0.connection = 'net2' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'ost://server.com/ami-id'
+            )
+            """
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+
+        inf = InfrastructureInfo()
+        inf.auth = auth
+        inf.radl = radl
+        res = ost_cloud.launch(inf, radl, radl, 1, auth)
+        success, _ = res[0]
+        self.assertTrue(success, msg="ERROR: launching a VM.")
+        self.assertEqual(driver.create_node.call_args_list[6][1]['ex_os_scheduler_hints'],
+                         {'reservation': 'resid'})
+
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     @patch('requests.get')
     def test_30_updateVMInfo(self, request, get_driver):
