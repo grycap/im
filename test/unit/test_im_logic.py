@@ -1197,9 +1197,9 @@ configure step2 (
         self.assertFalse(res)
 
         inf.auth = user_auth1
-        Config.ADMIN_USER = {"username": "__OPENID__admin_user",
-                             "password": "https://iam-test.indigo-datacloud.eu/admin_user",
-                             "token": ""}
+        Config.ADMIN_USER = [{"username": "__OPENID__admin_user",
+                              "password": "https://iam-test.indigo-datacloud.eu/admin_user",
+                              "token": ""}]
         get_user_info_request.return_value = True, {'sub': 'admin_user'}
         admin_auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager',
                                       'token': self.gen_token(user_sub="admin_user", exp=120)}])
