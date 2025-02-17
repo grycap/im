@@ -1902,8 +1902,12 @@ class Tosca:
                     volume_id = self._final_function_result(trgt.get_property_value('volume_id'), trgt)
                     snapshot_id = self._final_function_result(trgt.get_property_value('snapshot_id'), trgt)
                     size, unit = Tosca._get_size_and_unit(full_size)
-                    disks.append((size, unit, location, device, count, fs_type, volume_id, snapshot_id, vol_type))
-                    count += 1
+
+                    if size or volume_id or snapshot_id:
+                        disks.append((size, unit, location, device, count, fs_type, volume_id, snapshot_id, vol_type))
+                        count += 1
+                    else:
+                        Tosca.logger.debug("Attached item without size or volume id, ignored.")
                 else:
                     Tosca.logger.debug("Attached item of type %s ignored." % trgt.type_definition.type)
 
