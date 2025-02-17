@@ -2,7 +2,7 @@ openapi: 3.0.0
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.17.0
+  version: 1.18.0
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es
@@ -17,6 +17,10 @@ tags:
     description: Get IM server version.
   - name: clouds
     description: Get cloud information.
+  - name: stats
+    description: Get IM server stats.
+  - name: oai
+    description: Get OAI-PMH information.
 
 paths:
 
@@ -37,6 +41,58 @@ paths:
                 example: 1.10.0
         '400':
           description: Invalid status value
+
+  /stats:
+    get:
+      tags:
+        - stats
+      summary: Get IM server stats.
+      description: >-
+        Return the stats of the current user in the IM service.
+        Return all the infrastructures in the interval init_date-end_date parameters deployed
+        by the user showing some aggregated information.
+      operationId: GetStats
+      parameters:
+        - name: init_date
+          in: query
+          description: >-
+            The init_date parameter is optional and it is a date with format
+            YYYY/MM/dd. Only will be returned infrastructure created afther this date.
+          required: false
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          description: >-
+            The end_date parameter is optional and it is a date with format
+            YYYY/MM/dd. Only will be returned infrastructure created before this date.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              examples:
+                response:
+                  value:
+                    - creation_date: '2022-03-07 13:16:14'
+                      tosca_name: 'kubernetes'
+                      vm_count: 2
+                      cpu_count: 4
+                      memory_size: 1024
+                      cloud_type: 'OSCAR'
+                      cloud_host: 'server.com'
+                      hybrid: false
+                      deleted: false
+                      im_user: 'username'
+                      inf_id: '1'
+                      last_date: '2022-03-23'
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
 
   /infrastructures:
     get:
@@ -1557,6 +1613,27 @@ paths:
           description: Invalid status value
         '401':
           description: Unauthorized
+
+  /oai:
+    get:
+      tags:
+        - oai
+      summary: Get OAI-PMH information about TOSCA templates.
+      description: Get OAI-PMH (https://www.openarchives.org/pmh/) information about TOSCA templates.
+      operationId: OAI
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/xml:
+              examples:
+                response:
+                  value: |
+                    <OAI-PMHxmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd"xmlns="http://www.openarchives.org/OAI/2.0/">
+                    <responseDate>2024-09-10T06:59:58Z</responseDate>
+                    <request>https://server.com/oai</request>
+                    <errorcode="badVerb">Value of the verb argument is not a legal OAI-PMH verb,                     the verb argument is missing, or the verb argument is repeated.</error>
+                    </OAI-PMH>
 
 externalDocs:
   description: Find out more about IM
