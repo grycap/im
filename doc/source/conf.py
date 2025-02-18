@@ -11,7 +11,7 @@ master_doc = 'index'
 # -- General configuration
 
 extensions = [
-    'sphinx.ext.autodoc',
+#    'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',

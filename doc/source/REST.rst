@@ -50,7 +50,7 @@ Next tables summaries the resources and the HTTP methods available.
 |             | | associated to the machine ``vmId`` in ``infId``.   | | associated to the infrastructure ``infId``.        |
 |             | | It has one special property: ``contmsg``.          | | It has six properties: ``contmsg``, ``radl``,      |
 |             | |                                                    | | ``state``, ``outputs``, ``tosca``, ``data`` and    |
-|             | |                                                    | | ``authorization``.                                        |
+|             | |                                                    | | ``authorization``.                                 |
 +-------------+------------------------------------------------------+------------------------------------------------------+
 | **POST**    |                                                      | | **Modify** the specified property ``property_name``|
 |             |                                                      | | associated to the infrastructure ``infId``.        |
