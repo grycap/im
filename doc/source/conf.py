@@ -1,6 +1,6 @@
 # General information about the project.
 project = 'IM Documentation'
-copyright = '2023, I3M-GRyCAP'
+copyright = '2025, I3M-GRyCAP'
 author = 'micafer'
 
 version = '1.18'
@@ -30,7 +30,8 @@ templates_path = ['_templates']
 # -- Options for HTML output
 
 html_theme = 'sphinx_rtd_theme'
-html_logo = "../images/logoim.png"
+html_logo = "images/logoim.png"
+html_theme_options = {"style_nav_header_background": "black"}
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'

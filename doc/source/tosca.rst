@@ -128,7 +128,7 @@ Possible values of the ``network_name`` endpoint property:
   * PUBLIC: The Compute node requires a public IP.
   * Network provider ID: As the `provider_id` network property in RADL
     It defines the name of the network in a specific Cloud provider
-    (see :ref:`_radl_network`):
+    (see :ref:`radl_network`):
 
 Furthermore, the endpoint capability has a set of additional properties
 to set the DNS name of the node or the set of ports to be externally accessible::
