@@ -31,6 +31,7 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from radl.radl import Feature
 from IM.SSH import SSH
 
@@ -62,7 +63,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            raise Exception("No auth data has been specified to CloudStack.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -86,8 +87,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
 
                 return driver
             else:
-                self.log_error("Incorrect auth data")
-                return None
+                raise NoCorrectAuthData(self.type, "username and password")
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
@@ -445,15 +445,10 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                     return (success, error_msg)
                 else:
                     self.log_error("Error stopping the VM.")
-                    return (False, "Error stopping VM: %s" % success)
+                    return (False, "Error stopping VM")
             except Exception as ex:
                 self.log_exception("Error resizing VM.")
                 return (False, "Error resizing VM: " + str(ex))
-
-            if success:
-                return (True, "")
-            else:
-                return (False, "Error in resize operation")
         else:
             return (False, "VM not found with id: " + vm.id)
 

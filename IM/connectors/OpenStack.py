@@ -39,6 +39,7 @@ except Exception as ex:
     print(ex)
 
 from IM.connectors.LibCloud import LibCloudCloudConnector
+from IM.connectors.exceptions import NoCompatibleAuthData, NoAuthData, NoCorrectAuthData, CloudConnectorException
 from IM.config import Config
 try:
     from urlparse import urlparse
@@ -128,7 +129,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if valid:
                 return auth
 
-        raise Exception("No compatible OpenStack auth data has been specified.")
+        raise NoCompatibleAuthData(self.type)
 
     def get_driver(self, auth_data):
         """
@@ -141,7 +142,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            raise Exception("No auth data has been specified to OpenStack.")
+            raise NoAuthData(self.type)
         else:
             auth = self.get_auth(auths)
 
@@ -195,8 +196,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             else:
                 self.log_error(
                     "No correct auth data has been specified to OpenStack: username, password and tenant or proxy")
-                raise Exception(
-                    "No correct auth data has been specified to OpenStack: username, password and tenant or proxy")
+                raise NoCorrectAuthData(self.type, "username, password and tenant or proxy")
 
             if not self.verify_ssl:
                 # To avoid errors with host certificates
@@ -930,13 +930,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 for net in ost_nets:
                     if net.name == net_provider_id:
                         if net in used_nets:
-                            raise Exception("Two different networks assigned to the same provider_id")
+                            raise CloudConnectorException("Two different networks assigned to the same provider_id")
                         net_map[i] = net
                         used_nets.append(net)
                         found = True
                         break
                 if not found:
-                    raise Exception("Network with provider_id %s not found." % net_provider_id)
+                    raise CloudConnectorException("Network with provider_id %s not found." % net_provider_id)
             else:
                 for net in ost_nets:
                     if net not in used_nets:
@@ -1085,7 +1085,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         net_cidr = self.get_free_cidr(net_cidr, used_cidrs, inf)
                         if not net_cidr:
                             self.log_error("No free net CIDR found.")
-                            raise Exception("No net CIDR specified nor free net CIDR found.")
+                            raise CloudConnectorException("No net CIDR specified nor free net CIDR found.")
                         self.log_debug("Free net CIDR found: %s." % net_cidr)
                         network.setValue('cidr', net_cidr)
                         # Set also the cidr in the inf RADL
@@ -1100,8 +1100,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         ost_net = driver.ex_create_network(ost_net_name)
                     except Exception as ex:
                         self.log_exception("Error creating ost network for net %s." % net_name)
-                        raise Exception("Error creating ost network for net %s: %s" % (net_name,
-                                                                                       get_ex_error(ex)))
+                        raise CloudConnectorException("Error creating ost network for net %s: %s" % (net_name,
+                                                                                                     get_ex_error(ex)))
 
                     # now create the subnet
                     ost_subnet_name = "im-%s-sub%s" % (inf.id, net_name)
@@ -1114,8 +1114,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         # in case of error delete the associated network
                         self.log_debug("Deleting net: %s" % ost_net_name)
                         driver.ex_delete_network(ost_net)
-                        raise Exception("Error creating ost subnet for net %s: %s" % (net_name,
-                                                                                      get_ex_error(ex)))
+                        raise CloudConnectorException("Error creating ost subnet for net %s: %s" % (net_name,
+                                                                                                    get_ex_error(ex)))
 
                     # There are no routers in the site
                     if router is None:
@@ -1137,7 +1137,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                 self.log_error("Error adding subnet to the router. Deleting net and subnet.")
                                 driver.ex_delete_subnet(ost_subnet)
                                 driver.ex_delete_network(ost_net)
-                                raise Exception("Error adding subnet to the router: %s" % get_ex_error(ex))
+                                raise CloudConnectorException("Error adding subnet to the router: %s"
+                                                              % get_ex_error(ex))
 
                     network.setValue('provider_id', ost_net_name)
         except Exception as ext:
@@ -1147,7 +1148,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             except Exception:
                 self.log_exception("Error deleting networks.")
 
-            raise Exception("Error creating networks: %s" % ext.args[0])
+            raise CloudConnectorException("Error creating networks: %s" % ext.args[0])
 
         return True
 
@@ -1329,7 +1330,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             _, image_id, msg = AppDB.get_image_data(image_url, "openstack", vo, site=self.cloud.server)
             if not image_id:
                 self.log_error(msg)
-                raise Exception("Error in appdb image: %s" % msg)
+                raise CloudConnectorException("Error in appdb image: %s" % msg)
         else:
             image_id = self.get_image_id(system.getValue("disk.0.image.url"))
 
@@ -1338,14 +1339,14 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         else:
             volume_id = self.get_volume_id(system.getValue("disk.0.image.url"))
             if not volume_id:
-                raise Exception("Incorrect OpenStack image set.")
+                raise CloudConnectorException("Incorrect OpenStack image set.")
             volume = self.get_volume(driver, volume_id)
             if not volume:
-                raise Exception("Incorrect OpenStack volume id.")
+                raise CloudConnectorException("Incorrect OpenStack volume id.")
 
         instance_type = self.get_instance_type(driver, system)
         if not instance_type:
-            raise Exception("No flavor found for the specified VM requirements.")
+            raise CloudConnectorException("No flavor found for the specified VM requirements.")
 
         blockdevicemappings = self.get_volumes(driver, image, volume, radl)
 
@@ -1627,6 +1628,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 delay = 5
                 attached = False
                 ports = node.driver.ex_get_node_ports(node)
+                print(ports)
                 while ports and not attached and cont < retries:
                     # Use each port to attach the IP
                     port_num = cont % len(ports)
@@ -2268,7 +2270,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             except Exception:
                 self.log_warn("Error getting volume ID using Nova API: %s." % vol_id)
         if not volume:
-            raise Exception("Volume %s not found." % vol_id)
+            raise CloudConnectorException("Volume %s not found." % vol_id)
         return volume
 
     @staticmethod

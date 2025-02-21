@@ -29,6 +29,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, CloudConnectorException
 from radl.radl import Feature
 from IM.SSH import SSH
 
@@ -183,7 +184,7 @@ class FogBowCloudConnector(CloudConnector):
             return self.token
         else:
             self.log_error("Error getting token: %s. %s" % (resp.reason, resp.text))
-            raise Exception("Error getting token: %s. %s" % (resp.reason, resp.text))
+            raise CloudConnectorException("Error getting token: %s. %s" % (resp.reason, resp.text))
 
     def get_auth_header(self, auth_data):
         """
@@ -191,7 +192,7 @@ class FogBowCloudConnector(CloudConnector):
         """
         auth = auth_data.getAuthInfo(FogBowCloudConnector.type)
         if not auth:
-            raise Exception("No correct auth data has been specified to FogBow.")
+            raise NoAuthData(self.type)
 
         if 'token' in auth[0]:
             token = auth[0]['token']
@@ -243,7 +244,7 @@ class FogBowCloudConnector(CloudConnector):
                     fbw_nets[net['instanceName']] = net['instanceId']
 
         else:
-            raise Exception("Error getting networks: %s. %s" % (resp.reason, resp.text))
+            raise CloudConnectorException("Error getting networks: %s. %s" % (resp.reason, resp.text))
         return fbw_nets
 
     def create_nets(self, inf, radl, auth_data):
@@ -777,7 +778,7 @@ class FogBowCloudConnector(CloudConnector):
                     resp = self.create_request('DELETE', '/attachments/%s' % attachmentid, auth_data)
                     if resp.status_code not in [200, 204, 404]:
                         success = False
-                        raise Exception(resp.reason + "\n" + resp.text)
+                        raise CloudConnectorException(resp.reason + "\n" + resp.text)
                     else:
                         success = True
                 except Exception:
@@ -800,7 +801,7 @@ class FogBowCloudConnector(CloudConnector):
                     resp = self.create_request('DELETE', '/volumes/%s' % volumeid, auth_data)
                     if resp.status_code not in [200, 204, 404]:
                         success = False
-                        raise Exception(resp.reason + "\n" + resp.text)
+                        raise CloudConnectorException(resp.reason + "\n" + resp.text)
                     else:
                         success = True
                 except Exception:
@@ -823,7 +824,7 @@ class FogBowCloudConnector(CloudConnector):
                 resp = self.create_request('DELETE', '/publicIps/%s' % ip_id, auth_data)
                 if resp.status_code not in [200, 204, 404]:
                     success = False
-                    raise Exception(resp.reason + "\n" + resp.text)
+                    raise CloudConnectorException(resp.reason + "\n" + resp.text)
                 success = True
             except Exception:
                 self.log_exception("Error releasing the IP: " + str(ip_id) +

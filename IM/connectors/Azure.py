@@ -25,6 +25,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from radl.radl import Feature
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
@@ -193,7 +194,7 @@ class AzureCloudConnector(CloudConnector):
     def get_credentials(self, auth_data):
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to Azure.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -226,9 +227,8 @@ class AzureCloudConnector(CloudConnector):
                 else:
                     self.credentials = UserPassCredentials(auth['username'], auth['password'])
         else:
-            raise Exception("No correct auth data has been specified to Azure: "
-                            "subscription_id, username and password or"
-                            "subscription_id, client_id, secret and tenant")
+            raise NoCorrectAuthData(self.type, ("subscription_id, username and password or" +
+                                                "subscription_id, client_id, secret and tenant"))
 
         return self.credentials, subscription_id
 

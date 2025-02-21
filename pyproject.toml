@@ -101,3 +101,6 @@ IM = ["*.yaml"]
 
 [tool.distutils.bdist_wheel]
 universal = true
+
+[tool.pylint]
+max-line-length = 120

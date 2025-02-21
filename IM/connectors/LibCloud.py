@@ -32,6 +32,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
 from radl.radl import Feature
 
 
@@ -72,7 +73,9 @@ class LibCloudCloudConnector(CloudConnector):
             return self.driver
         else:
             auth = auth_data.getAuthInfo(LibCloudCloudConnector.type)
-            if auth and 'driver' in auth[0]:
+            if not auth:
+                raise NoAuthData(self.type)
+            if 'driver' in auth[0]:
                 cls = get_driver(getattr(Provider, auth[0]['driver']))
 
                 MAP = {"username": "key", "password": "secret"}
@@ -102,8 +105,7 @@ class LibCloudCloudConnector(CloudConnector):
                 self.driver = driver
                 return driver
             else:
-                self.log_error("Incorrect auth data")
-                return None
+                raise NoCorrectAuthData(LibCloudCloudConnector.type, "driver")
 
     def get_instance_type(self, driver, radl, location=None):
         """
@@ -546,7 +548,7 @@ class LibCloudCloudConnector(CloudConnector):
                             # Add the volume to the VM to remove it later
                             vm.volumes.append(volume.id)
                         else:
-                            raise Exception("Error waiting the volume ID %s." % volume.id)
+                            raise CloudConnectorException("Error waiting the volume ID %s." % volume.id)
 
                     if success:
                         self.log_debug("Attach the volume ID " + str(volume.id))
