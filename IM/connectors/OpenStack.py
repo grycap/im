@@ -1472,6 +1472,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 vm.id = node.id
                 vm.info.systems[0].setValue('instance_id', str(node.id))
                 vm.info.systems[0].setValue('instance_name', str(node.name))
+                vm.info.systems[0].setValue("reservation.id", reservation)
                 self.log_info("Node successfully created.")
                 all_failed = False
                 vm.destroy = False
