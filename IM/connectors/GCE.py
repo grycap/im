@@ -617,7 +617,8 @@ class GCECloudConnector(LibCloudCloudConnector):
             fixed_ip = self.request_fixed_ip(radl)
             if fixed_ip:
                 if num_vm > 1:
-                    raise CloudConnectorException("A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
+                    raise CloudConnectorException("A fixed IP cannot be specified to a" +
+                                                  " set of nodes (deploy is higher than 1)")
 
                 args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
         else:

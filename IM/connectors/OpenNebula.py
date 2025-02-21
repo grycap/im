@@ -233,7 +233,8 @@ class OpenNebulaCloudConnector(CloudConnector):
                 elif self.cloud.protocol == 'http':
                     self.cloud.port = 80
                 else:
-                    raise CloudConnectorException("Invalid port/protocol specified for OpenNebula site: %s" % self.cloud.server)
+                    raise CloudConnectorException("Invalid port/protocol specified for OpenNebula site: %s"
+                                                  % self.cloud.server)
             self.server_url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server,
                                                 self.cloud.port, self.cloud.path)
         else:

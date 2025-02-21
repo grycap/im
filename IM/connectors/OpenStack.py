@@ -1101,7 +1101,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     except Exception as ex:
                         self.log_exception("Error creating ost network for net %s." % net_name)
                         raise CloudConnectorException("Error creating ost network for net %s: %s" % (net_name,
-                                                                                       get_ex_error(ex)))
+                                                                                                     get_ex_error(ex)))
 
                     # now create the subnet
                     ost_subnet_name = "im-%s-sub%s" % (inf.id, net_name)
@@ -1137,7 +1137,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                 self.log_error("Error adding subnet to the router. Deleting net and subnet.")
                                 driver.ex_delete_subnet(ost_subnet)
                                 driver.ex_delete_network(ost_net)
-                                raise CloudConnectorException("Error adding subnet to the router: %s" % get_ex_error(ex))
+                                raise CloudConnectorException("Error adding subnet to the router: %s"
+                                                              % get_ex_error(ex))
 
                     network.setValue('provider_id', ost_net_name)
         except Exception as ext:

@@ -258,7 +258,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             if location:
                 args['location'] = location
             else:
-                raise CloudConnectorException('Invalid Linode datacenter specified: %s' % system.getValue('availability_zone'))
+                raise CloudConnectorException('Invalid Linode datacenter specified: %s'
+                                              % system.getValue('availability_zone'))
         else:
             args['location'] = NodeLocation(self.DEFAULT_LOCATION, '', '', driver)
 

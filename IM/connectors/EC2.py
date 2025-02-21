@@ -602,7 +602,7 @@ class EC2CloudConnector(CloudConnector):
                     raise CloudConnectorException("Incorrect vpc value in provider_id value: %s" % provider_id)
             else:
                 raise CloudConnectorException("Incorrect provider_id value: " +
-                                provider_id + ". It must be <vpc-id>.<subnet-id>.")
+                                              provider_id + ". It must be <vpc-id>.<subnet-id>.")
         else:
             # Check the default VPC and get the first subnet with a connection with a gateway
             # If there are no default VPC, raise error

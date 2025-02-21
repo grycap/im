@@ -256,7 +256,7 @@ class vSphereCloudConnector(CloudConnector):
                 if not gateway:
                     gateway = system.getValue("net_interface." + str(i) + ".gateway")
                 if not gateway:
-                    raise CloudConnectorException("net_interface." + str(i) + 
+                    raise CloudConnectorException("net_interface." + str(i) +
                                                   ".gateway must be defined for this network.")
 
                 if not IPAddress(fixed_ip) in IPNetwork(subnet_address + "/" + subnet_mask):
