@@ -274,7 +274,7 @@ This page enables the user to add or delete public SSH Keys to be injected to th
 to allow him to establish a secure connection between his computer and his virtual server(s).
 
 The user can manage a set of SSH Keys that will appear in the SSK Keys list as 
-depicted in :ref:`Fig. 4 <_figure_dash_ssh_key_list>`. The user can delete the existing SSH Keys
+depicted in :ref:`Fig. 4 <figure_dash_ssh_key_list>`. The user can delete the existing SSH Keys
 from the list or add new ones using the "New SSH Key" Button on the top-right of the page.
 
 .. _figure_dash_ssh_key_list:
@@ -282,7 +282,7 @@ from the list or add new ones using the "New SSH Key" Button on the top-right of
 
    Fig 4. SSH Keys list.
 
-If the "New SSH Key" a new modal form (:ref:`Fig. 5 <_figure_dash_ssh_key_add>`) will be shown,
+If the "New SSH Key" a new modal form (:ref:`Fig. 5 <figure_dash_ssh_key_add>`) will be shown,
 enabling the user to add a new key, setting a description that will be shown in the list.
 
 .. _figure_dash_ssh_key_add:
