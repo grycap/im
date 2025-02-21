@@ -227,7 +227,7 @@ class AzureCloudConnector(CloudConnector):
                 else:
                     self.credentials = UserPassCredentials(auth['username'], auth['password'])
         else:
-            raise NoCorrectAuthData(self.type, ("subscription_id, username and password or" + 
+            raise NoCorrectAuthData(self.type, ("subscription_id, username and password or" +
                                                 "subscription_id, client_id, secret and tenant"))
 
         return self.credentials, subscription_id
