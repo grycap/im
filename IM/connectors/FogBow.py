@@ -29,6 +29,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData
 from radl.radl import Feature
 from IM.SSH import SSH
 
@@ -191,7 +192,7 @@ class FogBowCloudConnector(CloudConnector):
         """
         auth = auth_data.getAuthInfo(FogBowCloudConnector.type)
         if not auth:
-            raise Exception("No correct auth data has been specified to FogBow.")
+            raise NoAuthData(self.type)
 
         if 'token' in auth[0]:
             token = auth[0]['token']

@@ -18,6 +18,7 @@
 import os.path
 import requests
 from IM.connectors.OpenStack import OpenStackCloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from IM.VirtualMachine import VirtualMachine
 try:
     from urlparse import urlparse
@@ -58,7 +59,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to Orange.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -97,8 +98,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
             else:
                 self.log_error(
                     "No correct auth data has been specified to Orange: username, password, domain, tenant and region")
-                raise Exception(
-                    "No correct auth data has been specified to Orange: username, password, domain, tenant and region")
+                raise NoCorrectAuthData(self.type, "username, password, domain, tenant and region")
 
     @staticmethod
     def guess_instance_type_gpu(size, num_gpus, vendor=None, model=None):

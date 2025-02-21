@@ -22,6 +22,7 @@ import tempfile
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 import scar.logger
 from IM.connectors.OSCAR import OSCARCloudConnector
 from scar.providers.aws.controller import AWS
@@ -78,7 +79,7 @@ class LambdaCloudConnector(CloudConnector):
         self.scar_errors = []
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            raise Exception("No auth data has been specified to Lambda.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -98,8 +99,7 @@ class LambdaCloudConnector(CloudConnector):
         else:
             self.log_error("No correct auth data has been specified to Lambda: "
                            "username and password (Access Key, Secret Key and Role)")
-            raise Exception("No correct auth data has been specified to Lambda: "
-                            "username and password (Access Key, Secret Key and Role)")
+            raise NoCorrectAuthData(self.type, "username and password (Access Key, Secret Key and Role)")
 
     @staticmethod
     def _free_scar_env():

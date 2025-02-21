@@ -32,6 +32,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from radl.radl import Feature
 from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
@@ -281,7 +282,7 @@ class OpenNebulaCloudConnector(CloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            raise Exception("No auth data has been specified to OpenNebula.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -298,7 +299,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             auth["password"] = passwd
             return username + ":" + passwd
         else:
-            raise Exception("No correct auth data has been specified to OpenNebula: username and password")
+            raise NoCorrectAuthData(self.type, "username and password")
 
     @staticmethod
     def setDisksFromTemplate(vm, template):
@@ -345,8 +346,6 @@ class OpenNebulaCloudConnector(CloudConnector):
         server = ServerProxy(self.server_url, allow_none=True)
 
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
         success, res_info = server.one.vm.info(session_id, int(vm.id))[0:2]
         if success:
@@ -486,8 +485,6 @@ class OpenNebulaCloudConnector(CloudConnector):
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return [(False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")]
 
         sgs = self.create_security_groups(inf, radl, auth_data)
 
@@ -561,8 +558,6 @@ class OpenNebulaCloudConnector(CloudConnector):
     def finalize(self, vm, last, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
         # first delete the snapshots to avoid problems in EC3 deleting the IM front-end
         if last:
@@ -604,8 +599,6 @@ class OpenNebulaCloudConnector(CloudConnector):
     def vm_action(self, vm, action, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
         success, err = server.one.vm.action(session_id, action, int(vm.id))[0:2]
         return (success, err)
 
@@ -832,8 +825,6 @@ class OpenNebulaCloudConnector(CloudConnector):
         """
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return None
         success, info = server.one.vnpool.info(session_id, -2, -1, -1)[0:2]
         if success:
             pool_info = VNET_POOL(info)
@@ -1042,8 +1033,6 @@ class OpenNebulaCloudConnector(CloudConnector):
         """
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
         success, err = server.one.vm.action(session_id, 'poweroff', int(vm.id))[0:2]
         if not success:
             return (success, err)
@@ -1065,8 +1054,6 @@ class OpenNebulaCloudConnector(CloudConnector):
 
     def alterVM(self, vm, radl, auth_data):
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
         if not radl.systems:
             return (True, "")
@@ -1185,8 +1172,6 @@ class OpenNebulaCloudConnector(CloudConnector):
         server = ServerProxy(self.server_url, allow_none=True)
 
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
         image_type = ""  # Use the default one
         one_ver = self.getONEVersion(auth_data)
@@ -1217,8 +1202,6 @@ class OpenNebulaCloudConnector(CloudConnector):
         server = ServerProxy(self.server_url, allow_none=True)
 
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
         state = 0
         wait = 0
@@ -1245,8 +1228,6 @@ class OpenNebulaCloudConnector(CloudConnector):
         server = ServerProxy(self.server_url, allow_none=True)
 
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return (False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")
 
         image_id = self.get_image_id(image_url, session_id)
         if image_id is None:
@@ -1287,8 +1268,6 @@ class OpenNebulaCloudConnector(CloudConnector):
     def list_images(self, auth_data, filters=None):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return [(False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")]
 
         success, res_info = server.one.imagepool.info(session_id, -2, -1, -1)[0:2]
 
@@ -1328,8 +1307,6 @@ class OpenNebulaCloudConnector(CloudConnector):
     def get_quotas(self, auth_data):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
-        if session_id is None:
-            return [(False, "Incorrect auth data, username and password must be specified for OpenNebula provider.")]
 
         success, res_info = server.one.user.info(session_id, -1)[0:2]
 

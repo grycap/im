@@ -33,6 +33,7 @@ except Exception as ex:
     print(ex)
 
 from .LibCloud import LibCloudCloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 try:
     from urlparse import urlparse
 except ImportError:
@@ -90,7 +91,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to Linode.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -107,8 +108,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
                 return driver
             else:
-                self.log_error("Incorrect auth data")
-                return None
+                raise NoCorrectAuthData(self.type, "username")
 
     def get_dns_driver(self, auth_data):
         """
@@ -121,7 +121,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to Linode.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -138,8 +138,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
                 return driver
             else:
-                self.log_error("Incorrect auth data")
-                return None
+                raise NoCorrectAuthData(self.type, "username")
 
     def get_instance_type(self, driver, radl, location=None):
         sizes = driver.list_sizes()

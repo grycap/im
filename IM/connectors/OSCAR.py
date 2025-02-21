@@ -19,6 +19,7 @@ import json
 import requests
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from radl.radl import Feature
 try:
     from urlparse import urlparse
@@ -59,7 +60,7 @@ class OSCARCloudConnector(CloudConnector):
     def _get_auth_header(self, auth_data):
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            raise Exception("No auth data has been specified to OSCAR.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -75,7 +76,7 @@ class OSCARCloudConnector(CloudConnector):
             return "Bearer %s" % auth['token']
         else:
             self.log_error("No correct auth data has been specified to OSCAR: username and password or token")
-            raise Exception("No correct auth data has been specified to OSCAR: username and password or token")
+            raise NoCorrectAuthData(self.type, "username and password or token")
 
     @staticmethod
     def _get_storage_info(radl_system, service):

@@ -39,6 +39,7 @@ except Exception as ex:
     print(ex)
 
 from IM.connectors.LibCloud import LibCloudCloudConnector
+from IM.connectors.exceptions import NoCompatibleAuthData, NoAuthData, NoCorrectAuthData
 from IM.config import Config
 try:
     from urlparse import urlparse
@@ -128,7 +129,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if valid:
                 return auth
 
-        raise Exception("No compatible OpenStack auth data has been specified.")
+        raise NoCompatibleAuthData(self.type)
 
     def get_driver(self, auth_data):
         """
@@ -141,7 +142,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            raise Exception("No auth data has been specified to OpenStack.")
+            raise NoAuthData(self.type)
         else:
             auth = self.get_auth(auths)
 
@@ -195,8 +196,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             else:
                 self.log_error(
                     "No correct auth data has been specified to OpenStack: username, password and tenant or proxy")
-                raise Exception(
-                    "No correct auth data has been specified to OpenStack: username, password and tenant or proxy")
+                raise NoCorrectAuthData(self.type, "username, password and tenant or proxy")
 
             if not self.verify_ssl:
                 # To avoid errors with host certificates
@@ -1627,6 +1627,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 delay = 5
                 attached = False
                 ports = node.driver.ex_get_node_ports(node)
+                print(ports)
                 while ports and not attached and cont < retries:
                     # Use each port to attach the IP
                     port_num = cont % len(ports)

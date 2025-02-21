@@ -34,6 +34,7 @@ except Exception as ex:
     print(ex)
 
 from IM.connectors.LibCloud import LibCloudCloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 try:
     from urlparse import urlparse
 except ImportError:
@@ -74,7 +75,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to GCE.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -94,9 +95,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 return driver
             else:
                 self.log_error("No correct auth data has been specified to GCE: username, password and project")
-                self.log_debug(auth)
-                raise Exception(
-                    "No correct auth data has been specified to GCE: username, password and project")
+                raise NoCorrectAuthData(self.type, "username, password and project")
 
     def get_dns_driver(self, auth_data):
         """
@@ -109,7 +108,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to GCE.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -124,8 +123,8 @@ class GCECloudConnector(LibCloudCloudConnector):
                 auth['password'] = auth['password'].replace('\\n', '\n')
                 lines = len(auth['password'].replace(" ", "").split())
                 if lines < 2:
-                    raise Exception("The certificate provided to the GCE plugin has an incorrect format."
-                                    " Check that it has more than one line.")
+                    raise NoCorrectAuthData("The certificate provided to the GCE plugin has an incorrect format."
+                                            " Check that it has more than one line.")
 
                 driver = cls(auth['username'], auth['password'], project=auth['project'])
 
@@ -133,9 +132,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 return driver
             else:
                 self.log_error("No correct auth data has been specified to GCE: username, password and project")
-                self.log_debug(auth)
-                raise Exception(
-                    "No correct auth data has been specified to GCE: username, password and project")
+                raise NoCorrectAuthData(self.type, "username, password and project")
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)

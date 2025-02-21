@@ -30,6 +30,7 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoCorrectAuthData
 
 
 class vSphereCloudConnector(CloudConnector):
@@ -136,7 +137,7 @@ class vSphereCloudConnector(CloudConnector):
             else:
                 self.log_error("No correct auth data has been specified to vSpere: username, password")
                 self.log_debug(auth)
-                raise Exception("No correct auth data has been specified to vSpere: username, password")
+                raise NoCorrectAuthData(self.type, "username and password")
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)

@@ -30,6 +30,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from radl.radl import Feature
 from IM.config import Config
 
@@ -72,7 +73,7 @@ class KubernetesCloudConnector(CloudConnector):
         url = urlparse(self.cloud.server)
         auths = auth_data.getAuthInfo(self.type, url[1])
         if not auths:
-            raise Exception("No correct auth data has been specified to Kubernetes.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -82,12 +83,12 @@ class KubernetesCloudConnector(CloudConnector):
             passwd = auth['password']
             user = auth['username']
             auth_header = {'Authorization': 'Basic ' +
-                           (base64.encodestring((user + ':' + passwd).encode('utf-8'))).strip().decode('utf-8')}
+                           (base64.b64encode((user + ':' + passwd).encode('utf-8'))).strip().decode('utf-8')}
         elif 'token' in auth:
             token = auth['token']
             auth_header = {'Authorization': 'Bearer ' + token}
         else:
-            raise Exception("No correct auth data has been specified to Kubernetes: username and password or token.")
+            raise NoCorrectAuthData(self.type, "username and password or token.")
 
         namespace = None
         if 'namespace' in auth:

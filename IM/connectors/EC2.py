@@ -32,6 +32,7 @@ except ImportError:
 
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from radl.radl import Feature
 from IM.config import Config
 from IM.SSH import SSH
@@ -171,7 +172,7 @@ class EC2CloudConnector(CloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to EC2.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -182,8 +183,9 @@ class EC2CloudConnector(CloudConnector):
                 return self.connection.client(service_name)
         else:
             self.auth = auth_data
-            try:
-                if 'username' in auth and 'password' in auth:
+
+            if 'username' in auth and 'password' in auth:
+                try:
                     if region_name != 'universal':
                         region_names = boto3.session.Session().get_available_regions('ec2')
                         if region_name not in region_names:
@@ -198,15 +200,13 @@ class EC2CloudConnector(CloudConnector):
                         return session.resource(service_name)
                     else:
                         return session.client(service_name)
-                else:
-                    self.log_error("No correct auth data has been specified to EC2: "
-                                   "username (Access Key) and password (Secret Key)")
-                    raise Exception("No correct auth data has been specified to EC2: "
-                                    "username (Access Key) and password (Secret Key)")
-
-            except Exception as ex:
-                self.log_exception("Error getting the region " + region_name)
-                raise Exception("Error getting the region " + region_name + ": " + str(ex))
+                except Exception as ex:
+                    self.log_exception("Error getting the region " + region_name)
+                    raise Exception("Error getting the region " + region_name + ": " + str(ex))
+            else:
+                self.log_error("No correct auth data has been specified to EC2: "
+                               "username (Access Key) and password (Secret Key)")
+                raise NoCorrectAuthData(self.type, "username (Access Key) and password (Secret Key)")
 
     # path format: aws://eu-west-1/ami-00685b74
     @staticmethod

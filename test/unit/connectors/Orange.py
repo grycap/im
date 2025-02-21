@@ -290,6 +290,12 @@ class TestOrangeConnector(TestCloudConnectorBase):
         port.extra = {'device_id': node.id, 'device_owner': 'compute:nova'}
         driver.ex_list_ports.return_value = [port]
 
+        p1 = MagicMock()
+        p1.id = 'port1'
+        p2 = MagicMock()
+        p2.id = 'port2'
+        driver.ex_get_node_ports.return_value = [p1, p2]
+
         success, vm = ora_cloud.updateVMInfo(vm, auth)
 
         self.assertTrue(success, msg="ERROR: updating VM info.")
