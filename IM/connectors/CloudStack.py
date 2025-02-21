@@ -445,15 +445,10 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                     return (success, error_msg)
                 else:
                     self.log_error("Error stopping the VM.")
-                    return (False, "Error stopping VM: %s" % success)
+                    return (False, "Error stopping VM")
             except Exception as ex:
                 self.log_exception("Error resizing VM.")
                 return (False, "Error resizing VM: " + str(ex))
-
-            if success:
-                return (True, "")
-            else:
-                return (False, "Error in resize operation")
         else:
             return (False, "VM not found with id: " + vm.id)
 

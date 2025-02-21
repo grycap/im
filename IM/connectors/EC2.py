@@ -32,7 +32,7 @@ except ImportError:
 
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
 from radl.radl import Feature
 from IM.config import Config
 from IM.SSH import SSH
@@ -189,7 +189,7 @@ class EC2CloudConnector(CloudConnector):
                     if region_name != 'universal':
                         region_names = boto3.session.Session().get_available_regions('ec2')
                         if region_name not in region_names:
-                            raise Exception("Incorrect region name: " + region_name)
+                            raise CloudConnectorException("Incorrect region name: " + region_name)
 
                     session = boto3.session.Session(region_name=region_name,
                                                     aws_access_key_id=auth['username'],
@@ -202,7 +202,7 @@ class EC2CloudConnector(CloudConnector):
                         return session.client(service_name)
                 except Exception as ex:
                     self.log_exception("Error getting the region " + region_name)
-                    raise Exception("Error getting the region " + region_name + ": " + str(ex))
+                    raise CloudConnectorException("Error getting the region " + region_name + ": " + str(ex))
             else:
                 self.log_error("No correct auth data has been specified to EC2: "
                                "username (Access Key) and password (Secret Key)")
@@ -416,10 +416,10 @@ class EC2CloudConnector(CloudConnector):
 
                 i += 1
         except Exception as ex:
-            raise Exception("Error Creating the Security group: " + str(ex))
+            raise CloudConnectorException("Error Creating the Security group: " + str(ex))
 
         if not res:
-            raise Exception("Error Creating the Security groups")
+            raise CloudConnectorException("Error Creating the Security groups")
         else:
             return res
 
@@ -597,11 +597,11 @@ class EC2CloudConnector(CloudConnector):
                 if vpc and subnet:
                     return vpc[0]['VpcId'], subnet[0]['SubnetId']
                 elif vpc:
-                    raise Exception("Incorrect subnet value in provider_id value: %s" % provider_id)
+                    raise CloudConnectorException("Incorrect subnet value in provider_id value: %s" % provider_id)
                 else:
-                    raise Exception("Incorrect vpc value in provider_id value: %s" % provider_id)
+                    raise CloudConnectorException("Incorrect vpc value in provider_id value: %s" % provider_id)
             else:
-                raise Exception("Incorrect provider_id value: " +
+                raise CloudConnectorException("Incorrect provider_id value: " +
                                 provider_id + ". It must be <vpc-id>.<subnet-id>.")
         else:
             # Check the default VPC and get the first subnet with a connection with a gateway
@@ -610,7 +610,7 @@ class EC2CloudConnector(CloudConnector):
             if vpc and subnet:
                 return vpc, subnet
             else:
-                raise Exception("No VPC.subnet specified and no VPC default found.")
+                raise CloudConnectorException("No VPC.subnet specified and no VPC default found.")
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 
@@ -969,7 +969,7 @@ class EC2CloudConnector(CloudConnector):
                         if volume:
                             volume_id = volume[0]['VolumeId']
                         else:
-                            raise Exception("No snapshot/volume found with name: %s" % elem_id)
+                            raise CloudConnectorException("No snapshot/volume found with name: %s" % elem_id)
             else:
                 disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
 
@@ -1337,7 +1337,7 @@ class EC2CloudConnector(CloudConnector):
             else:
                 auths = auth_data.getAuthInfo("EC2")
                 if not auths:
-                    raise Exception("No auth data has been specified to EC2.")
+                    raise NoAuthData(self.type)
                 else:
                     auth = auths[0]
                     conn = boto3.client('route53', region_name='universal',
@@ -1346,7 +1346,7 @@ class EC2CloudConnector(CloudConnector):
 
             zone = self._get_zone(conn, domain)
             if not zone:
-                raise Exception("Could not find DNS zone to update")
+                raise CloudConnectorException("Could not find DNS zone to update")
             zone_id = zone['Id']
 
             if not zone:
@@ -1379,7 +1379,7 @@ class EC2CloudConnector(CloudConnector):
         else:
             auths = auth_data.getAuthInfo("EC2")
             if not auths:
-                raise Exception("No auth data has been specified to EC2.")
+                raise NoAuthData(self.type)
             else:
                 auth = auths[0]
                 conn = boto3.client('route53', region_name='universal',

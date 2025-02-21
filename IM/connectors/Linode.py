@@ -33,7 +33,7 @@ except Exception as ex:
     print(ex)
 
 from .LibCloud import LibCloudCloudConnector
-from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
 try:
     from urlparse import urlparse
 except ImportError:
@@ -258,7 +258,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             if location:
                 args['location'] = location
             else:
-                raise Exception('Invalid Linode datacenter specified: %s' % system.getValue('availability_zone'))
+                raise CloudConnectorException('Invalid Linode datacenter specified: %s' % system.getValue('availability_zone'))
         else:
             args['location'] = NodeLocation(self.DEFAULT_LOCATION, '', '', driver)
 

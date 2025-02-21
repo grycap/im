@@ -15,17 +15,22 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-class NoCompatibleAuthData(Exception):
+class CloudConnectorException(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
+class NoCompatibleAuthData(CloudConnectorException):
     def __init__(self, cloud_type):
         super().__init__("No compatible auth data has been specified to %s." % cloud_type)
 
 
-class NoAuthData(Exception):
+class NoAuthData(CloudConnectorException):
     def __init__(self, cloud_type):
         super().__init__("No auth data has been specified to %s." % cloud_type)
 
 
-class NoCorrectAuthData(Exception):
+class NoCorrectAuthData(CloudConnectorException):
     def __init__(self, cloud_type, args=""):
         msg = "No correct auth data has been specified to %s." % cloud_type
         if args:

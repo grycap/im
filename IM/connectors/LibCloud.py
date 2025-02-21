@@ -32,7 +32,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
 from radl.radl import Feature
 
 
@@ -548,7 +548,7 @@ class LibCloudCloudConnector(CloudConnector):
                             # Add the volume to the VM to remove it later
                             vm.volumes.append(volume.id)
                         else:
-                            raise Exception("Error waiting the volume ID %s." % volume.id)
+                            raise CloudConnectorException("Error waiting the volume ID %s." % volume.id)
 
                     if success:
                         self.log_debug("Attach the volume ID " + str(volume.id))

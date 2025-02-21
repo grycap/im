@@ -29,6 +29,7 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData
 from radl.radl import Feature
 from IM import UnixHTTPAdapter
 
@@ -57,7 +58,7 @@ class DockerCloudConnector(CloudConnector):
 
         auths = auth_data.getAuthInfo(DockerCloudConnector.type, self.cloud.server)
         if not auths:
-            raise Exception("No correct auth data has been specified to Docker.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 

@@ -19,7 +19,7 @@ import json
 import requests
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
 from radl.radl import Feature
 try:
     from urlparse import urlparse
@@ -169,7 +169,7 @@ class OSCARCloudConnector(CloudConnector):
             elif url_image.scheme == "oscar":
                 image = url_image[2][1:]
             else:
-                raise Exception("Invalid image protocol: oscar, docker or empty are supported.")
+                raise CloudConnectorException("Invalid image protocol: oscar, docker or empty are supported.")
             service["image"] = image
 
         env_vars = OSCARCloudConnector._get_env_variables(radl_system)

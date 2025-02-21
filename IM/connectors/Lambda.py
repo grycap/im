@@ -22,7 +22,7 @@ import tempfile
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from .CloudConnector import CloudConnector
-from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
 import scar.logger
 from IM.connectors.OSCAR import OSCARCloudConnector
 from scar.providers.aws.controller import AWS
@@ -139,7 +139,7 @@ class LambdaCloudConnector(CloudConnector):
             elif url_image.scheme == "":
                 image = url_image[2]
             else:
-                raise Exception("Invalid image protocol: lambda, docker or empty are supported.")
+                raise CloudConnectorException("Invalid image protocol: lambda, docker or empty are supported.")
             func["container"] = {"image": image, "create_image": False, "timeout_threshold": 10}
             func["ecr"] = {"delete_image": False}
 

@@ -32,7 +32,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
-from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
 from radl.radl import Feature
 from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
@@ -233,7 +233,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                 elif self.cloud.protocol == 'http':
                     self.cloud.port = 80
                 else:
-                    raise Exception("Invalid port/protocol specified for OpenNebula site: %s" % self.cloud.server)
+                    raise CloudConnectorException("Invalid port/protocol specified for OpenNebula site: %s" % self.cloud.server)
             self.server_url = "%s://%s:%d%s" % (self.cloud.protocol, self.cloud.server,
                                                 self.cloud.port, self.cloud.path)
         else:
@@ -294,7 +294,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                                                               self.cloud.server, auth['token'],
                                                               Config.VERIFI_SSL)
             if not username or not passwd:
-                raise Exception("Error getting ONE credentials using TTS.")
+                raise CloudConnectorException("Error getting ONE credentials using TTS.")
             auth["username"] = username
             auth["password"] = passwd
             return username + ":" + passwd
@@ -989,7 +989,7 @@ class OpenNebulaCloudConnector(CloudConnector):
                     radl.get_network_by_id(network).setValue('provider_id', str(net_name))
                 else:
                     self.log_error("No ONE network found for network: " + network)
-                    raise Exception("No ONE network found for network: " + network)
+                    raise CloudConnectorException("No ONE network found for network: " + network)
 
                 if public == is_public:
                     if net_id is not None:
@@ -1275,7 +1275,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             pool_info = IMAGE_POOL(res_info)
         else:
             self.logger.error("Error in the function one.imagepool.info: " + res_info)
-            raise Exception(res_info)
+            raise CloudConnectorException(res_info)
 
         images = []
         for image in pool_info.IMAGE:
@@ -1314,7 +1314,7 @@ class OpenNebulaCloudConnector(CloudConnector):
             user_info = USER(res_info)
         else:
             self.logger.error("Error in the function one.user.info: " + res_info)
-            raise Exception(res_info)
+            raise CloudConnectorException(res_info)
 
         res = {"cores": {"used": 0, "limit": -1},
                "ram": {"used": 0, "limit": -1},
