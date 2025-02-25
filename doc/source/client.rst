@@ -592,3 +592,295 @@ An example of the auth file::
 IM Server does not store the credentials used in the creation of
 infrastructures. Then the user has to provide them in every call of
 :program:`im_client`.
+
+Python library
+---------------
+
+The IMClient can also be used as a Python library to access IM (since version 1.7.0) programatically.
+The following example shows how to use the IMClient to create and destroy an infrastructure::
+
+   from imclient import IMClient
+
+   auth = IMClient.read_auth_data("/path/auth.dat")
+   client = IMClient.init_client("https://im.egi.eu/im", auth)
+   inf_desc = """
+      network public (outbound = 'yes')
+
+      system node (
+      cpu.count>=2 and
+      memory.size>=4g and
+      net_interface.0.connection = 'public' and
+      disk.0.os.name='linux' and
+      disk.0.image.url = 'appdb://SCAI/egi.ubuntu.20.04?vo.access.egi.eu'
+      )
+
+      configure wn (
+      @begin
+      ---
+      - tasks:
+         - debug: msg="Configured!"
+      @end
+      )
+
+      deploy node 1
+   """
+   success, inf_id = client.create(inf_desc)
+   ...
+   success, err = client.destroy(inf_id)
+
+The IMClient class has the following methods:
+
+.. confval:: def init_client(im_url, auth_data, rest=True, ssl_verify=False):
+
+   Create and initialize the IMClient class
+
+   Arguments:
+      - im_url(string): URL to the IM API (REST or XML-RPC).
+      - auth_data(`dict` of str objects): Authentication data to access cloud provider (as returned by `read_auth_data` function).
+      - rest(boolean): Flag to specify the type of API to use (REST or XML-RPC). Default `True`.
+      - ssl_verify(boolean): Flag to specify if ssl certificates must be validated. Default `False`.
+
+   Returns(`imclient.IMClient`):
+      A client ready to interact with an IM instance.
+
+.. confval:: def read_auth_data(filename):
+
+   Read an IM auth data file.
+
+   Arguments:
+      - filename(string): path to the IM auth file.
+
+   Returns(`list` of `dict` of str objects):
+      Authentication data to access cloud provider and the IM. One entry per line, each line splitted in a dictionary of pairs key/value.
+
+
+.. confval:: def create(self, inf_desc, desc_type="radl", asyncr=False):
+
+   Create an infrastructure
+
+   Arguments:
+      - inf_desc(string): Infrastructure description in RADL (plain or JSON) or TOSCA.
+      - desc_type(string): Infrastructure description type ("radl", "json" or "yaml")
+      - asyncr(boolean): Flag to specify if the creation call will be asynchronous. Default `False`.
+
+   Returns:
+      A tuple with the operation success (boolean) and the infrastructure ID in case of successor the error message otherwise.
+
+.. confval:: def removeresource(self, inf_id, vm_list, context=None):
+
+   Remove resources from an infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_list(list of strings): List of VM IDs to delete.
+      - context(boolean): Flag to disable the contextualization at the end.
+
+   Returns:
+      A tuple with the operation success (boolean) and the list of deleted VM IDs in case of successor the error message otherwise.
+
+.. confval:: def addresource(self, inf_id, inf_desc, desc_type="radl", context=None):
+
+   Add resources into an infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - inf_desc(string): Infrastructure description in RADL (plain or JSON) or TOSCA.
+      - desc_type(string): Infrastructure description type ("radl", "json" or "yaml")
+      - context(boolean): Flag to disable the contextualization at the end.
+
+   Returns:
+      A tuple with the operation success (boolean) and the list of added VM IDs in case of success or the error message otherwise.
+
+.. confval:: def alter(self, inf_id, vm_id, inf_desc):
+
+   Modifies the features of a VM
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_id(string): VM ID.
+      - inf_desc(string): Infrastructure description in RADL (plain).
+
+   Returns:
+      A tuple with the operation success (boolean) and the RADL of the modified VM in case of success or the error message otherwise.
+
+.. confval:: def reconfigure(self, inf_id, inf_desc, desc_type="radl", vm_list=None):
+
+   Reconfigure the infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - inf_desc(string): Infrastructure description in RADL (plain).
+      - vm_list(list of strings): Optional list of VM IDs to reconfigure (default all).
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def get_infra_property(self, inf_id, prop):
+
+   Get an infrastructure property.
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - prop(string): Property to get. Valid values: "radl", "contmsg", "state", "outputs"
+
+   Returns:
+      A tuple with the operation success (boolean) and the value of the prop in case of success or the error message otherwise.
+
+.. confval:: def getvminfo(self, inf_id, vm_id, prop=None, system_name=None):
+
+   Get VM info.
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_id(string): VM ID.
+      - prop(string): Optional RADL property to get.
+      - system_name(string): Optional system name to filter the VMs.
+
+   Returns:
+      A tuple with the operation success (boolean) and the value of the prop in case of success or the error message otherwise.
+
+.. confval:: def getinfo(self, inf_id, prop=None, system_name=None):
+
+   Get infrastructure info.
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - prop(string): Optional RADL property to get.
+      - system_name(string): Optional system name to filter the VMs.
+
+   Returns:
+      A tuple with the operation success (boolean) and the value of the prop in case of success or the error message otherwise.
+
+.. confval:: def destroy(self, inf_id, asyncr=False):
+
+   Destroy an infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - asyncr(boolean): Flag to specify if the deletion call will be asynchronous. Default `False`.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def list_infras(self, flt=None):
+
+   Get the list of user infrastructures
+
+   Arguments:
+      - flt(string): Optional filter (as regular expression) to filter the infrastructures.
+
+   Returns:
+      A tuple with the operation success (boolean) and the list of infrastructure IDs in case of success or the error message otherwise.
+
+.. confval:: def start_infra(self, inf_id):
+
+   Start an infrastructure (previously stopped)
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def stop_infra(self, inf_id):
+
+   Stop an infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def start_vm(self, inf_id, vm_id):
+
+   Start an VM (previously stopped)
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_id(string): VM ID.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def stop_vm(self, inf_id, vm_id):
+
+   Stop an VM
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_id(string): VM ID.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def reboot_vm(self, inf_id, vm_id):
+
+   Reboot an VM
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_id(string): VM ID.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def getversion(self):
+
+   Get IM server version
+
+   Returns:
+      A tuple with the operation success (boolean) and the version string in case of success or the error message otherwise.
+
+.. confval:: def export_data(self, inf_id, delete=None):
+
+   Export infrastructure data
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - delete(boolean): Flag to specify if the infrastructure will be deleted after exporting the data. Default `False`.
+   
+   Returns:
+      A tuple with the operation success (boolean) and the json data of the infrastructure in case of success or the error message otherwise.
+
+.. confval:: def import_data(self, data):
+
+   Import infrastructure data
+
+   Arguments:
+      - data(string): Json data with the Infrastructure info.
+
+   Returns:
+      A tuple with the operation success (boolean) and the ID of the imported infrastructure in case of success or the error message otherwise.
+
+.. confval:: def get_cloud_images(self, cloud_id):
+
+   Get Cloud provider images
+
+   Arguments:
+      - cloud_id(string): ID of the cloud provider (as defined in the auth data).
+
+   Returns:
+      A tuple with the operation success (boolean) and the requested data in case of success or the error message otherwise.
+
+.. confval:: def get_cloud_quotas(self, cloud_id):
+
+   Get Cloud provider quotas
+
+   Arguments:
+      - cloud_id(string): ID of the cloud provider (as defined in the auth data).
+
+   Returns:
+      A tuple with the operation success (boolean) and the requested data in case of success or the error message otherwise.
+
+.. confval:: def change_auth(self, inf_id, new_auth_data, overwrite=None):
+
+   Change ownership of an infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - new_auth_data(string): New Infrastructure Manager auth data to set.
+      - overwrite(boolean): Flag to specify if the auth data will be overwrited. Default `False`.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
