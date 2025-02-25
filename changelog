@@ -781,3 +781,12 @@ IM 1.17.1:
 IM 1.18.0:
     * Enable to get IM stats.
     * Migrate EC2 conn to boto3 library.
+    * Fix error attaching floating IP in OpenStack nodes with more that 1 net.
+    * Fix error loading non RSA SSH keys.
+    * Fix incorrect XiB to XB unit convesion.
+    * Install ansible in a virtualenv.
+    * Fix no private IPs for VMs created on OpenStack.
+    * Enable to create swap partition.
+    * Fix error with OIDC admin user.
+    * Add support for a list of admin users.
+    * Update container image using Ubuntu 24.04 base.
