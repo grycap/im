@@ -30,6 +30,7 @@ except ImportError:
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoCorrectAuthData, CloudConnectorException
 
 
 class vSphereCloudConnector(CloudConnector):
@@ -136,7 +137,7 @@ class vSphereCloudConnector(CloudConnector):
             else:
                 self.log_error("No correct auth data has been specified to vSpere: username, password")
                 self.log_debug(auth)
-                raise Exception("No correct auth data has been specified to vSpere: username, password")
+                raise NoCorrectAuthData(self.type, "username and password")
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
@@ -236,7 +237,7 @@ class vSphereCloudConnector(CloudConnector):
                 radl.get_network_by_id(net_name).setValue('provider_id', str(net_name))
             else:
                 self.log_error("No vSphere network found for network: " + net_name)
-                raise Exception("No vSphere network found for network: " + net_name)
+                raise CloudConnectorException("No vSphere network found for network: " + net_name)
 
             nic = self.gen_nic(i, net_obj)
             devices.append(nic)
@@ -249,15 +250,19 @@ class vSphereCloudConnector(CloudConnector):
                 if not subnet_mask:
                     subnet_mask = system.getValue("net_interface." + str(i) + ".subnet")
                 if not subnet_mask:
-                    raise Exception("net_interface." + str(i) + ".subnet must be defined for this network.")
+                    raise CloudConnectorException("net_interface." + str(i) +
+                                                  ".subnet must be defined for this network.")
 
                 if not gateway:
                     gateway = system.getValue("net_interface." + str(i) + ".gateway")
                 if not gateway:
-                    raise Exception("net_interface." + str(i) + ".gateway must be defined for this network.")
+                    raise CloudConnectorException("net_interface." + str(i) +
+                                                  ".gateway must be defined for this network.")
 
                 if not IPAddress(fixed_ip) in IPNetwork(subnet_address + "/" + subnet_mask):
-                    raise Exception("IP %s not in the subnet: %s/%s" % (fixed_ip, subnet_address, subnet_mask))
+                    raise CloudConnectorException("IP %s not in the subnet: %s/%s" % (fixed_ip,
+                                                                                      subnet_address,
+                                                                                      subnet_mask))
 
                 guest_map.adapter.ip = vim.vm.customization.FixedIp()
                 guest_map.adapter.ip.ipAddress = fixed_ip

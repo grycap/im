@@ -237,7 +237,7 @@ class TestREST(unittest.TestCase):
         CreateInfrastructure.side_effect = InvaliddUserException()
         res = self.client.post('/infrastructures', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error Getting Inf. info: Invalid InfrastructureManager credentials")
+        self.assertEqual(res.text, "Error Creating Inf. info: Invalid InfrastructureManager credentials")
 
         CreateInfrastructure.side_effect = UnauthorizedUserException()
         res = self.client.post('/infrastructures', headers=headers,

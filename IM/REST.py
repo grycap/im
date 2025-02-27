@@ -494,9 +494,9 @@ def RESTCreateInfrastructure():
             res = "%sinfrastructures/%s" % (flask.request.url_root, inf_id)
             return format_output(res, "text/uri-list", "uri", extra_headers={'InfID': inf_id})
     except InvaliddUserException as ex:
-        return return_error(401, "Error Getting Inf. info: %s" % get_ex_error(ex))
+        return return_error(401, "Error Creating Inf. info: %s" % get_ex_error(ex))
     except DisabledFunctionException as ex:
-        return return_error(403, "Error Getting Inf, info: %s" % get_ex_error(ex))
+        return return_error(403, "Error Creating Inf, info: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error Creating Inf.")
         return return_error(400, "Error Creating Inf.: %s" % get_ex_error(ex))

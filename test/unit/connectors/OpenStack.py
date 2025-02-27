@@ -22,6 +22,7 @@ import unittest
 sys.path.append(".")
 sys.path.append("..")
 from .CloudConn import TestCloudConnectorBase
+from IM.connectors.exceptions import NoCompatibleAuthData
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
@@ -1075,10 +1076,8 @@ class TestOSTConnector(TestCloudConnectorBase):
         ost_cloud.cloud.extra['username'] = 'idp'
         ost_cloud.cloud.extra['domain'] = 'project'
 
-        with self.assertRaises(Exception) as ex:
+        with self.assertRaises(NoCompatibleAuthData):
             ost_cloud.get_driver(auth)
-        self.assertEqual('No compatible OpenStack auth data has been specified.',
-                         str(ex.exception))
 
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
                                 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'},
