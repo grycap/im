@@ -1604,7 +1604,7 @@ configure step2 (
                          'deleted': False,
                          'im_user': '__OPENID__mcaballer',
                          'inf_id': '1',
-                         'last_date': '2022-03-23'}]
+                         'last_date': '2022-03-23 00:00:00'}]
         self.assertEqual(stats, expected_res)
 
 
