@@ -124,9 +124,7 @@ class Stats():
             for elem in res:
                 if db.db_type == DataBase.MONGO:
                     data = elem["data"]
-                    date = elem["date"]
-                    if date and not isinstance(date, datetime.datetime):
-                        date = datetime.datetime.fromtimestamp(elem["date"])
+                    date = datetime.datetime.fromtimestamp(int(elem["date"]))
                     inf_id = elem["id"]
                 else:
                     data = elem[0]
