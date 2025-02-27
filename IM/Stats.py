@@ -124,11 +124,14 @@ class Stats():
             for elem in res:
                 if db.db_type == DataBase.MONGO:
                     data = elem["data"]
-                    date = datetime.datetime.fromtimestamp(int(elem["date"]))
+                    date = datetime.datetime.fromtimestamp(elem["date"])
                     inf_id = elem["id"]
                 else:
                     data = elem[0]
                     date = elem[1]
+                    # SQLite date is stored as string
+                    if date and isinstance(date, str) and len(date) == 10:
+                        date = datetime.datetime.strptime(date, "%Y-%m-%d")
                     inf_id = elem[2]
                 try:
                     init = datetime.datetime.strptime(init_date, "%Y-%m-%d")
