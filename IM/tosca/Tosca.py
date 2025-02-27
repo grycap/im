@@ -45,12 +45,12 @@ class Tosca:
         self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
         try:
-          self.yaml = self._get_tosca_from_repo(yaml.safe_load(yaml_str))
-          if not verify:
-              def verify_fake(tpl):
-                  return True
-              ToscaTemplate.verify_template = verify_fake
-          self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
+            self.yaml = self._get_tosca_from_repo(yaml.safe_load(yaml_str))
+            if not verify:
+                def verify_fake(tpl):
+                    return True
+                ToscaTemplate.verify_template = verify_fake
+            self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
         except Exception as ex:
             raise Exception("Error parsing TOSCA template: %s" % str(ex))
 
