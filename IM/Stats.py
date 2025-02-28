@@ -38,7 +38,7 @@ class Stats():
         resp = {'creation_date': ''}
         if 'creation_date' in dic and dic['creation_date']:
             creation_date = datetime.datetime.fromtimestamp(float(dic['creation_date']))
-            resp['creation_date'] = str(creation_date)
+            resp['creation_date'] = creation_date.strftime("%Y-%m-%d %H:%M:%S")
             if init_date and creation_date < init_date:
                 return None
             if end_date and creation_date > end_date:
@@ -106,7 +106,7 @@ class Stats():
              'im_user': '__OPENID__mcaballer',
              'inf_id': '1',
              'deleted': False,
-             'last_date': '2022-03-23'}
+             'last_date': '2022-03-23 10:00:00'}
         """
         stats = []
         db = DataBase(Config.DATA_DB)
@@ -124,7 +124,9 @@ class Stats():
             for elem in res:
                 if db.db_type == DataBase.MONGO:
                     data = elem["data"]
-                    date = datetime.datetime.fromtimestamp(int(elem["date"]))
+                    date = elem["date"]
+                    if date and not isinstance(date, datetime.datetime):
+                        date = datetime.datetime.fromtimestamp(elem["date"])
                     inf_id = elem["id"]
                 else:
                     data = elem[0]
@@ -139,7 +141,7 @@ class Stats():
                     res = Stats._get_data(data, init, end)
                     if res:
                         res['inf_id'] = inf_id
-                        res['last_date'] = str(date)
+                        res['last_date'] = date.strftime("%Y-%m-%d %H:%M:%S")
                         stats.append(res)
                 except Exception:
                     Stats.logger.exception("ERROR reading infrastructure info from Inf ID: %s" % inf_id)
