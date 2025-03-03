@@ -1386,7 +1386,7 @@ class EC2CloudConnector(CloudConnector):
                 conn = boto3.client('route53', region_name='universal',
                                     aws_access_key_id=auth['username'],
                                     aws_secret_access_key=auth['password'])
-        zone = self._get_zone(conn, domain)
+        zone = EC2CloudConnector._get_zone(conn, domain)
         if not zone:
             self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
         else:
