@@ -1307,7 +1307,8 @@ class EC2CloudConnector(CloudConnector):
 
         return (True, vm)
 
-    def _get_zone(self, conn, domain):
+    @staticmethod
+    def _get_zone(conn, domain):
         zones = conn.list_hosted_zones_by_name(DNSName=domain, MaxItems='1')['HostedZones']
         if not zones or len(zones) == 0:
             return None
@@ -1344,7 +1345,7 @@ class EC2CloudConnector(CloudConnector):
                                         aws_access_key_id=auth['username'],
                                         aws_secret_access_key=auth['password'])
 
-            zone = self._get_zone(conn, domain)
+            zone = EC2CloudConnector._get_zone(conn, domain)
             if not zone:
                 raise CloudConnectorException("Could not find DNS zone to update")
             zone_id = zone['Id']
