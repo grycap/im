@@ -122,11 +122,11 @@ class VirtualMachine(LoggerMixin):
             odict['requested_radl'] = str(odict['requested_radl'])
         if odict['cloud']:
             odict['cloud'] = odict['cloud'].serialize()
-        return json.dumps(odict)
+        return odict
 
     @staticmethod
     def deserialize(str_data):
-        dic = json.loads(str_data)
+        dic = str_data if isinstance(str_data, dict) else json.loads(str_data)
         if dic['cloud']:
             dic['cloud'] = IM.CloudInfo.CloudInfo.deserialize(dic['cloud'])
         if dic['info']:

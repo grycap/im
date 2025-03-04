@@ -238,12 +238,13 @@ class InfrastructureList():
                 data = inf.serialize()
                 if db.db_type == DataBase.MONGO:
                     res = db.replace("inf_list", {"id": inf.id}, {"id": inf.id, "deleted": int(inf.deleted),
-                                                                  "data": json.loads(data), "date": time.time(),
-                                                                  "auth": json.loads(inf.auth.serialize())})
+                                                                  "data": data, "date": time.time(),
+                                                                  "auth": inf.auth.serialize()})
                 else:
                     res = db.execute("replace into inf_list (id, deleted, data, date, auth)"
                                      " values (%s, %s, %s, now(), %s)",
-                                     (inf.id, int(inf.deleted), data, inf.auth.serialize()))
+                                     (inf.id, int(inf.deleted), json.dumps(data),
+                                      json.dumps(inf.auth.serialize())))
 
             db.close()
             return res

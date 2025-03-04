@@ -223,7 +223,7 @@ class Authentication:
         return res
 
     def serialize(self):
-        return json.dumps(self.auth_list, sort_keys=True)
+        return self.auth_list
 
     @staticmethod
     def deserialize(str_data):
