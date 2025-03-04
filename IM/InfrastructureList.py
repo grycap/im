@@ -19,6 +19,7 @@ import sys
 import time
 import logging
 import threading
+import json
 
 from IM.db import DataBase
 from IM.config import Config
@@ -237,8 +238,8 @@ class InfrastructureList():
                 data = inf.serialize()
                 if db.db_type == DataBase.MONGO:
                     res = db.replace("inf_list", {"id": inf.id}, {"id": inf.id, "deleted": int(inf.deleted),
-                                                                  "data": data, "date": time.time(),
-                                                                  "auth": inf.auth.serialize()})
+                                                                  "data": json.loads(data), "date": time.time(),
+                                                                  "auth": json.loads(inf.auth.serialize())})
                 else:
                     res = db.execute("replace into inf_list (id, deleted, data, date, auth)"
                                      " values (%s, %s, %s, now(), %s)",
