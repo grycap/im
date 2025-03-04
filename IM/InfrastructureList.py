@@ -242,7 +242,8 @@ class InfrastructureList():
                 else:
                     res = db.execute("replace into inf_list (id, deleted, data, date, auth)"
                                      " values (%s, %s, %s, now(), %s)",
-                                     (inf.id, int(inf.deleted), data, inf.auth.serialize()))
+                                     (inf.id, int(inf.deleted), json.dumps(data),
+                                      json.dumps(inf.auth.serialize())))
 
             db.close()
             return res

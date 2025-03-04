@@ -140,11 +140,11 @@ class CloudInfo:
         return res
 
     def serialize(self):
-        return json.dumps(self.__dict__)
+        return self.__dict__
 
     @staticmethod
     def deserialize(str_data):
-        dic = json.loads(str_data)
+        dic = str_data if isinstance(str_data, dict) else json.loads(str_data)
         nwecloud = CloudInfo()
         nwecloud.__dict__.update(dic)
         return nwecloud
