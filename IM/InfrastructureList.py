@@ -267,18 +267,16 @@ class InfrastructureList():
 
     @staticmethod
     def _gen_filter_from_auth(auth):
-        like = ""
+        usernames = []
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
                 if elem.get("admin"):
                     return {}
                 if elem.get("username"):
-                    if like:
-                        like += "|"
-                    like += '"%s"' % elem.get("username")
+                    usernames.append(elem.get("username"))
 
-        if like:
-            return {"auth": {"$regex": like}}
+        if usernames:
+            return {"auth": {"$elemMatch": {"username": {"$in": usernames}}}}
         else:
             return {}
 
