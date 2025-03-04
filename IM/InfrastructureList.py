@@ -19,6 +19,7 @@ import sys
 import time
 import logging
 import threading
+import json
 
 from IM.db import DataBase
 from IM.config import Config
@@ -242,7 +243,8 @@ class InfrastructureList():
                 else:
                     res = db.execute("replace into inf_list (id, deleted, data, date, auth)"
                                      " values (%s, %s, %s, now(), %s)",
-                                     (inf.id, int(inf.deleted), data, inf.auth.serialize()))
+                                     (inf.id, int(inf.deleted), json.dumps(data),
+                                      json.dumps(inf.auth.serialize())))
 
             db.close()
             return res
@@ -266,18 +268,16 @@ class InfrastructureList():
 
     @staticmethod
     def _gen_filter_from_auth(auth):
-        like = ""
+        usernames = []
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
                 if elem.get("admin"):
                     return {}
                 if elem.get("username"):
-                    if like:
-                        like += "|"
-                    like += '"%s"' % elem.get("username")
+                    usernames.append(elem.get("username"))
 
-        if like:
-            return {"auth": {"$regex": like}}
+        if usernames:
+            return {"auth": {"$elemMatch": {"username": {"$in": usernames}}}}
         else:
             return {}
 
