@@ -34,7 +34,7 @@ class Stats():
 
     @staticmethod
     def _get_data(str_data, init_date=None, end_date=None):
-        dic = json.loads(str_data)
+        dic = str_data if isinstance(str_data, dict) else json.loads(str_data)
         resp = {'creation_date': ''}
         if 'creation_date' in dic and dic['creation_date']:
             creation_date = datetime.datetime.fromtimestamp(float(dic['creation_date']))
