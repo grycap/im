@@ -227,7 +227,8 @@ class Authentication:
 
     @staticmethod
     def deserialize(str_data):
-        return Authentication(json.loads(str_data))
+        data = str_data if isinstance(str_data, dict) else json.loads(str_data)
+        return Authentication(data)
 
     def delAuthInfo(self, auth_type, host=None):
         """
