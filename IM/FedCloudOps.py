@@ -44,10 +44,10 @@ class GitHubRepository():
             path = "/".join(url.path.split("/")[5:])
         return owner, repo, branch, path
 
-    def get(self, element):
+    def get(self, element, timeout=10):
         owner, repo, branch, _ = self._getRepoDetails()
         url = "https://raw.githubusercontent.com/%s/%s/%s/%s" % (owner, repo, branch, element)
-        response = requests.get(url)
+        response = requests.get(url, timeout=timeout)
         return response.text
 
 
@@ -64,6 +64,6 @@ class FedCloudOps:
             repo = GitHubRepository(FedCloudOps.REPO_URL)
             site_info = yaml.safe_load(repo.get(f"sites/{site_name}.yaml"))
             projects = {vo["name"]: vo["auth"]["project_id"] for vo in site_info["vos"]}
-        except Exception as ex:
+        except Exception:
             print(f"Error getting project IDs for site {site_name}")
         return projects
