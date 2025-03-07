@@ -28,25 +28,23 @@ class GitHubRepository():
     """
 
     def __init__(self, repository_url):
-        self.repository_url = repository_url[:-1] if repository_url.endswith("/") else repository_url
-
-    def _getRepoDetails(self):
-        url = urlparse(self.repository_url)
-        if "githubusercontent.com" in self.repository_url:
-            owner = url.path.split("/")[1]
-            repo = url.path.split("/")[2]
-            branch = url.path.split("/")[3]
-            path = "/".join(url.path.split("/")[4:])
-        elif "github.com" in self.repository_url:
-            owner = url.path.split("/")[1]
-            repo = url.path.split("/")[2]
-            branch = url.path.split("/")[4]
-            path = "/".join(url.path.split("/")[5:])
-        return owner, repo, branch, path
+        url = urlparse(repository_url[:-1] if repository_url.endswith("/") else repository_url)
+        if "githubusercontent.com" in url.netloc:
+            self.owner = url.path.split("/")[1]
+            self.repo = url.path.split("/")[2]
+            self.branch = url.path.split("/")[3]
+            self.path = "/".join(url.path.split("/")[4:])
+        elif "github.com" in url.netloc:
+            self.owner = url.path.split("/")[1]
+            self.repo = url.path.split("/")[2]
+            self.branch = url.path.split("/")[4]
+            self.path = "/".join(url.path.split("/")[5:])
+        else:
+            raise ValueError("Invalid GitHub repository URL")
 
     def get(self, element, timeout=10):
-        owner, repo, branch, _ = self._getRepoDetails()
-        url = "https://raw.githubusercontent.com/%s/%s/%s/%s" % (owner, repo, branch, element)
+        """ Get the content of a file from the repository """
+        url = f"https://raw.githubusercontent.com/{self.owner}/{self.repo}/{self.branch}/{self.path}/{element}"
         response = requests.get(url, timeout=timeout)
         return response.text
 
@@ -55,14 +53,15 @@ class FedCloudOps:
     """
     Get Project IDs info from the FedCloudOps repository
     """
-    REPO_URL = "https://github.com/EGI-Federation/fedcloud-catchall-operations/blob/main/"
+    REPO_URL = "https://github.com/EGI-Federation/fedcloud-catchall-operations/blob/main/sites"
 
     @staticmethod
     def get_project_ids(site_name):
+        """ Get the mapping between VO names and project IDs for a site """
         projects = {}
         try:
             repo = GitHubRepository(FedCloudOps.REPO_URL)
-            site_info = yaml.safe_load(repo.get(f"sites/{site_name}.yaml"))
+            site_info = yaml.safe_load(repo.get(f"{site_name}.yaml"))
             projects = {vo["name"]: vo["auth"]["project_id"] for vo in site_info["vos"]}
         except Exception:
             print(f"Error getting project IDs for site {site_name}")
