@@ -405,18 +405,20 @@ class AzureCloudConnector(CloudConnector):
                   'priority': cont
                   }
             cont += 100
-            if outport.is_range():
+            if outport.get_protocol() == 'icmp':
+                sr['name'] = 'sr-icmp-all'
+                sr['destination_port_range'] = "*"
+            elif outport.is_range():
                 sr['name'] = 'sr-%s-%d-%d' % (outport.get_protocol(),
                                               outport.get_port_init(),
                                               outport.get_port_end())
                 sr['destination_port_range'] = "%d-%d" % (outport.get_port_init(), outport.get_port_end())
-                security_rules.append(sr)
             else:
                 sr['name'] = 'sr-%s-%d-%d' % (outport.get_protocol(),
                                               outport.get_remote_port(),
                                               outport.get_local_port())
                 sr['destination_port_range'] = str(outport.get_local_port())
-                security_rules.append(sr)
+            security_rules.append(sr)
 
         params = {
             'location': location,

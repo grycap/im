@@ -395,7 +395,10 @@ class EC2CloudConnector(CloudConnector):
                     outports = self.add_ssh_port(outports)
 
                 for outport in outports:
-                    if outport.is_range():
+                    if outport.get_protocol() == "icmp":
+                        from_port = -1
+                        to_port = -1
+                    elif outport.is_range():
                         from_port = outport.get_port_init()
                         to_port = outport.get_port_end()
                     else:
