@@ -29,6 +29,7 @@ import IM.InfrastructureList
 from IM.VMRC import VMRC
 from IM.AppDBIS import AppDBIS
 from IM.AppDB import AppDB
+from IM.FedCloudOps import FedCloudOps
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from IM.recipe import Recipe
@@ -1520,7 +1521,8 @@ class InfrastructureManager:
                         InfrastructureManager.logger.error("Site name '%s' not found at AppDB." % auth_item['host'])
                         continue
                     ost_auth['host'] = site_url
-                    projects = AppDB.get_project_ids(site_id)
+                    projects = FedCloudOps.get_project_ids(auth_item["host"])
+                    projects.update(AppDB.get_project_ids(site_id))
                     # If the VO does not appear in the project IDs
                     if auth_item['vo'] in projects:
                         ost_auth['domain'] = projects[auth_item['vo']]
