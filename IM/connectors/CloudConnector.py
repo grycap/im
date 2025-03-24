@@ -757,14 +757,14 @@ class CloudConnector(LoggerMixin):
                     except NotImplementedError as niex:
                         # Use DyDNS as back up for all providers if IM credentials uses token auth
                         im_auth = auth_data.getAuthInfo("InfrastructureManager")
-                        if im_auth and im_auth[0].get("token"):
-                            from IM.connectors.EGI import EGI
+                        if im_auth and im_auth[0].get("token") or (hostname.startswith("dydns:") and "@" in hostname):
+                            from IM.connectors.EGI import EGICloudConnector
                             if op == "add":
-                                success = EGI.add_dns_entry(self, hostname, domain, ip, auth_data)
+                                success = EGICloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
                                 if success and entry not in vm.dns_entries:
                                     vm.dns_entries.append(entry)
                             elif op == "del":
-                                EGI.del_dns_entry(self, hostname, domain, ip, auth_data)
+                                EGICloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
                                 if entry in vm.dns_entries:
                                     vm.dns_entries.remove(entry)
                             else:
