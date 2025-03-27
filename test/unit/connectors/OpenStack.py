@@ -809,10 +809,10 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         sg1 = MagicMock()
         sg1.name = "im-infid-private"
-        sg1.description = "Security group created by the IM"
+        sg1.description = "Security group created by the IM for Inf: test"
         sg2 = MagicMock()
         sg2.name = "im-infid-public"
-        sg2.description = "Security group created by the IM"
+        sg2.description = "Security group created by the IM for Inf: test"
         sg3 = MagicMock()
         sg3.name = "im-infid"
         sg3.description = ""
