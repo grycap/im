@@ -143,13 +143,13 @@ class InfrastructureInfo:
             odict['radl'] = str(odict['radl'])
         if odict['extra_info'] and "TOSCA" in odict['extra_info']:
             odict['extra_info'] = {'TOSCA': odict['extra_info']['TOSCA'].serialize()}
-        return json.dumps(odict)
+        return odict
 
     @staticmethod
     def deserialize(str_data):
         newinf = InfrastructureInfo()
         newinf.creation_date = None
-        dic = json.loads(str_data)
+        dic = str_data if isinstance(str_data, dict) else json.loads(str_data)
         vm_list = dic['vm_list']
         vm_master_id = dic['vm_master']
         dic['vm_master'] = None

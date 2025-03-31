@@ -22,7 +22,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "IM"
+name = "im"
 description = "IM is a tool to manage virtual infrastructures on Cloud deployments"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

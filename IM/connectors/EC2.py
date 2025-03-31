@@ -395,7 +395,10 @@ class EC2CloudConnector(CloudConnector):
                     outports = self.add_ssh_port(outports)
 
                 for outport in outports:
-                    if outport.is_range():
+                    if outport.get_protocol() == "icmp":
+                        from_port = -1
+                        to_port = -1
+                    elif outport.is_range():
                         from_port = outport.get_port_init()
                         to_port = outport.get_port_end()
                     else:
@@ -1307,7 +1310,8 @@ class EC2CloudConnector(CloudConnector):
 
         return (True, vm)
 
-    def _get_zone(self, conn, domain):
+    @staticmethod
+    def _get_zone(conn, domain):
         zones = conn.list_hosted_zones_by_name(DNSName=domain, MaxItems='1')['HostedZones']
         if not zones or len(zones) == 0:
             return None
@@ -1344,7 +1348,7 @@ class EC2CloudConnector(CloudConnector):
                                         aws_access_key_id=auth['username'],
                                         aws_secret_access_key=auth['password'])
 
-            zone = self._get_zone(conn, domain)
+            zone = EC2CloudConnector._get_zone(conn, domain)
             if not zone:
                 raise CloudConnectorException("Could not find DNS zone to update")
             zone_id = zone['Id']
@@ -1364,7 +1368,9 @@ class EC2CloudConnector(CloudConnector):
                 if not records or records[0]['Name'] != fqdn:
                     self.log_info("Creating DNS record %s." % fqdn)
                     conn.change_resource_record_sets(HostedZoneId=zone_id,
-                                                     ChangeBatch=self._get_change_batch('CREATE', fqdn, ip))
+                                                     ChangeBatch=EC2CloudConnector._get_change_batch('CREATE',
+                                                                                                     fqdn,
+                                                                                                     ip))
                 else:
                     self.log_info("DNS record %s exists. Do not create." % fqdn)
             return True
@@ -1385,7 +1391,7 @@ class EC2CloudConnector(CloudConnector):
                 conn = boto3.client('route53', region_name='universal',
                                     aws_access_key_id=auth['username'],
                                     aws_secret_access_key=auth['password'])
-        zone = self._get_zone(conn, domain)
+        zone = EC2CloudConnector._get_zone(conn, domain)
         if not zone:
             self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
         else:
@@ -1399,7 +1405,7 @@ class EC2CloudConnector(CloudConnector):
             else:
                 self.log_info("Deleting DNS record %s." % fqdn)
                 conn.change_resource_record_sets(HostedZoneId=zone['Id'],
-                                                 ChangeBatch=self._get_change_batch('DELETE', fqdn, ip))
+                                                 ChangeBatch=EC2CloudConnector._get_change_batch('DELETE', fqdn, ip))
 
             # if there are no A records
             # all_a_records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],

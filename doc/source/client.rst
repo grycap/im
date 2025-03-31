@@ -527,9 +527,10 @@ Examples
 
 An example of the auth file::
 
-   # InfrastructureManager auth
-   type = InfrastructureManager; username = user; password: pass
-   type = InfrastructureManager: token = access_token_value
+   # InfrastructureManager auth data
+   type = InfrastructureManager; username = user; password = pass
+   # InfrastructureManager auth data with OIDC token
+   type = InfrastructureManager; token = access_token_value
    # Having at least one of the two lines above is mandatory for all auth files.
    # The lines below are concrete examples for each infrastructure. Please add only the ones that are relevant to you.
    # Vault auth
@@ -544,10 +545,6 @@ An example of the auth file::
    id = ost; type = OpenStack; host = https://ostserver:5000; username = egi.eu; tenant = openid; password = command(oidc-token OIDC_ACCOUNT); auth_version = 3.x_oidc_access_token; domain = project_name_or_id
    #  OpenStack site using OpenID authentication
    id = ost; type = OpenStack; host = https://ostserver:5000; username = indentity_provider; tenant = oidc; password = access_token_value; auth_version = 3.x_oidc_access_token
-   # IM auth data
-   id = im; type = InfrastructureManager; username = user; password = pass
-   # IM auth data with OIDC token
-   id = im; type = InfrastructureManager; token = access_token_value
    # VMRC auth data
    id = vmrc; type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
    # EC2 auth data
