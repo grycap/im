@@ -398,6 +398,7 @@ class OAI():
             schema = 'http://www.openarchives.org/OAI/2.0/oai_dc.xsd'
             schema_ns = 'oai_dc'
             elems_ns = 'dc'
+            # Remove the namespaces that are not needed for oai_dc
             del nsmap['datacite']
             del nsmap['oaire']
         elif metadata_prefix == 'oai_openaire':
@@ -405,12 +406,14 @@ class OAI():
             schema = 'https://www.openaire.eu/schema/1.0/oaf-1.0.xsd'
             schema_ns = 'oaire'
             elems_ns = 'dc'
+            # Remove the namespaces that are not needed for oai_openaire
             del nsmap['oai_dc']
         elif metadata_prefix == 'oai_datacite':
             record_root = '{%s}resource' % nsmap['datacite']
             schema = 'https://schema.datacite.org/meta/kernel-4.3/metadata.xsd'
             schema_ns = 'datacite'
             elems_ns = 'datacite'
+            # Remove the namespaces that are not needed for oai_datacite
             del nsmap['oai_dc']
             del nsmap['oaire']
         else:
@@ -497,7 +500,8 @@ class OAI():
             elif key == 'related_identifier':
                 if metadata_prefix == 'oai_datacite':
                     related_identifier_element = etree.Element('{http://datacite.org/schema/kernel-4}relatedIdentifier',
-                                                               relatedIdentifierType="DOI", relationType="isContinuedBy")
+                                                               relatedIdentifierType="DOI",
+                                                               relationType="isContinuedBy")
                     related_identifier_element.text = value
                     root.append(related_identifier_element)
             elif key == 'tag':
