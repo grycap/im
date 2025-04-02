@@ -87,20 +87,11 @@ class OAI():
             root.append(error_element)
             return etree.tostring(root, pretty_print=True, encoding='unicode')
 
-        identifier = identifier
-        if 'templates/' in identifier:
-            name_identifier = identifier.split('templates/')[1]
-        else:
-            error_element = Errors.idDoesNotExist()
-            root.append(error_element)
-            return etree.tostring(root, pretty_print=True, encoding='unicode')
-
-        if name_identifier not in metadata_dict:
-            error_element = Errors.idDoesNotExist()
-            root.append(error_element)
-            return etree.tostring(root, pretty_print=True, encoding='unicode')
-
         record_data = self.recordByIdentifier(metadata_dict, identifier)
+        if not record_data:
+            error_element = Errors.idDoesNotExist()
+            root.append(error_element)
+            return etree.tostring(root, pretty_print=True, encoding='unicode')
 
         get_record_element = etree.SubElement(root, 'GetRecord')
         record = etree.SubElement(get_record_element, 'record')
