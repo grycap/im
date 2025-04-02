@@ -36,6 +36,8 @@ from IM.InfrastructureManager import (DeletedInfrastructureException,
                                       InvaliddUserException)
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
 from IM.REST import app
+from IM.config import Config
+import defusedxml.ElementTree as etree
 
 
 def read_file_as_bytes(file_name):
@@ -852,6 +854,185 @@ class TestREST(unittest.TestCase):
         self.assertEqual(GetStats.call_args_list[0][0][2].auth_list, [{"type": "InfrastructureManager",
                                                                        "username": "user",
                                                                        "password": "pass"}])
+
+    @patch("requests_cache.CachedSession")
+    def test_oaipmh(self, CachedSession):
+        """Test OAIPMH."""
+        Config.OAIPMH_REPO_BASE_IDENTIFIER_URL = "https://github.com/grycap/tosca/blob/eosc_lot1/templates/"
+        Config.OAIPMH_REPO_DESCRIPTION = "TOSCA templates"
+        Config.OAIPMH_REPO_NAME = "TOSCA"
+        Config.OAIPMH_REPO_ADMIN_EMAIL = "some@some.com"
+
+        list_resp = MagicMock()
+        list_resp.json.return_value = {
+            "tree":
+            [{'path': 'templates/docker.yaml', 'mode': '100644', 'type': 'blob',
+              'sha': 'a97c8105a8e9020aa6061a88034a019f869a4096', 'size': 5141,
+              'url': 'https://api.github.com/repos/grycap/tosca/git/blobs/a97c8105a8e9020aa6061a88034a019f869a4096'},
+             {'path': 'templates/hadoop_cluster.yaml', 'mode': '100644', 'type': 'blob',
+              'sha': '13d4233c0a34cbd4e320aa2336817fcf1ec8d773', 'size': 3748,
+              'url': 'https://api.github.com/repos/grycap/tosca/git/blobs/13d4233c0a34cbd4e320aa2336817fcf1ec8d773'}]}
+        file_resp1 = MagicMock()
+        file_resp1.text = """metadata:
+  template_name: VM
+  template_version: "1.1.0"
+  template_author: Miguel Caballer
+  creation_date: 2020-09-08
+  display_name: Deploy a VM"""
+        file_resp2 = MagicMock()
+        file_resp2.text = """metadata:
+  template_name: VM2
+  template_version: "1.1.0"
+  template_author: Miguel Caballer
+  creation_date: 2020-09-09
+  display_name: Deploy a VM2"""
+        session = MagicMock()
+        CachedSession.return_value = session
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+
+        namespace = {'oaipmh': 'http://www.openarchives.org/OAI/2.0/'}
+
+        # Test OAI path
+        res = self.client.get('/oai')
+        self.assertEqual(200, res.status_code)
+        root = etree.fromstring(res.data)
+        self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'badVerb')
+
+        # Test Identify
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=Identify')
+        self.assertEqual(200, res.status_code)
+
+        root = etree.fromstring(res.data)
+
+        self.assertEqual(root.find(".//oaipmh:repositoryName", namespace).text, "TOSCA")
+        self.assertEqual(root.find(".//oaipmh:baseURL", namespace).text, "http://localhost/oai")
+        self.assertEqual(root.find(".//oaipmh:protocolVersion", namespace).text, "2.0")
+        self.assertIsNotNone(root.find(".//oaipmh:earliestDatestamp", namespace))
+        self.assertEqual(root.find(".//oaipmh:deletedRecord", namespace).text, "no")
+        self.assertEqual(root.find(".//oaipmh:granularity", namespace).text, "YYYY-MM-DD")
+        self.assertEqual(root.find(".//oaipmh:adminEmail", namespace).text, "some@some.com")
+
+        # Test Identify Post with body params
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.post('/oai', headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                               data="verb=Identify")
+        self.assertEqual(200, res.status_code)
+        root = etree.fromstring(res.data)
+        self.assertEqual(root.find(".//oaipmh:repositoryName", namespace).text, "TOSCA")
+
+        namespaces = {'dc': 'http://purl.org/dc/elements/1.1/',
+                      'oaipmh': 'http://www.openarchives.org/OAI/2.0/',
+                      'datacite': 'http://datacite.org/schema/kernel-4'}
+
+        # Test GetRecord
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        tosca_id = "https://github.com/grycap/tosca/blob/eosc_lot1/templates/hadoop_cluster.yaml"
+        res = self.client.get('/oai?verb=GetRecord&metadataPrefix=oai_datacite&identifier=%s' % tosca_id)
+        self.assertEqual(200, res.status_code)
+
+        root = etree.fromstring(res.data)
+
+        self.assertEqual(root.find(".//datacite:title", namespaces).text, "Deploy a VM2")
+        self.assertEqual(root.find(".//datacite:creatorName", namespaces).text, "Miguel Caballer")
+        self.assertEqual(root.find(".//datacite:date", namespaces).text, "2020-09-09")
+        self.assertEqual(root.find(".//oaipmh:identifier", namespaces).text, tosca_id)
+        self.assertEqual(root.find(".//oaipmh:datestamp", namespaces).text, "2020-09-09")
+        self.assertEqual(root.find(".//datacite:identifier", namespaces).text, tosca_id)
+
+        # Test GetRecord with invalid identifier
+        tosca_id = 'invalid"id'
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=GetRecord&metadataPrefix=oai_dc&identifier=%s' % tosca_id)
+        self.assertEqual(200, res.status_code)
+        root = etree.fromstring(res.data)
+        self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'idDoesNotExist')
+
+        # Test ListIdentifiers
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=ListIdentifiers&metadataPrefix=oai_dc')
+        self.assertEqual(200, res.status_code)
+        root = etree.fromstring(res.data)
+        elems = root.findall(".//oaipmh:header", namespaces)
+        self.assertEqual(len(elems), 2)
+
+        self.assertEqual(root.find(".//oaipmh:identifier", namespaces).text,
+                         "https://github.com/grycap/tosca/blob/eosc_lot1/templates/docker.yaml")
+
+        # Test ListIdentifiers with from
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=ListIdentifiers&metadataPrefix=oai_dc&from=2020-09-10')
+        self.assertEqual(200, res.status_code)
+        root = etree.fromstring(res.data)
+        self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'noRecordsMatch')
+
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=ListIdentifiers&metadataPrefix=oai_dc&from=2020-09-07')
+        self.assertEqual(200, res.status_code)
+        root = etree.fromstring(res.data)
+        elems = root.findall(".//oaipmh:header", namespaces)
+        self.assertEqual(len(elems), 2)
+
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=ListIdentifiers&metadataPrefix=oai_dc&until=2020-09-07')
+        self.assertEqual(200, res.status_code)
+        root = etree.fromstring(res.data)
+        self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'noRecordsMatch')
+
+        # Test ListRecords oai_dc
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=ListRecords&metadataPrefix=oai_dc')
+        self.assertEqual(200, res.status_code)
+
+        root = etree.fromstring(res.data)
+
+        self.assertEqual(root.find(".//dc:title", namespaces).text, "Deploy a VM")
+        self.assertEqual(root.find(".//dc:creator", namespaces).text, "Miguel Caballer")
+        self.assertEqual(root.find(".//dc:date", namespaces).text, "2020-09-08")
+        self.assertEqual(root.find(".//oaipmh:identifier", namespaces).text,
+                         "https://github.com/grycap/tosca/blob/eosc_lot1/templates/docker.yaml")
+        self.assertEqual(root.find(".//oaipmh:datestamp", namespaces).text,
+                         "2020-09-08")
+        # self.assertIsNotNone(root.find(".//dc:type", namespace_dc))
+        # self.assertIsNotNone(root.find(".//dc:rights", namespace_dc))
+
+        # Test ListRecords oai_openaire
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=ListRecords&metadataPrefix=oai_openaire')
+        self.assertEqual(200, res.status_code)
+        root = etree.fromstring(res.data)
+        elems = root.findall(".//oaipmh:identifier", namespaces)
+        self.assertEqual(len(elems), 2)
+        self.assertEqual(root.find(".//dc:creator", namespaces).text, "Miguel Caballer")
+
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=ListRecords&metadataPrefix=oai_dc&until=2020-09-07')
+        self.assertEqual(200, res.status_code)
+        root = etree.fromstring(res.data)
+        self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'noRecordsMatch')
+
+        # Test ListMetadataFormats
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=ListMetadataFormats')
+        self.assertEqual(200, res.status_code)
+
+        root = etree.fromstring(res.data)
+
+        prefixes = root.findall(".//oaipmh:metadataPrefix", namespaces)
+        prefixes_text = [prefix.text for prefix in prefixes]
+
+        self.assertIn('oai_dc', prefixes_text)
+        self.assertIn('oai_openaire', prefixes_text)
+        self.assertIn('oai_datacite', prefixes_text)
+
+        # Test ListSets
+        session.get.side_effect = [list_resp, file_resp1, file_resp2]
+        res = self.client.get('/oai?verb=ListSets')
+        self.assertEqual(200, res.status_code)
+
+        root = etree.fromstring(res.data)
+
+        self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'noSetHierarchy')
 
 
 if __name__ == "__main__":
