@@ -1139,6 +1139,9 @@ def oaipmh():
         for name, elem in repo.list().items():
             tosca = yaml.safe_load(repo.get(elem))
             metadata = tosca["metadata"]
+            metadata["identifier"] = Config.OAIPMH_REPO_BASE_IDENTIFIER_URL + name
+            metadata["resource_type"] = "software"
+            metadata["rights"] = "openaccess"
             metadata_dict[name] = metadata
     except Exception as ex:
         logger.exception("Error getting metadata from TOSCA templates")

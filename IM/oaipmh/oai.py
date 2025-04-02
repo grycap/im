@@ -39,7 +39,7 @@ class OAI():
         self.repository_protocol_version = "2.0"
         self.repository_indentifier_base_url = repo_identifier_base_url
 
-        self.valid_metadata_formats = ['oai_dc', 'oai_openaire']
+        self.valid_metadata_formats = ['oai_dc', 'oai_openaire', 'oai_datacite']
 
         self.formats = [
             {
@@ -49,6 +49,11 @@ class OAI():
             },
             {
                 'metadataPrefix': 'oai_openaire',
+                'schema': 'https://www.openaire.eu/schema/1.0/oaf-1.0.xsd',
+                'metadataNamespace': 'http://namespace.openaire.eu/schema/oaire/',
+            },
+            {
+                'metadataPrefix': 'oai_datacite',
                 'schema': 'https://schema.datacite.org/meta/kernel-4.3/metadata.xsd',
                 'metadataNamespace': 'http://datacite.org/schema/kernel-4',
             },
@@ -107,13 +112,7 @@ class OAI():
 
         metadata_element = etree.SubElement(record, 'metadata')
 
-        if metadata_prefix == 'oai_dc':
-            metadata_xml = self.mapDC(record_data)
-
-        if metadata_prefix == 'oai_openaire':
-            metadata_xml = self.mapOAIRE(record_data)
-
-        metadata_element.append(metadata_xml)
+        metadata_element.append(self.mapRecord(record_data, metadata_prefix))
 
         return etree.tostring(root, pretty_print=True, encoding='unicode')
 
@@ -281,14 +280,8 @@ class OAI():
 
                 metadata_element = etree.Element('metadata')
 
-                if metadata_prefix == 'oai_dc':
-                    metadata_xml = self.mapDC(metadata_dict[record_name])
-
-                if metadata_prefix == 'oai_openaire':
-                    metadata_xml = self.mapOAIRE(metadata_dict[record_name])
-
                 # Append the generated XML to the metadata element
-                metadata_element.append(metadata_xml)
+                metadata_element.append(self.mapRecord(metadata_dict[record_name], metadata_prefix))
 
                 header_element.append(identifier_element)
                 header_element.append(datestamp_element)
@@ -391,155 +384,127 @@ class OAI():
         except ValueError:
             return None
 
-    def mapOAIRE(self, metadata_dict):
+    def mapRecord(self, metadata_dict, metadata_prefix):
         # Create an XML document
-        root = etree.Element('{http://www.openarchives.org/OAI/2.0/oai_dc/}dc', nsmap={
-            'oai_dc': 'http://www.openarchives.org/OAI/2.0/oai_dc/',
-            'dc': 'http://purl.org/dc/elements/1.1/',
-            'datacite': 'http://datacite.org/schema/kernel-4',
-            'oaire': 'http://namespace.openaire.eu/schema/oaire/',
-        })
-
-        # Add xsi:schemaLocation attribute
-        root.set('{http://www.w3.org/2001/XMLSchema-instance}schemaLocation',
-                 'http://www.openarchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc.xsd')
-
-        # Define the DataCite namespace and associate it with the root element
         nsmap = {
             'oai_dc': 'http://www.openarchives.org/OAI/2.0/oai_dc/',
             'dc': 'http://purl.org/dc/elements/1.1/',
             'datacite': 'http://datacite.org/schema/kernel-4',
             'oaire': 'http://namespace.openaire.eu/schema/oaire/',
         }
-        etree.register_namespace('dc', nsmap['dc'])
-        etree.register_namespace('datacite', nsmap['datacite'])
-        etree.register_namespace('oaire', nsmap['oaire'])
-        etree.register_namespace('oai_dc', nsmap['oai_dc'])
+
+        if metadata_prefix == 'oai_dc':
+            record_root = '{%s}dc' % nsmap[metadata_prefix]
+            schema = 'http://www.openarchives.org/OAI/2.0/oai_dc.xsd'
+            schema_ns = 'oai_dc'
+            elems_ns = 'dc'
+            del nsmap['datacite']
+            del nsmap['oaire']
+        elif metadata_prefix == 'oai_openaire':
+            record_root = '{%s}resource' % nsmap['oaire']
+            schema = 'https://www.openaire.eu/schema/1.0/oaf-1.0.xsd'
+            schema_ns = 'oaire'
+            elems_ns = 'dc'
+            del nsmap['oai_dc']
+        elif metadata_prefix == 'oai_datacite':
+            record_root = '{%s}resource' % nsmap['datacite']
+            schema = 'https://schema.datacite.org/meta/kernel-4.3/metadata.xsd'
+            schema_ns = 'datacite'
+            elems_ns = 'datacite'
+            del nsmap['oai_dc']
+            del nsmap['oaire']
+        else:
+            return None
+
+        root = etree.Element(record_root, nsmap=nsmap)
+
+        # Add xsi:schemaLocation attribute
+        root.set('{http://www.w3.org/2001/XMLSchema-instance}schemaLocation',
+                 f'{nsmap[schema_ns]} {schema}')
 
         for key, value in metadata_dict.items():
             if key == 'display_name':
-                title_element = etree.Element('{http://datacite.org/schema/kernel-4}title')
+                title_element = etree.Element('{%s}title' % nsmap[elems_ns])
                 title_element.text = value
                 root.append(title_element)
-            if key == 'template_author':
-                creator_element = etree.Element('{http://datacite.org/schema/kernel-4}creator')
-                creator_name_element = etree.Element('{http://datacite.org/schema/kernel-4}creatorName')
-                creator_name_element.text = value
-                creator_element.append(creator_name_element)
-                root.append(creator_element)
-            if key == 'creation_date':
-                date_element = etree.Element('{http://datacite.org/schema/kernel-4}date', dateType="Issued")
+            elif key == 'template_author':
+                if metadata_prefix == 'oai_datacite':
+                    creator_element = etree.Element('{%s}creator' % nsmap[elems_ns])
+                    creator_name_element = etree.Element('{%s}creatorName' % nsmap[elems_ns])
+                    creator_name_element.text = value
+                    creator_element.append(creator_name_element)
+                    root.append(creator_element)
+                else:
+                    creator_element = etree.Element('{%s}creator' % nsmap[elems_ns])
+                    creator_element.text = value
+                    root.append(creator_element)
+            elif key == 'creation_date':
+                if metadata_prefix == 'oai_datacite':
+                    date_element = etree.Element('{%s}date' % nsmap[elems_ns], dateType="Issued")
+                else:
+                    date_element = etree.Element('{%s}date' % nsmap[elems_ns])
                 date_element.text = value.strftime("%Y-%m-%d")
                 root.append(date_element)
-            if key == 'resource_type':
-                resource_type_element = etree.Element('{http://namespace.openaire.eu/schema/oaire/}resourceType',
-                                                      resourceTypeGeneral="software",
-                                                      uri="http://purl.org/coar/resource_type/c_5ce6")
+            elif key == 'resource_type':
+                if metadata_prefix == 'oai_datacite':
+                    resource_type_element = etree.Element('{http://namespace.openaire.eu/schema/oaire/}resourceType',
+                                                          resourceTypeGeneral="software",
+                                                          uri="http://purl.org/coar/resource_type/c_5ce6")
+                else:
+                    resource_type_element = etree.Element('{%s}resourceType' % nsmap[elems_ns])
                 resource_type_element.text = value
                 root.append(resource_type_element)
-            if key == 'identifier':
-                identifier_element = etree.Element('{http://datacite.org/schema/kernel-4}identifier',
-                                                   identifierType="URN")
+            elif key == 'identifier':
+                if metadata_prefix == 'oai_datacite':
+                    identifier_element = etree.Element('{http://datacite.org/schema/kernel-4}identifier',
+                                                       identifierType="URN")
+                else:
+                    identifier_element = etree.Element('{%s}identifier' % nsmap[elems_ns])
                 identifier_element.text = value
                 root.append(identifier_element)
-            if key == 'rights':
-                rights_element = etree.Element('{http://datacite.org/schema/kernel-4}rights',
-                                               rightsURI="http://purl.org/coar/access_right/c_abf2")
+            elif key == 'rights':
+                if metadata_prefix == 'oai_dc':
+                    rights_element = etree.Element('{%s}rights' % nsmap[elems_ns])
+                else:
+                    rights_element = etree.Element('{http://datacite.org/schema/kernel-4}rights',
+                                                   rightsURI="http://purl.org/coar/access_right/c_abf2")
                 rights_element.text = value
                 root.append(rights_element)
-            if key == 'publisher':
+            elif key == 'publisher':
                 publisher_element = etree.Element('{http://purl.org/dc/elements/1.1/}publisher')
                 publisher_element.text = value
                 root.append(publisher_element)
-            if key == 'template_version':
-                version_element = etree.Element('{http://purl.org/dc/elements/1.1/}version')
+            elif key == 'template_version':
+                if metadata_prefix == 'oai_openaire':
+                    version_element = etree.Element('{http://namespace.openaire.eu/schema/oaire/}version')
+                else:
+                    version_element = etree.Element('{http://purl.org/dc/elements/1.1/}version')
                 version_element.text = value
                 root.append(version_element)
-            if key == 'subject':
-                subject_element = etree.Element('{http://namespace.openaire.eu/schema/oaire/}subject')
-                subject_element.text = value
-                root.append(subject_element)
-            if key == 'related_identifier':
-                related_identifier_element = etree.Element('{http://datacite.org/schema/kernel-4}relatedIdentifier',
-                                                           relatedIdentifierType="DOI", relationType="isContinuedBy")
-                related_identifier_element.text = value
-                root.append(related_identifier_element)
-            if key == 'format':
+            elif key == 'format':
                 format_element = etree.Element('{http://purl.org/dc/elements/1.1/}format')
                 format_element.text = value
                 root.append(format_element)
-
-        return root
-
-    def mapDC(self, metadata_dict):
-        # Create an XML document
-        root = etree.Element('{http://www.openarchives.org/OAI/2.0/oai_dc/}dc', nsmap={
-            'oai_dc': 'http://www.openarchives.org/OAI/2.0/oai_dc/',
-            'dc': 'http://purl.org/dc/elements/1.1/',
-        })
-
-        # Add xsi:schemaLocation attribute
-        root.set('{http://www.w3.org/2001/XMLSchema-instance}schemaLocation',
-                 'http://www.openarchives.org/OAI/2.0/oai_dc/ http://www.openarchives.org/OAI/2.0/oai_dc.xsd')
-
-        # Define the DataCite namespace and associate it with the root element
-        nsmap = {
-            'oai_dc': 'http://www.openarchives.org/OAI/2.0/oai_dc/',
-            'dc': 'http://purl.org/dc/elements/1.1/',
-        }
-        etree.register_namespace('dc', nsmap['dc'])
-        etree.register_namespace('oai_dc', nsmap['oai_dc'])
-
-        for key, value in metadata_dict.items():
-            if key == 'display_name':
-                title_element = etree.Element('{http://purl.org/dc/elements/1.1/}title')
-                title_element.text = value
-                root.append(title_element)
-            if key == 'template_author':
-                creator_element = etree.Element('{http://purl.org/dc/elements/1.1/}creator')
-                creator_element.text = value
-                root.append(creator_element)
-            if key == 'creation_date':
-                date_element = etree.Element('{http://purl.org/dc/elements/1.1/}date')
-                date_element.text = value.strftime("%Y-%m-%d")
-                root.append(date_element)
-            if key == 'resource_type':
-                resource_type_element = etree.Element('{http://purl.org/dc/elements/1.1/}type')
-                resource_type_element.text = value
-                root.append(resource_type_element)
-            if key == 'identifier':
-                identifier_element = etree.Element('{http://purl.org/dc/elements/1.1/}identifier')
-                identifier_element.text = value
-                root.append(identifier_element)
-            if key == 'rights':
-                rights_element = etree.Element('{http://purl.org/dc/elements/1.1/}rights')
-                rights_element.text = value
-                root.append(rights_element)
-            if key == 'publisher':
-                publisher_element = etree.Element('{http://purl.org/dc/elements/1.1/}publisher')
-                publisher_element.text = value
-                root.append(publisher_element)
-            if key == 'template_version':
-                related_identifier_element = etree.Element('{http://purl.org/dc/elements/1.1/}version')
-                related_identifier_element.text = value
-                root.append(related_identifier_element)
-            if key == 'tag':
-                subject_element = etree.Element('{http://purl.org/dc/elements/1.1/}subject')
-                subject_element.text = value
-                root.append(subject_element)
-            if key == 'childs':
-                related_identifier_element = etree.Element('{http://purl.org/dc/elements/1.1/}relation')
-                # childs = value["childs"]
-                # related_identifier_element.text = ', '.join(childs)
-                root.append(related_identifier_element)
-            if key == 'format':
-                format_element = etree.Element('{http://purl.org/dc/elements/1.1/}format')
-                format_element.text = value
-                root.append(format_element)
-            if key == 'description':
+            elif key == 'subject':
+                if metadata_prefix == 'oai_openaire':
+                    subject_element = etree.Element('{http://namespace.openaire.eu/schema/oaire/}subject')
+                    subject_element.text = value
+                    root.append(subject_element)
+            elif key == 'description':
                 related_identifier_element = etree.Element('{http://purl.org/dc/elements/1.1/}description')
                 related_identifier_element.text = value
                 root.append(related_identifier_element)
+            elif key == 'related_identifier':
+                if metadata_prefix == 'oai_datacite':
+                    related_identifier_element = etree.Element('{http://datacite.org/schema/kernel-4}relatedIdentifier',
+                                                               relatedIdentifierType="DOI", relationType="isContinuedBy")
+                    related_identifier_element.text = value
+                    root.append(related_identifier_element)
+            elif key == 'tag':
+                if metadata_prefix == 'oai_dc':
+                    subject_element = etree.Element('{http://purl.org/dc/elements/1.1/}subject')
+                    subject_element.text = value
+                    root.append(subject_element)
 
         return root
 

@@ -928,18 +928,17 @@ class TestREST(unittest.TestCase):
         # Test GetRecord
         session.get.side_effect = [list_resp, file_resp1, file_resp2]
         tosca_id = "https://github.com/grycap/tosca/blob/eosc_lot1/templates/hadoop_cluster.yaml"
-        res = self.client.get('/oai?verb=GetRecord&metadataPrefix=oai_dc&identifier=%s' % tosca_id)
+        res = self.client.get('/oai?verb=GetRecord&metadataPrefix=oai_datacite&identifier=%s' % tosca_id)
         self.assertEqual(200, res.status_code)
 
         root = etree.fromstring(res.data)
 
-        self.assertEqual(root.find(".//dc:title", namespaces).text, "Deploy a VM2")
-        self.assertEqual(root.find(".//dc:creator", namespaces).text, "Miguel Caballer")
-        self.assertEqual(root.find(".//dc:date", namespaces).text, "2020-09-09")
-        self.assertEqual(root.find(".//oaipmh:identifier", namespaces).text,
-                         "https://github.com/grycap/tosca/blob/eosc_lot1/templates/hadoop_cluster.yaml")
-        self.assertEqual(root.find(".//oaipmh:datestamp", namespaces).text,
-                         "2020-09-09")
+        self.assertEqual(root.find(".//datacite:title", namespaces).text, "Deploy a VM2")
+        self.assertEqual(root.find(".//datacite:creatorName", namespaces).text, "Miguel Caballer")
+        self.assertEqual(root.find(".//datacite:date", namespaces).text, "2020-09-09")
+        self.assertEqual(root.find(".//oaipmh:identifier", namespaces).text, tosca_id)
+        self.assertEqual(root.find(".//oaipmh:datestamp", namespaces).text, "2020-09-09")
+        self.assertEqual(root.find(".//datacite:identifier", namespaces).text, tosca_id)
 
         # Test GetRecord with invalid identifier
         tosca_id = 'invalid"id'
@@ -1004,7 +1003,7 @@ class TestREST(unittest.TestCase):
         root = etree.fromstring(res.data)
         elems = root.findall(".//oaipmh:identifier", namespaces)
         self.assertEqual(len(elems), 2)
-        self.assertEqual(root.find(".//datacite:creatorName", namespaces).text, "Miguel Caballer")
+        self.assertEqual(root.find(".//dc:creator", namespaces).text, "Miguel Caballer")
 
         session.get.side_effect = [list_resp, file_resp1, file_resp2]
         res = self.client.get('/oai?verb=ListRecords&metadataPrefix=oai_dc&until=2020-09-07')
@@ -1024,6 +1023,7 @@ class TestREST(unittest.TestCase):
 
         self.assertIn('oai_dc', prefixes_text)
         self.assertIn('oai_openaire', prefixes_text)
+        self.assertIn('oai_datacite', prefixes_text)
 
         # Test ListSets
         session.get.side_effect = [list_resp, file_resp1, file_resp2]
