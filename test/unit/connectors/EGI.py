@@ -31,7 +31,9 @@ class TestEGIConnector(unittest.TestCase):
     """
 
     @patch('requests.get')
-    def test_add_dns(self, mock_get):
+    @patch('IM.connectors.EGI.EGICloudConnector._get_host')
+    def test_add_dns(self, mock_get_host, mock_get):
+        mock_get_host.return_value = None
         mock_get.return_value = MagicMock(status_code=200, json=lambda: {"status": "ok",
                                                                          "host": {"update_secret": "123"}})
         auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
@@ -46,7 +48,9 @@ class TestEGIConnector(unittest.TestCase):
         mock_get.assert_has_calls(calls)
 
     @patch('requests.get')
-    def test_add_dydns(self, mock_get):
+    @patch('IM.connectors.EGI.EGICloudConnector._get_host')
+    def test_add_dydns(self, mock_get_host, mock_get):
+        mock_get_host.return_value = None
         mock_get.return_value = MagicMock(status_code=200, json=lambda: {"status": "ok",
                                                                          "host": {"update_secret": "123"}})
         cloud = EGICloudConnector(None, None)
@@ -58,7 +62,9 @@ class TestEGIConnector(unittest.TestCase):
         mock_get.assert_any_call(eurl, headers={'Authorization': 'Basic aG9zdG5hbWUuZG9tYWluOjEyMw=='}, timeout=10)
 
     @patch('requests.get')
-    def test_del_dns(self, mock_get):
+    @patch('IM.connectors.EGI.EGICloudConnector._get_host')
+    def test_del_dns(self, mock_get_host, mock_get):
+        mock_get_host.return_value = None
         mock_get.return_value = MagicMock(status_code=200, json=lambda: {"status": "ok"})
         auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
         cloud = EGICloudConnector(None, None)
@@ -66,6 +72,17 @@ class TestEGIConnector(unittest.TestCase):
         self.assertTrue(success)
         eurl1 = "https://nsupdate.fedcloud.eu/nic/unregister?fqdn=hostname.domain"
         mock_get.assert_called_with(eurl1, headers={'Authorization': 'Bearer access_token'}, timeout=10)
+
+    @patch('requests.get')
+    def test_get_host(self, mock_get):
+        mock_get.return_value = MagicMock(status_code=200, json=lambda: {"status": "ok",
+                                                                         "hosts": [{"name": "hostname"}]})
+        cloud = EGICloudConnector(None, None)
+        host = EGICloudConnector._get_host(cloud, "hostname", "domain", "access_token")
+        self.assertEqual(host["name"], "hostname")
+        self.assertEqual(mock_get.call_count, 1)
+        eurl = "https://nsupdate.fedcloud.eu/nic/hosts?domain=domain"
+        mock_get.assert_called_with(eurl, headers={'Authorization': 'Bearer access_token'}, timeout=10)
 
 
 if __name__ == '__main__':

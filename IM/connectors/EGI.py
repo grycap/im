@@ -30,6 +30,31 @@ class EGICloudConnector(CloudConnector):
     DYDNS_URL = "https://nsupdate.fedcloud.eu"
     DEFAULT_TIMEOUT = 10
 
+    def _get_host(self, hostname, domain, token):
+        """
+        Get the host name
+        """
+        if hostname == "*":
+            parts = domain.split(".")
+            domain = ".".join(parts[1:])
+            hostname = parts[0]
+        url = f'{self.DYDNS_URL}/nic/hosts?domain={domain}'
+        resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
+        if resp.status_code != 200:
+            self.log_error(f"Error getting host {hostname}.{domain}: {resp.text}")
+            return None
+
+        output = resp.json()
+        if output.get("status") != "ok":
+            self.log_error(f"Error getting host {hostname}.{domain}: {output.get('message', 'Unknown error')}")
+            return None
+
+        for host in output.get("hosts", []):
+            if host.get("name") == hostname:
+                return host
+
+        return None
+
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         """
         Add a DNS entry to the DNS server
@@ -39,6 +64,11 @@ class EGICloudConnector(CloudConnector):
             if im_auth and im_auth[0].get("token"):
                 self.log_debug(f"Registering DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
+                # Check if the host already exists
+                host = self._get_host(hostname, domain, token)
+                if host:
+                    self.log_debug(f"DNS entry {hostname}.{domain} already exists")
+                    return True
                 commennt = 'IM created DNS entry'
                 if hostname == "*":
                     url = f'{self.DYDNS_URL}/nic/register?fqdn={domain}&comment={commennt}&wildcard=true'
@@ -87,6 +117,11 @@ class EGICloudConnector(CloudConnector):
             if im_auth and im_auth[0].get("token"):
                 self.log_debug(f"Deleting DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
+
+                host = self._get_host(hostname, domain, token)
+                if not host:
+                    self.log_debug(f"DNS entry {hostname}.{domain} does not exist. Do not need to delete.")
+                    return True
 
                 if hostname == "*":
                     url = f'{self.DYDNS_URL}/nic/unregister?fqdn={domain}'
