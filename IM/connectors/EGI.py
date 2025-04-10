@@ -30,9 +30,28 @@ class EGICloudConnector(CloudConnector):
     DYDNS_URL = "https://nsupdate.fedcloud.eu"
     DEFAULT_TIMEOUT = 10
 
+    def _get_domains(self, token):
+        """
+        List the domains available in the DyDNS service
+        """
+        url = f'{self.DYDNS_URL}/nic/domains'
+        resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
+        if resp.status_code != 200:
+            self.log_error(f"Error getting domains: {resp.text}")
+            return None
+        output = resp.json()
+        if output.get("status") != "ok":
+            self.log_error(f"Error getting domains: {output.get('message', 'Unknown error')}")
+            return None
+        domains = []
+        for domain in output.get("private", []) + output.get("public", []):
+            if domain.get("available"):
+                domains.append(domain["name"])
+        return domains
+
     def _get_host(self, hostname, domain, token):
         """
-        Get the host name
+        Look for a host registered in the DyDNS service
         """
         if hostname == "*":
             parts = domain.split(".")
