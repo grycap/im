@@ -57,6 +57,16 @@ class TestEGIConnector(unittest.TestCase):
         self.assertEqual(mock_get.call_count, 1)
         mock_get.assert_any_call(eurl, headers={'Authorization': 'Basic aG9zdG5hbWUuZG9tYWluOjEyMw=='}, timeout=10)
 
+    @patch('requests.get')
+    def test_del_dns(self, mock_get):
+        mock_get.return_value = MagicMock(status_code=200, json=lambda: {"status": "ok"})
+        auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
+        cloud = EGICloudConnector(None, None)
+        success = EGICloudConnector.del_dns_entry(cloud, "hostname", "domain", "ip", auth_data)
+        self.assertTrue(success)
+        eurl1 = "https://nsupdate.fedcloud.eu/nic/unregister?fqdn=hostname.domain"
+        mock_get.assert_called_with(eurl1, headers={'Authorization': 'Bearer access_token'}, timeout=10)
+
 
 if __name__ == '__main__':
     unittest.main()

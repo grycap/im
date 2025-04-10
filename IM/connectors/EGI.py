@@ -78,8 +78,29 @@ class EGICloudConnector(CloudConnector):
             self.log_error(f"Error registering DNS entry {hostname}.{domain}: {str(e)}")
             return False
 
-    def delete_dns_entry(self, hostname, domain, auth_data, extra_args=None):
+    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         """
         Delete a DNS entry from the DNS server
         """
-        raise NotImplementedError("Should have implemented this")
+        im_auth = auth_data.getAuthInfo("InfrastructureManager")
+        try:
+            if im_auth and im_auth[0].get("token"):
+                self.log_debug(f"Deleting DNS entry {hostname}.{domain} with DyDNS oauth token")
+                token = im_auth[0].get("token")
+
+                if hostname == "*":
+                    url = f'{self.DYDNS_URL}/nic/unregister?fqdn={domain}'
+                else:
+                    url = f'{self.DYDNS_URL}/nic/unregister?fqdn={hostname}.{domain}'
+                resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
+                if resp.status_code != 200:
+                    self.log_error(f"Error deleting DNS entry {hostname}.{domain}: {resp.text}")
+                    return False
+            else:
+                self.log_error(f"Error updating DNS entry {hostname}.{domain}: No token provided")
+                return False
+        except Exception as e:
+            self.log_error(f"Error deleting DNS entry {hostname}.{domain}: {str(e)}")
+            return False
+
+        return True
