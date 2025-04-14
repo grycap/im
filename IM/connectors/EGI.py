@@ -27,7 +27,7 @@ class EGICloudConnector(CloudConnector):
 
     type = "EGI"
     """str with the name of the provider."""
-    DYDNS_URL = "https://nsupdate-01.fedcloud.eu/"
+    DYDNS_URL = "https://nsupdate.fedcloud.eu"
     DEFAULT_TIMEOUT = 10
 
     def _get_domains(self, token):
