@@ -41,10 +41,10 @@ class TestEGIConnector(unittest.TestCase):
         success = EGICloudConnector.add_dns_entry(cloud, "hostname", "domain", "ip", auth_data)
         self.assertTrue(success)
         self.assertEqual(mock_get.call_count, 2)
-        eurl1 = "https://nsupdate.fedcloud.eu/nic/register?fqdn=hostname.domain&comment=IM created DNS entry"
-        eurl2 = "https://nsupdate.fedcloud.eu/nic/update?hostname=hostname.domain&myip=ip"
+        eurl1 = f"{EGICloudConnector.DYDNS_URL}/nic/register?fqdn=hostname.domain&comment=IM created DNS entry"
+        eurl2 = f"{EGICloudConnector.DYDNS_URL}/nic/update?hostname=hostname.domain&myip=ip"
         calls = [call(eurl1, headers={'Authorization': 'Bearer access_token'}, timeout=10),
-                 call(eurl2, headers={'Authorization': 'Basic aG9zdG5hbWUuZG9tYWluOjEyMw=='}, timeout=10)]
+                 call(eurl2, headers={'Authorization': 'Bearer access_token'}, timeout=10)]
         mock_get.assert_has_calls(calls)
 
     @patch('requests.get')
@@ -57,7 +57,7 @@ class TestEGIConnector(unittest.TestCase):
         auth_data = Authentication([{'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'}])
         success = EGICloudConnector.add_dns_entry(cloud, "dydns:123@hostname", "domain.", "ip", auth_data)
         self.assertTrue(success)
-        eurl = "https://nsupdate.fedcloud.eu/nic/update?hostname=hostname.domain&myip=ip"
+        eurl = f"{EGICloudConnector.DYDNS_URL}/nic/update?hostname=hostname.domain&myip=ip"
         self.assertEqual(mock_get.call_count, 1)
         mock_get.assert_any_call(eurl, headers={'Authorization': 'Basic aG9zdG5hbWUuZG9tYWluOjEyMw=='}, timeout=10)
 
@@ -70,8 +70,8 @@ class TestEGIConnector(unittest.TestCase):
         cloud = EGICloudConnector(None, None)
         success = EGICloudConnector.del_dns_entry(cloud, "hostname", "domain", "ip", auth_data)
         self.assertTrue(success)
-        eurl1 = "https://nsupdate.fedcloud.eu/nic/unregister?fqdn=hostname.domain"
-        mock_get.assert_called_with(eurl1, headers={'Authorization': 'Bearer access_token'}, timeout=10)
+        eurl = f"{EGICloudConnector.DYDNS_URL}/nic/unregister?fqdn=hostname.domain"
+        mock_get.assert_called_with(eurl, headers={'Authorization': 'Bearer access_token'}, timeout=10)
 
     @patch('requests.get')
     def test_get_host(self, mock_get):
@@ -81,7 +81,7 @@ class TestEGIConnector(unittest.TestCase):
         host = EGICloudConnector._get_host(cloud, "hostname", "domain", "access_token")
         self.assertEqual(host["name"], "hostname")
         self.assertEqual(mock_get.call_count, 1)
-        eurl = "https://nsupdate.fedcloud.eu/nic/hosts?domain=domain"
+        eurl = f"{EGICloudConnector.DYDNS_URL}/nic/hosts?domain=domain"
         mock_get.assert_called_with(eurl, headers={'Authorization': 'Bearer access_token'}, timeout=10)
 
     @patch('requests.get')
@@ -95,7 +95,7 @@ class TestEGIConnector(unittest.TestCase):
         domains = EGICloudConnector._get_domains(cloud, "access_token")
         self.assertEqual(domains, ["domain1", "domain2"])
         self.assertEqual(mock_get.call_count, 1)
-        eurl = "https://nsupdate.fedcloud.eu/nic/domains"
+        eurl = f"{EGICloudConnector.DYDNS_URL}/nic/domains"
         mock_get.assert_called_with(eurl, headers={'Authorization': 'Bearer access_token'}, timeout=10)
 
 

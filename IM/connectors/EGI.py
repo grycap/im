@@ -27,7 +27,7 @@ class EGICloudConnector(CloudConnector):
 
     type = "EGI"
     """str with the name of the provider."""
-    DYDNS_URL = "https://nsupdate.fedcloud.eu"
+    DYDNS_URL = "https://nsupdate-01.fedcloud.eu/"
     DEFAULT_TIMEOUT = 10
 
     def _get_domains(self, token):
@@ -80,6 +80,7 @@ class EGICloudConnector(CloudConnector):
         """
         im_auth = auth_data.getAuthInfo("InfrastructureManager")
         try:
+            secret = None
             if im_auth and im_auth[0].get("token"):
                 self.log_debug(f"Registering DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
@@ -87,23 +88,25 @@ class EGICloudConnector(CloudConnector):
                 host = self._get_host(hostname, domain, token)
                 if host:
                     self.log_debug(f"DNS entry {hostname}.{domain} already exists")
-                    return True
-                commennt = 'IM created DNS entry'
-                if hostname == "*":
-                    url = f'{self.DYDNS_URL}/nic/register?fqdn={domain}&comment={commennt}&wildcard=true'
+                    if ip in [host.get("ipv4"), host.get("ipv6")]:
+                        print(f"DNS entry {hostname}.{domain} already has the IP {ip}")
+                        return True
                 else:
-                    url = f'{self.DYDNS_URL}/nic/register?fqdn={hostname}.{domain}&comment={commennt}'
-                resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
-                if resp.status_code != 200:
-                    self.log_error(f"Error registering DNS entry {hostname}.{domain}: {resp.text}")
-                    return False
+                    commennt = 'IM created DNS entry'
+                    if hostname == "*":
+                        url = f'{self.DYDNS_URL}/nic/register?fqdn={domain}&comment={commennt}&wildcard=true'
+                    else:
+                        url = f'{self.DYDNS_URL}/nic/register?fqdn={hostname}.{domain}&comment={commennt}'
+                    resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
+                    if resp.status_code != 200:
+                        self.log_error(f"Error registering DNS entry {hostname}.{domain}: {resp.text}")
+                        return False
 
-                resp_json = resp.json()
-                if resp_json.get("status") != "ok":
-                    self.log_error(f"Error registering DNS entry {hostname}.{domain}:"
-                                   f" {resp_json.get('message', 'Unknown error')}")
-                    return False
-                secret = resp_json.get("host", {}).get("update_secret", "")
+                    resp_json = resp.json()
+                    if resp_json.get("status") != "ok":
+                        self.log_error(f"Error registering DNS entry {hostname}.{domain}:"
+                                       f" {resp_json.get('message', 'Unknown error')}")
+                        return False
             elif hostname.startswith("dydns:") and "@" in hostname:
                 self.log_debug(f"Updating DNS entry {hostname}.{domain} with secret")
                 parts = hostname[6:].split("@")
@@ -114,14 +117,20 @@ class EGICloudConnector(CloudConnector):
                 self.log_error(f"Error updating DNS entry {hostname}.{domain}: No secret nor token provided")
                 return False
 
-            auth = f"{hostname}.{domain}:{secret}"
-            headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
-            url = f"https://nsupdate.fedcloud.eu/nic/update?hostname={hostname}.{domain}&myip={ip}"
+            if secret:
+                auth = f"{hostname}.{domain}:{secret}"
+                headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
+            else:
+                headers = {'Authorization': f'Bearer {token}'}
+
+            fqdn = f'{hostname}.{domain}'
+            if hostname == "*":
+                fqdn = domain
+            url = f'{self.DYDNS_URL}/nic/update?hostname={fqdn}&myip={ip}'
             resp = requests.get(url, headers=headers, timeout=self.DEFAULT_TIMEOUT)
             if resp.status_code != 200:
                 self.log_error(f"Error updating DNS entry {hostname}.{domain}: {resp.text}")
                 return False
-
             return True
         except Exception as e:
             self.log_error(f"Error registering DNS entry {hostname}.{domain}: {str(e)}")
