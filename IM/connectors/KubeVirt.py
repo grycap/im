@@ -17,7 +17,6 @@
 import base64
 import json
 import requests
-import time
 try:
     from urlparse import urlparse
 except ImportError:
@@ -100,7 +99,7 @@ class KubeVirtCloudConnector(CloudConnector):
         url = urlparse(self.cloud.server)
         auths = auth_data.getAuthInfo(self.type, url[1])
         if not auths:
-            raise Exception("No correct auth data has been specified to Kubernetes.")
+            raise Exception("No correct auth data has been specified to KubeVirt.")
         else:
             auth = auths[0]
 
@@ -115,7 +114,7 @@ class KubeVirtCloudConnector(CloudConnector):
             token = auth['token']
             auth_header = {'Authorization': 'Bearer ' + token}
         else:
-            raise Exception("No correct auth data has been specified to Kubernetes: username and password or token.")
+            raise Exception("No correct auth data has been specified to KubeVirt: username and password or token.")
 
         namespace = None
         if 'namespace' in auth:
@@ -215,26 +214,17 @@ class KubeVirtCloudConnector(CloudConnector):
 
         return res
 
-    def create_service_data(self, namespace, name, outports, auth_data, vm):
+    def create_service(self, namespace, name, outports, auth_data):
         try:
-            service_data = self._generate_service_data(namespace, name, outports)
-            self.log_debug("Creating Service: %s/%s" % (namespace, name))
-            headers = {'Content-Type': 'application/json'}
+            # LoadBalancer service
+            self.log_debug("Creating LoadBalancer Service: %s/%s" % (namespace, name))
             uri = self._get_api_url(namespace, '/services')
+            headers = {'Content-Type': 'application/json'}
+            service_data = self._generate_service_data(namespace, name, outports)
             svc_resp = self.create_request('POST', uri, auth_data, headers, service_data)
             if svc_resp.status_code != 201:
-                self.error_messages += "Error creating service for VM %s: %s" % (name, svc_resp.text)
-                self.log_warn("Error creating service: %s" % svc_resp.text)
-            else:
-                # Wait a bit to assure the service has been created
-                time.sleep(0.5)
-                # Get Service data to get assigned nodePort
-                uri = self._get_api_url(namespace, '/services/%s' % name)
-                svc_resp = self.create_request('GET', uri, auth_data)
-                if svc_resp.status_code == 200:
-                    for port in svc_resp.json()['spec']['ports']:
-                        # Set Out port in the RADL info of the VM
-                        vm.setOutPort(int(port['port']), int(port['nodePort']))
+                self.error_messages += "Error creating LB service for VM %s: %s" % (name, svc_resp.text)
+                self.log_warn("Error creating LB service: %s" % svc_resp.text)
 
         except Exception:
             self.error_messages += "Error creating service to access VM %s" % name
@@ -266,14 +256,14 @@ class KubeVirtCloudConnector(CloudConnector):
                     ports.append(port)
 
         service_data['spec'] = {
-            'type': 'NodePort',
+            'type': 'LoadBalancer',
             'ports': ports,
             'selector': {'kubevirt.io/domain': name}
         }
 
         return service_data
 
-    def _generate_vm_data(self, radl, namespace, name, system, volumes, public_key, cdi):
+    def _generate_vm_data(self, radl, namespace, name, system, volumes, public_key, outports, cdi):
         cpu = system.getValue('cpu.count')
         memory = "%sM" % system.getFeature('memory.size').getValue('M')
         image_name = urlparse(system.getValue("disk.0.image.url"))[2][1:]
@@ -285,6 +275,17 @@ class KubeVirtCloudConnector(CloudConnector):
             'labels': {'name': name}
         }
 
+        ports = [{'name': 'ssh', 'port': 22, 'protocol': 'TCP'}]
+        if outports:
+            for outport in outports:
+                if outport.is_range():
+                    self.log_warn("Port range not allowed in Kubernetes connector. Ignoring.")
+                elif outport.get_local_port() != 22:
+                    port = {'port': outport.get_local_port(),
+                            'protocol': outport.get_protocol().upper(),
+                            'name': 'port-%s' % outport.get_local_port()}
+                    ports.append(port)
+
         domain = {
             'memory': {'guest': memory},
             'cpu': {'cores': cpu},
@@ -293,7 +294,7 @@ class KubeVirtCloudConnector(CloudConnector):
                 'requests': {'cpu': cpu, 'memory': memory},
             },
             'devices': {
-                'interfaces': [{'name': 'default', 'masquerade': {}}],
+                'interfaces': [{'name': 'default', 'masquerade': {}, 'ports': ports}],
                 'disks': [
                     {
                         'name': 'containerdisk',
@@ -459,7 +460,7 @@ class KubeVirtCloudConnector(CloudConnector):
 
                 volumes = self._create_volumes(namespace, system, vm_name, auth_data, True)
 
-                vm_data = self._generate_vm_data(radl, namespace, vm_name, system, volumes, public_key, cdi)
+                vm_data = self._generate_vm_data(radl, namespace, vm_name, system, volumes, public_key, outports, cdi)
 
                 self.log_debug("Creating VM: %s/%s" % (namespace, vm_name))
                 uri = self._get_api_url(namespace, '/virtualmachines', 'kubevirt.io/v1')
@@ -473,7 +474,7 @@ class KubeVirtCloudConnector(CloudConnector):
                     except Exception:
                         self.log_exception("Error deleting volumes.")
                 else:
-                    self.create_service_data(namespace, vm_name, outports, auth_data, vm)
+                    self.create_service(namespace, vm_name, outports, auth_data)
 
                     output = json.loads(resp.text)
                     vm.id = output["metadata"]["name"]
@@ -491,7 +492,7 @@ class KubeVirtCloudConnector(CloudConnector):
 
     def _get_vm(self, vm, auth_data):
         try:
-            namespace = vm.inf.id
+            namespace = self._get_namespace(vm.inf, auth_data)
             vm_name = vm.id
 
             # First check if the VM exists
@@ -533,13 +534,13 @@ class KubeVirtCloudConnector(CloudConnector):
                                               conflict="other", missing="other")
 
             # Update the network info
-            self.setIPs(vm, output)
+            self.setIPs(vm, output, auth_data)
             return (True, vm)
         else:
             self.log_error("Error getting info about the VM: code: %s, msg: %s" % (status, output))
             return (False, "Error getting info about the VM: code: %s, msg: %s" % (status, output))
 
-    def setIPs(self, vm, vm_info):
+    def setIPs(self, vm, vm_info, auth_data):
         """
         Adapt the RADL information of the VM to the real IPs assigned by the cloud provider
 
@@ -547,8 +548,27 @@ class KubeVirtCloudConnector(CloudConnector):
            - vm(:py:class:`IM.VirtualMachine`): VM information.
            - vm_info(dict): JSON information about the VM
         """
+        public_ips = []
 
-        public_ips = [self.cloud.server]
+        namespace = self._get_namespace(vm.inf, auth_data)
+
+        # First try to get the LoadBalancer service
+        # to get the public IP of the VM
+        uri = self._get_api_url(namespace, '/services/%s' % vm.id)
+        svc_resp = self.create_request('GET', uri, auth_data)
+        if svc_resp.status_code == 200:
+            svc_info = svc_resp.json()
+            ingress = svc_info.get("status", {}).get("loadBalancer", {}).get("ingress")
+            if ingress:
+                public_ips = [ip["ip"] for ip in ingress]
+            else:
+                public_ips = [self.cloud.server]
+                for port in svc_resp.json()['spec']['ports']:
+                    # Set Out port in the RADL info of the VM
+                    vm.setOutPort(int(port['port']), int(port['nodePort']))
+        else:
+            self.log_warn("Error getting LB service info: %s" % svc_resp.text)
+
         private_ips = [iface.get("ipAddress") for iface in vm_info["status"].get("interfaces", [])]
 
         vm.setIps(public_ips, private_ips)
@@ -579,13 +599,14 @@ class KubeVirtCloudConnector(CloudConnector):
         return success, msg
 
     def _delete_namespace(self, vm, auth_data):
-        self.log_debug("Deleting Namespace: %s" % vm.inf.id)
-        uri = self._get_api_url(vm.inf.id, '')
+        namespace = self._get_namespace(vm.inf, auth_data)
+        self.log_debug("Deleting Namespace: %s" % namespace)
+        uri = self._get_api_url(namespace, '')
         resp = self.create_request('GET', uri, auth_data)
         if resp.status_code == 404:
-            self.log_warn("Trying to remove a non existing Namespace id: " + vm.inf.id)
+            self.log_warn("Trying to remove a non existing Namespace id: " + namespace)
         elif resp.status_code == 403:
-            self.log_warn("Trying to remove a Namespace without permissions: " + vm.inf.id)
+            self.log_warn("Trying to remove a Namespace without permissions: " + namespace)
         elif resp.status_code == 200:
             output = resp.json()
             if output["metadata"].get("labels", {}).get("inf_id") == vm.inf.id:
@@ -593,7 +614,7 @@ class KubeVirtCloudConnector(CloudConnector):
                 if resp.status_code != 200:
                     return (False, "Error deleting the Namespace: " + resp.text)
             else:
-                self.log_info("Namespace %s was not created by the IM. Do not delete it." % vm.inf.id)
+                self.log_info("Namespace %s was not created by the IM. Do not delete it." % namespace)
         else:
             self.log_error("Error deleting Namespace")
             return False
@@ -601,7 +622,7 @@ class KubeVirtCloudConnector(CloudConnector):
 
     def _delete_service(self, vm, auth_data):
         try:
-            namespace = vm.inf.id
+            namespace = self._get_namespace(vm.inf, auth_data)
             service_name = vm.id
 
             self.log_debug("Deleting Service: %s/%s" % (namespace, service_name))
@@ -621,7 +642,7 @@ class KubeVirtCloudConnector(CloudConnector):
 
     def _delete_vm(self, vm, auth_data):
         try:
-            namespace = vm.inf.id
+            namespace = self._get_namespace(vm.inf, auth_data)
             vm_name = vm.id
 
             self.log_debug("Deleting VM: %s/%s" % (namespace, vm_name))
@@ -645,7 +666,7 @@ class KubeVirtCloudConnector(CloudConnector):
                 "runStrategy": "Halted" if operation == "stop" else "Always",
             }
         }
-        namespace = vm.inf.id
+        namespace = self._get_namespace(vm.inf, auth_data)
         vm_name = vm.id
         uri = self._get_api_url(namespace, '/virtualmachines/' + vm_name, 'kubevirt.io/v1')
         headers = {"Content-Type": "application/merge-patch+json"}
@@ -662,7 +683,7 @@ class KubeVirtCloudConnector(CloudConnector):
         return self.vm_operation(vm, "stop", auth_data)
 
     def reboot(self, vm, auth_data):
-        namespace = vm.inf.id
+        namespace = self._get_namespace(vm.inf, auth_data)
         vm_name = vm.id
         uri = self._get_api_url(namespace, '/virtualmachines/' + vm_name + '/restart', 'subresources.kubevirt.io/v1')
         resp = self.create_request('POST', uri, auth_data)
@@ -699,7 +720,7 @@ class KubeVirtCloudConnector(CloudConnector):
                 self.log_info("Nothing changes in the VM: " + str(vm.id))
                 return (True, vm)
 
-            namespace = vm.inf.id
+            namespace = self._get_namespace(vm.inf, auth_data)
             vm_name = vm.id
 
             headers = {'Content-Type': 'application/json-patch+json'}
