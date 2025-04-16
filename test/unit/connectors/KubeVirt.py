@@ -270,6 +270,40 @@ class TestKubeVirtConnector(TestCloudConnectorBase):
             self.assertEqual(requests.call_args_list[i][0][0], url[0])
             self.assertEqual(requests.call_args_list[i][0][1], url[1])
 
+    @patch('requests.request')
+    def test_70_vm_op(self, requests):
+        radl_data = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.dns_name = 'test' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'kvr://image'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        radl.check()
+
+        auth = Authentication([{'id': 'kube', 'type': 'KubeVirt',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
+        kube_cloud = self.get_kube_cloud()
+
+        requests.side_effect = self.get_response
+        inf = MagicMock()
+        inf.id = "namespace"
+        inf.radl = MagicMock()
+        inf.radl.description = None
+        vm = VirtualMachine(inf, "1", kube_cloud.cloud, radl, radl, kube_cloud, 1)
+
+        success, _ = kube_cloud.stop(vm, auth)
+        self.assertTrue(success, msg="ERROR: stopping VM.")
+
+        success, _ = kube_cloud.start(vm, auth)
+        self.assertTrue(success, msg="ERROR: start VM.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
 
 if __name__ == '__main__':
     unittest.main()

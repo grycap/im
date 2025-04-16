@@ -370,7 +370,7 @@ class KubeVirtCloudConnector(CloudConnector):
 
         for (v_name, _, _, _) in volumes:
             vm_data['spec']['template']['spec']['volumes'].append({'name': v_name,
-                                                                    'persistentVolumeClaim': {'claimName': v_name}})
+                                                                   'persistentVolumeClaim': {'claimName': v_name}})
 
         return vm_data
 
@@ -665,7 +665,7 @@ class KubeVirtCloudConnector(CloudConnector):
         uri = self._get_api_url(namespace, '/virtualmachines/' + vm_name, 'kubevirt.io/v1')
         headers = {"Content-Type": "application/merge-patch+json"}
         resp = self._create_request('PATCH', uri, auth_data, headers, patch_data)
-        if resp.status_code != 200:
+        if resp.status_code != 201:
             return (False, "Error in %s operation in the VM: %s" % (operation, resp.text))
         else:
             return (True, "")
