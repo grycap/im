@@ -125,9 +125,8 @@ class KubeVirtCloudConnector(CloudConnector):
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
         protocol = url[0]
-        src_host = url[1].split(':')[0]
 
-        if protocol == "kvr" and self.cloud.server == src_host:
+        if protocol == "kvr":
             res_system = radl_system.clone()
 
             res_system.getFeature("cpu.count").operator = "="
@@ -262,7 +261,8 @@ class KubeVirtCloudConnector(CloudConnector):
     def _generate_vm_data(self, radl, namespace, name, system, volumes, public_key, outports, cdi):
         cpu = system.getValue('cpu.count')
         memory = "%sM" % system.getFeature('memory.size').getValue('M')
-        image_name = urlparse(system.getValue("disk.0.image.url"))[2][1:]
+        # The URI has this format: kvr://image_name
+        image_name = system.getValue("disk.0.image.url")[6:]
 
         vm_data = {'apiVersion': 'kubevirt.io/v1', 'kind': 'VirtualMachine'}
         vm_data['metadata'] = {
