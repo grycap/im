@@ -17,12 +17,10 @@
 import base64
 import json
 import requests
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from radl.radl import Feature
 from IM.SSH import SSH
 from IM.config import Config
@@ -30,7 +28,7 @@ from IM.config import Config
 
 class KubeVirtCloudConnector(CloudConnector):
     """
-    Cloud Launcher to Kubernetes platform
+    Cloud Launcher to KubeVirt platform
     """
 
     type = "KubeVirt"
@@ -38,6 +36,8 @@ class KubeVirtCloudConnector(CloudConnector):
     """ default user to SSH access the VM """
     API_VERSION = 'v1'
     """ Default API version to use in the Kubernetes API """
+    DEFAULT_TIMEOUT = 10
+    """ Default timeout to use in the Kubernetes API """
 
     VM_STATE_MAP = {
         'Starting': VirtualMachine.PENDING,
@@ -55,7 +55,6 @@ class KubeVirtCloudConnector(CloudConnector):
     """Dictionary with a map with the KubeVirt VM states to the IM states."""
 
     def __init__(self, cloud_info, inf):
-        self.apiVersion = None
         CloudConnector.__init__(self, cloud_info, inf)
 
     def _get_namespace(self, inf, auth_data):
@@ -69,14 +68,14 @@ class KubeVirtCloudConnector(CloudConnector):
                 namespace = inf.radl.description.getValue('namespace')
         return namespace
 
-    def _get_api_url(self, namespace, path, apiVersion=None):
-        if apiVersion is None:
-            apiVersion = f"/api/{self.API_VERSION}"
+    def _get_api_url(self, namespace, path, api_version=None):
+        if api_version is None:
+            api_version = f"/api/{self.API_VERSION}"
         else:
-            apiVersion = f"/apis/{apiVersion}"
-        return f"{apiVersion}/namespaces/{namespace}{path}"
+            api_version = f"/apis/{api_version}"
+        return f"{api_version}/namespaces/{namespace}{path}"
 
-    def create_request(self, method, url, auth_data, headers=None, body=None):
+    def _create_request(self, method, url, auth_data, headers=None, body=None):
         auth_header, _ = self.get_auth_header(auth_data)
         if auth_header:
             if headers is None:
@@ -87,8 +86,9 @@ class KubeVirtCloudConnector(CloudConnector):
             data = json.dumps(body)
         else:
             data = body
-        url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.port, self.cloud.path, url)
-        resp = requests.request(method, url, verify=self.verify_ssl, headers=headers, data=data)
+        url = f'{self.cloud.protocol}://{self.cloud.server}:{self.cloud.port}{self.cloud.path}{url}'
+        resp = requests.request(method, url, verify=self.verify_ssl, headers=headers,
+                                data=data, timeout=self.DEFAULT_TIMEOUT)
 
         return resp
 
@@ -99,7 +99,7 @@ class KubeVirtCloudConnector(CloudConnector):
         url = urlparse(self.cloud.server)
         auths = auth_data.getAuthInfo(self.type, url[1])
         if not auths:
-            raise Exception("No correct auth data has been specified to KubeVirt.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -109,12 +109,12 @@ class KubeVirtCloudConnector(CloudConnector):
             passwd = auth['password']
             user = auth['username']
             auth_header = {'Authorization': 'Basic ' +
-                           (base64.encodestring((user + ':' + passwd).encode('utf-8'))).strip().decode('utf-8')}
+                           (base64.b64encode((user + ':' + passwd).encode('utf-8'))).strip().decode('utf-8')}
         elif 'token' in auth:
             token = auth['token']
             auth_header = {'Authorization': 'Bearer ' + token}
         else:
-            raise Exception("No correct auth data has been specified to KubeVirt: username and password or token.")
+            raise NoCorrectAuthData(self.type, "username and password or token.")
 
         namespace = None
         if 'namespace' in auth:
@@ -138,14 +138,14 @@ class KubeVirtCloudConnector(CloudConnector):
                 res_system.setValue('disk.0.os.credentials.username', self.DEFAULT_USER)
 
             return res_system
-        else:
-            return None
+
+        return None
 
     def _delete_volume_claim(self, namespace, vc_name, auth_data):
         try:
             self.log_debug("Deleting PVC: %s/%s" % (namespace, vc_name))
             uri = self._get_api_url(namespace, "/persistentvolumeclaims/" + vc_name)
-            resp = self.create_request('DELETE', uri, auth_data)
+            resp = self._create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
                 self.log_warn("Trying to remove a non existing PersistentVolumeClaim: " + vc_name)
@@ -172,19 +172,18 @@ class KubeVirtCloudConnector(CloudConnector):
         try:
             headers = {'Content-Type': 'application/json'}
             uri = self._get_api_url(claim_data['metadata']['namespace'], "/persistentvolumeclaims")
-            resp = self.create_request('POST', uri, auth_data, headers, claim_data)
+            resp = self._create_request('POST', uri, auth_data, headers, claim_data)
 
             output = str(resp.text)
             if resp.status_code != 201:
                 self.log_error("Error creating PVC: " + output)
                 return False
-            else:
-                return True
+            return True
         except Exception:
             self.log_exception("Error connecting with Kubernetes API server")
             return False
 
-    def _create_volumes(self, namespace, system, vm_name, auth_data, persistent=False):
+    def _create_volumes(self, namespace, system, vm_name, auth_data):
         res = []
         cont = 1
         while (system.getValue("disk." + str(cont) + ".size")):
@@ -193,22 +192,19 @@ class KubeVirtCloudConnector(CloudConnector):
             disk_device = system.getValue("disk." + str(cont) + ".device")
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('B')
 
-            name = "%s-%d" % (vm_name, cont)
+            name = f'{vm_name}-{cont}'
 
-            if persistent:
-                claim_data = {'apiVersion': 'v1', 'kind': 'PersistentVolumeClaim'}
-                claim_data['metadata'] = {'name': name, 'namespace': namespace}
-                claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
-                    'requests': {'storage': disk_size}}}
+            claim_data = {'apiVersion': 'v1', 'kind': 'PersistentVolumeClaim'}
+            claim_data['metadata'] = {'name': name, 'namespace': namespace}
+            claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
+                'requests': {'storage': disk_size}}}
 
-                self.log_debug("Creating PVC: %s/%s" % (namespace, name))
-                success = self._create_volume_claim(claim_data, auth_data)
-                if success:
-                    res.append((name, disk_device, disk_size, disk_mount_path, persistent))
-                else:
-                    self.log_error("Error creating PersistentVolumeClaim:" + name)
+            self.log_debug("Creating PVC: %s/%s" % (namespace, name))
+            success = self._create_volume_claim(claim_data, auth_data)
+            if success:
+                res.append((name, disk_device, disk_size, disk_mount_path))
             else:
-                res.append((name, disk_device, disk_size, disk_mount_path, persistent))
+                self.log_error("Error creating PersistentVolumeClaim:" + name)
 
             cont += 1
 
@@ -221,7 +217,7 @@ class KubeVirtCloudConnector(CloudConnector):
             uri = self._get_api_url(namespace, '/services')
             headers = {'Content-Type': 'application/json'}
             service_data = self._generate_service_data(namespace, name, outports)
-            svc_resp = self.create_request('POST', uri, auth_data, headers, service_data)
+            svc_resp = self._create_request('POST', uri, auth_data, headers, service_data)
             if svc_resp.status_code != 201:
                 self.error_messages += "Error creating LB service for VM %s: %s" % (name, svc_resp.text)
                 self.log_warn("Error creating LB service: %s" % svc_resp.text)
@@ -308,9 +304,8 @@ class KubeVirtCloudConnector(CloudConnector):
             }
         }
 
-        for (v_name, _, _, _, _) in volumes:
-            domain['devices']['disks'].append(
-                {'name': v_name, 'disk': {'bus': 'virtio'}})
+        for (v_name, _, _, _) in volumes:
+            domain['devices']['disks'].append({'name': v_name, 'disk': {'bus': 'virtio'}})
 
         username = system.getValue('disk.0.os.credentials.username')
         user_data = self.get_cloud_init_data(radl=radl, public_key=public_key, user=username)
@@ -373,14 +368,9 @@ class KubeVirtCloudConnector(CloudConnector):
                 }
             }]
 
-        if volumes:
-            for (v_name, _, _, _, persistent) in volumes:
-                if persistent:
-                    vm_data['spec']['template']['spec']['volumes'].append(
-                        {'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
-                else:
-                    vm_data['spec']['template']['spec']['volumes'].append(
-                        {'name': v_name, 'emptyDir:': {}})
+        for (v_name, _, _, _) in volumes:
+            vm_data['spec']['template']['spec']['volumes'].append({'name': v_name,
+                                                                    'persistentVolumeClaim': {'claimName': v_name}})
 
         return vm_data
 
@@ -388,11 +378,36 @@ class KubeVirtCloudConnector(CloudConnector):
         # Check if CDI is installed
         cdi = False
         uri = '/apis/apiextensions.k8s.io/v1/customresourcedefinitions/datavolumes.cdi.kubevirt.io'
-        resp = self.create_request('GET', uri, auth_data)
+        resp = self._create_request('GET', uri, auth_data)
         if resp.status_code == 200:
             cdi = True
         else:
             self.log_warn("CDI not installed.")
+        return cdi
+
+    def _create_namespace(self, inf, auth_data):
+        """
+        Create the namespace for the infrastructure
+        """
+        namespace = self._get_namespace(inf, auth_data)
+        uri = self._get_api_url("", "")
+        headers = {'Content-Type': 'application/json'}
+        resp = self._create_request('GET', uri + namespace, auth_data, headers)
+        if resp.status_code != 200:
+            self.log_debug(f'Creating Namespace: {namespace}')
+            namespace_data = {'apiVersion': 'v1', 'kind': 'Namespace',
+                              'metadata': {'name': namespace, 'labels': {'inf_id': inf.id}}}
+            resp = self._create_request('POST', uri, auth_data, headers, namespace_data)
+
+            if resp.status_code != 201:
+                return (False, "Error creating the Namespace: " + resp.text)
+
+            # we need to assure it has been created before creating other resources
+            resp = self._create_request('GET', uri + namespace, auth_data, headers)
+            if resp.status_code != 200:
+                return (False, "Error creating the Namespace")
+
+        return (True, namespace)
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
         system = radl.systems[0]
@@ -412,39 +427,17 @@ class KubeVirtCloudConnector(CloudConnector):
             (public_key, private_key) = SSH.keygen()
             system.setValue('disk.0.os.credentials.private_key', private_key)
 
-        # CDI is installed
-        cdi = False
-        uri = '/apis/apiextensions.k8s.io/v1/customresourcedefinitions/datavolumes.cdi.kubevirt.io'
-        resp = self.create_request('GET', uri, auth_data)
-        if resp.status_code == 200:
-            cdi = True
-        else:
-            self.log_warn("CDI not installed.")
+        # Check if CDI is installed
+        cdi = self._check_cdi_installed(auth_data)
 
         res = []
         # First create the namespace for the infrastructure
-        namespace = self._get_namespace(inf, auth_data)
-        headers = {'Content-Type': 'application/json'}
-        uri = self._get_api_url("", "")
         with inf._lock:
-            resp = self.create_request('GET', uri + namespace, auth_data, headers)
-            if resp.status_code != 200:
-                self.log_debug("Creating Namespace: %s" % namespace)
-                namespace_data = {'apiVersion': 'v1', 'kind': 'Namespace',
-                                  'metadata': {'name': namespace, 'labels': {'inf_id': inf.id}}}
-                resp = self.create_request('POST', uri, auth_data, headers, namespace_data)
-
-                if resp.status_code != 201:
-                    for _ in range(num_vm):
-                        res.append((False, "Error creating the Namespace: " + resp.text))
-                        return res
-
-                # we need to assure it has been created before creating other resources
-                resp = self.create_request('GET', uri + namespace, auth_data, headers)
-                if resp.status_code != 200:
-                    for _ in range(num_vm):
-                        res.append((False, "Error creating the Namespace"))
-                        return res
+            success, namespace = self._create_namespace(inf, auth_data)
+            if not success:
+                for _ in range(num_vm):
+                    res.append((False, "Error creating the Namespace: " + namespace))
+                    return res
 
         i = 0
         while i < num_vm:
@@ -458,13 +451,14 @@ class KubeVirtCloudConnector(CloudConnector):
                                                     default_domain=Config.DEFAULT_DOMAIN)
                 vm_name = nodename
 
-                volumes = self._create_volumes(namespace, system, vm_name, auth_data, True)
+                volumes = self._create_volumes(namespace, system, vm_name, auth_data)
 
                 vm_data = self._generate_vm_data(radl, namespace, vm_name, system, volumes, public_key, outports, cdi)
 
                 self.log_debug("Creating VM: %s/%s" % (namespace, vm_name))
                 uri = self._get_api_url(namespace, '/virtualmachines', 'kubevirt.io/v1')
-                resp = self.create_request('POST', uri, auth_data, headers, vm_data)
+                headers = {'Content-Type': 'application/json'}
+                resp = self._create_request('POST', uri, auth_data, headers, vm_data)
 
                 if resp.status_code != 201:
                     self.log_error("Error creating the VM: " + resp.text)
@@ -497,14 +491,14 @@ class KubeVirtCloudConnector(CloudConnector):
 
             # First check if the VM exists
             uri = self._get_api_url(namespace, '/virtualmachines/' + vm_name, 'kubevirt.io/v1')
-            respvm = self.create_request('GET', uri, auth_data)
+            respvm = self._create_request('GET', uri, auth_data)
 
             if respvm.status_code != 200:
                 return (False, respvm.status_code, respvm.text)
 
             # Now check if the VM is running (a VM is running if the VMI exists)
             uri = self._get_api_url(namespace, '/virtualmachineinstances/' + vm_name, 'kubevirt.io/v1')
-            resp = self.create_request('GET', uri, auth_data)
+            resp = self._create_request('GET', uri, auth_data)
 
             if resp.status_code == 200:
                 return (True, resp.status_code, resp.text)
@@ -534,13 +528,13 @@ class KubeVirtCloudConnector(CloudConnector):
                                               conflict="other", missing="other")
 
             # Update the network info
-            self.setIPs(vm, output, auth_data)
+            self.set_net_info(vm, output, auth_data)
             return (True, vm)
         else:
-            self.log_error("Error getting info about the VM: code: %s, msg: %s" % (status, output))
-            return (False, "Error getting info about the VM: code: %s, msg: %s" % (status, output))
+            self.log_error(f"Error getting info about the VM: code: {status}, msg: {output}")
+            return (False, f"Error getting info about the VM: code: {status}, msg: {output}")
 
-    def setIPs(self, vm, vm_info, auth_data):
+    def set_net_info(self, vm, vm_info, auth_data):
         """
         Adapt the RADL information of the VM to the real IPs assigned by the cloud provider
 
@@ -555,7 +549,7 @@ class KubeVirtCloudConnector(CloudConnector):
         # First try to get the LoadBalancer service
         # to get the public IP of the VM
         uri = self._get_api_url(namespace, '/services/%s' % vm.id)
-        svc_resp = self.create_request('GET', uri, auth_data)
+        svc_resp = self._create_request('GET', uri, auth_data)
         if svc_resp.status_code == 200:
             svc_info = svc_resp.json()
             ingress = svc_info.get("status", {}).get("loadBalancer", {}).get("ingress")
@@ -602,7 +596,7 @@ class KubeVirtCloudConnector(CloudConnector):
         namespace = self._get_namespace(vm.inf, auth_data)
         self.log_debug("Deleting Namespace: %s" % namespace)
         uri = self._get_api_url(namespace, '')
-        resp = self.create_request('GET', uri, auth_data)
+        resp = self._create_request('GET', uri, auth_data)
         if resp.status_code == 404:
             self.log_warn("Trying to remove a non existing Namespace id: " + namespace)
         elif resp.status_code == 403:
@@ -610,7 +604,7 @@ class KubeVirtCloudConnector(CloudConnector):
         elif resp.status_code == 200:
             output = resp.json()
             if output["metadata"].get("labels", {}).get("inf_id") == vm.inf.id:
-                resp = self.create_request('DELETE', uri, auth_data)
+                resp = self._create_request('DELETE', uri, auth_data)
                 if resp.status_code != 200:
                     return (False, "Error deleting the Namespace: " + resp.text)
             else:
@@ -627,7 +621,7 @@ class KubeVirtCloudConnector(CloudConnector):
 
             self.log_debug("Deleting Service: %s/%s" % (namespace, service_name))
             uri = self._get_api_url(namespace, "/services/" + service_name)
-            resp = self.create_request('DELETE', uri, auth_data)
+            resp = self._create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
                 self.log_warn("Trying to remove a non existing Service id: " + service_name)
@@ -647,7 +641,7 @@ class KubeVirtCloudConnector(CloudConnector):
 
             self.log_debug("Deleting VM: %s/%s" % (namespace, vm_name))
             uri = self._get_api_url(namespace, '/virtualmachines/' + vm_name, 'kubevirt.io/v1')
-            resp = self.create_request('DELETE', uri, auth_data)
+            resp = self._create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
                 self.log_warn("Trying to remove a non existing VM id: " + vm_name)
@@ -660,7 +654,7 @@ class KubeVirtCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Kubernetes API server")
             return (False, "Error connecting with Kubernetes API server")
 
-    def vm_operation(self, vm, operation, auth_data):
+    def _vm_operation(self, vm, operation, auth_data):
         patch_data = {
             "spec": {
                 "runStrategy": "Halted" if operation == "stop" else "Always",
@@ -670,23 +664,23 @@ class KubeVirtCloudConnector(CloudConnector):
         vm_name = vm.id
         uri = self._get_api_url(namespace, '/virtualmachines/' + vm_name, 'kubevirt.io/v1')
         headers = {"Content-Type": "application/merge-patch+json"}
-        resp = self.create_request('PATCH', uri, auth_data, headers, patch_data)
+        resp = self._create_request('PATCH', uri, auth_data, headers, patch_data)
         if resp.status_code != 200:
             return (False, "Error in %s operation in the VM: %s" % (operation, resp.text))
         else:
             return (True, "")
 
     def stop(self, vm, auth_data):
-        return self.vm_operation(vm, "stop", auth_data)
+        return self._vm_operation(vm, "stop", auth_data)
 
     def start(self, vm, auth_data):
-        return self.vm_operation(vm, "stop", auth_data)
+        return self._vm_operation(vm, "stop", auth_data)
 
     def reboot(self, vm, auth_data):
         namespace = self._get_namespace(vm.inf, auth_data)
         vm_name = vm.id
         uri = self._get_api_url(namespace, '/virtualmachines/' + vm_name + '/restart', 'subresources.kubevirt.io/v1')
-        resp = self.create_request('POST', uri, auth_data)
+        resp = self._create_request('POST', uri, auth_data)
         if resp.status_code != 200:
             return (False, "Error in reboot operation in the VM: %s" % resp.text)
         return (True, "")
@@ -717,25 +711,24 @@ class KubeVirtCloudConnector(CloudConnector):
                 changed = True
 
             if not changed:
-                self.log_info("Nothing changes in the VM: " + str(vm.id))
+                self.log_info(f'Nothing changes in the VM: {vm.id}')
                 return (True, vm)
 
             namespace = self._get_namespace(vm.inf, auth_data)
-            vm_name = vm.id
 
             headers = {'Content-Type': 'application/json-patch+json'}
-            uri = self._get_api_url(namespace, '/virtualmachines/' + vm_name, 'kubevirt.io/v1')
-            resp = self.create_request('PATCH', uri, auth_data, headers, vm_data)
+            uri = self._get_api_url(namespace, '/virtualmachines/' + vm.id, 'kubevirt.io/v1')
+            resp = self._create_request('PATCH', uri, auth_data, headers, vm_data)
 
             if resp.status_code != 201:
                 return (False, "Error updating the VM: " + resp.text)
-            else:
-                if new_cpu:
-                    vm.info.systems[0].setValue('cpu.count', new_cpu)
-                if new_memory:
-                    vm.info.systems[0].addFeature(
-                        Feature("memory.size", "=", new_memory, 'B'), conflict="other", missing="other")
-                return (True, self.updateVMInfo(vm, auth_data))
+
+            if new_cpu:
+                vm.info.systems[0].setValue('cpu.count', new_cpu)
+            if new_memory:
+                vm.info.systems[0].addFeature(
+                    Feature("memory.size", "=", new_memory, 'B'), conflict="other", missing="other")
+            return (True, self.updateVMInfo(vm, auth_data))
 
         except Exception as ex:
             self.log_exception(
