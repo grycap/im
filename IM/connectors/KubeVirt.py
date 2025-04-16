@@ -189,6 +189,11 @@ class KubeVirtCloudConnector(CloudConnector):
             disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
             # Use the device as volume host path to bind
             disk_device = system.getValue("disk." + str(cont) + ".device")
+            if not disk_device:
+                # get the device from the system
+                # considering that the first disk is the root disk
+                # and the second one is the cloudinit disk
+                disk_device = f"vd{chr(ord('a') + cont + 1)}"
             disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('B')
 
             name = f'{vm_name}-{cont}'
@@ -452,6 +457,10 @@ class KubeVirtCloudConnector(CloudConnector):
                 vm_name = nodename
 
                 volumes = self._create_volumes(namespace, system, vm_name, auth_data)
+
+                # Set the volume devices in the RADL
+                for num, vol in enumerate(volumes):
+                    vm.info.systems[0].setValue(f"disk.{num + 1}.device", vol[1])
 
                 vm_data = self._generate_vm_data(radl, namespace, vm_name, system, volumes, public_key, outports, cdi)
 
