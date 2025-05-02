@@ -1557,7 +1557,7 @@ configure step2 (
             'cloud0': {
                 'cloudType': 'Dummy',
                 'cloudEndpoint': 'http://server.com:80/path',
-                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40},
+                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40, 'publicIP': 1},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10}],
                 'storage': [{'sizeInGigabytes': 100},
