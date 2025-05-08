@@ -1934,7 +1934,8 @@ class InfrastructureManager:
                             {
                             "cpuCores": 2,
                             "memoryInMegabytes": 4096,
-                            "diskSizeInGigabytes": 20
+                            "diskSizeInGigabytes": 20,
+                            "publicIP": 1
                             },
                             {
                             "cpuCores": 1,
@@ -2033,6 +2034,9 @@ class InfrastructureManager:
 
                     if disk_size:
                         vm['diskSizeInGigabytes'] = disk_size
+
+                    if radl.hasPublicNet(concrete_system.name):
+                        vm['publicIP'] = 1
 
                     for _ in range(0, deploy.vm_number):
                         res[cloud_id]["compute"].append(vm)
