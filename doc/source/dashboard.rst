@@ -333,9 +333,11 @@ the user has to specify manually the AMI id of the image to use.
 Furthermore, this tab will show the ammount of resources available in the selected Cloud provider.
 The user can easily check the resources available in the selected Cloud provider and if the current
 deployment will fit in the available resources. The information is shown in a set of pie charts
-showing the total resources available and the resources used by the current user. In case that the
-amnount of resources used by the user is too high, the pie chart will be shown in red and a message
-will be shown to the user indicating that the current deployment will not fit in the available resources.
+showing the total resources available and the resources used by the current user. Used resources are
+shown in orange, free ones in grey, the needed resources for the deployment in green or red if they
+do not fit in the available resources.In case that the amnount of resources used by the user is too high,
+a message will be shown to the user indicating that the current deployment will not fit in the 
+available resources.
 (:ref:`Fig. 9 <_figure_dash_resources>`)
 
 .. _figure_dash_resources:
