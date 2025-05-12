@@ -61,8 +61,8 @@ class Stats():
         resp['hybrid'] = False
         resp['deleted'] = True if 'deleted' in dic and dic['deleted'] else False
         for str_vm_data in dic['vm_list']:
-            vm_data = json.loads(str_vm_data)
-            cloud_data = json.loads(vm_data["cloud"])
+            vm_data = str_vm_data if isinstance(str_vm_data, dict) else json.loads(str_vm_data)
+            cloud_data = vm_data["cloud"] if isinstance(vm_data["cloud"], dict) else json.loads(vm_data["cloud"])
 
             # only get the cloud of the first VM
             if not resp['cloud_type']:

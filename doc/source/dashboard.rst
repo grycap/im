@@ -330,6 +330,20 @@ the user has to specify manually the AMI id of the image to use.
 
    Fig 8. Select Cloud Provider and Image.
 
+Furthermore, this tab will show the ammount of resources available in the selected Cloud provider.
+The user can easily check the resources available in the selected Cloud provider and if the current
+deployment will fit in the available resources. The information is shown in a set of pie charts
+showing the total resources available and the resources used by the current user. Used resources are
+shown in orange, free ones in grey, the needed resources for the deployment in green or red if they
+do not fit in the available resources.In case that the amnount of resources used by the user is too high,
+a message will be shown to the user indicating that the current deployment will not fit in the 
+available resources.
+(:ref:`Fig. 9 <_figure_dash_resources>`)
+
+.. _figure_dash_resources:
+.. figure:: images/dash_resources.png
+
+   Fig 9. Cloud resources usage.
 
 Infrastructures
 ^^^^^^^^^^^^^^^^
@@ -346,13 +360,13 @@ both columns empty.
 .. _figure_dash_inf_list:
 .. figure:: images/dash_inf_list.png
 
-   Fig 9. List of infrastructures.
+   Fig 10. List of infrastructures.
 
 
 .. _figure_dash_inf_actions:
 .. figure:: images/dash_inf_actions.png
 
-   Fig 10. List of infrastructure Actions.
+   Fig 11. List of infrastructure Actions.
 
 **List of Actions**:
 
@@ -366,7 +380,7 @@ both columns empty.
 .. _figure_dash_add_nodes:
 .. figure:: images/dash_add_nodes.png
 
-   Fig 11. Add nodes page.
+   Fig 12. Add nodes page.
 
 * Show template: This action shows the original TOSCA template submitted to create the infrastructure.
 
@@ -382,7 +396,7 @@ both columns empty.
 .. _figure_dash_outputs:
 .. figure:: images/dash_outputs.png
 
-   Fig 12. TOSCA outputs.
+   Fig 13. TOSCA outputs.
 
 * Delete: Delete this infrastructure and all the asociated resources. It also has the option to "Force" de deletion.
   In this case the infrastructure will be removed from the IM service even if some cloud resources cannot be deleted.
@@ -394,16 +408,18 @@ both columns empty.
 
 * Reconfigure: Starts the reconfiguration of the infrastructure.
 
-* Change User: Add or change the ownership of the infrastructure at IM level. Setting an valid access token of other
+* Change User: Add or change the ownership of the infrastructure at IM level. Setting an valid share token of other
   user, the infrastructure can be shared or transfered to another user. If overwrite check is set the new user will be
   the unique new owner of the infrastructure, otherwise it will be added to the list of current users. If the new user
   does not have the correct credentials to access the cloud provider where the resources were deployed the user will
-  not be able to manage the cloud resources.
+  not be able to manage the cloud resources. To get the share token the user has to go to the infrastructure list page
+  an chlick on the "Token" button. The token will be shown in a modal form and the user can copy it to the clipboard
+  and then share it with the current owner of the infrastructure.
 
 .. _figure_dash_change_user:
 .. figure:: images/dash_change_user.png
 
-   Fig 13. Change/Add User modal form.
+   Fig 14. Change/Add User modal form.
 
 **VM Info page**:
 
@@ -417,7 +433,7 @@ the SSH credentials needed to access it. Second table will show other additional
 .. _figure_dash_vm_info:
 .. figure:: images/dash_vm_info.png
 
-   Fig 14. VM Info page.
+   Fig 15. VM Info page.
 
 In case of Resizing the VM the user must provide the new size of the VM in terms of number of CPUs and ammount of memory as
 show in :ref:`Fig. 15 <figure_dash_vm_resize>`.
@@ -425,4 +441,4 @@ show in :ref:`Fig. 15 <figure_dash_vm_resize>`.
 .. _figure_dash_vm_resize:
 .. figure:: images/dash_vm_resize.png
 
-   Fig 15. VM Resize modal form.
+   Fig 16. VM Resize modal form.
