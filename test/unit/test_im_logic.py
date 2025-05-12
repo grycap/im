@@ -1585,7 +1585,7 @@ configure step2 (
             "creation_date": 1646655374,
             "extra_info": {"TOSCA": yaml.dump({"metadata": {"icon": "kubernetes.png"}})},
             "vm_list": [
-                json.dumps({"cloud": '{"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}', "info": radl}),
+                {"cloud": {"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}, "info": radl},
                 json.dumps({"cloud": '{"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}', "info": radl})
             ]
         }
