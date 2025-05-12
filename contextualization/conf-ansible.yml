@@ -142,7 +142,7 @@
 
     - name: Create Ansible virtualenv
       command:
-        cmd: "{{ ansible_python.interpreter }} -m venv --system-site-packages {{ VENV_PATH }}"
+        cmd: virtualenv --system-site-packages {{ VENV_PATH }}
         creates: "{{ VENV_PATH }}"
  
     # Version over 21 does not work with python 3.6 or older
