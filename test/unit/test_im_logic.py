@@ -1504,7 +1504,6 @@ configure step2 (
 
     @patch('IM.InfrastructureManager.AppDB')
     def test_translate_egi_to_ost(self, appdb):
-        appdb.get_site_id.return_value = 'site_id'
         appdb.get_site_url.return_value = 'https://ostsite.com:5000'
         appdb.get_project_ids.return_value = {'vo_name': 'projectid'}
 
