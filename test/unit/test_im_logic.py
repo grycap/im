@@ -1384,13 +1384,11 @@ configure step2 (
         auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'},
                                {'id': 'app', 'type': 'AppDBIS', 'token': 'atoken'}])
 
-        appdbis_mock = MagicMock()
-        appdbis.return_value = appdbis_mock
-        appdbis_mock.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
+        appdbis.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
 
         res = IM.GetCloudImageList("app", auth, {"distribution": "Ubuntu", "version": "20.04"})
         self.assertEqual(res, [{'uri': 'ost://site/imageid', 'name': 'Image Name'}])
-        self.assertEqual(appdbis_mock.list_images.call_args_list[0][0][0],
+        self.assertEqual(appdbis.list_images.call_args_list[0][0][0],
                          {'distribution': 'Ubuntu', 'version': '20.04'})
 
     @patch('IM.InfrastructureManager.VMRC')
@@ -1412,9 +1410,7 @@ configure step2 (
                                   Feature("disk.0.image.url", "=", "https://fedcloud.eu"),
                                   Feature("disk.0.image.vo", "=", "fedcloud.egi.eu")])
 
-        appdbis_mock = MagicMock()
-        appdbis.return_value = appdbis_mock
-        appdbis_mock.search_vm.return_value = [sys_appdb]
+        appdbis.search_vm.return_value = [sys_appdb]
 
         sys_vmrc = system("s0", [Feature("disk.0.os.name", "=", "linux"),
                                  Feature("disk.0.os.flavour", "=", "ubuntu"),
@@ -1502,7 +1498,7 @@ configure step2 (
         self.assertEqual(res[1].name, "s0")
         self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri2")
 
-    @patch('IM.InfrastructureManager.AppDB')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_translate_egi_to_ost(self, appdb):
         appdb.get_site_url.return_value = 'https://ostsite.com:5000'
         appdb.get_project_ids.return_value = {'vo_name': 'projectid'}
