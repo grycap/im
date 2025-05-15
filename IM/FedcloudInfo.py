@@ -16,12 +16,14 @@
 
 import os
 import requests
+import re
 
 try:
     from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
 
+from radl.radl import Feature, system
 
 class FedcloudInfo:
     """
@@ -241,8 +243,8 @@ class FedcloudInfo:
         params = {}
         if vo:
             params.update({"vo_name": vo})
-        data = FedcloudInfo.cloudinfo_call("/images", params)
-        if not data:
+        images = FedcloudInfo.cloudinfo_call("/images", params)
+        if not images:
             return None
 
         res = []
@@ -272,7 +274,7 @@ class FedcloudInfo:
                     site_host = urlparse(site["url"])[1]
                     for image in res:
                         if site_host in image["uri"]:
-                            image["name"] = "%s - %s" % (name, image["name"])
+                            image["name"] = "%s - %s" % (site["name", image["name"])
                             ordered.append(image)
 
                 return ordered
@@ -306,7 +308,7 @@ class FedcloudInfo:
             filters["vo"] = vo
         name = radl_system.getValue("disk.0.os.image.name")
         if name:
-            fiters["app"] = name
+            filters["app"] = name
 
         res_systems = []
         for image in FedcloudInfo.list_images(filters, do_order=False):

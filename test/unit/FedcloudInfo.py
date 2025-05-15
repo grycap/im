@@ -109,7 +109,7 @@ class TestFedcloudInfo(unittest.TestCase):
         self.assertEqual(image_id, "image_id2")
 
         str_url = "appdb://INFN-CLOUD-BARI/0c0a1ffc-b936-5efd-920c-b648a02cccf4:13976"
-        image = FedcloudInfo.get_image_data(str_url)
+        site_url, image_id, _ = FedcloudInfo.get_image_data(str_url)
         self.assertEqual(site_url, "https://keystone.recas.ba.infn.it/v3")
         self.assertEqual(image_id, "image_id2")
 
