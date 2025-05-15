@@ -1364,7 +1364,7 @@ configure step2 (
 
         Config.BOOT_MODE = 0
 
-    @patch('IM.InfrastructureManager.AppDBIS')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_get_cloud_info(self, appdbis):
         auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         res = IM.GetCloudImageList("cloud1", auth)
@@ -1394,7 +1394,7 @@ configure step2 (
                          {'distribution': 'Ubuntu', 'version': '20.04'})
 
     @patch('IM.InfrastructureManager.VMRC')
-    @patch('IM.InfrastructureManager.AppDBIS')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_systems_with_iis(self, appdbis, vmrc):
         auth = self.getAuth([0], [0])
         auth.auth_list.append({"type": "AppDBIS", "host": "http://is.marie.hellasgrid.gr"})
