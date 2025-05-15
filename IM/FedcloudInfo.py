@@ -274,7 +274,7 @@ class FedcloudInfo:
                     site_host = urlparse(site["url"])[1]
                     for image in res:
                         if site_host in image["uri"]:
-                            image["name"] = "%s - %s" % (site["name", image["name"])
+                            image["name"] = "%s - %s" % (site["name"], image["name"])
                             ordered.append(image)
 
                 return ordered
