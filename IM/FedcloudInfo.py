@@ -25,6 +25,7 @@ except ImportError:
 
 from radl.radl import Feature, system
 
+
 class FedcloudInfo:
     """
     Get FedCloud data
