@@ -1654,6 +1654,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 self.log_info("Network has a router set. Do not create security groups.")
                 return res
 
+        sg_desc = "Security group created by the IM"
+        if inf.radl.description and inf.radl.description.getValue('name'):
+            sg_desc += " for Inf: %s" % inf.radl.description.getValue('name')
+
         # First create a SG for the entire Infra
         # Use the InfrastructureInfo lock to assure that only one VM create the SG
         with inf._lock:
@@ -1661,9 +1665,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             sg = self._get_security_group(driver, sg_name)
             if not sg:
                 self.log_info("Creating security group: %s" % sg_name)
-                sg_desc = "Security group created by the IM"
-                if inf.radl.description and inf.radl.description.getValue('name'):
-                    sg_desc += " for Inf: %s" % inf.radl.description.getValue('name')
                 sg = driver.ex_create_security_group(sg_name, sg_desc)
                 # open all the ports for the VMs in the security group
                 driver.ex_create_security_group_rule(sg, 'tcp', None, None, source_security_group=sg)
@@ -1684,7 +1685,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 sg = self._get_security_group(driver, sg_name)
                 if not sg:
                     self.log_info("Creating security group: %s" % sg_name)
-                    sg = driver.ex_create_security_group(sg_name, "Security group created by the IM")
+                    sg = driver.ex_create_security_group(sg_name, sg_desc)
                 res.append(sg)
 
             try:
@@ -1738,16 +1739,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.log_debug("Dettaching volume %s." % vol_id)
                     volume = self.get_volume(node.driver, vol_id)
                     node.driver.detach_volume(volume)
-                except Exception:
-                    self.log_exception("Error dettaching volume %s." % vol_id)
+                except Exception as ex:
+                    self.log_warn("Error dettaching volume %s: %s." % (vol_id, get_ex_error(ex)))
 
             for sg_name in self._get_security_names(vm.inf):
                 try:
                     self.log_debug("Dettaching SG %s." % sg_name)
                     security_group = OpenStackSecurityGroup(None, None, sg_name, "", node.driver)
                     node.driver.ex_remove_security_group_from_node(security_group, node)
-                except Exception:
-                    self.log_exception("Error dettaching SG %s." % sg_name)
+                except Exception as ex:
+                    self.log_warn("Error dettaching SG %s: %s" % (sg_name, get_ex_error(ex)))
 
             try:
                 res, msg = self.delete_elastic_ips(node, vm)
@@ -1852,7 +1853,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.log_info("The SG %s does not exist. Do not delete it." % sg_name)
                     deleted = True
                 else:
-                    if sg.description != "Security group created by the IM":
+                    if "Security group created by the IM" not in sg.description:
                         self.log_info("SG %s not created by the IM. Do not delete it." % sg_name)
                         deleted = True
                     else:

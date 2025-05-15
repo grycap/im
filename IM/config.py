@@ -126,6 +126,7 @@ class Config:
     VM_TAG_IM_URL = None
     VM_TAG_IM = None
     ADMIN_USER = {}
+    STATIC_FILES_DIR = None
 
 
 config = ConfigParser()

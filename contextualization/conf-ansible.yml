@@ -140,6 +140,11 @@
       when: ansible_os_family == "RedHat"
       ignore_errors: yes
 
+    - name: Create Ansible virtualenv
+      command:
+        cmd: virtualenv --system-site-packages {{ VENV_PATH }}
+        creates: "{{ VENV_PATH }}"
+ 
     # Version over 21 does not work with python 3.6 or older
     - name: Upgrade pip in py3.6-
       pip:

@@ -1557,7 +1557,7 @@ configure step2 (
             'cloud0': {
                 'cloudType': 'Dummy',
                 'cloudEndpoint': 'http://server.com:80/path',
-                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40},
+                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40, 'publicIP': 1},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10}],
                 'storage': [{'sizeInGigabytes': 100},
@@ -1585,7 +1585,7 @@ configure step2 (
             "creation_date": 1646655374,
             "extra_info": {"TOSCA": yaml.dump({"metadata": {"icon": "kubernetes.png"}})},
             "vm_list": [
-                json.dumps({"cloud": '{"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}', "info": radl}),
+                {"cloud": {"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}, "info": radl},
                 json.dumps({"cloud": '{"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}', "info": radl})
             ]
         }

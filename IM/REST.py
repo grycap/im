@@ -1121,6 +1121,14 @@ def RESTGetStats():
         return return_error(400, "Error getting stats: %s" % get_ex_error(ex))
 
 
+@app.route('/static/<filename>', methods=['GET'])
+def static_files(filename):
+    if Config.STATIC_FILES_DIR:
+        return flask.send_from_directory(Config.STATIC_FILES_DIR, filename)
+    else:
+        return return_error(404, "Static files not enabled.")
+
+
 @app.errorhandler(403)
 def error_mesage_403(error):
     return return_error(403, error.description)
