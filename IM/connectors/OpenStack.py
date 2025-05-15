@@ -590,38 +590,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, vm)
 
-    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Special case for EGI DyDNS
-        # format of the hostname: dydns:secret@hostname
-        if hostname.startswith("dydns:") and "@" in hostname:
-            parts = hostname[6:].split("@")
-            auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
-            headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
-            url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
-                                                                                      domain[:-1],
-                                                                                      ip)
-            try:
-                resp = requests.get(url, headers=headers, timeout=10)
-                resp.raise_for_status()
-            except Exception as ex:
-                self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
-                self.log_exception("Error creating DNS entries")
-                return False
-        else:
-            # TODO: https://docs.openstack.org/designate/latest/index.html
-            raise NotImplementedError("Should have implemented this")
-        return True
-
-    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Special case for EGI DyDNS
-        # format of the hostname: dydns:secret@hostname
-        if hostname.startswith("dydns:") and "@" in hostname:
-            self.log_info("DYDNS entry. Cannot be deleted.")
-        else:
-            # TODO: https://docs.openstack.org/designate/latest/index.html
-            raise NotImplementedError("Should have implemented this")
-        return True
-
     @staticmethod
     def map_radl_ost_networks(vm, ost_nets):
         """

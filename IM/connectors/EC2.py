@@ -1335,23 +1335,8 @@ class EC2CloudConnector(CloudConnector):
 
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
-            # Workaround to use EC2 as the default case.
-            if self.type == "EC2":
-                conn = self.get_connection('universal', auth_data, 'route53')
-            else:
-                auths = auth_data.getAuthInfo("EC2")
-                if not auths:
-                    raise NoAuthData(self.type)
-                else:
-                    auth = auths[0]
-                    conn = boto3.client('route53', region_name='universal',
-                                        aws_access_key_id=auth['username'],
-                                        aws_secret_access_key=auth['password'])
-
+            conn = self.get_connection('universal', auth_data, 'route53')
             zone = EC2CloudConnector._get_zone(conn, domain)
-            if not zone:
-                raise CloudConnectorException("Could not find DNS zone to update")
-            zone_id = zone['Id']
 
             if not zone:
                 self.log_info("Creating DNS zone %s" % domain)
@@ -1360,6 +1345,7 @@ class EC2CloudConnector(CloudConnector):
                 self.log_info("DNS zone %s exists. Do not create." % domain)
 
             if zone:
+                zone_id = zone['Id']
                 fqdn = hostname + "." + domain
                 records = conn.list_resource_record_sets(HostedZoneId=zone_id,
                                                          StartRecordName=fqdn,
@@ -1379,18 +1365,7 @@ class EC2CloudConnector(CloudConnector):
             return False
 
     def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Workaround to use EC2 as the default case.
-        if self.type == "EC2":
-            conn = self.get_connection('universal', auth_data, 'route53')
-        else:
-            auths = auth_data.getAuthInfo("EC2")
-            if not auths:
-                raise NoAuthData(self.type)
-            else:
-                auth = auths[0]
-                conn = boto3.client('route53', region_name='universal',
-                                    aws_access_key_id=auth['username'],
-                                    aws_secret_access_key=auth['password'])
+        conn = self.get_connection('universal', auth_data, 'route53')
         zone = EC2CloudConnector._get_zone(conn, domain)
         if not zone:
             self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
