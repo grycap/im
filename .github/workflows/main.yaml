@@ -31,6 +31,7 @@ jobs:
         run: tox -e coverage
 
       - name: Report coverage
+        if: ${{ secrets.CODACY_PROJECT_TOKEN != '' }}
         uses: codacy/codacy-coverage-reporter-action@v1
         with:
             project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
