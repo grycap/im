@@ -27,8 +27,6 @@ import IM.InfrastructureInfo
 import IM.InfrastructureList
 
 from IM.VMRC import VMRC
-from IM.AppDBIS import AppDBIS
-from IM.AppDB import AppDB
 from IM.FedcloudInfo import FedcloudInfo
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
@@ -432,9 +430,6 @@ class InfrastructureManager:
         # Get AppDBIS credentials
         appdbis_list = []
         for appdbis_elem in auth.getAuthInfo('AppDBIS'):
-            host = None
-            if 'host' in appdbis_elem:
-                host = appdbis_elem['host']
             appdbis_list.append(FedcloudInfo)
 
         systems_with_vmrc = {}
