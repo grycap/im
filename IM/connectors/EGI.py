@@ -96,7 +96,8 @@ class EGICloudConnector(CloudConnector):
                 else:
                     commennt = 'IM created DNS entry'
                     if hostname == "*":
-                        url = f'{EGICloudConnector.DYDNS_URL}/nic/register?fqdn={domain}&comment={commennt}&wildcard=true'
+                        url = (f'{EGICloudConnector.DYDNS_URL}/nic/register?fqdn=' +
+                               f'{domain}&comment={commennt}&wildcard=true')
                     else:
                         url = f'{EGICloudConnector.DYDNS_URL}/nic/register?fqdn={hostname}.{domain}&comment={commennt}'
                     resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
