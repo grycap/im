@@ -127,11 +127,10 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(concrete[0].getValue("instance_type"), "g.small")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.AppDB.AppDB.get_site_id')
-    @patch('IM.AppDB.AppDB.get_site_url')
-    @patch('IM.AppDB.AppDB.get_image_id')
+    @patch('IM.FedcloudInfo.FedcloudInfo.get_site_url')
+    @patch('IM.FedcloudInfo.FedcloudInfo.get_image_id')
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
-    def test_15_concrete_appdb(self, get_driver, get_image_id, get_site_url, get_site_id):
+    def test_15_concrete_appdb(self, get_driver, get_image_id, get_site_url):
         radl_data = """
             network net ()
             system test (
@@ -164,7 +163,6 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.list_sizes.return_value = [node_size]
 
         get_site_url.return_value = "https://server.com:5000"
-        get_site_id.return_value = "8016G0"
         get_image_id.return_value = "imageid1"
         concrete = ost_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
@@ -185,7 +183,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    @patch('IM.AppDB.AppDB.get_image_data')
+    @patch('IM.FedcloudInfo.FedcloudInfo.get_image_data')
     def test_20_launch(self, get_image_data, save_data, get_driver):
         radl_data = """
             description desc (name = 'SimpleRADL')

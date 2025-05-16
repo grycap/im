@@ -47,7 +47,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
-from IM.AppDB import AppDB
+from IM.FedcloudInfo import FedcloudInfo
 from IM import get_ex_error
 
 
@@ -360,7 +360,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         src_host = url[1].split(':')[0]
 
         if protocol == "appdb":
-            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack", site=self.cloud.server)
+            site_url, image_id, msg = FedcloudInfo.get_image_data(str_url, site_host=self.cloud.server)
             if not image_id or not site_url:
                 self.log_error(msg)
                 return None
@@ -1295,7 +1295,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         image_url = system.getValue("disk.0.image.url")
         if urlparse(image_url)[0] == "appdb":
             vo = self.get_vo_name(auth_data)
-            _, image_id, msg = AppDB.get_image_data(image_url, "openstack", vo, site=self.cloud.server)
+            _, image_id, msg = FedcloudInfo.get_image_data(image_url, vo, site_host=self.cloud.server)
             if not image_id:
                 self.log_error(msg)
                 raise CloudConnectorException("Error in appdb image: %s" % msg)
