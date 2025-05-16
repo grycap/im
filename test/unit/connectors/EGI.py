@@ -51,8 +51,10 @@ class TestEGIConnector(unittest.TestCase):
         self.assertTrue(success)
         self.assertEqual(mock_get.call_count, 4)
         eurl1 = f"{eurl1}&wildcard=true"
-        self.assertEqual(mock_get.call_args_list[2], call(eurl1, headers={'Authorization': 'Bearer access_token'}, timeout=10))
-        self.assertEqual(mock_get.call_args_list[3], call(eurl2, headers={'Authorization': 'Bearer access_token'}, timeout=10))
+        self.assertEqual(mock_get.call_args_list[2], call(eurl1, headers={'Authorization': 'Bearer access_token'},
+                                                          timeout=10))
+        self.assertEqual(mock_get.call_args_list[3], call(eurl2, headers={'Authorization': 'Bearer access_token'},
+                                                          timeout=10))
 
     @patch('requests.get')
     @patch('IM.connectors.EGI.EGICloudConnector._get_host')
