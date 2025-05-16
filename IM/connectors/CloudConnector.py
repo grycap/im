@@ -744,13 +744,13 @@ class CloudConnector(LoggerMixin):
                 for entry in dns_entries:
                     hostname, domain, ip = entry
                     try:
-                        if op == "add":
+                        if op == "add" and entry not in vm.dns_entries:
                             success = self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if success and entry not in vm.dns_entries:
+                            if success:
                                 vm.dns_entries.append(entry)
                         elif op == "del":
-                            self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if entry in vm.dns_entries:
+                            success = self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
+                            if success and entry in vm.dns_entries:
                                 vm.dns_entries.remove(entry)
                         else:
                             raise Exception("Invalid DNS operation.")
@@ -759,9 +759,9 @@ class CloudConnector(LoggerMixin):
                         im_auth = auth_data.getAuthInfo("InfrastructureManager")
                         if im_auth and im_auth[0].get("token") or (hostname.startswith("dydns:") and "@" in hostname):
                             from IM.connectors.EGI import EGICloudConnector
-                            if op == "add":
+                            if op == "add" and entry not in vm.dns_entries:
                                 success = EGICloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
-                                if success and entry not in vm.dns_entries:
+                                if success:
                                     vm.dns_entries.append(entry)
                             elif op == "del":
                                 success = EGICloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
