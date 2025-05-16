@@ -30,26 +30,27 @@ class EGICloudConnector(CloudConnector):
     DYDNS_URL = "https://nsupdate.fedcloud.eu"
     DEFAULT_TIMEOUT = 10
 
-    def _get_domains(self, token):
+    @staticmethod
+    def _get_domains(token):
         """
         List the domains available in the DyDNS service
         """
-        url = f'{self.DYDNS_URL}/nic/domains'
-        resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
+        url = f'{EGICloudConnector.DYDNS_URL}/nic/domains'
+        resp = requests.get(url, headers={'Authorization': f'Bearer {token}'},
+                            timeout=EGICloudConnector.DEFAULT_TIMEOUT)
         if resp.status_code != 200:
-            self.log_error(f"Error getting domains: {resp.text}")
-            return None
+            return None, resp.text
         output = resp.json()
         if output.get("status") != "ok":
-            self.log_error(f"Error getting domains: {output.get('message', 'Unknown error')}")
-            return None
+            return None, output.get('message', 'Unknown error')
         domains = []
         for domain in output.get("private", []) + output.get("public", []):
             if domain.get("available"):
                 domains.append(domain["name"])
-        return domains
+        return domains, ""
 
-    def _get_host(self, hostname, domain, token):
+    @staticmethod
+    def _get_host(hostname, domain, token):
         """
         Look for a host registered in the DyDNS service
         """
@@ -57,22 +58,21 @@ class EGICloudConnector(CloudConnector):
             parts = domain.split(".")
             domain = ".".join(parts[1:])
             hostname = parts[0]
-        url = f'{self.DYDNS_URL}/nic/hosts?domain={domain}'
-        resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
+        url = f'{EGICloudConnector.DYDNS_URL}/nic/hosts?domain={domain}'
+        resp = requests.get(url, headers={'Authorization': f'Bearer {token}'},
+                            timeout=EGICloudConnector.DEFAULT_TIMEOUT)
         if resp.status_code != 200:
-            self.log_error(f"Error getting host {hostname}.{domain}: {resp.text}")
-            return None
+            return None, resp.text
 
         output = resp.json()
         if output.get("status") != "ok":
-            self.log_error(f"Error getting host {hostname}.{domain}: {output.get('message', 'Unknown error')}")
-            return None
+            return None, output.get('message', 'Unknown error')
 
         for host in output.get("hosts", []):
             if host.get("name") == hostname:
-                return host
+                return host, ""
 
-        return None
+        return None, ""
 
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         """
@@ -85,7 +85,9 @@ class EGICloudConnector(CloudConnector):
                 self.log_debug(f"Registering DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
                 # Check if the host already exists
-                host = self._get_host(hostname, domain, token)
+                host, error = EGICloudConnector._get_host(hostname, domain, token)
+                if error:
+                    self.log_error(f"Error getting host {hostname}.{domain}: {error}")
                 if host:
                     self.log_debug(f"DNS entry {hostname}.{domain} already exists")
                     if ip in [host.get("ipv4"), host.get("ipv6")]:
@@ -94,9 +96,9 @@ class EGICloudConnector(CloudConnector):
                 else:
                     commennt = 'IM created DNS entry'
                     if hostname == "*":
-                        url = f'{self.DYDNS_URL}/nic/register?fqdn={domain}&comment={commennt}&wildcard=true'
+                        url = f'{EGICloudConnector.DYDNS_URL}/nic/register?fqdn={domain}&comment={commennt}&wildcard=true'
                     else:
-                        url = f'{self.DYDNS_URL}/nic/register?fqdn={hostname}.{domain}&comment={commennt}'
+                        url = f'{EGICloudConnector.DYDNS_URL}/nic/register?fqdn={hostname}.{domain}&comment={commennt}'
                     resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
                     if resp.status_code != 200:
                         self.log_error(f"Error registering DNS entry {hostname}.{domain}: {resp.text}")
@@ -126,8 +128,8 @@ class EGICloudConnector(CloudConnector):
             fqdn = f'{hostname}.{domain}'
             if hostname == "*":
                 fqdn = domain
-            url = f'{self.DYDNS_URL}/nic/update?hostname={fqdn}&myip={ip}'
-            resp = requests.get(url, headers=headers, timeout=self.DEFAULT_TIMEOUT)
+            url = f'{EGICloudConnector.DYDNS_URL}/nic/update?hostname={fqdn}&myip={ip}'
+            resp = requests.get(url, headers=headers, timeout=EGICloudConnector.DEFAULT_TIMEOUT)
             if resp.status_code != 200:
                 self.log_error(f"Error updating DNS entry {hostname}.{domain}: {resp.text}")
                 return False
@@ -146,21 +148,26 @@ class EGICloudConnector(CloudConnector):
                 self.log_debug(f"Deleting DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
 
-                domains = self._get_domains(token)
+                domains, error = EGICloudConnector._get_domains(token)
+                if error:
+                    self.log_error(f"Error getting domains: {error}")
                 if domain not in domains:
                     self.log_debug(f"Domain {domain} not found in DyDNS service")
                     return False
 
-                host = self._get_host(hostname, domain, token)
+                host, error = EGICloudConnector._get_host(hostname, domain, token)
+                if error:
+                    self.log_error(f"Error getting host {hostname}.{domain}: {error}")
                 if not host:
                     self.log_debug(f"DNS entry {hostname}.{domain} does not exist. Do not need to delete.")
                     return True
 
                 if hostname == "*":
-                    url = f'{self.DYDNS_URL}/nic/unregister?fqdn={domain}'
+                    url = f'{EGICloudConnector.DYDNS_URL}/nic/unregister?fqdn={domain}'
                 else:
-                    url = f'{self.DYDNS_URL}/nic/unregister?fqdn={hostname}.{domain}'
-                resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
+                    url = f'{EGICloudConnector.DYDNS_URL}/nic/unregister?fqdn={hostname}.{domain}'
+                resp = requests.get(url, headers={'Authorization': f'Bearer {token}'},
+                                    timeout=EGICloudConnector.DEFAULT_TIMEOUT)
                 if resp.status_code != 200:
                     self.log_error(f"Error deleting DNS entry {hostname}.{domain}: {resp.text}")
                     return False
