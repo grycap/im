@@ -117,7 +117,6 @@ class EGICloudConnector(CloudConnector):
                 parts = hostname[6:].split("@")
                 secret = parts[0]
                 hostname = parts[1]
-                domain = domain[:-1]
             else:
                 self.log_error(f"Error updating DNS entry {hostname}.{domain}: No secret nor token provided")
                 return False
