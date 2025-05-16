@@ -78,6 +78,7 @@ class EGICloudConnector(CloudConnector):
         """
         Add a DNS entry to the DNS server
         """
+        domain = domain[:-1] if domain.endswith(".") else domain
         im_auth = auth_data.getAuthInfo("InfrastructureManager")
         try:
             secret = None
@@ -144,6 +145,7 @@ class EGICloudConnector(CloudConnector):
         """
         Delete a DNS entry from the DNS server
         """
+        domain = domain[:-1] if domain.endswith(".") else domain
         im_auth = auth_data.getAuthInfo("InfrastructureManager")
         try:
             if im_auth and im_auth[0].get("token"):
