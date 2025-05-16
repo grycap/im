@@ -146,6 +146,11 @@ class EGICloudConnector(CloudConnector):
                 self.log_debug(f"Deleting DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
 
+                domains = self._get_domains(token)
+                if domain not in domains:
+                    self.log_debug(f"Domain {domain} not found in DyDNS service")
+                    return False
+
                 host = self._get_host(hostname, domain, token)
                 if not host:
                     self.log_debug(f"DNS entry {hostname}.{domain} does not exist. Do not need to delete.")
