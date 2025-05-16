@@ -17,7 +17,7 @@
 
 import base64
 import requests
-from .CloudConnector import CloudConnector
+from .CloudConnector import CloudConnector  
 
 
 class EGICloudConnector(CloudConnector):
@@ -86,7 +86,11 @@ class EGICloudConnector(CloudConnector):
                 self.log_debug(f"Registering DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
                 # Check if the host already exists
-                host, error = EGICloudConnector._get_host(hostname, domain, token)
+                if hostname == "*":
+                    parts = domain.split(".")
+                    host, error = EGICloudConnector._get_host(parts[0], ".".join(parts[1:]), token)
+                else:
+                    host, error = EGICloudConnector._get_host(hostname, domain, token)
                 if error:
                     self.log_error(f"Error getting host {hostname}.{domain}: {error}")
                 if host:
@@ -154,6 +158,12 @@ class EGICloudConnector(CloudConnector):
                 domains, error = EGICloudConnector._get_domains(token)
                 if error:
                     self.log_error(f"Error getting domains: {error}")
+
+                if hostname == "*":
+                    parts = domain.split(".")
+                    domain = ".".join(parts[1:])
+                    hostname = parts[0]
+
                 if domain not in domains:
                     self.log_debug(f"Domain {domain} not found in DyDNS service")
                     return False
@@ -165,10 +175,7 @@ class EGICloudConnector(CloudConnector):
                     self.log_debug(f"DNS entry {hostname}.{domain} does not exist. Do not need to delete.")
                     return True
 
-                if hostname == "*":
-                    url = f'{EGICloudConnector.DYDNS_URL}/nic/unregister?fqdn={domain}'
-                else:
-                    url = f'{EGICloudConnector.DYDNS_URL}/nic/unregister?fqdn={hostname}.{domain}'
+                url = f'{EGICloudConnector.DYDNS_URL}/nic/unregister?fqdn={hostname}.{domain}'
                 resp = requests.get(url, headers={'Authorization': f'Bearer {token}'},
                                     timeout=EGICloudConnector.DEFAULT_TIMEOUT)
                 if resp.status_code != 200:
