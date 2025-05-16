@@ -78,6 +78,7 @@ class EGICloudConnector(CloudConnector):
         """
         Add a DNS entry to the DNS server
         """
+        domain = domain[:-1] if domain.endswith(".") else domain
         im_auth = auth_data.getAuthInfo("InfrastructureManager")
         try:
             secret = None
@@ -116,7 +117,6 @@ class EGICloudConnector(CloudConnector):
                 parts = hostname[6:].split("@")
                 secret = parts[0]
                 hostname = parts[1]
-                domain = domain[:-1]
             else:
                 self.log_error(f"Error updating DNS entry {hostname}.{domain}: No secret nor token provided")
                 return False
@@ -144,6 +144,7 @@ class EGICloudConnector(CloudConnector):
         """
         Delete a DNS entry from the DNS server
         """
+        domain = domain[:-1] if domain.endswith(".") else domain
         im_auth = auth_data.getAuthInfo("InfrastructureManager")
         try:
             if im_auth and im_auth[0].get("token"):

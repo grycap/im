@@ -70,7 +70,7 @@ class TestEGIConnector(unittest.TestCase):
         mock_get.return_value = MagicMock(status_code=200, json=lambda: {"status": "ok"})
         auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
         cloud = EGICloudConnector(None, None)
-        success = EGICloudConnector.del_dns_entry(cloud, "hostname", "domain", "ip", auth_data)
+        success = EGICloudConnector.del_dns_entry(cloud, "hostname", "domain.", "ip", auth_data)
         self.assertTrue(success)
         eurl = f"{EGICloudConnector.DYDNS_URL}/nic/unregister?fqdn=hostname.domain"
         mock_get.assert_called_with(eurl, headers={'Authorization': 'Bearer access_token'}, timeout=10)
