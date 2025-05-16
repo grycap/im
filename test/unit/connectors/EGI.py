@@ -63,8 +63,10 @@ class TestEGIConnector(unittest.TestCase):
 
     @patch('requests.get')
     @patch('IM.connectors.EGI.EGICloudConnector._get_host')
-    def test_del_dns(self, mock_get_host, mock_get):
+    @patch('IM.connectors.EGI.EGICloudConnector._get_domains')
+    def test_del_dns(self, mock_get_domains, mock_get_host, mock_get):
         mock_get_host.return_value = {"name": "hostname"}
+        mock_get_domains.return_value = ["domain"]
         mock_get.return_value = MagicMock(status_code=200, json=lambda: {"status": "ok"})
         auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
         cloud = EGICloudConnector(None, None)

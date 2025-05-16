@@ -764,8 +764,14 @@ class CloudConnector(LoggerMixin):
                                 if success and entry not in vm.dns_entries:
                                     vm.dns_entries.append(entry)
                             elif op == "del":
-                                EGICloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
-                                if entry in vm.dns_entries:
+                                success = EGICloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+
+                                # Maintain to enable deletion of old OSCAR clusters
+                                if not success and auth_data.getAuthInfo("EC2"):
+                                    from IM.connectors.EC2 import EC2CloudConnector
+                                    success = EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+
+                                if success and entry in vm.dns_entries:
                                     vm.dns_entries.remove(entry)
                             else:
                                 raise Exception("Invalid DNS operation.")
