@@ -17,7 +17,7 @@
 
 import base64
 import requests
-from .CloudConnector import CloudConnector  
+from .CloudConnector import CloudConnector
 
 
 class EGICloudConnector(CloudConnector):
