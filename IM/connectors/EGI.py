@@ -100,7 +100,8 @@ class EGICloudConnector(CloudConnector):
                                f'{domain}&comment={commennt}&wildcard=true')
                     else:
                         url = f'{EGICloudConnector.DYDNS_URL}/nic/register?fqdn={hostname}.{domain}&comment={commennt}'
-                    resp = requests.get(url, headers={'Authorization': f'Bearer {token}'}, timeout=self.DEFAULT_TIMEOUT)
+                    resp = requests.get(url, headers={'Authorization': f'Bearer {token}'},
+                                        timeout=EGICloudConnector.DEFAULT_TIMEOUT)
                     if resp.status_code != 200:
                         self.log_error(f"Error registering DNS entry {hostname}.{domain}: {resp.text}")
                         return False
