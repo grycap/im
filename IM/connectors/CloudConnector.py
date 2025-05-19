@@ -635,13 +635,19 @@ class CloudConnector(LoggerMixin):
             additional_dns_names = system.getValue('net_interface.%d.additional_dns_names' % num_conn)
             if additional_dns_names:
                 for dns_name in additional_dns_names:
-                    dns_parts = dns_name.split("@")
-                    if len(dns_parts) != 2:
-                        self.log_error("Invalid format for additional name: %s." % dns_name)
-                        self.error_messages = "Invalid format for additional name: %s." % dns_name
-                        break
-                    hostname = dns_parts[0]
-                    domain = dns_parts[1]
+                    if "@" in dns_name:
+                        dns_parts = dns_name.split("@")
+                        if len(dns_parts) != 2:
+                            self.log_error("Invalid format for additional name: %s." % dns_name)
+                            self.error_messages = "Invalid format for additional name: %s." % dns_name
+                            break
+                        hostname = dns_parts[0]
+                        domain = dns_parts[1]
+                    else:
+                        dns_parts = dns_name.split(".")
+                        hostname = dns_parts[0]
+                        domain = ".".join(dns_parts[1:])
+
                     if not domain.endswith("."):
                         domain += "."
                     if domain != "localdomain." and ip and hostname:
