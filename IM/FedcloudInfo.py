@@ -261,10 +261,10 @@ class FedcloudInfo:
             if not re.search(app_name_reg, image["name"].lower()):
                 continue
 
-            endpoint = urlparse(image["endpointID"])
+            endpoint = urlparse(image["endpoint"])
             res.append(
                 {
-                    "uri": "ost://%s/%s" % (endpoint[1], image["imageID"]),
+                    "uri": "ost://%s/%s" % (endpoint[1], image["id"]),
                     "name": image["name"],
                     "vo": image["vo"],
                 }
