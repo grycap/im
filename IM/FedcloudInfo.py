@@ -54,7 +54,9 @@ class FedcloudInfo:
         data = FedcloudInfo.cloudinfo_call(f"/site/{site_name}/")
         site_url = None
         if data:
-            site_url = data["url"]
+            if data["url"].endswith("/"):
+                data["url"] = data["url"][:-1]
+            site_url = data["url"].rsplit("/", 1)[0]
         return site_url
 
     @staticmethod
