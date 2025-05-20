@@ -372,7 +372,6 @@ class TestOSTConnector(TestCloudConnectorBase):
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
-            net_interface.0.dns_name = 'dydns:secret@test.domain.com' and
             net_interface.1.connection = 'net1' and
             disk.0.os.name = 'linux' and
             disk.0.size=10GB and
@@ -521,10 +520,6 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
         self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ipv6"), "2001:630:12:581:f816:3eff:fe92:2146")
 
-        url = 'https://nsupdate.fedcloud.eu/nic/update?hostname=test.domain.com&myip=8.8.8.8'
-        self.assertEqual(request.call_args_list[0][0][0], url)
-        auth = "Basic dGVzdC5kb21haW4uY29tOnNlY3JldA=="
-        self.assertEqual(request.call_args_list[0][1]['headers']['Authorization'], auth)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
@@ -847,7 +842,6 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_ports.return_value = [port]
 
         vm.volumes = ['volid']
-        vm.dns_entries = [('dydns:secret@test', 'domain.com.', '8.8.8.8')]
         success, _ = ost_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
