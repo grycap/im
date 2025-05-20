@@ -200,10 +200,11 @@ class FedcloudInfo:
         data = FedcloudInfo.cloudinfo_call("/sites/", params={"vo_name": vo_name})
         if data:
             for site in data:
-                vo_info = FedcloudInfo.cloudinfo_call(
-                    "/sites/{site['name']}/{vo_name}/project"
-                )
+                vo_info = FedcloudInfo.cloudinfo_call(f"/sites/{site['name']}/{vo_name}/project")
                 if vo_info:
+                    if site["url"].endswith("/"):
+                        site["url"] = site["url"][:-1]
+                    site["url"] = site["url"].rsplit("/", 1)[0]
                     site.update({"project_id": vo_info["id"]})
                     res.append(site)
         return res
