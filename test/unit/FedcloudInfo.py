@@ -82,7 +82,7 @@ class TestFedcloudInfo(unittest.TestCase):
     def test_get_site_url(self, requests):
         requests.side_effect = self.get_response
         res = FedcloudInfo.get_site_url("INFN-CLOUD-BARI")
-        self.assertEqual(res, "https://keystone.recas.ba.infn.it/v3")
+        self.assertEqual(res, "https://keystone.recas.ba.infn.it")
 
     @patch("requests.request")
     def test_get_image_id(self, requests):
@@ -105,26 +105,26 @@ class TestFedcloudInfo(unittest.TestCase):
         requests.side_effect = self.get_response
         str_url = "appdb://INFN-CLOUD-BARI/egi.docker?fedcloud.egi.eu"
         site_url, image_id, _ = FedcloudInfo.get_image_data(str_url)
-        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it/v3")
+        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it")
         self.assertEqual(image_id, "image_id2")
 
         str_url = "appdb://INFN-CLOUD-BARI/0c0a1ffc-b936-5efd-920c-b648a02cccf4:13976"
         site_url, image_id, _ = FedcloudInfo.get_image_data(str_url)
-        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it/v3")
+        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it")
         self.assertEqual(image_id, "image_id2")
 
         str_url = "appdb://egi.docker?fedcloud.egi.eu"
         site_url, image_id, _ = FedcloudInfo.get_image_data(
             str_url, site_host="nova.recas.ba.infn.it"
         )
-        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it/v3")
+        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it")
         self.assertEqual(image_id, "image_id2")
 
         str_url = "appdb://egi.docker?fedcloud.egi.eu"
         site_url, image_id, _ = FedcloudInfo.get_image_data(
             str_url, vo="fedcloud.egi.eu", site_host="nova.recas.ba.infn.it"
         )
-        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it/v3")
+        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it")
         self.assertEqual(image_id, "image_id2")
 
     @patch("requests.request")
