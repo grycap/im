@@ -130,7 +130,7 @@ class TestOSTConnector(TestCloudConnectorBase):
     @patch('IM.FedcloudInfo.FedcloudInfo.get_site_url')
     @patch('IM.FedcloudInfo.FedcloudInfo.get_image_id')
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
-    def test_15_concrete_appdb(self, get_driver, get_image_id, get_site_url):
+    def test_15_concrete_egi(self, get_driver, get_image_id, get_site_url):
         radl_data = """
             network net ()
             system test (
@@ -140,7 +140,7 @@ class TestOSTConnector(TestCloudConnectorBase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'appdb://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu' and
+            disk.0.image.url = 'egi://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu' and
             disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
@@ -311,7 +311,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
 
         get_image_data.return_value = "https://cloud.recas.ba.infn.it:5000", "image_id2", ""
-        radl.systems[0].setValue('disk.0.image.url', 'appdb://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu')
+        radl.systems[0].setValue('disk.0.image.url', 'egi://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu')
         res = ost_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
