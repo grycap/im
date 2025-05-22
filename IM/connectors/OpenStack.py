@@ -47,7 +47,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
-from IM.AppDB import AppDB
+from IM.FedcloudInfo import FedcloudInfo
 from IM import get_ex_error
 
 
@@ -360,7 +360,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         src_host = url[1].split(':')[0]
 
         if protocol == "appdb":
-            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack", site=self.cloud.server)
+            site_url, image_id, msg = FedcloudInfo.get_image_data(str_url, site_host=self.cloud.server)
             if not image_id or not site_url:
                 self.log_error(msg)
                 return None
@@ -589,38 +589,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             return (False, "Error updating the instance %s. VM not found." % vm.id)
 
         return (True, vm)
-
-    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Special case for EGI DyDNS
-        # format of the hostname: dydns:secret@hostname
-        if hostname.startswith("dydns:") and "@" in hostname:
-            parts = hostname[6:].split("@")
-            auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
-            headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
-            url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
-                                                                                      domain[:-1],
-                                                                                      ip)
-            try:
-                resp = requests.get(url, headers=headers, timeout=10)
-                resp.raise_for_status()
-            except Exception as ex:
-                self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
-                self.log_exception("Error creating DNS entries")
-                return False
-        else:
-            # TODO: https://docs.openstack.org/designate/latest/index.html
-            raise NotImplementedError("Should have implemented this")
-        return True
-
-    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Special case for EGI DyDNS
-        # format of the hostname: dydns:secret@hostname
-        if hostname.startswith("dydns:") and "@" in hostname:
-            self.log_info("DYDNS entry. Cannot be deleted.")
-        else:
-            # TODO: https://docs.openstack.org/designate/latest/index.html
-            raise NotImplementedError("Should have implemented this")
-        return True
 
     @staticmethod
     def map_radl_ost_networks(vm, ost_nets):
@@ -1327,7 +1295,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         image_url = system.getValue("disk.0.image.url")
         if urlparse(image_url)[0] == "appdb":
             vo = self.get_vo_name(auth_data)
-            _, image_id, msg = AppDB.get_image_data(image_url, "openstack", vo, site=self.cloud.server)
+            _, image_id, msg = FedcloudInfo.get_image_data(image_url, vo, site_host=self.cloud.server)
             if not image_id:
                 self.log_error(msg)
                 raise CloudConnectorException("Error in appdb image: %s" % msg)

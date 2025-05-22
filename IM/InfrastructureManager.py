@@ -27,8 +27,7 @@ import IM.InfrastructureInfo
 import IM.InfrastructureList
 
 from IM.VMRC import VMRC
-from IM.AppDBIS import AppDBIS
-from IM.AppDB import AppDB
+from IM.FedcloudInfo import FedcloudInfo
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from IM.recipe import Recipe
@@ -431,10 +430,7 @@ class InfrastructureManager:
         # Get AppDBIS credentials
         appdbis_list = []
         for appdbis_elem in auth.getAuthInfo('AppDBIS'):
-            host = None
-            if 'host' in appdbis_elem:
-                host = appdbis_elem['host']
-            appdbis_list.append(AppDBIS(host))
+            appdbis_list.append(FedcloudInfo)
 
         systems_with_vmrc = {}
         for system_id in set([d.id for d in radl.deploys if d.vm_number > 0]):
@@ -1488,17 +1484,13 @@ class InfrastructureManager:
             vo = appdbis_auth[0]["vo"]
             # To avoid connecting with AppDBIS again
             del appdbis_auth[0]["vo"]
-            if "host" in appdbis_auth[0]:
-                appdbis = AppDBIS(appdbis_auth[0]["host"])
-            else:
-                appdbis = AppDBIS()
-            InfrastructureManager.logger.debug("Getting auth data from AppDBIS")
-            code, sites = appdbis.get_sites_supporting_vo(vo)
-            if code == 200:
-                for site_name, site_url, project_id in sites:
-                    auth_site = {"id": site_name, "host": site_url, "type": "OpenStack",
+            InfrastructureManager.logger.debug("Getting auth data from Fedcloud IS")
+            sites = FedcloudInfo.get_sites_supporting_vo(vo)
+            if sites:
+                for site in sites:
+                    auth_site = {"id": site["name"], "host": site["url"], "type": "OpenStack",
                                  "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
-                                 "domain": project_id, "password": appdbis_auth[0]["token"], "vo": vo}
+                                 "domain": site["project_id"], "password": appdbis_auth[0]["token"], "vo": vo}
                     auth.auth_list.append(auth_site)
             else:
                 InfrastructureManager.logger.error("Error getting auth data from AppDBIS: %s" % sites)
@@ -1514,13 +1506,13 @@ class InfrastructureManager:
                     ost_auth = {'id': auth_item['id'], 'type': 'OpenStack', 'username': 'egi.eu', 'tenant': 'openid',
                                 'password': auth_item['token'], 'auth_version': '3.x_oidc_access_token',
                                 'vo': auth_item['vo']}
-                    site_id = AppDB.get_site_id(auth_item["host"], stype="openstack")
-                    site_url = AppDB.get_site_url(site_id)
+                    site_name = auth_item["host"]
+                    site_url = FedcloudInfo.get_site_url(site_name)
                     if not site_url:
-                        InfrastructureManager.logger.error("Site name '%s' not found at AppDB." % auth_item['host'])
+                        InfrastructureManager.logger.error("Site name '%s' not found at fedcloud IS." % site_name)
                         continue
                     ost_auth['host'] = site_url
-                    projects = AppDB.get_project_ids(site_id)
+                    projects = FedcloudInfo.get_project_ids(site_name)
                     # If the VO does not appear in the project IDs
                     if auth_item['vo'] in projects:
                         ost_auth['domain'] = projects[auth_item['vo']]
@@ -1831,11 +1823,7 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
         appdbis_auth = auth.getAuthInfo("AppDBIS")
         if appdbis_auth and "token" in appdbis_auth[0] and cloud_id == appdbis_auth[0]['id']:
-            if "host" in appdbis_auth[0]:
-                appdbis = AppDBIS(appdbis_auth[0]["host"])
-            else:
-                appdbis = AppDBIS()
-            return appdbis.list_images(filters)
+            return FedcloudInfo.list_images(filters)
         else:
             return InfrastructureManager._get_cloud_conn(cloud_id, auth).list_images(auth, filters)
 
@@ -1934,7 +1922,8 @@ class InfrastructureManager:
                             {
                             "cpuCores": 2,
                             "memoryInMegabytes": 4096,
-                            "diskSizeInGigabytes": 20
+                            "diskSizeInGigabytes": 20,
+                            "publicIP": 1
                             },
                             {
                             "cpuCores": 1,
@@ -2033,6 +2022,9 @@ class InfrastructureManager:
 
                     if disk_size:
                         vm['diskSizeInGigabytes'] = disk_size
+
+                    if radl.hasPublicNet(concrete_system.name):
+                        vm['publicIP'] = 1
 
                     for _ in range(0, deploy.vm_number):
                         res[cloud_id]["compute"].append(vm)
