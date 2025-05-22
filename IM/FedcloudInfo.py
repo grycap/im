@@ -62,13 +62,13 @@ class FedcloudInfo:
     @staticmethod
     def get_image_id(site_name, image_name, vo_name):
         """
-        Get the image ID from the site id, appdb image and vo names
+        Get the image ID from the site id, egi image and vo names
         """
         images = []
         data = FedcloudInfo.cloudinfo_call(f"/site/{site_name}/{vo_name}/images")
         if data:
             for image in data:
-                if image.get("appdb_id", "") == image_name:
+                if image.get("egi_id", "") == image_name:
                     try:
                         images.append((image["id"], image["version"]))
                     except KeyError:
@@ -108,15 +108,15 @@ class FedcloudInfo:
     @staticmethod
     def get_image_data(str_url, vo=None, site_host=None):
         """
-        The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
-        this format: appdb://egi.docker.ubuntu.16.04?fedcloud.egi.eu
-        or this one appdb://UPV-GRyCAP/83d5e854-a128-5b1f-9457-d32e10a720a6:8135
+        The url has this format: egi://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
+        this format: egi://egi.docker.ubuntu.16.04?fedcloud.egi.eu
+        or this one egi://UPV-GRyCAP/83d5e854-a128-5b1f-9457-d32e10a720a6:8135
         Get the Site url from the FedcloudInfo
         """
         url = urlparse(str_url)
         protocol = url[0]
 
-        if protocol == "appdb":
+        if protocol == "egi":
             if url[2]:
                 site_name = url[1]
                 image_name = url[2][1:]
