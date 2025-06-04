@@ -198,10 +198,43 @@ The :program:`im_client` is called like this::
       Reboot the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``.
 
-   ``sshvm infId vmId [show_only]``
+   ``sshvm infId vmId [show_only] [command]``
       Connect with SSH with the specified virtual machine ``vmId`` associated to the infrastructure with ID
+      infrastructure with ID ``infId``. In case that the specified VM does not have public IP the client will
+      try to connect using the virtual machine with ID ``0`` as SSH proxy. The ``show_only`` parameter is
+      optional and is a flag to specify if ssh command will only be shown in stdout instead of executed. The
+      command parameter is optional and enables the execution of a particular command in the VM.
+
+   ``ssh infId [show_only] [command]``
+      Connect with SSH with the specified virtual machine with ID ``0`` associated to the infrastructure with ID
       infrastructure with ID ``infId``. The ``show_only`` parameter is optional and is a flag to specify if ssh
-      command will only be shown in stdout instead of executed.
+      command will only be shown in stdout instead of executed. The command parameter is optional and enables
+      the execution of a particular command in the VM.
+
+   ``get <infId> <show_only> <src> <dst>``
+      Copy with SCP from the virtual machine with ID ``0`` associated to infrastructure with ID ``infId``.
+      The ``show_only`` parameter is a flag to specify if scp command will only be shown in stdout instead
+      of executed. The ``scr`` parameneter is the path of the file in the remote VM, ``dst`` is the path on
+      the local machine.
+
+   ``getvm <infId> <vmId> <show_only> <src> <dst>``
+      Copy with SCP from the specified virtual machine ``vmId`` associated to infrastructure with ID ``infId``.
+      In case that the specified VM does not have public IP the client will try to connect using the virtual
+      machine with ID ``0`` as SSH proxy. The ``show_only`` parameter is a flag to specify if ssh command wil
+      only be shown in stdout instead of executed. The ``scr`` parameneter is the path of the file in the remote
+      VM, ``dst`` is the path on the local machine.
+
+   ``put <infId> <show_only> <src> <dst>``
+      Copy with SCP to the virtual machine with ID ``0`` associated to infrastructure with ID ``infId``. The 
+      ``show_only`` parameter is a flag to specify if ssh command will only be shown in stdout instead of executed.
+      The ``scr`` parameneter is the path of the file in the local file, ``dst`` is the path on the remote VM.
+
+   ``putvm <infId> <vmId> <show_only> <src> <dst>``
+      Copy with SCP to the specified virtual machine ``vmId`` associated to infrastructure with ID ``infId``. In case
+      that the specified VM does not have public IP the client will try to connect using the virtual machine with ID
+      ``0`` as SSH proxy. The ``show_only`` parameter is a flag to specify if ssh command will only be shown in stdout
+      instead of executed. The ``scr`` parameneter is the path of the file in the local file, ``dst`` is the path on
+      the remote VM.
 
    ``export infId delete``
       Export the data of the infrastructure with ID ``infId``. The ``delete`` parameter is optional
