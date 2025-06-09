@@ -727,7 +727,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         ip_net_map[ip] = (None, not is_private)
                     else:
                         ip_net_map[ip] = (net_name, not is_private)
-                    if not is_private:
+                    if not is_private and IPAddress(ip).version == 4:
                         public_ips.append(ip)
 
             for float_ip in self.get_node_floating_ips(node):
