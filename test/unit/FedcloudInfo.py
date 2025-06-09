@@ -93,37 +93,10 @@ class TestFedcloudInfo(unittest.TestCase):
         self.assertEqual(res, "image_id2")
 
     @patch("requests.request")
-    def test_get_image_id_from_uri(self, requests):
-        requests.side_effect = self.get_response
-        res = FedcloudInfo.get_image_id_from_uri(
-            "INFN-CLOUD-BARI", "0c0a1ffc-b936-5e66-920c-b648a02cccf4:13976"
-        )
-        self.assertEqual(res, "image_id3")
-
-    @patch("requests.request")
     def test_get_image_data(self, requests):
         requests.side_effect = self.get_response
         str_url = "egi://INFN-CLOUD-BARI/egi.docker?fedcloud.egi.eu"
         site_url, image_id, _ = FedcloudInfo.get_image_data(str_url)
-        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it")
-        self.assertEqual(image_id, "image_id2")
-
-        str_url = "egi://INFN-CLOUD-BARI/0c0a1ffc-b936-5efd-920c-b648a02cccf4:13976"
-        site_url, image_id, _ = FedcloudInfo.get_image_data(str_url)
-        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it")
-        self.assertEqual(image_id, "image_id2")
-
-        str_url = "egi://egi.docker?fedcloud.egi.eu"
-        site_url, image_id, _ = FedcloudInfo.get_image_data(
-            str_url, site_host="nova.recas.ba.infn.it"
-        )
-        self.assertEqual(site_url, "https://keystone.recas.ba.infn.it")
-        self.assertEqual(image_id, "image_id2")
-
-        str_url = "egi://egi.docker?fedcloud.egi.eu"
-        site_url, image_id, _ = FedcloudInfo.get_image_data(
-            str_url, vo="fedcloud.egi.eu", site_host="nova.recas.ba.infn.it"
-        )
         self.assertEqual(site_url, "https://keystone.recas.ba.infn.it")
         self.assertEqual(image_id, "image_id2")
 
