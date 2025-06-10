@@ -1523,6 +1523,7 @@ configure step2 (
 
             system front (
             cpu.count>=2 and
+            gpu.count>=1 and
             memory.size>=4g and
             net_interface.0.connection = 'publica' and
             net_interface.1.connection = 'privada' and
@@ -1557,7 +1558,8 @@ configure step2 (
             'cloud0': {
                 'cloudType': 'Dummy',
                 'cloudEndpoint': 'http://server.com:80/path',
-                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40, 'publicIP': 1},
+                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40,
+                             'publicIP': 1, "GPU": 1},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10}],
                 'storage': [{'sizeInGigabytes': 100},
