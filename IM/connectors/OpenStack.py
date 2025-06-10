@@ -17,6 +17,7 @@
 import uuid
 import time
 from netaddr import IPNetwork, IPAddress
+from ipaddress import IPv6Address
 import os.path
 import tempfile
 import requests
@@ -715,6 +716,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     ip = ipo['addr']
                     if IPAddress(ip).version == 4:
                         is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+                    elif IPAddress(ip).version == 6:
+                        is_private = IPv6Address(ip).is_private
                 if is_private is None:
                     self.log_warn("Error getting network type for network %s. Asumming public." % net_name)
                     is_private = False
@@ -846,10 +849,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     net_subnets = ost_net.extra['subnets']
                     for subnet in ost_subnets:
                         if subnet.id in net_subnets and subnet.cidr:
-                            ost_net.cidr = subnet.cidr
-                            ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
-                                                                   for mask in Config.PRIVATE_NET_MASKS]))
-                            break
+                            if IPNetwork(subnet.cidr).version == 4:
+                                ost_net.cidr = subnet.cidr
+                                ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
+                                                                       for mask in Config.PRIVATE_NET_MASKS]))
+                            elif IPNetwork(subnet.cidr).version == 6:
+                                ost_net.cidrv6 = subnet.cidr
 
         for ost_net in ost_nets:
             # If we do not have the IP range try to use the router:external to identify a net as public
