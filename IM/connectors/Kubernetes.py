@@ -445,6 +445,7 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _generate_pod_data(self, namespace, name, outports, system, volumes, configmaps, tags):
         cpu = str(system.getValue('cpu.count'))
+        gpu = system.getValue('gpu.count')
         memory = "%s" % system.getFeature('memory.size').getValue('B')
         image_url = urlparse(system.getValue("disk.0.image.url"))
         image_name = "".join(image_url[1:])
@@ -473,6 +474,10 @@ class KubernetesCloudConnector(CloudConnector):
             'resources': {'limits': {'cpu': cpu, 'memory': memory},
                           'requests': {'cpu': cpu, 'memory': memory}}
         }]
+
+        if gpu:
+            containers[0]['resources']['limits']['nvidia.com/gpu'] = str(gpu)
+            containers[0]['resources']['requests']['nvidia.com/gpu'] = str(gpu)
 
         env_vars = self._get_env_variables(system)
         if env_vars:
