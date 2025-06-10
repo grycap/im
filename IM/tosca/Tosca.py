@@ -2229,6 +2229,8 @@ class Tosca:
                 if value not in [None, [], {}]:
                     if prop.name == "num_cpus":
                         res.setValue('cpu.count', float(value))
+                    elif prop.name == "num_gpus":
+                        res.setValue('gpu.count', int(value))
                     elif prop.name == "mem_size":
                         if not value.endswith("B"):
                             value += "B"
