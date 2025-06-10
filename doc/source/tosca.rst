@@ -17,6 +17,8 @@ This TOSCA file describes a cloud topology with 2 VM with at least 2 CPUs and
 20.04 image. As outputs, the TOSCA file will return the public IP of the VM and
 the SSH credentials to access it::
 
+.. code-block:: yaml
+
     tosca_definitions_version: tosca_simple_yaml_1_0
 
     imports:
@@ -61,6 +63,8 @@ the type must be changed to ``tosca.nodes.indigo.Compute`` (the Compute normativ
 type does not support the ``os image`` property), and the image property must
 be added in the ``os`` capability::
 
+.. code-block:: yaml
+
     ...
 
         simple_node:
@@ -87,6 +91,8 @@ host properties, enabling the request of GPUs and
 `Intel SGX <https://www.intel.com/content/www/us/en/architecture-and-technology/software-guard-extensions.html>`_ CPU support
 in the compute node::
 
+.. code-block:: yaml
+
     ...
 
     simple_node:
@@ -112,6 +118,8 @@ Basic properties
 The easiest way to specify network requirements of the Compute node is using the endpoint capability properties.
 For example, the following example the compute node requests for a public IP::
 
+.. code-block:: yaml
+
     ...
         simple_node:
           type: tosca.nodes.Compute
@@ -133,6 +141,7 @@ Possible values of the ``network_name`` endpoint property:
 Furthermore, the endpoint capability has a set of additional properties
 to set the DNS name of the node or the set of ports to be externally accessible::
 
+.. code-block:: yaml
     ...
 
       capabilities:
@@ -155,6 +164,8 @@ In case you need a more detailed definition of the networks, you can use the
 ``tosca.nodes.network.Network`` and ``tosca.nodes.network.Port`` TOSCA normative types.
 In this way you can define the set of networks needed in your topology using the ports to 
 link the networks with the Compute nodes::
+
+.. code-block:: yaml
 
     ...
 
@@ -202,6 +213,7 @@ IM enable the use of Ansible playbooks as implementation scripts. Furthermore, i
 Ansible roles (``tosca.artifacts.AnsibleGalaxy.role``) and collections (``tosca.artifacts.AnsibleGalaxy.collections``)
 to be installed and used in the playbooks::
 
+.. code-block:: yaml
     ...
 
     software:
@@ -228,6 +240,8 @@ IM enables the definition of BlockStorage volumes to be attached to the compute 
 In this example we can see how to define a volume of 10GB to be attached to the compute node
 and mounted in the path /mnt/disk. The device parameter is optional and it is only needed in
 some cloud providers, in general is better not to add it::
+
+.. code-block:: yaml
 
     ...
 
@@ -261,6 +275,7 @@ We can create a placement group with two of them (compute_one and compute_two) a
 (that must be defined in the :ref:`auth-file`), and create a second placement policy where we can set a different cloud provider
 and, optionally, an availability zone::
 
+.. code-block:: yaml
     ...
 
     groups:
@@ -290,6 +305,8 @@ ConfigMap for a configuration file. The IM application is connected with a MySQL
 using the ``IM_DATA_DB`` environment variable. The MySQL container is defined with a Persistent
 Volume Claim (PVC) of 10GB. Furthermore, the IM application specifies an endpoint to be published
 that will result in the creation of a Kubernetes Ingress.
+
+.. code-block:: yaml
 
     ...
 
