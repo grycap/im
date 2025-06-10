@@ -115,7 +115,7 @@ class FedcloudInfo:
 
         if url.scheme == "egi" and url.path:
             site_name = url.netloc
-            image_name = url.path
+            image_name = url.path.strip("/")
             vo_name = url.query
 
             site_url = FedcloudInfo.get_site_url(site_name)

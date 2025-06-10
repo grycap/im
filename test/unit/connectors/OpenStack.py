@@ -129,8 +129,9 @@ class TestOSTConnector(TestCloudConnectorBase):
 
     @patch('IM.FedcloudInfo.FedcloudInfo.get_site_url')
     @patch('IM.FedcloudInfo.FedcloudInfo.get_image_id')
+    @patch('IM.FedcloudInfo.FedcloudInfo._get_site_name')
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
-    def test_15_concrete_egi(self, get_driver, get_image_id, get_site_url):
+    def test_15_concrete_egi(self, get_driver, get_site_name, get_image_id, get_site_url):
         radl_data = """
             network net ()
             system test (
@@ -164,6 +165,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         get_site_url.return_value = "https://server.com:5000"
         get_image_id.return_value = "imageid1"
+        get_site_name.return_value = "CESNET-MetaCloud"
         concrete = ost_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
