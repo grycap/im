@@ -1935,7 +1935,8 @@ class InfrastructureManager:
                             "cpuCores": 2,
                             "memoryInMegabytes": 4096,
                             "diskSizeInGigabytes": 20,
-                            "publicIP": 1
+                            "publicIP": 1,
+                            "GPU": 1
                             },
                             {
                             "cpuCores": 1,
@@ -2024,6 +2025,9 @@ class InfrastructureManager:
                 else:
                     vm = {"cpuCores": concrete_system.getValue("cpu.count"),
                           "memoryInMegabytes": concrete_system.getFeature("memory.size").getValue("M")}
+
+                    if concrete_system.getValue("gpu.count"):
+                        vm['GPU'] = concrete_system.getValue("gpu.count")
 
                     disk_size = 0
                     if concrete_system.getValue("disk.0.free_size"):
