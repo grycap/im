@@ -898,6 +898,28 @@ class KubernetesCloudConnector(CloudConnector):
                 new_image_url = urlparse(system.getValue("disk.0.image.url"))
                 new_image = "".join(new_image_url[1:])
 
+            cpu = vm.info.systems[0].getValue('cpu.count')
+            new_cpu = system.getValue('cpu.count')
+
+            if new_cpu != cpu:
+                dep_data.append(
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/cpu",
+                     "value": str(new_cpu)})
+                dep_data.append(
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/cpu",
+                     "value": str(new_cpu)})
+
+            memory = vm.info.systems[0].getFeature('memory.size').getValue('B')
+            new_memory = system.getFeature('memory.size').getValue('B')
+
+            if new_memory != memory:
+                dep_data.append(
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory",
+                     "value": "%s" % new_memory})
+                dep_data.append(
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/memory",
+                     "value": "%s" % new_memory})
+
             changed = False
             if new_image and new_image != image:
                 dep_data.append(

@@ -416,7 +416,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         new_radl_data = """
             system test (
-            disk.0.image.url = 'docker://image:2.0'
+            disk.0.image.url = 'docker://image:2.0' and
+            cpu.count=2 and
+            memory.size=1g
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 
