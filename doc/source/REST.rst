@@ -144,7 +144,9 @@ POST ``http://imserver.com/infrastructures``
                 {
                    "cpuCores": 2,
                    "memoryInMegabytes": 4096,
-                   "diskSizeInGigabytes": 20
+                   "diskSizeInGigabytes": 20,
+                   "publicIP": 1,
+                   "GPU": 1
                 },
                 {
                    "cpuCores": 1,

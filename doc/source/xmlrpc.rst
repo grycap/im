@@ -438,7 +438,9 @@ This is the list of method names:
                   {
                      "cpuCores": 2,
                      "memoryInMegabytes": 4096,
-                     "diskSizeInGigabytes": 20
+                     "diskSizeInGigabytes": 20,
+                     "GPU": 0,
+                     "publicIP": 1
                   },
                   {
                      "cpuCores": 1,
