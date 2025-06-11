@@ -75,24 +75,45 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         resp = MagicMock()
         parts = urlparse(url)
         url = parts[2]
+        query = parts[4]
+
+        pod_data = {
+            "metadata": {"namespace": "somenamespace", "name": "name"},
+            "status": {
+                "phase": "Running",
+                "hostIP": "158.42.1.1",
+                "podIP": "10.0.0.1"
+            },
+            "spec": {
+                "containers": [
+                    {"image": "image:1.0"}
+                ],
+                "volumes": [
+                    {"persistentVolumeClaim": {"claimName": "cname"}},
+                    {"configMap": {"name": "configmap"}},
+                    {"secret": {"secretName": "secret"}}
+                ]
+            }
+        }
 
         if method == "GET":
             if url == "/api/":
                 resp.status_code = 200
                 resp.text = '{"versions": "v1"}'
-            elif url.endswith("/pods/1"):
+            elif url.endswith("/pods") and query == "labelSelector=name=1":
                 resp.status_code = 200
-                resp.text = ('{"metadata": {"namespace":"somenamespace", "name": "name"}, "status": '
-                             '{"phase":"Running", "hostIP": "158.42.1.1", "podIP": "10.0.0.1"}, '
-                             '"spec": {"containers": [{"image": "image:1.0"}], '
-                             '"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}},'
-                             '{"configMap": {"name": "configmap"}}, {"secret": {"secretName": "secret"}}]}}')
-            if url == "/api/v1/namespaces/somenamespace":
+                resp.json.return_value = {"items": [pod_data]}
+            elif url == "/api/v1/namespaces/somenamespace":
                 resp.status_code = 200
                 resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Namespace',
                                           'metadata': {'name': 'somenamespace', 'labels': {'inf_id': 'infid'}}}
+            elif url == "/api/v1/namespaces/somenamespace/deployments/1":
+                resp.status_code = 200
+                resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Deployment',
+                                          "metadata": {"namespace": "somenamespace", "name": "name"},
+                                          'spec': {'template': pod_data}}
         elif method == "POST":
-            if url.endswith("/pods"):
+            if url.endswith("/deployments"):
                 resp.status_code = 201
                 resp.text = '{"metadata": {"namespace":"somenamespace", "name": "name"}}'
             elif url.endswith("/services"):
@@ -108,7 +129,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             elif url.endswith("/secrets"):
                 resp.status_code = 201
         elif method == "DELETE":
-            if url.endswith("/pods/1"):
+            if url.endswith("/deployments/1"):
                 resp.status_code = 200
             elif url.endswith("/services/1"):
                 resp.status_code = 200
@@ -123,7 +144,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             elif "secrets" in url:
                 resp.status_code = 200
         elif method == "PATCH":
-            if url.endswith("/pods/1"):
+            if url.endswith("/deployments/1"):
                 resp.status_code = 200
 
         return resp
@@ -221,48 +242,59 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                          'http://server.com:8080/api/v1/namespaces/somenamespace/secrets')
         self.assertEqual(json.loads(requests.call_args_list[3][1]['data']), exp_cm)
 
-        exp_pod = {
+        exp_dep = {
             "apiVersion": "v1",
-            "kind": "Pod",
+            "kind": "Deployment",
             "metadata": {
                 "name": "test-aaaa",
                 "namespace": "somenamespace",
                 "labels": {"name": "test-aaaa", "IM_INFRA_ID": "infid", "key": "invalid_"},
             },
             "spec": {
-                "containers": [
-                    {
-                        "name": "test-aaaa",
-                        "command": ["/bin/bash"],
-                        "args": ["-c", "sleep 100"],
-                        "image": "someimage",
-                        "imagePullPolicy": "Always",
-                        "ports": [{"containerPort": 8080, "protocol": "TCP"}],
-                        "resources": {
-                            "limits": {"cpu": "1", "memory": "512000000", "nvidia.com/gpu": "1"},
-                            "requests": {"cpu": "1", "memory": "512000000", "nvidia.com/gpu": "1"},
-                        },
-                        "env": [{"name": "var", "value": "some_val"},
-                                {"name": "var2", "value": "some,val2"}],
-                        "volumeMounts": [{"name": "test-aaaa-1", "mountPath": "/mnt"},
-                                         {'mountPath': '/etc/config', 'name': 'test-aaaa-cm-2',
-                                          'readOnly': True, 'subPath': 'config'},
-                                         {'mountPath': '/etc/secret', 'name': 'test-aaaa-cm-3',
-                                          'readOnly': True, 'subPath': 'secret'}],
+                "replicas": 1,
+                "selector": {
+                    "matchLabels": {"name": "test-aaaa"},
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {"name": "test-aaaa"},
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": "test-aaaa",
+                                "command": ["/bin/bash"],
+                                "args": ["-c", "sleep 100"],
+                                "image": "someimage",
+                                "imagePullPolicy": "Always",
+                                "ports": [{"containerPort": 8080, "protocol": "TCP"}],
+                                "resources": {
+                                    "limits": {"cpu": "1", "memory": "512000000", "nvidia.com/gpu": "1"},
+                                    "requests": {"cpu": "1", "memory": "512000000", "nvidia.com/gpu": "1"},
+                                },
+                                "env": [{"name": "var", "value": "some_val"},
+                                        {"name": "var2", "value": "some,val2"}],
+                                "volumeMounts": [{"name": "test-aaaa-1", "mountPath": "/mnt"},
+                                                {'mountPath': '/etc/config', 'name': 'test-aaaa-cm-2',
+                                                'readOnly': True, 'subPath': 'config'},
+                                                {'mountPath': '/etc/secret', 'name': 'test-aaaa-cm-3',
+                                                'readOnly': True, 'subPath': 'secret'}],
+                            }
+                        ],
+                        "restartPolicy": "OnFailure",
+                        "volumes": [
+                            {"name": "test-aaaa-1", "persistentVolumeClaim": {"claimName": "test-aaaa-1"}},
+                            {"name": "test-aaaa-cm-2", "configMap": {"name": "test-aaaa-cm-2"}},
+                            {"name": "test-aaaa-cm-3", "secret": {"secretName": "test-aaaa-cm-3"}},
+                        ]
                     }
-                ],
-                "restartPolicy": "OnFailure",
-                "volumes": [
-                    {"name": "test-aaaa-1", "persistentVolumeClaim": {"claimName": "test-aaaa-1"}},
-                    {"name": "test-aaaa-cm-2", "configMap": {"name": "test-aaaa-cm-2"}},
-                    {"name": "test-aaaa-cm-3", "secret": {"secretName": "test-aaaa-cm-3"}},
-                ],
-            },
+                }
+            }
         }
         self.maxDiff = None
         self.assertEqual(requests.call_args_list[4][0][1],
-                         'http://server.com:8080/api/v1/namespaces/somenamespace/pods')
-        self.assertEqual(json.loads(requests.call_args_list[4][1]['data']), exp_pod)
+                         'http://server.com:8080/api/v1/namespaces/somenamespace/deployments')
+        self.assertEqual(json.loads(requests.call_args_list[4][1]['data']), exp_dep)
 
         exp_svc = {
             "apiVersion": "v1",
@@ -427,7 +459,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                           'http://server.com:8080/api/v1/namespaces/somenamespace/secrets/secret'))
         self.assertEqual(requests.call_args_list[4][0],
                          ('DELETE',
-                          'http://server.com:8080/api/v1/namespaces/somenamespace/pods/1'))
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/deployments/1'))
         self.assertEqual(requests.call_args_list[5][0],
                          ('DELETE',
                           'http://server.com:8080/api/v1/namespaces/somenamespace/services/1'))
