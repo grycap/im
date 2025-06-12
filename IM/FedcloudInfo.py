@@ -113,7 +113,7 @@ class FedcloudInfo:
         """
         url = urlparse(str_url)
 
-        if url.scheme == "egi" and url.path:
+        if url.scheme in ["egi", "appdb"] and url.path:
             site_name = url.netloc
             image_name = url.path.strip("/")
             vo_name = url.query

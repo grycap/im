@@ -360,7 +360,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
-        if protocol == "egi":
+        if protocol in ["egi", "appdb"]:
             site_url, image_id, msg = FedcloudInfo.get_image_data(str_url, site_host=self.cloud.server)
             if not image_id or not site_url:
                 self.log_error(msg)
@@ -1298,7 +1298,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         volume = image = None
         image_url = system.getValue("disk.0.image.url")
-        if urlparse(image_url)[0] == "egi":
+        if urlparse(image_url)[0] in ["egi", "appdb"]:
             vo = self.get_vo_name(auth_data)
             _, image_id, msg = FedcloudInfo.get_image_data(image_url, vo, site_host=self.cloud.server)
             if not image_id:
