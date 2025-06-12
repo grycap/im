@@ -107,7 +107,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.status_code = 200
                 resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Namespace',
                                           'metadata': {'name': 'somenamespace', 'labels': {'inf_id': 'infid'}}}
-            elif url == "/api/v1/namespaces/somenamespace/deployments/1":
+            elif url == "/apis/apps/v1/namespaces/somenamespace/deployments/1":
                 resp.status_code = 200
                 resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Deployment',
                                           "metadata": {"namespace": "somenamespace", "name": "name"},
@@ -243,7 +243,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         self.assertEqual(json.loads(requests.call_args_list[3][1]['data']), exp_cm)
 
         exp_dep = {
-            "apiVersion": "v1",
+            "apiVersion": "apps/v1",
             "kind": "Deployment",
             "metadata": {
                 "name": "test-aaaa",
@@ -275,13 +275,12 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                                 "env": [{"name": "var", "value": "some_val"},
                                         {"name": "var2", "value": "some,val2"}],
                                 "volumeMounts": [{"name": "test-aaaa-1", "mountPath": "/mnt"},
-                                                {'mountPath': '/etc/config', 'name': 'test-aaaa-cm-2',
-                                                'readOnly': True, 'subPath': 'config'},
-                                                {'mountPath': '/etc/secret', 'name': 'test-aaaa-cm-3',
-                                                'readOnly': True, 'subPath': 'secret'}],
+                                                 {'mountPath': '/etc/config', 'name': 'test-aaaa-cm-2',
+                                                  'readOnly': True, 'subPath': 'config'},
+                                                 {'mountPath': '/etc/secret', 'name': 'test-aaaa-cm-3',
+                                                  'readOnly': True, 'subPath': 'secret'}],
                             }
                         ],
-                        "restartPolicy": "OnFailure",
                         "volumes": [
                             {"name": "test-aaaa-1", "persistentVolumeClaim": {"claimName": "test-aaaa-1"}},
                             {"name": "test-aaaa-cm-2", "configMap": {"name": "test-aaaa-cm-2"}},
@@ -293,7 +292,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         }
         self.maxDiff = None
         self.assertEqual(requests.call_args_list[4][0][1],
-                         'http://server.com:8080/api/v1/namespaces/somenamespace/deployments')
+                         'http://server.com:8080/apis/apps/v1/namespaces/somenamespace/deployments')
         self.assertEqual(json.loads(requests.call_args_list[4][1]['data']), exp_dep)
 
         exp_svc = {
@@ -436,16 +435,16 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-        exp_data = [{"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/cpu",
+        exp_data = [{"op": "replace", "path": "/spec/template/spec/containers/0/image",
+                     "value": "image:2.0"},
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/cpu",
                      "value": "2"},
                     {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/cpu",
                      "value": "2"},
                     {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory",
                      "value": "1000000000"},
                     {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/memory",
-                     "value": "1000000000"},
-                    {"op": "replace", "path": "/spec/template/spec/containers/0/image",
-                     "value": "image:2.0"}]
+                     "value": "1000000000"}]
         self.assertEqual(json.loads(requests.call_args_list[0][1]['data']), exp_data)
 
     @patch('requests.request')
@@ -473,7 +472,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                           'http://server.com:8080/api/v1/namespaces/somenamespace/secrets/secret'))
         self.assertEqual(requests.call_args_list[4][0],
                          ('DELETE',
-                          'http://server.com:8080/api/v1/namespaces/somenamespace/deployments/1'))
+                          'http://server.com:8080/apis/apps/v1/namespaces/somenamespace/deployments/1'))
         self.assertEqual(requests.call_args_list[5][0],
                          ('DELETE',
                           'http://server.com:8080/api/v1/namespaces/somenamespace/services/1'))

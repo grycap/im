@@ -459,7 +459,7 @@ class KubernetesCloudConnector(CloudConnector):
                     ports.append({'containerPort': outport.get_local_port(),
                                   'protocol': outport.get_protocol().upper()})
 
-        dep_data = self._gen_basic_k8s_elem(namespace, name, 'Deployment')
+        dep_data = self._gen_basic_k8s_elem(namespace, name, 'Deployment', 'apps/v1')
         # Add instance tags
         if tags:
             for k, v in tags.items():
@@ -498,7 +498,6 @@ class KubernetesCloudConnector(CloudConnector):
                             'template': {'metadata': {'labels': {'name': name}},
                                          'spec': {'containers': containers}}}
 
-        dep_data['spec']['template']['spec']['restartPolicy'] = 'OnFailure'
         pod_spec = dep_data['spec']['template']['spec']
 
         if volumes:
@@ -605,7 +604,7 @@ class KubernetesCloudConnector(CloudConnector):
             dep_data = self._generate_dep_data(namespace, pod_name, outports, system, volumes, configmaps, tags)
 
             self.log_debug("Creating Deployment: %s/%s" % (namespace, pod_name))
-            uri = "/api/v1/namespaces/%s/%s" % (namespace, "deployments")
+            uri = "/apis/apps/v1/namespaces/%s/%s" % (namespace, "deployments")
             resp = self.create_request('POST', uri, auth_data, headers, dep_data)
 
             if resp.status_code != 201:
@@ -743,7 +742,7 @@ class KubernetesCloudConnector(CloudConnector):
             return (False, None, "Error invalid VM id: " + str(ex))
 
         try:
-            uri = "/api/v1/namespaces/%s/deployments/%s" % (namespace, pod_name)
+            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, "deployments", pod_name)
             resp = self.create_request('GET', uri, auth_data)
 
             if resp.status_code == 200:
@@ -860,7 +859,7 @@ class KubernetesCloudConnector(CloudConnector):
             pod_name = vm.id.split("/")[1]
 
             self.log_debug("Deleting Deployment: %s/%s" % (namespace, pod_name))
-            uri = "/api/v1/namespaces/%s/deployments/%s" % (namespace, pod_name)
+            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, "deployments", pod_name)
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
@@ -898,6 +897,12 @@ class KubernetesCloudConnector(CloudConnector):
                 new_image_url = urlparse(system.getValue("disk.0.image.url"))
                 new_image = "".join(new_image_url[1:])
 
+            changed = False
+            if new_image and new_image != image:
+                dep_data.append(
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": new_image})
+                changed = True
+
             cpu = vm.info.systems[0].getValue('cpu.count')
             new_cpu = system.getValue('cpu.count')
 
@@ -908,6 +913,7 @@ class KubernetesCloudConnector(CloudConnector):
                 dep_data.append(
                     {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/cpu",
                      "value": str(new_cpu)})
+                changed = True
 
             memory = vm.info.systems[0].getFeature('memory.size').getValue('B')
             new_memory = system.getFeature('memory.size').getValue('B')
@@ -919,11 +925,6 @@ class KubernetesCloudConnector(CloudConnector):
                 dep_data.append(
                     {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/memory",
                      "value": "%s" % new_memory})
-
-            changed = False
-            if new_image and new_image != image:
-                dep_data.append(
-                    {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": new_image})
                 changed = True
 
             if not changed:
@@ -935,7 +936,7 @@ class KubernetesCloudConnector(CloudConnector):
             pod_name = vm.id.split("/")[1]
 
             headers = {'Content-Type': 'application/json-patch+json'}
-            uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "deployments", pod_name)
+            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, "deployments", pod_name)
             resp = self.create_request('PATCH', uri, auth_data, headers, dep_data)
 
             if resp.status_code != 200:
@@ -943,6 +944,10 @@ class KubernetesCloudConnector(CloudConnector):
             else:
                 if new_image:
                     vm.info.systems[0].setValue('disk.0.image.url', new_image)
+                if new_cpu:
+                    vm.info.systems[0].setValue('cpu.count', new_cpu)
+                if new_memory:
+                    vm.info.systems[0].setFeature('memory.size').setValue('B', new_memory)
                 return (True, vm)
 
         except Exception as ex:
