@@ -78,6 +78,13 @@ Next tables summaries the resources and the HTTP methods available.
 |             | | in the ``cloudId`` provider.        | | in the ``cloudId`` provider.              |
 +-------------+---------------------------------------+---------------------------------------------+
 
++-------------+----------------------------------------+
+| HTTP method | /oai                                   |
++=============+========================================+
+| **GET**     | | **OAI-PMH** REST API about available |
+|             | | TOSCA templates.                     |
++-------------+----------------------------------------+
+
 The error message returned by the service will depend on the ``Accept`` header of the request:
 
 * text/plain: (default option).
@@ -519,3 +526,10 @@ GET ``http://imserver.com/stats``
                   "last_date": "2022-03-23"}
       ]
     }
+
+GET ``http://imserver.com/oai``
+   :Response Content-type: text/xml
+   :ok response: 200 OK
+
+   Return the OAI-PMH REST API about available TOSCA templates in the IM service.
+   See more details in `OAI-PMH spec <https://www.openarchives.org/pmh/>`_..
