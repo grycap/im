@@ -436,6 +436,18 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+        exp_data = [{"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/cpu",
+                     "value": "2"},
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/cpu",
+                     "value": "2"},
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory",
+                     "value": "1000000000"},
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/memory",
+                     "value": "1000000000"},
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/image",
+                     "value": "image:2.0"}]
+        self.assertEqual(json.loads(requests.call_args_list[0][1]['data']), exp_data)
+
     @patch('requests.request')
     def test_60_finalize(self, requests):
         auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
