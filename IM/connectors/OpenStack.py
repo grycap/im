@@ -17,6 +17,7 @@
 import uuid
 import time
 from netaddr import IPNetwork, IPAddress
+from ipaddress import IPv6Address
 import os.path
 import tempfile
 import requests
@@ -359,7 +360,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
-        if protocol == "appdb":
+        if protocol in ["egi", "appdb"]:
             site_url, image_id, msg = FedcloudInfo.get_image_data(str_url, site_host=self.cloud.server)
             if not image_id or not site_url:
                 self.log_error(msg)
@@ -715,6 +716,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     ip = ipo['addr']
                     if IPAddress(ip).version == 4:
                         is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+                    elif IPAddress(ip).version == 6:
+                        is_private = IPv6Address(ip).is_private
                 if is_private is None:
                     self.log_warn("Error getting network type for network %s. Asumming public." % net_name)
                     is_private = False
@@ -727,7 +730,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         ip_net_map[ip] = (None, not is_private)
                     else:
                         ip_net_map[ip] = (net_name, not is_private)
-                    if not is_private:
+                    if not is_private and IPAddress(ip).version == 4:
                         public_ips.append(ip)
 
             for float_ip in self.get_node_floating_ips(node):
@@ -846,10 +849,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     net_subnets = ost_net.extra['subnets']
                     for subnet in ost_subnets:
                         if subnet.id in net_subnets and subnet.cidr:
-                            ost_net.cidr = subnet.cidr
-                            ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
-                                                                   for mask in Config.PRIVATE_NET_MASKS]))
-                            break
+                            if IPNetwork(subnet.cidr).version == 4:
+                                ost_net.cidr = subnet.cidr
+                                ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
+                                                                       for mask in Config.PRIVATE_NET_MASKS]))
+                            elif IPNetwork(subnet.cidr).version == 6:
+                                ost_net.cidrv6 = subnet.cidr
 
         for ost_net in ost_nets:
             # If we do not have the IP range try to use the router:external to identify a net as public
@@ -1293,12 +1298,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         volume = image = None
         image_url = system.getValue("disk.0.image.url")
-        if urlparse(image_url)[0] == "appdb":
+        if urlparse(image_url)[0] in ["egi", "appdb"]:
             vo = self.get_vo_name(auth_data)
             _, image_id, msg = FedcloudInfo.get_image_data(image_url, vo, site_host=self.cloud.server)
             if not image_id:
                 self.log_error(msg)
-                raise CloudConnectorException("Error in appdb image: %s" % msg)
+                raise CloudConnectorException("Error in egi image: %s" % msg)
         else:
             image_id = self.get_image_id(system.getValue("disk.0.image.url"))
 
@@ -1596,7 +1601,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 delay = 5
                 attached = False
                 ports = node.driver.ex_get_node_ports(node)
-                print(ports)
                 while ports and not attached and cont < retries:
                     # Use each port to attach the IP
                     port_num = cont % len(ports)
