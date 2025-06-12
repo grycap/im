@@ -62,13 +62,13 @@ class FedcloudInfo:
     @staticmethod
     def get_image_id(site_name, image_name, vo_name):
         """
-        Get the image ID from the site id, appdb image and vo names
+        Get the image ID from the site id, egi image and vo names
         """
         images = []
         data = FedcloudInfo.cloudinfo_call(f"/site/{site_name}/{vo_name}/images")
         if data:
             for image in data:
-                if image.get("appdb_id", "") == image_name:
+                if image.get("egi_id", "") == image_name:
                     try:
                         images.append((image["id"], image["version"]))
                     except KeyError:
@@ -94,7 +94,7 @@ class FedcloudInfo:
     @staticmethod
     def _get_site_name(site_host):
         """
-        Get the name if site.
+        Get the name of site.
         site may be the name itself or the site_url.
         """
         data = FedcloudInfo.cloudinfo_call("/sites/")
@@ -108,30 +108,16 @@ class FedcloudInfo:
     @staticmethod
     def get_image_data(str_url, vo=None, site_host=None):
         """
-        The url has this format: appdb://UPV-GRyCAP/egi.docker.ubuntu.16.04?fedcloud.egi.eu
-        this format: appdb://egi.docker.ubuntu.16.04?fedcloud.egi.eu
-        or this one appdb://UPV-GRyCAP/83d5e854-a128-5b1f-9457-d32e10a720a6:8135
-        Get the Site url from the FedcloudInfo
+        The url has this format: egi://site/project/repo:tag?vo
+        e.g. egi://UPV-GRyCAP/egi_vm_images/ubuntu:24.04?fedcloud.egi.eu
         """
         url = urlparse(str_url)
-        protocol = url[0]
 
-        if protocol == "appdb":
-            if url[2]:
-                site_name = url[1]
-                image_name = url[2][1:]
-            else:
-                site_name = FedcloudInfo._get_site_name(site_host)
-                image_name = url[1]
-            vo_name = url[4]
+        if url.scheme == "egi" and url.path:
+            site_name = url.netloc
+            image_name = url.path.strip("/")
+            vo_name = url.query
 
-            if not site_name:
-                return (
-                    None,
-                    None,
-                    "No site name returned from EGI FedcloudInfo for site host: %s."
-                    % site_host,
-                )
             site_url = FedcloudInfo.get_site_url(site_name)
             if not site_url:
                 return (
@@ -140,51 +126,27 @@ class FedcloudInfo:
                     "No site URL returned from EGI FedcloudInfo for site: %s."
                     % site_name,
                 )
-
-            if not vo_name and len(image_name) >= 37 and ":" in image_name:
-                image_id = FedcloudInfo.get_image_id_from_uri(site_name, image_name)
-                if not image_id:
+            if site_host:
+                if site_name != FedcloudInfo._get_site_name(site_host):
                     return (
                         None,
                         None,
-                        "No image ID returned from EGI FedcloudInfo for image: %s/%s."
-                        % (site_name, image_name),
+                        "Site host does not match site name: %s." % site_name,
                     )
-            else:
-                if not vo_name:
-                    vo_name = vo
-                image_id = FedcloudInfo.get_image_id(site_name, image_name, vo_name)
-                if not image_id:
-                    return (
-                        None,
-                        None,
-                        "No image ID returned from EGI FedcloudInfo for image: %s/%s/%s."
-                        % (site_name, image_name, vo_name),
-                    )
+            if not vo_name:
+                vo_name = vo
+            image_id = FedcloudInfo.get_image_id(site_name, image_name, vo_name)
+            if not image_id:
+                return (
+                    None,
+                    None,
+                    "No image ID returned from EGI FedcloudInfo for image: %s/%s/%s."
+                    % (site_name, image_name, vo_name),
+                )
 
             return site_url, image_id, ""
 
         return None, None, "Incorrect Protocol"
-
-    @staticmethod
-    def get_image_id_from_uri(site_name, image_mp_uri):
-        """
-        Get the image ID from the site id and image mp_uri
-        """
-        if not image_mp_uri.startswith("http"):
-            image_mp_uri = f"https://appdb.egi.eu/store/vo/image/{image_mp_uri}/"
-
-        data = FedcloudInfo.cloudinfo_call(f"/site/{site_name}/images")
-        if data:
-            for image in data:
-                if image["mpuri"] == image_mp_uri:
-                    image_basename = os.path.basename(image["id"])
-                    parts = image_basename.split("#")
-                    if len(parts) > 1:
-                        return parts[1]
-                    else:
-                        return image_basename
-        return None
 
     @staticmethod
     def get_project_ids(site_name):
@@ -200,7 +162,9 @@ class FedcloudInfo:
         data = FedcloudInfo.cloudinfo_call("/sites/", params={"vo_name": vo_name})
         if data:
             for site in data:
-                vo_info = FedcloudInfo.cloudinfo_call(f"/sites/{site['name']}/{vo_name}/project")
+                vo_info = FedcloudInfo.cloudinfo_call(
+                    f"/sites/{site['name']}/{vo_name}/project"
+                )
                 if vo_info:
                     if site["url"].endswith("/"):
                         site["url"] = site["url"][:-1]
