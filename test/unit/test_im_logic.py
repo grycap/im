@@ -1562,7 +1562,8 @@ configure step2 (
                              'publicIP': 1, "GPU": 1},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10}],
-                'storage': [{'sizeInGigabytes': 100},
+                'storage': [{'sizeInGigabytes': 20},
+                            {'sizeInGigabytes': 100},
                             {'sizeInGigabytes': 20},
                             {'sizeInGigabytes': 20}]
             }})
