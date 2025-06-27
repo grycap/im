@@ -2228,11 +2228,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         quotas = driver.ex_get_quota_set(tenant_id)
         try:
             net_quotas = driver.ex_get_network_quotas(tenant_id)
-        except Exception:
+        except Exception as ex:
+            self.log_warn("Error getting network quotas: %s" % get_ex_error(ex))
             net_quotas = None
         try:
             vol_quotas = driver.ex_get_volume_quotas(tenant_id)
-        except Exception:
+        except Exception as ex:
+            self.log_warn("Error getting volume quotas: %s" % get_ex_error(ex))
             vol_quotas = None
 
         quotas_dict = {}
