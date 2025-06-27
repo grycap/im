@@ -303,8 +303,10 @@ IM also enables the definition of container applications to be deployed in a Kub
 In the following example, we can see how to define a container application (IM) that uses a
 ConfigMap for a configuration file. The IM application is connected with a MySQL backend
 using the ``IM_DATA_DB`` environment variable. The MySQL container is defined with a Persistent
-Volume Claim (PVC) of 10GB. Furthermore, the IM application specifies an endpoint to be published
-that will result in the creation of a Kubernetes Ingress.
+Volume Claim (PVC) of 10GB. The IM assumes the Kuberentes cluster ha some `Dynamic volume 
+provisioning <https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/>`_ enabled.
+Furthermore, the IM application specifies an endpoint to be published that will result in the
+creation of a Kubernetes Ingress.
 
 .. code-block:: yaml
 
