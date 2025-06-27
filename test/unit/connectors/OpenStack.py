@@ -127,11 +127,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(concrete[0].getValue("instance_type"), "g.small")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.AppDB.AppDB.get_site_id')
-    @patch('IM.AppDB.AppDB.get_site_url')
-    @patch('IM.AppDB.AppDB.get_image_id')
+    @patch('IM.FedcloudInfo.FedcloudInfo.get_site_url')
+    @patch('IM.FedcloudInfo.FedcloudInfo.get_image_id')
+    @patch('IM.FedcloudInfo.FedcloudInfo._get_site_name')
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
-    def test_15_concrete_appdb(self, get_driver, get_image_id, get_site_url, get_site_id):
+    def test_15_concrete_egi(self, get_driver, get_site_name, get_image_id, get_site_url):
         radl_data = """
             network net ()
             system test (
@@ -141,7 +141,7 @@ class TestOSTConnector(TestCloudConnectorBase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'appdb://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu' and
+            disk.0.image.url = 'egi://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu' and
             disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
@@ -164,8 +164,8 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.list_sizes.return_value = [node_size]
 
         get_site_url.return_value = "https://server.com:5000"
-        get_site_id.return_value = "8016G0"
         get_image_id.return_value = "imageid1"
+        get_site_name.return_value = "CESNET-MetaCloud"
         concrete = ost_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -185,7 +185,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    @patch('IM.AppDB.AppDB.get_image_data')
+    @patch('IM.FedcloudInfo.FedcloudInfo.get_image_data')
     def test_20_launch(self, get_image_data, save_data, get_driver):
         radl_data = """
             description desc (name = 'SimpleRADL')
@@ -313,7 +313,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
 
         get_image_data.return_value = "https://cloud.recas.ba.infn.it:5000", "image_id2", ""
-        radl.systems[0].setValue('disk.0.image.url', 'appdb://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu')
+        radl.systems[0].setValue('disk.0.image.url', 'egi://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu')
         res = ost_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
@@ -374,7 +374,6 @@ class TestOSTConnector(TestCloudConnectorBase):
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
-            net_interface.0.dns_name = 'dydns:secret@test.domain.com' and
             net_interface.1.connection = 'net1' and
             disk.0.os.name = 'linux' and
             disk.0.size=10GB and
@@ -523,10 +522,6 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
         self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ipv6"), "2001:630:12:581:f816:3eff:fe92:2146")
 
-        url = 'https://nsupdate.fedcloud.eu/nic/update?hostname=test.domain.com&myip=8.8.8.8'
-        self.assertEqual(request.call_args_list[0][0][0], url)
-        auth = "Basic dGVzdC5kb21haW4uY29tOnNlY3JldA=="
-        self.assertEqual(request.call_args_list[0][1]['headers']['Authorization'], auth)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
@@ -849,7 +844,6 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_ports.return_value = [port]
 
         vm.volumes = ['volid']
-        vm.dns_entries = [('dydns:secret@test', 'domain.com.', '8.8.8.8')]
         success, _ = ost_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")

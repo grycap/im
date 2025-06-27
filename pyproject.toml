@@ -64,7 +64,8 @@ dependencies = [
     "requests-cache >= 1.0.0",
     "packaging",
     "werkzeug",
-    "xmltodict"
+    "xmltodict",
+    "lxml"
 ]
 license = {text = "GPL version 3, http://www.gnu.org/licenses/gpl-3.0.txt"}
 dynamic = ["version", "readme"]
@@ -90,7 +91,7 @@ test = [
 im_service = "IM.im_service:main"
 
 [tool.setuptools]
-packages = ["IM", "IM.ansible_utils", "IM.connectors", "IM.tosca", "IM.openid", "IM.tts", "contextualization"]
+packages = ["IM", "IM.ansible_utils", "IM.connectors", "IM.tosca", "IM.openid", "IM.tts", "IM.oaipmh", "contextualization"]
 
 [tool.setuptools.dynamic]
 version = {attr = "IM.__version__"}
