@@ -1713,7 +1713,7 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        str_inf = sel_inf.serialize()
+        str_inf = json.dumps(sel_inf.serialize())
         InfrastructureManager.logger.info("Exporting Inf ID: " + str(sel_inf.id))
         if delete:
             sel_inf.delete()
