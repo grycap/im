@@ -2,7 +2,7 @@
 FROM ubuntu:24.04
 ARG BRANCH=devel
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.18.0"
+LABEL version="1.19.0"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
