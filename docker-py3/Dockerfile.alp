@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
-FROM alpine:3.16
+FROM alpine:3.18
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.18.0"
+LABEL version="1.19.0"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
@@ -34,7 +34,7 @@ RUN pip3 install pyOpenSSL \
 RUN pip3 install ansible==8.7.0
 
 RUN apk add --no-cache git &&\
-    pip3 install IM==1.18.0 &&\
+    pip3 install IM==1.19.0 &&\
     apk del git
 
 # Copy a ansible.cfg with correct minimum values
