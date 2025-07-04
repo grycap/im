@@ -792,14 +792,12 @@ class CloudConnector(LoggerMixin):
             from IM.connectors.EC2 import EC2CloudConnector
             # Maintain to enable addition of OSCAR clusters
             if op == "add" and entry not in vm.dns_entries:
-                success = EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+                success = EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
                 if success:
                     vm.dns_entries.append(entry)
             elif op == "del":
                 # Maintain to enable deletion of OSCAR clusters
                 success = EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
-                if success and entry in vm.dns_entries:
-                    vm.dns_entries.remove(entry)
 
         return success
 
