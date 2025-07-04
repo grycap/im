@@ -101,7 +101,7 @@ class EGICloudConnector(CloudConnector):
                 self.log_debug(f"Registering DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
 
-                hostname, domain, wildcard = self._get_wildcard_host_domain(hostname, domain)
+                hostname, domain, wildcard = EGICloudConnector._get_wildcard_host_domain(hostname, domain)
 
                 _, error = EGICloudConnector._get_domains(token, domain)
                 if error:
@@ -172,7 +172,7 @@ class EGICloudConnector(CloudConnector):
                 self.log_debug(f"Deleting DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
 
-                hostname, domain, _ = self._get_wildcard_host_domain(hostname, domain)
+                hostname, domain, _ = EGICloudConnector._get_wildcard_host_domain(hostname, domain)
 
                 _, error = EGICloudConnector._get_domains(token, domain)
                 if error:
