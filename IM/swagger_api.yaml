@@ -2,7 +2,7 @@ openapi: 3.0.0
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.18.0
+  version: 1.19.0
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es

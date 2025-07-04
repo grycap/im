@@ -790,3 +790,11 @@ IM 1.18.0:
     * Fix error with OIDC admin user.
     * Add support for a list of admin users.
     * Update container image using Ubuntu 24.04 base.
+
+IM 1.19.0:
+    * Enable to restrict the set of TOSCA files to be processed.
+    * Add OAIPMH support, showing the list of TOSCA files enabled.
+    * Migrate from AppDB to new cloud-info-api (thanks to @enolfc)
+    * Integration of the new DyDNS API to add and remove hosts.
+    * Fix error deleting IM security groups in OpenStack.
+    * Return public IPs and GPUs in EstimateResouces

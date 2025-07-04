@@ -3,8 +3,8 @@ project = 'IM Documentation'
 copyright = '2025, I3M-GRyCAP'
 author = 'micafer'
 
-version = '1.18'
-release = '1.18.0'
+version = '1.19'
+release = '1.19.0'
 
 master_doc = 'index'
 
