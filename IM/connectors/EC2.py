@@ -1335,7 +1335,18 @@ class EC2CloudConnector(CloudConnector):
 
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         try:
-            conn = self.get_connection('universal', auth_data, 'route53')
+            # Workaround to use EC2 as the default case.
+            if self.type == "EC2":
+                conn = self.get_connection('universal', auth_data, 'route53')
+            else:
+                auths = auth_data.getAuthInfo("EC2")
+                if not auths:
+                    raise NoAuthData(self.type)
+                else:
+                    auth = auths[0]
+                    conn = boto3.client('route53', region_name='universal',
+                                        aws_access_key_id=auth['username'],
+                                        aws_secret_access_key=auth['password'])
             zone = EC2CloudConnector._get_zone(conn, domain)
 
             if not zone:
