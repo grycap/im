@@ -31,7 +31,7 @@ class EGICloudConnector(CloudConnector):
     DEFAULT_TIMEOUT = 10
 
     @staticmethod
-    def get_domains(token, domain_name=None):
+    def _get_domains(token, domain_name=None):
         """
         List the domains available in the DyDNS service
         """
@@ -103,7 +103,7 @@ class EGICloudConnector(CloudConnector):
 
                 hostname, domain, wildcard = self._get_wildcard_host_domain(hostname, domain)
 
-                _, error = EGICloudConnector.get_domains(token, domain)
+                _, error = EGICloudConnector._get_domains(token, domain)
                 if error:
                     self.log_error(f"Error getting domains: {error}")
                     return False
@@ -174,7 +174,7 @@ class EGICloudConnector(CloudConnector):
 
                 hostname, domain, _ = self._get_wildcard_host_domain(hostname, domain)
 
-                _, error = EGICloudConnector.get_domains(token, domain)
+                _, error = EGICloudConnector._get_domains(token, domain)
                 if error:
                     self.log_error(f"Error getting domains: {error}")
                     return False

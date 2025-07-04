@@ -32,7 +32,7 @@ class TestEGIConnector(unittest.TestCase):
 
     @patch('requests.get')
     @patch('IM.connectors.EGI.EGICloudConnector._get_host')
-    @patch('IM.connectors.EGI.EGICloudConnector.get_domains')
+    @patch('IM.connectors.EGI.EGICloudConnector._get_domains')
     def test_add_dns(self, mock_get_domains, mock_get_host, mock_get):
         mock_get_host.return_value = None, ""
         mock_get_domains.return_value = "domain", ""
@@ -74,7 +74,7 @@ class TestEGIConnector(unittest.TestCase):
 
     @patch('requests.get')
     @patch('IM.connectors.EGI.EGICloudConnector._get_host')
-    @patch('IM.connectors.EGI.EGICloudConnector.get_domains')
+    @patch('IM.connectors.EGI.EGICloudConnector._get_domains')
     def test_del_dns(self, mock_get_domains, mock_get_host, mock_get):
         mock_get_host.return_value = {"name": "hostname"}, ""
         mock_get_domains.return_value = "domain", ""
@@ -109,18 +109,18 @@ class TestEGIConnector(unittest.TestCase):
                                                                                       "available": True}],
                                                                          "public": [{"name": "domain2",
                                                                                      "available": True}]})
-        domains, error = EGICloudConnector.get_domains("access_token")
+        domains, error = EGICloudConnector._get_domains("access_token")
         self.assertEqual(error, "")
         self.assertEqual(domains, ["domain1", "domain2"])
         self.assertEqual(mock_get.call_count, 1)
         eurl = f"{EGICloudConnector.DYDNS_URL}/nic/domains"
         mock_get.assert_called_with(eurl, headers={'Authorization': 'Bearer access_token'}, timeout=10)
 
-        domain, error = EGICloudConnector.get_domains("access_token", "domain1")
+        domain, error = EGICloudConnector._get_domains("access_token", "domain1")
         self.assertEqual(error, "")
         self.assertEqual(domain, "domain1")
 
-        domain, error = EGICloudConnector.get_domains("access_token", "domain3")
+        domain, error = EGICloudConnector._get_domains("access_token", "domain3")
         self.assertEqual(error, "Domain domain3 not found in DyDNS service")
         self.assertEqual(domain, None)
 
