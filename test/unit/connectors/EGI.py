@@ -32,8 +32,10 @@ class TestEGIConnector(unittest.TestCase):
 
     @patch('requests.get')
     @patch('IM.connectors.EGI.EGICloudConnector._get_host')
-    def test_add_dns(self, mock_get_host, mock_get):
+    @patch('IM.connectors.EGI.EGICloudConnector._get_domains')
+    def test_add_dns(self, mock_get_domains, mock_get_host, mock_get):
         mock_get_host.return_value = None, ""
+        mock_get_domains.return_value = "domain", ""
         mock_get.return_value = MagicMock(status_code=200, json=lambda: {"status": "ok",
                                                                          "host": {"update_secret": "123"}})
         auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
@@ -75,7 +77,7 @@ class TestEGIConnector(unittest.TestCase):
     @patch('IM.connectors.EGI.EGICloudConnector._get_domains')
     def test_del_dns(self, mock_get_domains, mock_get_host, mock_get):
         mock_get_host.return_value = {"name": "hostname"}, ""
-        mock_get_domains.return_value = ["domain"], ""
+        mock_get_domains.return_value = "domain", ""
         mock_get.return_value = MagicMock(status_code=200, json=lambda: {"status": "ok"})
         auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
         cloud = EGICloudConnector(None, None)
@@ -113,6 +115,14 @@ class TestEGIConnector(unittest.TestCase):
         self.assertEqual(mock_get.call_count, 1)
         eurl = f"{EGICloudConnector.DYDNS_URL}/nic/domains"
         mock_get.assert_called_with(eurl, headers={'Authorization': 'Bearer access_token'}, timeout=10)
+
+        domain, error = EGICloudConnector._get_domains("access_token", "domain1")
+        self.assertEqual(error, "")
+        self.assertEqual(domain, "domain1")
+
+        domain, error = EGICloudConnector._get_domains("access_token", "domain3")
+        self.assertEqual(error, "Domain domain3 not found in DyDNS service")
+        self.assertEqual(domain, None)
 
 
 if __name__ == '__main__':

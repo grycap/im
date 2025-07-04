@@ -31,7 +31,7 @@ class EGICloudConnector(CloudConnector):
     DEFAULT_TIMEOUT = 10
 
     @staticmethod
-    def _get_domains(token):
+    def _get_domains(token, domain_name=None):
         """
         List the domains available in the DyDNS service
         """
@@ -47,6 +47,11 @@ class EGICloudConnector(CloudConnector):
         for domain in output.get("private", []) + output.get("public", []):
             if domain.get("available"):
                 domains.append(domain["name"])
+        # If a specific domain name is requested, check if it exists
+        if domain_name:
+            if domain_name in domains:
+                return domain_name, ""
+            return None, f"Domain {domain_name} not found in DyDNS service"
         return domains, ""
 
     @staticmethod
@@ -74,6 +79,16 @@ class EGICloudConnector(CloudConnector):
 
         return None, ""
 
+    @staticmethod
+    def _get_wildcard_host_domain(hostname, domain):
+        wildcard = False
+        if hostname == "*":
+            parts = domain.split(".")
+            domain = ".".join(parts[1:])
+            hostname = parts[0]
+            wildcard = True
+        return hostname, domain, wildcard
+
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         """
         Add a DNS entry to the DNS server
@@ -85,12 +100,16 @@ class EGICloudConnector(CloudConnector):
             if im_auth and im_auth[0].get("token"):
                 self.log_debug(f"Registering DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
+
+                hostname, domain, wildcard = self._get_wildcard_host_domain(hostname, domain)
+
+                _, error = EGICloudConnector._get_domains(token, domain)
+                if error:
+                    self.log_error(f"Error getting domains: {error}")
+                    return False
+
                 # Check if the host already exists
-                if hostname == "*":
-                    parts = domain.split(".")
-                    host, error = EGICloudConnector._get_host(parts[0], ".".join(parts[1:]), token)
-                else:
-                    host, error = EGICloudConnector._get_host(hostname, domain, token)
+                host, error = EGICloudConnector._get_host(hostname, domain, token)
                 if error:
                     self.log_error(f"Error getting host {hostname}.{domain}: {error}")
                 if host:
@@ -100,11 +119,9 @@ class EGICloudConnector(CloudConnector):
                         return True
                 else:
                     commennt = 'IM created DNS entry'
-                    if hostname == "*":
-                        url = (f'{EGICloudConnector.DYDNS_URL}/nic/register?fqdn=' +
-                               f'{domain}&comment={commennt}&wildcard=true')
-                    else:
-                        url = f'{EGICloudConnector.DYDNS_URL}/nic/register?fqdn={hostname}.{domain}&comment={commennt}'
+                    url = f'{EGICloudConnector.DYDNS_URL}/nic/register?fqdn={hostname}.{domain}&comment={commennt}'
+                    if wildcard:
+                        url += '&wildcard=true'
                     resp = requests.get(url, headers={'Authorization': f'Bearer {token}'},
                                         timeout=EGICloudConnector.DEFAULT_TIMEOUT)
                     if resp.status_code != 200:
@@ -155,17 +172,11 @@ class EGICloudConnector(CloudConnector):
                 self.log_debug(f"Deleting DNS entry {hostname}.{domain} with DyDNS oauth token")
                 token = im_auth[0].get("token")
 
-                domains, error = EGICloudConnector._get_domains(token)
+                hostname, domain, _ = self._get_wildcard_host_domain(hostname, domain)
+
+                _, error = EGICloudConnector._get_domains(token, domain)
                 if error:
                     self.log_error(f"Error getting domains: {error}")
-
-                if hostname == "*":
-                    parts = domain.split(".")
-                    domain = ".".join(parts[1:])
-                    hostname = parts[0]
-
-                if domain not in domains:
-                    self.log_debug(f"Domain {domain} not found in DyDNS service")
                     return False
 
                 host, error = EGICloudConnector._get_host(hostname, domain, token)
