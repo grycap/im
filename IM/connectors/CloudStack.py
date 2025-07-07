@@ -178,7 +178,14 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
             outports = network.getOutPorts()
             if outports:
                 for op in outports:
-                    if op.is_range():
+                    if op.get_protocol() == 'icmp':
+                        try:
+                            driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
+                                                                       protocol=op.get_protocol(),
+                                                                       cidrlist=op.get_remote_cidr())
+                        except Exception as ex:
+                            self.log_warn("Exception adding SG rules: " + str(ex))
+                    elif op.is_range():
                         try:
                             driver.ex_authorize_security_group_ingress(securitygroupname=sg_name,
                                                                        protocol=op.get_protocol(),

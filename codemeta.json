@@ -6,7 +6,7 @@
     "@type": "SoftwareSourceCode",
     "identifier": "im",
     "name": "Infrastructure Manager",
-    "version": "1.18.0",
+    "version": "1.19.0",
     "description": "IM is a tool that deploys complex and customized virtual infrastructures on IaaS Cloud deployments",
     "license": "GNU General Public License v3.0",
     "author": [

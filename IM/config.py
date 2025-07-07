@@ -126,6 +126,11 @@ class Config:
     VM_TAG_IM_URL = None
     VM_TAG_IM = None
     ADMIN_USER = {}
+    STATIC_FILES_DIR = None
+    OAIPMH_REPO_ADMIN_EMAIL = None
+    OAIPMH_REPO_NAME = None
+    OAIPMH_REPO_DESCRIPTION = None
+    OAIPMH_REPO_BASE_IDENTIFIER_URL = None
 
 
 config = ConfigParser()

@@ -391,6 +391,8 @@ class GCECloudConnector(LibCloudCloudConnector):
                 allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
                 if 'udp' in ports:
                     allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
+                if 'icmp' in ports:
+                    allowed.append({'IPProtocol': 'icmp'})
 
                 if not source_ranges:
                     source_ranges = ['0.0.0.0/0']

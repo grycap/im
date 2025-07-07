@@ -198,10 +198,43 @@ The :program:`im_client` is called like this::
       Reboot the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``.
 
-   ``sshvm infId vmId [show_only]``
+   ``sshvm infId vmId [show_only] [command]``
       Connect with SSH with the specified virtual machine ``vmId`` associated to the infrastructure with ID
+      infrastructure with ID ``infId``. In case that the specified VM does not have public IP the client will
+      try to connect using the virtual machine with ID ``0`` as SSH proxy. The ``show_only`` parameter is
+      optional and is a flag to specify if ssh command will only be shown in stdout instead of executed. The
+      command parameter is optional and enables the execution of a particular command in the VM.
+
+   ``ssh infId [show_only] [command]``
+      Connect with SSH with the specified virtual machine with ID ``0`` associated to the infrastructure with ID
       infrastructure with ID ``infId``. The ``show_only`` parameter is optional and is a flag to specify if ssh
-      command will only be shown in stdout instead of executed.
+      command will only be shown in stdout instead of executed. The command parameter is optional and enables
+      the execution of a particular command in the VM.
+
+   ``get <infId> <show_only> <src> <dst>``
+      Copy with SCP from the virtual machine with ID ``0`` associated to infrastructure with ID ``infId``.
+      The ``show_only`` parameter is a flag to specify if scp command will only be shown in stdout instead
+      of executed. The ``scr`` parameneter is the path of the file in the remote VM, ``dst`` is the path on
+      the local machine.
+
+   ``getvm <infId> <vmId> <show_only> <src> <dst>``
+      Copy with SCP from the specified virtual machine ``vmId`` associated to infrastructure with ID ``infId``.
+      In case that the specified VM does not have public IP the client will try to connect using the virtual
+      machine with ID ``0`` as SSH proxy. The ``show_only`` parameter is a flag to specify if ssh command wil
+      only be shown in stdout instead of executed. The ``scr`` parameneter is the path of the file in the remote
+      VM, ``dst`` is the path on the local machine.
+
+   ``put <infId> <show_only> <src> <dst>``
+      Copy with SCP to the virtual machine with ID ``0`` associated to infrastructure with ID ``infId``. The 
+      ``show_only`` parameter is a flag to specify if ssh command will only be shown in stdout instead of executed.
+      The ``scr`` parameneter is the path of the file in the local file, ``dst`` is the path on the remote VM.
+
+   ``putvm <infId> <vmId> <show_only> <src> <dst>``
+      Copy with SCP to the specified virtual machine ``vmId`` associated to infrastructure with ID ``infId``. In case
+      that the specified VM does not have public IP the client will try to connect using the virtual machine with ID
+      ``0`` as SSH proxy. The ``show_only`` parameter is a flag to specify if ssh command will only be shown in stdout
+      instead of executed. The ``scr`` parameneter is the path of the file in the local file, ``dst`` is the path on
+      the remote VM.
 
    ``export infId delete``
       Export the data of the infrastructure with ID ``infId``. The ``delete`` parameter is optional
@@ -527,9 +560,10 @@ Examples
 
 An example of the auth file::
 
-   # InfrastructureManager auth
-   type = InfrastructureManager; username = user; password: pass
-   type = InfrastructureManager: token = access_token_value
+   # InfrastructureManager auth data
+   type = InfrastructureManager; username = user; password = pass
+   # InfrastructureManager auth data with OIDC token
+   type = InfrastructureManager; token = access_token_value
    # Having at least one of the two lines above is mandatory for all auth files.
    # The lines below are concrete examples for each infrastructure. Please add only the ones that are relevant to you.
    # Vault auth
@@ -544,10 +578,6 @@ An example of the auth file::
    id = ost; type = OpenStack; host = https://ostserver:5000; username = egi.eu; tenant = openid; password = command(oidc-token OIDC_ACCOUNT); auth_version = 3.x_oidc_access_token; domain = project_name_or_id
    #  OpenStack site using OpenID authentication
    id = ost; type = OpenStack; host = https://ostserver:5000; username = indentity_provider; tenant = oidc; password = access_token_value; auth_version = 3.x_oidc_access_token
-   # IM auth data
-   id = im; type = InfrastructureManager; username = user; password = pass
-   # IM auth data with OIDC token
-   id = im; type = InfrastructureManager; token = access_token_value
    # VMRC auth data
    id = vmrc; type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
    # EC2 auth data

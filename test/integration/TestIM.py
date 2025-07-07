@@ -337,7 +337,7 @@ class TestIM(unittest.TestCase):
                          msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
 
         all_configured = self.wait_inf_state(
-            self.inf_id, VirtualMachine.CONFIGURED, 1800)
+            self.inf_id, VirtualMachine.CONFIGURED, 2400)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 

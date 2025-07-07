@@ -34,11 +34,11 @@ class Stats():
 
     @staticmethod
     def _get_data(str_data, init_date=None, end_date=None):
-        dic = json.loads(str_data)
+        dic = str_data if isinstance(str_data, dict) else json.loads(str_data)
         resp = {'creation_date': ''}
         if 'creation_date' in dic and dic['creation_date']:
             creation_date = datetime.datetime.fromtimestamp(float(dic['creation_date']))
-            resp['creation_date'] = str(creation_date)
+            resp['creation_date'] = creation_date.strftime("%Y-%m-%d %H:%M:%S")
             if init_date and creation_date < init_date:
                 return None
             if end_date and creation_date > end_date:
@@ -61,8 +61,8 @@ class Stats():
         resp['hybrid'] = False
         resp['deleted'] = True if 'deleted' in dic and dic['deleted'] else False
         for str_vm_data in dic['vm_list']:
-            vm_data = json.loads(str_vm_data)
-            cloud_data = json.loads(vm_data["cloud"])
+            vm_data = str_vm_data if isinstance(str_vm_data, dict) else json.loads(str_vm_data)
+            cloud_data = vm_data["cloud"] if isinstance(vm_data["cloud"], dict) else json.loads(vm_data["cloud"])
 
             # only get the cloud of the first VM
             if not resp['cloud_type']:
@@ -106,35 +106,37 @@ class Stats():
              'im_user': '__OPENID__mcaballer',
              'inf_id': '1',
              'deleted': False,
-             'last_date': '2022-03-23'}
+             'last_date': '2022-03-23 10:00:00'}
         """
         stats = []
         db = DataBase(Config.DATA_DB)
         if db.connect():
             if db.db_type == DataBase.MONGO:
                 filt = InfrastructureList._gen_filter_from_auth(auth)
+                filt["data.creation_date"] = {"$gte": datetime.datetime.strptime(init_date, "%Y-%m-%d").timestamp()}
                 if end_date:
-                    filt["date"] = {"$lte": datetime.datetime.strptime(end_date, "%Y-%m-%d").timestamp()}
+                    filt["data.creation_date"]["$lte"] = datetime.datetime.strptime(end_date, "%Y-%m-%d").timestamp()
                 res = db.find("inf_list", filt, {"id": True, "data": True, "date": True}, [('id', -1)])
             else:
                 like = InfrastructureList._gen_where_from_auth(auth)
                 where = "where"
                 if like:
                     where += " (%s)" % like
-                if end_date:
-                    if like:
-                        where += " and"
-                    where += " date <= '%s'" % end_date
                 res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)  # nosec
 
             for elem in res:
                 if db.db_type == DataBase.MONGO:
                     data = elem["data"]
                     date = elem["date"]
+                    if date and not isinstance(date, datetime.datetime):
+                        date = datetime.datetime.fromtimestamp(elem["date"])
                     inf_id = elem["id"]
                 else:
                     data = elem[0]
                     date = elem[1]
+                    # SQLite date is stored as string
+                    if date and isinstance(date, str) and len(date) == 10:
+                        date = datetime.datetime.strptime(date, "%Y-%m-%d")
                     inf_id = elem[2]
                 try:
                     init = datetime.datetime.strptime(init_date, "%Y-%m-%d")
@@ -142,7 +144,7 @@ class Stats():
                     res = Stats._get_data(data, init, end)
                     if res:
                         res['inf_id'] = inf_id
-                        res['last_date'] = str(date)
+                        res['last_date'] = date.strftime("%Y-%m-%d %H:%M:%S")
                         stats.append(res)
                 except Exception:
                     Stats.logger.exception("ERROR reading infrastructure info from Inf ID: %s" % inf_id)

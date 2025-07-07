@@ -223,11 +223,12 @@ class Authentication:
         return res
 
     def serialize(self):
-        return json.dumps(self.auth_list, sort_keys=True)
+        return self.auth_list
 
     @staticmethod
     def deserialize(str_data):
-        return Authentication(json.loads(str_data))
+        data = str_data if isinstance(str_data, list) else json.loads(str_data)
+        return Authentication(data)
 
     def delAuthInfo(self, auth_type, host=None):
         """

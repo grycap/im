@@ -20,6 +20,7 @@ from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
 from toscaparser.elements.scalarunit import ScalarUnit_Size
+from toscaparser.imports import ImportsLoader
 from IM.ansible_utils import merge_recipes
 from radl.radl import (system, deploy, network, Feature, Features, configure,
                        contextualize_item, RADL, contextualize, ansible, description)
@@ -39,11 +40,12 @@ class Tosca:
 
     logger = logging.getLogger('InfrastructureManager')
 
-    def __init__(self, yaml_str, verify=True):
+    def __init__(self, yaml_str, verify=True, tosca_repo=None):
+        self.tosca_repo = tosca_repo
         self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
         try:
-            self.yaml = yaml.safe_load(yaml_str)
+            self.yaml = self._get_tosca_from_repo(yaml.safe_load(yaml_str))
             if not verify:
                 def verify_fake(tpl):
                     return True
@@ -84,6 +86,53 @@ class Tosca:
                 Tosca.logger.warning("Policy %s not supported. Ignoring it." % policy.type_definition.type)
 
         return None
+
+    def _get_tosca_from_repo(self, input_yaml):
+        if 'tosca_definitions_version' not in input_yaml or not input_yaml.get('imports'):
+            return input_yaml
+
+        # Load the imported template
+        custom_import = ImportsLoader([input_yaml.get('imports')[0]], self.tosca_repo,
+                                      type_definition_list=["topology_template", "imports"], tpl=input_yaml)
+        # Get the imports to add them later
+        imports = custom_import.custom_defs.get('imports')
+        if imports:
+            # and remove it to check if there are topology_template elements
+            del custom_import.custom_defs['imports']
+        if custom_import.custom_defs:
+            # remove the import to avoid errors parsing it
+            input_yaml.get('imports').pop()
+            # and merge the new inputs with the imported ones
+            inputs = custom_import.custom_defs.get('inputs', {})
+            for input_name in input_yaml['topology_template'].get('inputs', {}):
+                imported_input = inputs.get(input_name, {})
+                new_input = input_yaml['topology_template'].get('inputs', {}).get(input_name, {})
+                if new_input:
+                    if imported_input:
+                        if isinstance(new_input, dict) and new_input.get('default'):
+                            imported_input['default'] = new_input['default']
+                        else:
+                            imported_input['default'] = new_input
+                    else:
+                        inputs.update({input_name: new_input})
+            # merge the outputs
+            outputs = custom_import.custom_defs.get('outputs', {})
+            for output_elem in input_yaml['topology_template'].get('outputs', {}):
+                new_output = input_yaml['topology_template'].get('outputs', {}).get(output_elem, {})
+                if new_output:
+                    outputs.update({output_elem: new_output})
+            # and the node templates
+            node_teplates = custom_import.custom_defs.get('node_templates', {})
+            for node_elem in input_yaml['topology_template'].get('node_templates', {}):
+                new_node = input_yaml['topology_template'].get('node_templates', {}).get(node_elem, {})
+                if new_node:
+                    node_teplates.update({node_elem: new_node})
+            input_yaml['topology_template']['inputs'] = inputs
+            input_yaml['topology_template']['outputs'] = outputs
+            input_yaml['topology_template']['node_templates'] = node_teplates
+            input_yaml['imports'].extend(imports)
+
+        return input_yaml
 
     def to_radl(self, inf_info=None):
         """
@@ -2229,6 +2278,8 @@ class Tosca:
                 if value not in [None, [], {}]:
                     if prop.name == "num_cpus":
                         res.setValue('cpu.count', float(value))
+                    elif prop.name == "num_gpus":
+                        res.setValue('gpu.count', int(value))
                     elif prop.name == "mem_size":
                         if not value.endswith("B"):
                             value += "B"

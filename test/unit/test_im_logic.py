@@ -1364,7 +1364,7 @@ configure step2 (
 
         Config.BOOT_MODE = 0
 
-    @patch('IM.InfrastructureManager.AppDBIS')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_get_cloud_info(self, appdbis):
         auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         res = IM.GetCloudImageList("cloud1", auth)
@@ -1384,17 +1384,15 @@ configure step2 (
         auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'},
                                {'id': 'app', 'type': 'AppDBIS', 'token': 'atoken'}])
 
-        appdbis_mock = MagicMock()
-        appdbis.return_value = appdbis_mock
-        appdbis_mock.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
+        appdbis.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
 
         res = IM.GetCloudImageList("app", auth, {"distribution": "Ubuntu", "version": "20.04"})
         self.assertEqual(res, [{'uri': 'ost://site/imageid', 'name': 'Image Name'}])
-        self.assertEqual(appdbis_mock.list_images.call_args_list[0][0][0],
+        self.assertEqual(appdbis.list_images.call_args_list[0][0][0],
                          {'distribution': 'Ubuntu', 'version': '20.04'})
 
     @patch('IM.InfrastructureManager.VMRC')
-    @patch('IM.InfrastructureManager.AppDBIS')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_systems_with_iis(self, appdbis, vmrc):
         auth = self.getAuth([0], [0])
         auth.auth_list.append({"type": "AppDBIS", "host": "http://is.marie.hellasgrid.gr"})
@@ -1412,9 +1410,7 @@ configure step2 (
                                   Feature("disk.0.image.url", "=", "https://fedcloud.eu"),
                                   Feature("disk.0.image.vo", "=", "fedcloud.egi.eu")])
 
-        appdbis_mock = MagicMock()
-        appdbis.return_value = appdbis_mock
-        appdbis_mock.search_vm.return_value = [sys_appdb]
+        appdbis.search_vm.return_value = [sys_appdb]
 
         sys_vmrc = system("s0", [Feature("disk.0.os.name", "=", "linux"),
                                  Feature("disk.0.os.flavour", "=", "ubuntu"),
@@ -1502,9 +1498,8 @@ configure step2 (
         self.assertEqual(res[1].name, "s0")
         self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri2")
 
-    @patch('IM.InfrastructureManager.AppDB')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_translate_egi_to_ost(self, appdb):
-        appdb.get_site_id.return_value = 'site_id'
         appdb.get_site_url.return_value = 'https://ostsite.com:5000'
         appdb.get_project_ids.return_value = {'vo_name': 'projectid'}
 
@@ -1523,6 +1518,7 @@ configure step2 (
 
             system front (
             cpu.count>=2 and
+            gpu.count>=1 and
             memory.size>=4g and
             net_interface.0.connection = 'publica' and
             net_interface.1.connection = 'privada' and
@@ -1557,10 +1553,12 @@ configure step2 (
             'cloud0': {
                 'cloudType': 'Dummy',
                 'cloudEndpoint': 'http://server.com:80/path',
-                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40},
+                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40,
+                             'publicIP': 1, "GPU": 1},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10}],
-                'storage': [{'sizeInGigabytes': 100},
+                'storage': [{'sizeInGigabytes': 20},
+                            {'sizeInGigabytes': 100},
                             {'sizeInGigabytes': 20},
                             {'sizeInGigabytes': 20}]
             }})
@@ -1585,7 +1583,7 @@ configure step2 (
             "creation_date": 1646655374,
             "extra_info": {"TOSCA": yaml.dump({"metadata": {"icon": "kubernetes.png"}})},
             "vm_list": [
-                json.dumps({"cloud": '{"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}', "info": radl}),
+                {"cloud": {"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}, "info": radl},
                 json.dumps({"cloud": '{"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}', "info": radl})
             ]
         }
@@ -1604,7 +1602,7 @@ configure step2 (
                          'deleted': False,
                          'im_user': '__OPENID__mcaballer',
                          'inf_id': '1',
-                         'last_date': '2022-03-23'}]
+                         'last_date': '2022-03-23 00:00:00'}]
         self.assertEqual(stats, expected_res)
 
 

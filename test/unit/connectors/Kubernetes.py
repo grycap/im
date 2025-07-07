@@ -143,6 +143,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             network net (outbound = 'yes' and outports = '38080-8080')
             system test (
             cpu.count>=1 and
+            gpu.count>=1 and
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'https://ingress.domain.com/path' and
@@ -238,8 +239,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                         "imagePullPolicy": "Always",
                         "ports": [{"containerPort": 8080, "protocol": "TCP"}],
                         "resources": {
-                            "limits": {"cpu": "1", "memory": "512000000"},
-                            "requests": {"cpu": "1", "memory": "512000000"},
+                            "limits": {"cpu": "1", "memory": "512000000", "nvidia.com/gpu": "1"},
+                            "requests": {"cpu": "1", "memory": "512000000", "nvidia.com/gpu": "1"},
                         },
                         "env": [{"name": "var", "value": "some_val"},
                                 {"name": "var2", "value": "some,val2"}],

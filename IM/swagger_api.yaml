@@ -2,7 +2,7 @@ openapi: 3.0.0
 
 info:
   description: Infrastructure Manager (IM) REST API.
-  version: 1.18.0
+  version: 1.19.0
   title: Infrastructure Manager (IM) REST API
   contact:
     email: products@grycap.upv.es
@@ -19,6 +19,8 @@ tags:
     description: Get cloud information.
   - name: stats
     description: Get IM server stats.
+  - name: oai
+    description: Get OAI-PMH information.
 
 paths:
 
@@ -1611,6 +1613,27 @@ paths:
           description: Invalid status value
         '401':
           description: Unauthorized
+
+  /oai:
+    get:
+      tags:
+        - oai
+      summary: Get OAI-PMH information about TOSCA templates.
+      description: Get OAI-PMH (https://www.openarchives.org/pmh/) information about TOSCA templates.
+      operationId: OAI
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/xml:
+              examples:
+                response:
+                  value: |
+                    <OAI-PMHxmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd"xmlns="http://www.openarchives.org/OAI/2.0/">
+                    <responseDate>2024-09-10T06:59:58Z</responseDate>
+                    <request>https://server.com/oai</request>
+                    <errorcode="badVerb">Value of the verb argument is not a legal OAI-PMH verb,                     the verb argument is missing, or the verb argument is repeated.</error>
+                    </OAI-PMH>
 
 externalDocs:
   description: Find out more about IM

@@ -17,6 +17,7 @@
 import uuid
 import time
 from netaddr import IPNetwork, IPAddress
+from ipaddress import IPv6Address
 import os.path
 import tempfile
 import requests
@@ -47,7 +48,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
-from IM.AppDB import AppDB
+from IM.FedcloudInfo import FedcloudInfo
 from IM import get_ex_error
 
 
@@ -359,8 +360,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
-        if protocol == "appdb":
-            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack", site=self.cloud.server)
+        if protocol in ["egi", "appdb"]:
+            site_url, image_id, msg = FedcloudInfo.get_image_data(str_url, site_host=self.cloud.server)
             if not image_id or not site_url:
                 self.log_error(msg)
                 return None
@@ -590,38 +591,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, vm)
 
-    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Special case for EGI DyDNS
-        # format of the hostname: dydns:secret@hostname
-        if hostname.startswith("dydns:") and "@" in hostname:
-            parts = hostname[6:].split("@")
-            auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
-            headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
-            url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
-                                                                                      domain[:-1],
-                                                                                      ip)
-            try:
-                resp = requests.get(url, headers=headers, timeout=10)
-                resp.raise_for_status()
-            except Exception as ex:
-                self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
-                self.log_exception("Error creating DNS entries")
-                return False
-        else:
-            # TODO: https://docs.openstack.org/designate/latest/index.html
-            raise NotImplementedError("Should have implemented this")
-        return True
-
-    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Special case for EGI DyDNS
-        # format of the hostname: dydns:secret@hostname
-        if hostname.startswith("dydns:") and "@" in hostname:
-            self.log_info("DYDNS entry. Cannot be deleted.")
-        else:
-            # TODO: https://docs.openstack.org/designate/latest/index.html
-            raise NotImplementedError("Should have implemented this")
-        return True
-
     @staticmethod
     def map_radl_ost_networks(vm, ost_nets):
         """
@@ -747,6 +716,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     ip = ipo['addr']
                     if IPAddress(ip).version == 4:
                         is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+                    elif IPAddress(ip).version == 6:
+                        is_private = IPv6Address(ip).is_private
                 if is_private is None:
                     self.log_warn("Error getting network type for network %s. Asumming public." % net_name)
                     is_private = False
@@ -759,7 +730,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         ip_net_map[ip] = (None, not is_private)
                     else:
                         ip_net_map[ip] = (net_name, not is_private)
-                    if not is_private:
+                    if not is_private and IPAddress(ip).version == 4:
                         public_ips.append(ip)
 
             for float_ip in self.get_node_floating_ips(node):
@@ -878,10 +849,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     net_subnets = ost_net.extra['subnets']
                     for subnet in ost_subnets:
                         if subnet.id in net_subnets and subnet.cidr:
-                            ost_net.cidr = subnet.cidr
-                            ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
-                                                                   for mask in Config.PRIVATE_NET_MASKS]))
-                            break
+                            if IPNetwork(subnet.cidr).version == 4:
+                                ost_net.cidr = subnet.cidr
+                                ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
+                                                                       for mask in Config.PRIVATE_NET_MASKS]))
+                            elif IPNetwork(subnet.cidr).version == 6:
+                                ost_net.cidrv6 = subnet.cidr
 
         for ost_net in ost_nets:
             # If we do not have the IP range try to use the router:external to identify a net as public
@@ -1325,12 +1298,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         volume = image = None
         image_url = system.getValue("disk.0.image.url")
-        if urlparse(image_url)[0] == "appdb":
+        if urlparse(image_url)[0] in ["egi", "appdb"]:
             vo = self.get_vo_name(auth_data)
-            _, image_id, msg = AppDB.get_image_data(image_url, "openstack", vo, site=self.cloud.server)
+            _, image_id, msg = FedcloudInfo.get_image_data(image_url, vo, site_host=self.cloud.server)
             if not image_id:
                 self.log_error(msg)
-                raise CloudConnectorException("Error in appdb image: %s" % msg)
+                raise CloudConnectorException("Error in egi image: %s" % msg)
         else:
             image_id = self.get_image_id(system.getValue("disk.0.image.url"))
 
@@ -1628,7 +1601,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 delay = 5
                 attached = False
                 ports = node.driver.ex_get_node_ports(node)
-                print(ports)
                 while ports and not attached and cont < retries:
                     # Use each port to attach the IP
                     port_num = cont % len(ports)
@@ -1686,6 +1658,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 self.log_info("Network has a router set. Do not create security groups.")
                 return res
 
+        sg_desc = "Security group created by the IM"
+        if inf.radl.description and inf.radl.description.getValue('name'):
+            sg_desc += " for Inf: %s" % inf.radl.description.getValue('name')
+
         # First create a SG for the entire Infra
         # Use the InfrastructureInfo lock to assure that only one VM create the SG
         with inf._lock:
@@ -1693,13 +1669,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             sg = self._get_security_group(driver, sg_name)
             if not sg:
                 self.log_info("Creating security group: %s" % sg_name)
-                sg_desc = "Security group created by the IM"
-                if inf.radl.description and inf.radl.description.getValue('name'):
-                    sg_desc += " for Inf: %s" % inf.radl.description.getValue('name')
                 sg = driver.ex_create_security_group(sg_name, sg_desc)
                 # open all the ports for the VMs in the security group
-                driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
-                driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
+                driver.ex_create_security_group_rule(sg, 'tcp', None, None, source_security_group=sg)
+                driver.ex_create_security_group_rule(sg, 'udp', None, None, source_security_group=sg)
             res.append(sg)
 
         i = 0
@@ -1716,13 +1689,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 sg = self._get_security_group(driver, sg_name)
                 if not sg:
                     self.log_info("Creating security group: %s" % sg_name)
-                    sg = driver.ex_create_security_group(sg_name, "Security group created by the IM")
+                    sg = driver.ex_create_security_group(sg_name, sg_desc)
                 res.append(sg)
 
             try:
                 # open all the ports for the VMs in the security group
-                driver.ex_create_security_group_rule(sg, 'tcp', 1, 65535, source_security_group=sg)
-                driver.ex_create_security_group_rule(sg, 'udp', 1, 65535, source_security_group=sg)
+                driver.ex_create_security_group_rule(sg, 'tcp', None, None, source_security_group=sg)
+                driver.ex_create_security_group_rule(sg, 'udp', None, None, source_security_group=sg)
             except Exception as addex:
                 self.log_warn("Exception adding SG rules. Probably the rules exists: %s" % get_ex_error(addex))
 
@@ -1732,26 +1705,25 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 outports = self.add_ssh_port(outports)
 
             for outport in outports:
-                if outport.is_range():
-                    try:
-                        driver.ex_create_security_group_rule(sg, outport.get_protocol(),
-                                                             outport.get_port_init(),
-                                                             outport.get_port_end(),
-                                                             outport.get_remote_cidr())
-                    except Exception as ex:
-                        self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
-                        self.error_messages += ("Exception adding port range: %s-%s to SG rules.\n" %
-                                                (outport.get_port_init(), outport.get_port_end()))
+                if outport.get_protocol() == "icmp":
+                    from_port = None
+                    to_port = None
+                elif outport.is_range():
+                    from_port = outport.get_port_init()
+                    to_port = outport.get_port_end()
                 else:
-                    try:
-                        driver.ex_create_security_group_rule(sg, outport.get_protocol(),
-                                                             outport.get_remote_port(),
-                                                             outport.get_remote_port(),
-                                                             outport.get_remote_cidr())
-                    except Exception as ex:
-                        self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
-                        self.error_messages += ("Exception adding port %s to SG rules.\n" %
-                                                outport.get_remote_port())
+                    from_port = outport.get_remote_port()
+                    to_port = outport.get_remote_port()
+
+                try:
+                    driver.ex_create_security_group_rule(sg, outport.get_protocol(),
+                                                         from_port,
+                                                         to_port,
+                                                         outport.get_remote_cidr())
+                except Exception as ex:
+                    self.log_warn("Exception adding SG rules: %s" % get_ex_error(ex))
+                    self.error_messages += ("Exception adding port range: %s-%s to SG rules.\n" %
+                                            (from_port, to_port))
 
         return res
 
@@ -1771,16 +1743,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.log_debug("Dettaching volume %s." % vol_id)
                     volume = self.get_volume(node.driver, vol_id)
                     node.driver.detach_volume(volume)
-                except Exception:
-                    self.log_exception("Error dettaching volume %s." % vol_id)
+                except Exception as ex:
+                    self.log_warn("Error dettaching volume %s: %s." % (vol_id, get_ex_error(ex)))
 
             for sg_name in self._get_security_names(vm.inf):
                 try:
                     self.log_debug("Dettaching SG %s." % sg_name)
                     security_group = OpenStackSecurityGroup(None, None, sg_name, "", node.driver)
                     node.driver.ex_remove_security_group_from_node(security_group, node)
-                except Exception:
-                    self.log_exception("Error dettaching SG %s." % sg_name)
+                except Exception as ex:
+                    self.log_warn("Error dettaching SG %s: %s" % (sg_name, get_ex_error(ex)))
 
             try:
                 res, msg = self.delete_elastic_ips(node, vm)
@@ -1885,7 +1857,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.log_info("The SG %s does not exist. Do not delete it." % sg_name)
                     deleted = True
                 else:
-                    if sg.description != "Security group created by the IM":
+                    if "Security group created by the IM" not in sg.description:
                         self.log_info("SG %s not created by the IM. Do not delete it." % sg_name)
                         deleted = True
                     else:
@@ -2223,11 +2195,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         quotas = driver.ex_get_quota_set(tenant_id)
         try:
             net_quotas = driver.ex_get_network_quotas(tenant_id)
-        except Exception:
+        except Exception as ex:
+            self.log_warn("Error getting network quotas: %s" % get_ex_error(ex))
             net_quotas = None
         try:
             vol_quotas = driver.ex_get_volume_quotas(tenant_id)
-        except Exception:
+        except Exception as ex:
+            self.log_warn("Error getting volume quotas: %s" % get_ex_error(ex))
             vol_quotas = None
 
         quotas_dict = {}

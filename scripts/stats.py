@@ -29,8 +29,7 @@ from IM.auth import Authentication
 
 class Stats():
 
-    def get_data(str_data):
-        dic = json.loads(str_data)
+    def get_data(dic):
         creation_date = ''
         if 'creation_date' in dic and dic['creation_date']:
             creation_date = datetime.datetime.fromtimestamp(float(dic['creation_date']))
@@ -47,24 +46,38 @@ class Stats():
         return icon, im_user, creation_date
 
     @staticmethod
-    def get_stats(db_url, date):
+    def get_stats(db_url, init_date):
         stats = [("Inf ID.", "TOSCA", "User", "EC3", "Creation Date", "Last Date")]
         db = DataBase(db_url)
         if db.connect():
-            res = db.select("SELECT data, date, id FROM inf_list WHERE date > %s order by rowid desc;", (date,))
+            if db.db_type == DataBase.MONGO:
+                filt = {"deleted": 0}
+                filt["data.creation_date"] = {"$gte": datetime.datetime.strptime(init_date, "%Y-%m-%d").timestamp()}
+                res = db.find("inf_list", filt, {"id": True, "data": True, "date": True}, [('id', -1)])
+            else:
+                res = db.select("SELECT data, date, id FROM inf_list WHERE date > %s order by rowid desc;", (init_date,))
             for elem in res:
-                data = elem[0].decode()
-                date = elem[1]
-                inf_id = elem[2]
+
+                if db.db_type == DataBase.MONGO:
+                    data = elem["data"]
+                    date = elem["date"]
+                    if date and not isinstance(date, datetime.datetime):
+                        date = datetime.datetime.fromtimestamp(elem["date"])
+                    inf_id = elem["id"]
+                else:
+                    data = json.loads(elem[0].decode())
+                    date = elem[1]
+                    inf_id = elem[2]
+
                 icon, im_user, creation_date = Stats.get_data(data)
                 ec3 = "1" if "ec3_max_instances" in data else "0"
                 stats.append((inf_id, icon, im_user, ec3, str(creation_date), str(date)))
 
             db.close()
             return stats
-        else:
-            sys.stderr.write("ERROR connecting with the database!.\n")
-            return None
+
+        sys.stderr.write("ERROR connecting with the database!.\n")
+        return None
 
 
 if __name__ == "__main__":
@@ -94,5 +107,5 @@ if __name__ == "__main__":
     if res is None:
         sys.exit(-1)
     else:
-        for elem in res:
-            print(";".join(elem))
+        for item in res:
+            print(";".join(item))

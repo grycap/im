@@ -457,6 +457,9 @@ class OpenNebulaCloudConnector(CloudConnector):
                         outports = network.getOutPorts()
                         if outports:
                             for outport in outports:
+                                if outport.get_protocol() == "icmp":
+                                    sg_template += ("RULE = [ PROTOCOL = %s, RULE_TYPE = inbound ]\n" %
+                                                    outport.get_protocol().upper())
                                 if outport.is_range():
                                     sg_template += ("RULE = [ PROTOCOL = %s, RULE_TYPE = inbound, "
                                                     "RANGE = %d:%d ]\n" % (outport.get_protocol().upper(),
