@@ -159,16 +159,6 @@ This is the list of method names:
    Return a struct with information about the nodified virtual machine, like 
    :ref:`GetVMInfo <GetVMInfo-xmlrpc>`.
 
-   .. todo::
-
-      Bug: specify the contrains of RADL used for modifying features of
-      already deployed virtual machine.
-      Proposal: define a special keyword, for instance ``you``, that should be
-      used as id in the ``system`` sentences in RADL used in AlterVM request::
-
-         system you ( memory.size = 1G )
-
-
 ``DestroyInfrastructure``
    :parameter 0: ``infId``: integer
    :parameter 1: ``auth``: array of structs

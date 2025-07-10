@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3-setupto
      pip3 install --break-system-packages git+https://github.com/openstack/tosca-parser && \
      pip3 install --break-system-packages git+https://github.com/micafer/libcloud@im && \
      pip3 install --break-system-packages IM==${VERSION} &&\
-     apt-get purge -y python3-pip git && \
+     apt-get purge -y python3-pip python3-setuptools python3-pkg-resources git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
 # Copy im configuration files
