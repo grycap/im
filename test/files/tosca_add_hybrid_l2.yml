@@ -97,6 +97,7 @@ topology_template:
       requirements:
         - lrms: lrms_front_end
         - wn: wn_node
+        - host: lrms_server
 
     indigovr_cp:
       type: tosca.nodes.indigo.VR.CentralPoint
