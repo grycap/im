@@ -16,7 +16,7 @@
 
 
 import os.path
-import requests
+# import requests
 from IM.connectors.OpenStack import OpenStackCloudConnector
 from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from IM.VirtualMachine import VirtualMachine

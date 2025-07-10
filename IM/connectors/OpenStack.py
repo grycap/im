@@ -20,8 +20,6 @@ from netaddr import IPNetwork, IPAddress
 from ipaddress import IPv6Address
 import os.path
 import tempfile
-import requests
-import base64
 import re
 from IM.CloudInfo import CloudInfo
 from IM.SSH import SSH
