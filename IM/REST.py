@@ -37,6 +37,8 @@ from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl
 from radl.radl import RADL, Features, Feature
 from IM.tosca.Tosca import Tosca
 from IM.openid.JWT import JWT
+from IM.oaipmh.oai import OAI
+from IM.oaipmh.utils import Repository
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -471,7 +473,7 @@ def RESTCreateInfrastructure():
             if "application/json" in content_type:
                 radl_data = parse_radl_json(radl_data)
             elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
-                tosca_data = Tosca(radl_data)
+                tosca_data = Tosca(radl_data, tosca_repo=Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
                 _, radl_data = tosca_data.to_radl()
             elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
                 content_type = "text/plain"
@@ -1119,6 +1121,34 @@ def RESTGetStats():
     except Exception as ex:
         logger.exception("Error getting stats")
         return return_error(400, "Error getting stats: %s" % get_ex_error(ex))
+
+
+@app.route('/oai', methods=['GET', 'POST'])
+def oaipmh():
+    if not (Config.OAIPMH_REPO_BASE_IDENTIFIER_URL and
+            Config.OAIPMH_REPO_NAME and Config.OAIPMH_REPO_DESCRIPTION):
+        return return_error(400, "OAI-PMH not enabled.")
+
+    oai = OAI(Config.OAIPMH_REPO_NAME, flask.request.base_url, Config.OAIPMH_REPO_DESCRIPTION,
+              Config.OAIPMH_REPO_BASE_IDENTIFIER_URL, repo_admin_email=Config.OAIPMH_REPO_ADMIN_EMAIL)
+
+    # Get list of TOSCA templates from Config.OAIPMH_REPO_BASE_IDENTIFIER_URL
+    metadata_dict = {}
+    try:
+        repo = Repository.create(Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
+        for name, elem in repo.list().items():
+            tosca = yaml.safe_load(repo.get(elem))
+            metadata = tosca["metadata"]
+            metadata["identifier"] = Config.OAIPMH_REPO_BASE_IDENTIFIER_URL + name
+            metadata["resource_type"] = "software"
+            metadata["rights"] = "openaccess"
+            metadata_dict[name] = metadata
+    except Exception as ex:
+        logger.exception("Error getting metadata from TOSCA templates")
+        return return_error(400, "Error getting metadata from TOSCA templates: %s" % get_ex_error(ex))
+
+    response_xml = oai.processRequest(flask.request, metadata_dict)
+    return flask.make_response(response_xml, 200, {'Content-Type': 'text/xml'})
 
 
 @app.route('/static/<filename>', methods=['GET'])

@@ -1347,11 +1347,7 @@ class EC2CloudConnector(CloudConnector):
                     conn = boto3.client('route53', region_name='universal',
                                         aws_access_key_id=auth['username'],
                                         aws_secret_access_key=auth['password'])
-
             zone = EC2CloudConnector._get_zone(conn, domain)
-            if not zone:
-                raise CloudConnectorException("Could not find DNS zone to update")
-            zone_id = zone['Id']
 
             if not zone:
                 self.log_info("Creating DNS zone %s" % domain)
@@ -1360,6 +1356,7 @@ class EC2CloudConnector(CloudConnector):
                 self.log_info("DNS zone %s exists. Do not create." % domain)
 
             if zone:
+                zone_id = zone['Id']
                 fqdn = hostname + "." + domain
                 records = conn.list_resource_record_sets(HostedZoneId=zone_id,
                                                          StartRecordName=fqdn,
@@ -1379,40 +1376,48 @@ class EC2CloudConnector(CloudConnector):
             return False
 
     def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Workaround to use EC2 as the default case.
-        if self.type == "EC2":
-            conn = self.get_connection('universal', auth_data, 'route53')
-        else:
-            auths = auth_data.getAuthInfo("EC2")
-            if not auths:
-                raise NoAuthData(self.type)
+        try:
+            # Workaround to use EC2 as the default case.
+            # Maintain to enable deletion of old OSCAR clusters
+            if self.type == "EC2":
+                conn = self.get_connection('universal', auth_data, 'route53')
             else:
+                auths = auth_data.getAuthInfo("EC2")
+                if not auths:
+                    raise NoAuthData(self.type)
                 auth = auths[0]
                 conn = boto3.client('route53', region_name='universal',
                                     aws_access_key_id=auth['username'],
                                     aws_secret_access_key=auth['password'])
-        zone = EC2CloudConnector._get_zone(conn, domain)
-        if not zone:
-            self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
-        else:
-            fqdn = hostname + "." + domain
-            records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
-                                                     StartRecordName=fqdn,
-                                                     StartRecordType='A',
-                                                     MaxItems='1')['ResourceRecordSets']
-            if not records or records[0]['Name'] != fqdn:
-                self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
+            zone = EC2CloudConnector._get_zone(conn, domain)
+            if not zone:
+                self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
             else:
-                self.log_info("Deleting DNS record %s." % fqdn)
-                conn.change_resource_record_sets(HostedZoneId=zone['Id'],
-                                                 ChangeBatch=EC2CloudConnector._get_change_batch('DELETE', fqdn, ip))
+                fqdn = hostname + "." + domain
+                records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
+                                                         StartRecordName=fqdn,
+                                                         StartRecordType='A',
+                                                         MaxItems='1')['ResourceRecordSets']
+                if not records or records[0]['Name'] != fqdn:
+                    self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
+                else:
+                    self.log_info("Deleting DNS record %s." % fqdn)
+                    conn.change_resource_record_sets(HostedZoneId=zone['Id'],
+                                                     ChangeBatch=EC2CloudConnector._get_change_batch('DELETE',
+                                                                                                     fqdn,
+                                                                                                     ip))
 
-            # if there are no A records
-            # all_a_records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
-            #                                                StartRecordType='A')['ResourceRecordSets']
-            # if not all_a_records:
-            #    self.log_info("Deleting DNS zone %s." % domain)
-            #    conn.delete_hosted_zone(zone['Id'])
+                # if there are no A records
+                # all_a_records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
+                #                                                StartRecordType='A')['ResourceRecordSets']
+                # if not all_a_records:
+                #    self.log_info("Deleting DNS zone %s." % domain)
+                #    conn.delete_hosted_zone(zone['Id'])
+
+            return True
+        except Exception:
+            self.log_exception("Error deleting DNS entries")
+            return False
 
     def cancel_spot_requests(self, conn, vm):
         """

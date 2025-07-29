@@ -1364,7 +1364,7 @@ configure step2 (
 
         Config.BOOT_MODE = 0
 
-    @patch('IM.InfrastructureManager.AppDBIS')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_get_cloud_info(self, appdbis):
         auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         res = IM.GetCloudImageList("cloud1", auth)
@@ -1384,17 +1384,15 @@ configure step2 (
         auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'},
                                {'id': 'app', 'type': 'AppDBIS', 'token': 'atoken'}])
 
-        appdbis_mock = MagicMock()
-        appdbis.return_value = appdbis_mock
-        appdbis_mock.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
+        appdbis.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
 
         res = IM.GetCloudImageList("app", auth, {"distribution": "Ubuntu", "version": "20.04"})
         self.assertEqual(res, [{'uri': 'ost://site/imageid', 'name': 'Image Name'}])
-        self.assertEqual(appdbis_mock.list_images.call_args_list[0][0][0],
+        self.assertEqual(appdbis.list_images.call_args_list[0][0][0],
                          {'distribution': 'Ubuntu', 'version': '20.04'})
 
     @patch('IM.InfrastructureManager.VMRC')
-    @patch('IM.InfrastructureManager.AppDBIS')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_systems_with_iis(self, appdbis, vmrc):
         auth = self.getAuth([0], [0])
         auth.auth_list.append({"type": "AppDBIS", "host": "http://is.marie.hellasgrid.gr"})
@@ -1412,9 +1410,7 @@ configure step2 (
                                   Feature("disk.0.image.url", "=", "https://fedcloud.eu"),
                                   Feature("disk.0.image.vo", "=", "fedcloud.egi.eu")])
 
-        appdbis_mock = MagicMock()
-        appdbis.return_value = appdbis_mock
-        appdbis_mock.search_vm.return_value = [sys_appdb]
+        appdbis.search_vm.return_value = [sys_appdb]
 
         sys_vmrc = system("s0", [Feature("disk.0.os.name", "=", "linux"),
                                  Feature("disk.0.os.flavour", "=", "ubuntu"),
@@ -1502,9 +1498,8 @@ configure step2 (
         self.assertEqual(res[1].name, "s0")
         self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri2")
 
-    @patch('IM.InfrastructureManager.AppDB')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_translate_egi_to_ost(self, appdb):
-        appdb.get_site_id.return_value = 'site_id'
         appdb.get_site_url.return_value = 'https://ostsite.com:5000'
         appdb.get_project_ids.return_value = {'vo_name': 'projectid'}
 
@@ -1562,7 +1557,8 @@ configure step2 (
                              'publicIP': 1, "GPU": 1},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10}],
-                'storage': [{'sizeInGigabytes': 100},
+                'storage': [{'sizeInGigabytes': 20},
+                            {'sizeInGigabytes': 100},
                             {'sizeInGigabytes': 20},
                             {'sizeInGigabytes': 20}]
             }})

@@ -16,7 +16,7 @@
 
 
 import os.path
-import requests
+# import requests
 from IM.connectors.OpenStack import OpenStackCloudConnector
 from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from IM.VirtualMachine import VirtualMachine
@@ -45,7 +45,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
 
     def __init__(self, cloud_info, inf):
         # Patch to solve SSL error
-        requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += 'HIGH:!DH:!aNULL'
+        # requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += 'HIGH:!DH:!aNULL'
         OpenStackCloudConnector.__init__(self, cloud_info, inf)
 
     def get_driver(self, auth_data):

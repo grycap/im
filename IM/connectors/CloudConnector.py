@@ -744,44 +744,62 @@ class CloudConnector(LoggerMixin):
                 vm.dns_entries = []
             if op == "add":
                 dns_entries = [entry for entry in self.get_dns_entries(vm) if entry not in vm.dns_entries]
-            else:
+            elif op == "del":
                 dns_entries = list(vm.dns_entries)
+            else:
+                raise Exception("Invalid DNS operation.")
             if dns_entries:
                 for entry in dns_entries:
                     hostname, domain, ip = entry
                     try:
-                        if op == "add":
+                        if op == "add" and entry not in vm.dns_entries:
                             success = self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if success and entry not in vm.dns_entries:
+                            if success:
                                 vm.dns_entries.append(entry)
                         elif op == "del":
-                            self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if entry in vm.dns_entries:
+                            success = self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
+                            if success and entry in vm.dns_entries:
                                 vm.dns_entries.remove(entry)
-                        else:
-                            raise Exception("Invalid DNS operation.")
                     except NotImplementedError as niex:
-                        # Use EC2 as back up for all providers if EC2 credentials are available
-                        # TODO: Change it to DyDNS when the full API is available
-                        if auth_data.getAuthInfo("EC2"):
-                            from IM.connectors.EC2 import EC2CloudConnector
-                            if op == "add":
-                                success = EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
-                                if success and entry not in vm.dns_entries:
-                                    vm.dns_entries.append(entry)
-                            elif op == "del":
-                                EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
-                                if entry in vm.dns_entries:
-                                    vm.dns_entries.remove(entry)
-                            else:
-                                raise Exception("Invalid DNS operation.")
-                        else:
+                        # Use DyDNS as back up for all providers if IM credentials uses token auth
+                        success = self.back_up_dns_entries(op, vm, auth_data, hostname, domain, ip, entry)
+                        if not success:
                             raise niex
             return True
         except Exception as ex:
             self.error_messages += "Error in %s DNS entries %s.\n" % (op, str(ex))
             self.log_exception("Error in %s DNS entries" % op)
             return False
+
+    def back_up_dns_entries(self, op, vm, auth_data, hostname, domain, ip, entry):
+        im_auth = auth_data.getAuthInfo("InfrastructureManager")
+        success = False
+
+        # Use DyDNS as back up for all providers if IM credentials uses token auth
+        if im_auth and im_auth[0].get("token") or (hostname.startswith("dydns:") and "@" in hostname):
+            from IM.connectors.EGI import EGICloudConnector
+            if op == "add" and entry not in vm.dns_entries:
+                success = EGICloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
+                if success:
+                    vm.dns_entries.append(entry)
+            elif op == "del":
+                success = EGICloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+                if success and entry in vm.dns_entries:
+                    vm.dns_entries.remove(entry)
+
+        # In other cases check if EC2 credetials anre set and try to use Route53
+        if not success and auth_data.getAuthInfo("EC2"):
+            from IM.connectors.EC2 import EC2CloudConnector
+            # Maintain to enable addition of OSCAR clusters
+            if op == "add" and entry not in vm.dns_entries:
+                success = EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
+                if success:
+                    vm.dns_entries.append(entry)
+            elif op == "del":
+                # Maintain to enable deletion of OSCAR clusters
+                success = EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+
+        return success
 
     @staticmethod
     def convert_memory_unit(memory, unit="M"):

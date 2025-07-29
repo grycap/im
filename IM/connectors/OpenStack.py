@@ -20,8 +20,6 @@ from netaddr import IPNetwork, IPAddress
 from ipaddress import IPv6Address
 import os.path
 import tempfile
-import requests
-import base64
 import re
 from IM.CloudInfo import CloudInfo
 from IM.SSH import SSH
@@ -48,7 +46,7 @@ except ImportError:
     from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
-from IM.AppDB import AppDB
+from IM.FedcloudInfo import FedcloudInfo
 from IM import get_ex_error
 
 
@@ -360,8 +358,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
-        if protocol == "appdb":
-            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack", site=self.cloud.server)
+        if protocol in ["egi", "appdb"]:
+            site_url, image_id, msg = FedcloudInfo.get_image_data(str_url, site_host=self.cloud.server)
             if not image_id or not site_url:
                 self.log_error(msg)
                 return None
@@ -591,38 +589,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, vm)
 
-    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Special case for EGI DyDNS
-        # format of the hostname: dydns:secret@hostname
-        if hostname.startswith("dydns:") and "@" in hostname:
-            parts = hostname[6:].split("@")
-            auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
-            headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
-            url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
-                                                                                      domain[:-1],
-                                                                                      ip)
-            try:
-                resp = requests.get(url, headers=headers, timeout=10)
-                resp.raise_for_status()
-            except Exception as ex:
-                self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
-                self.log_exception("Error creating DNS entries")
-                return False
-        else:
-            # TODO: https://docs.openstack.org/designate/latest/index.html
-            raise NotImplementedError("Should have implemented this")
-        return True
-
-    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Special case for EGI DyDNS
-        # format of the hostname: dydns:secret@hostname
-        if hostname.startswith("dydns:") and "@" in hostname:
-            self.log_info("DYDNS entry. Cannot be deleted.")
-        else:
-            # TODO: https://docs.openstack.org/designate/latest/index.html
-            raise NotImplementedError("Should have implemented this")
-        return True
-
     @staticmethod
     def map_radl_ost_networks(vm, ost_nets):
         """
@@ -762,7 +728,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         ip_net_map[ip] = (None, not is_private)
                     else:
                         ip_net_map[ip] = (net_name, not is_private)
-                    if not is_private:
+                    if not is_private and IPAddress(ip).version == 4:
                         public_ips.append(ip)
 
             for float_ip in self.get_node_floating_ips(node):
@@ -1330,12 +1296,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         volume = image = None
         image_url = system.getValue("disk.0.image.url")
-        if urlparse(image_url)[0] == "appdb":
+        if urlparse(image_url)[0] in ["egi", "appdb"]:
             vo = self.get_vo_name(auth_data)
-            _, image_id, msg = AppDB.get_image_data(image_url, "openstack", vo, site=self.cloud.server)
+            _, image_id, msg = FedcloudInfo.get_image_data(image_url, vo, site_host=self.cloud.server)
             if not image_id:
                 self.log_error(msg)
-                raise CloudConnectorException("Error in appdb image: %s" % msg)
+                raise CloudConnectorException("Error in egi image: %s" % msg)
         else:
             image_id = self.get_image_id(system.getValue("disk.0.image.url"))
 
@@ -1633,7 +1599,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 delay = 5
                 attached = False
                 ports = node.driver.ex_get_node_ports(node)
-                print(ports)
                 while ports and not attached and cont < retries:
                     # Use each port to attach the IP
                     port_num = cont % len(ports)
@@ -2228,11 +2193,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         quotas = driver.ex_get_quota_set(tenant_id)
         try:
             net_quotas = driver.ex_get_network_quotas(tenant_id)
-        except Exception:
+        except Exception as ex:
+            self.log_warn("Error getting network quotas: %s" % get_ex_error(ex))
             net_quotas = None
         try:
             vol_quotas = driver.ex_get_volume_quotas(tenant_id)
-        except Exception:
+        except Exception as ex:
+            self.log_warn("Error getting volume quotas: %s" % get_ex_error(ex))
             vol_quotas = None
 
         quotas_dict = {}
