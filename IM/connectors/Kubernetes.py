@@ -947,7 +947,7 @@ class KubernetesCloudConnector(CloudConnector):
                 if new_cpu:
                     vm.info.systems[0].setValue('cpu.count', new_cpu)
                 if new_memory:
-                    vm.info.systems[0].setFeature('memory.size').setValue('B', new_memory)
+                    vm.info.systems[0].setValue('memory.size', new_memory, 'B')
                 return (True, vm)
 
         except Exception as ex:
