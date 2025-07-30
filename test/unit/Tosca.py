@@ -504,6 +504,12 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("gpu.count"), 1)
 
         with self.assertRaises(Exception) as ex:
+            tosca = Tosca(tosca_data)
+        expected_error = 'Error parsing TOSCA template: Relative file name "simple-node-disk.yml"' \
+                         ' cannot be used in a pre-parsed input template.'
+        self.assertEqual(expected_error, str(ex.exception))
+
+        with self.assertRaises(Exception) as ex:
             tosca = Tosca(tosca_data, tosca_repo="https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/")
         expected_error = "Error parsing TOSCA template: Failed to reach server " \
                          '"https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/simple-node-disk.yml". ' \
@@ -526,7 +532,6 @@ class TestTosca(unittest.TestCase):
                           tosca_repo="https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/")
         expected_error = "Error parsing TOSCA template: The TOSCA template must be imported from the TOSCA " \
                          "repository: https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/"
-        print(str(ex.exception))
         self.assertEqual(expected_error, str(ex.exception))
 
 
