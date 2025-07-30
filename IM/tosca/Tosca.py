@@ -91,8 +91,16 @@ class Tosca:
         if 'tosca_definitions_version' not in input_yaml or not input_yaml.get('imports'):
             return input_yaml
 
+        # Check if the import URL
+        import_file = input_yaml.get('imports')[0]
+        if self.tosca_repo:
+            import_file_url = urlparse(import_file)
+            # If the import is a URL, check if it is in the TOSCA repository
+            if import_file_url.scheme and not import_file.startswith(self.tosca_repo):
+                raise Exception("The TOSCA template must be imported from the TOSCA repository: %s" % self.tosca_repo)
+
         # Load the imported template
-        custom_import = ImportsLoader([input_yaml.get('imports')[0]], self.tosca_repo,
+        custom_import = ImportsLoader([import_file], self.tosca_repo,
                                       type_definition_list=["topology_template", "imports"], tpl=input_yaml)
         # Get the imports to add them later
         imports = custom_import.custom_defs.get('imports')
