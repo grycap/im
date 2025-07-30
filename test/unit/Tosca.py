@@ -503,6 +503,13 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("cpu.count"), 16)
         self.assertEqual(node.getValue("gpu.count"), 1)
 
+        with self.assertRaises(Exception) as ex:
+            tosca = Tosca(tosca_data, tosca_repo="https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/")
+        expected_error = "Error parsing TOSCA template: Failed to reach server " \
+                         '"https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/simple-node-disk.yml". ' \
+                         "Reason is: Not Found."
+        self.assertEqual(expected_error, str(ex.exception))
+
         # Test with a full URL in the template_file and not in the repo
         tosca_yaml = yaml.safe_load(tosca_data)
         tosca_yaml["imports"][0] = "https://raw.githubusercontent.com/grycap/tosca/main/templates/simple-node-disk.yml"
@@ -514,12 +521,12 @@ class TestTosca(unittest.TestCase):
         outputs = tosca.get_outputs(None)
         self.assertEqual(outputs.get('new_output'), 1)
 
-        tosca_data = read_file_as_string('../files/tosca_repo.yml')
         with self.assertRaises(Exception) as ex:
-            tosca = Tosca(tosca_data, tosca_repo="https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/")
-        expected_error = "Error parsing TOSCA template: Failed to reach server " \
-                         '"https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/simple-node-disk.yml". ' \
-                         "Reason is: Not Found."
+            tosca = Tosca(yaml.safe_dump(tosca_yaml),
+                          tosca_repo="https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/")
+        expected_error = "Error parsing TOSCA template: The TOSCA template must be imported from the TOSCA " \
+                         "repository: https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/"
+        print(str(ex.exception))
         self.assertEqual(expected_error, str(ex.exception))
 
 
