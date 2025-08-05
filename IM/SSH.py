@@ -138,7 +138,7 @@ class SSH:
     @staticmethod
     def _load_private_key(private_key_obj):
         """ Load a private key from a file-like object"""
-        for kype in [paramiko.RSAKey, paramiko.DSSKey, paramiko.ECDSAKey, paramiko.Ed25519Key]:
+        for kype in [paramiko.RSAKey, paramiko.ECDSAKey, paramiko.Ed25519Key]:
             try:
                 return kype.from_private_key(private_key_obj)
             except Exception:
