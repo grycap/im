@@ -329,7 +329,7 @@ class TestIM(unittest.TestCase):
         self.assertIn("Error launching the VMs of type s0 to cloud ID cloud0 of type Mock. Attempt 1: e1", cont_msg)
 
     @patch("IM.InfrastructureManager.OpenIDClient")
-    def test_inf_auth(self, oidc_client_mock):
+    def test_access_no_own_inf(self, oidc_client_mock):
         """Try to access not owned Infs."""
         auth0, auth1 = self.getAuth([0]), self.getAuth([1])
         infId0 = IM.CreateInfrastructure("", auth0)
