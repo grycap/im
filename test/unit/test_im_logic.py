@@ -328,7 +328,8 @@ class TestIM(unittest.TestCase):
             wait += 1
         self.assertIn("Error launching the VMs of type s0 to cloud ID cloud0 of type Mock. Attempt 1: e1", cont_msg)
 
-    def test_inf_auth(self):
+    @patch("IM.InfrastructureManager.OpenIDClient")
+    def test_inf_auth(self, oidc_client_mock):
         """Try to access not owned Infs."""
         auth0, auth1 = self.getAuth([0]), self.getAuth([1])
         infId0 = IM.CreateInfrastructure("", auth0)
@@ -348,10 +349,22 @@ class TestIM(unittest.TestCase):
         IM.GetInfrastructureInfo(infId0, autha)
         IM.GetInfrastructureInfo(infId1, autha)
 
+        oidc_client_mock.get_user_info_request.return_value = True, {
+            "preferred_username": "username",
+            "sub": "user_sub",
+            "groups": ["admin", "other"]
+        }
+        oidc_client_mock.is_access_token_expired.return_value = False, ""
+        Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+        Config.OIDC_ADMIN_GROUPS = [{"issuer": "https://iam-test.indigo-datacloud.eu/", "group": "admin"}]
+        token = self.gen_token()
+        autha = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'token': token}])
+        IM.GetInfrastructureInfo(infId0, autha)
+
         Config.ADMIN_USER = None
+        Config.OIDC_ADMIN_GROUPS = []
 
         IM.DestroyInfrastructure(infId0, auth0)
-        IM.DestroyInfrastructure(infId1, auth1)
 
     def test_inf_auth_with_userdb(self):
         """Test access im with user db."""
