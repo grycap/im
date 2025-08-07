@@ -1583,7 +1583,6 @@ class InfrastructureManager:
             else:
                 raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
-
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
             single_site_auth = auth.getAuthInfo(Config.SINGLE_SITE_TYPE)
