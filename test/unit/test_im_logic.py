@@ -349,6 +349,8 @@ class TestIM(unittest.TestCase):
         IM.GetInfrastructureInfo(infId0, autha)
         IM.GetInfrastructureInfo(infId1, autha)
 
+        Config.ADMIN_USER = None
+
         oidc_client_mock.get_user_info_request.return_value = True, {
             "preferred_username": "username",
             "sub": "user_sub",
@@ -361,7 +363,6 @@ class TestIM(unittest.TestCase):
         autha = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'token': token}])
         IM.GetInfrastructureInfo(infId0, autha)
 
-        Config.ADMIN_USER = None
         Config.OIDC_ADMIN_GROUPS = []
 
         IM.DestroyInfrastructure(infId0, auth0)
