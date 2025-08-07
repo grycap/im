@@ -1352,7 +1352,7 @@ class InfrastructureManager:
             return True
 
     @staticmethod
-    def check_oidc_token(im_auth, admin_users):
+    def check_oidc_token(im_auth, admin_users=[]):
         token = im_auth["token"]
         success = False
         issuer = None
