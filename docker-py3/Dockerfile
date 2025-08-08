@@ -16,7 +16,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y patch wget pyth
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip git && \
      pip3 install --break-system-packages msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity && \
      pip3 install --break-system-packages pyOpenSSL cheroot xmltodict pymongo ansible==8.7.0&& \
-     pip3 install --break-system-packages git+https://github.com/openstack/tosca-parser && \
      pip3 install --break-system-packages git+https://github.com/micafer/libcloud@im && \
      pip3 install --break-system-packages IM==${VERSION} &&\
      apt-get purge -y python3-pip python3-setuptools python3-pkg-resources git && \
