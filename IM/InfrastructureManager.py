@@ -1352,7 +1352,7 @@ class InfrastructureManager:
             return True
 
     @staticmethod
-    def check_oidc_token(im_auth, admin_users=[]):
+    def check_oidc_token(im_auth, admin_users=None):
         token = im_auth["token"]
         success = False
         issuer = None
@@ -1445,11 +1445,12 @@ class InfrastructureManager:
             InfrastructureManager.logger.error("Incorrect OIDC auth token: %s" % userinfo)
             raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
 
-        for admin_auth in admin_users:
-            if (im_auth.get("username") == admin_auth.get("username") and
-                    im_auth.get("password") == admin_auth.get("password")):
-                im_auth['admin'] = True
-                break
+        if admin_users:
+            for admin_auth in admin_users:
+                if (im_auth.get("username") == admin_auth.get("username") and
+                        im_auth.get("password") == admin_auth.get("password")):
+                    im_auth['admin'] = True
+                    break
 
         if Config.OIDC_ADMIN_GROUPS:
             user_groups = userinfo.get(Config.OIDC_GROUPS_CLAIM, [])
