@@ -566,6 +566,31 @@ by the IM service.
 
    The email of the repository administrator.
 
+Admin user support
+^^^^^^^^^^^^^^^^^^
+
+Configure IM admin users. It will be able to manage all the infrastructures in the service.
+But it should also provide correct credentials to access cloud providers, if not cloud resources
+will not be able to be managed.
+
+.. confval:: ADMIN_USER
+
+   Configure a set of admin users with user and password::
+
+      ADMIN_USER = [{"username": "user", "password": "pass"},
+                    {"username": "user2", "password": "pass2"}]
+
+   In case of OIDC users, use this format::
+
+      ADMIN_USER = [{"username": "__OPENID__username", "password": "https://some_issuer.com/user_sub", "token": ""},
+                    {"username": "__OPENID__username2", "password": "https://some_issuer.com/user_sub2", "token": ""}]]
+
+.. confval:: OIDC_ADMIN_GROUPS
+
+   To set as admin all the users of an OIDC group::
+
+      OIDC_ADMIN_GROUPS = [{"issuer": "https://some_issuer.com/", "group": "group_name"}]
+
 .. _options-ha:
 
 IM in high availability mode

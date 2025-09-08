@@ -1352,9 +1352,10 @@ class InfrastructureManager:
             return True
 
     @staticmethod
-    def check_oidc_token(im_auth):
+    def check_oidc_token(im_auth, admin_users=None):
         token = im_auth["token"]
         success = False
+        issuer = None
         try:
             # decode the token to get the info
             decoded_token = JWT().get_info(token)
@@ -1443,6 +1444,20 @@ class InfrastructureManager:
         if not success:
             InfrastructureManager.logger.error("Incorrect OIDC auth token: %s" % userinfo)
             raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
+
+        if admin_users:
+            for admin_auth in admin_users:
+                if (im_auth.get("username") == admin_auth.get("username") and
+                        im_auth.get("password") == admin_auth.get("password")):
+                    im_auth['admin'] = True
+                    break
+
+        if Config.OIDC_ADMIN_GROUPS:
+            user_groups = userinfo.get(Config.OIDC_GROUPS_CLAIM, [])
+            for elem in Config.OIDC_ADMIN_GROUPS:
+                if elem['issuer'] == issuer and elem['group'] in user_groups:
+                    im_auth['admin'] = True
+                    break
 
     @staticmethod
     def get_auth_from_vault(auth):
@@ -1538,6 +1553,12 @@ class InfrastructureManager:
         if not im_auth:
             raise InvaliddUserException("No credentials provided for the InfrastructureManager.")
 
+        admin_users = []
+        if Config.ADMIN_USER:
+            admin_users = Config.ADMIN_USER
+            if isinstance(Config.ADMIN_USER, dict):
+                admin_users = [Config.ADMIN_USER]
+
         for im_auth_item in im_auth:
             im_auth_item['admin'] = False
             if Config.FORCE_OIDC_AUTH and "token" not in im_auth_item:
@@ -1545,7 +1566,7 @@ class InfrastructureManager:
 
             # First check if an OIDC token is included
             if "token" in im_auth_item:
-                InfrastructureManager.check_oidc_token(im_auth_item)
+                InfrastructureManager.check_oidc_token(im_auth_item, admin_users)
             elif "username" in im_auth_item:
                 if im_auth_item['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
                     # This is a OpenID user do not enable to get data using user/pass creds
@@ -1554,19 +1575,14 @@ class InfrastructureManager:
                 # Now check if the user is in authorized
                 if not InfrastructureManager.check_im_user(im_auth_item):
                     raise InvaliddUserException()
-            else:
-                raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
-            if Config.ADMIN_USER:
-                admin_users = Config.ADMIN_USER
-                if isinstance(Config.ADMIN_USER, dict):
-                    admin_users = [Config.ADMIN_USER]
                 for admin_auth in admin_users:
-                    if ((im_auth_item.get("token") is None or admin_auth.get("token") is not None) and
-                            im_auth_item.get("username") == admin_auth.get("username") and
+                    if (im_auth_item.get("username") == admin_auth.get("username") and
                             im_auth_item.get("password") == admin_auth.get("password")):
                         im_auth_item['admin'] = True
                         break
+            else:
+                raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
