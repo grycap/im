@@ -276,6 +276,7 @@ We can create a placement group with two of them (compute_one and compute_two) a
 and, optionally, an availability zone.
 
 .. code-block:: yaml
+
     ...
 
     groups:
