@@ -798,3 +798,9 @@ IM 1.19.0:
     * Integration of the new DyDNS API to add and remove hosts.
     * Fix error deleting IM security groups in OpenStack.
     * Return public IPs and GPUs in EstimateResouces
+
+IM 1.19.1:
+    * Enable auth data in JSON format
+    * Enable to filter ips by project in OST conn
+    * Fix error caused by the Removal of DSS key algorithm support in Paramiko package
+    * Enable to specify admin users using OIDC groups
