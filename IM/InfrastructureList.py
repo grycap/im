@@ -40,6 +40,12 @@ class InfrastructureList():
     _lock = threading.Lock()
     """Threading Lock to avoid concurrency problems."""
 
+    _pending_to_save = set()
+    """
+    Set of infrastructures pending to save to DB.
+    For infras that have not been saved due to some DB error.
+    """
+
     @staticmethod
     def add_infrastructure(inf):
         """Add a new Infrastructure."""
@@ -128,16 +134,22 @@ class InfrastructureList():
         - inf_id(str): ID of the infrastructure to save. If None all will be saved.
         """
         with InfrastructureList._lock:
-            try:
-                res = InfrastructureList._save_data_to_db(Config.DATA_DB,
-                                                          InfrastructureList.infrastructure_list,
-                                                          inf_id)
-                if not res:
-                    InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
-                    sys.stderr.write("ERROR saving data.\nChanges not stored!!")
-            except Exception as ex:
-                InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
-                sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
+            InfrastructureList._pending_to_save.add(inf_id)
+            to_save = set(InfrastructureList._pending_to_save)
+
+            for elem in to_save:
+                try:
+                    res = InfrastructureList._save_data_to_db(Config.DATA_DB,
+                                                              InfrastructureList.infrastructure_list,
+                                                              elem)
+                    if res:
+                        InfrastructureList._pending_to_save.remove(elem)
+                    else:
+                        InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
+                        sys.stderr.write("ERROR saving data.\nChanges not stored!!")
+                except Exception as ex:
+                    InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
+                    sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 
     @staticmethod
     def init_table():
