@@ -470,7 +470,6 @@ class InfrastructureManager:
                 msg += " to system '" + system_id + "'"
                 if local_msg:
                     msg += ": " + local_msg
-                #sel_inf.add_cont_msg(msg)
                 raise Exception(msg)
 
             n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
