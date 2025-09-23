@@ -393,10 +393,11 @@ class InfrastructureManager:
     def search_vm(inf, radl_sys, auth):
         # If an images is already set do not search
         if radl_sys.getValue("disk.0.image.url"):
-            return []
+            return "", []
 
         dist = radl_sys.getValue('disk.0.os.flavour')
         version = radl_sys.getValue('disk.0.os.version')
+        msg = ""
         res = []
         for c in CloudInfo.get_cloud_list(auth):
             cloud_site = c.getCloudConnector(inf)
@@ -404,6 +405,7 @@ class InfrastructureManager:
                 images = cloud_site.list_images(auth, filters={"distribution": dist, "version": version})
             except Exception as ex:
                 images = []
+                msg += "Error getting images from cloud: %s (%s)\n" % (c.id, ex)
                 InfrastructureManager.logger.warning("Inf ID: %s: Error getting images " % inf.id +
                                                      "from cloud: %s (%s)" % (c.id, ex))
 
@@ -412,7 +414,7 @@ class InfrastructureManager:
                 new_sys.setValue("disk.0.image.url", images[0]["uri"])
                 res.append(new_sys)
 
-        return res
+        return msg, res
 
     @staticmethod
     def systems_with_iis(sel_inf, radl, auth):
@@ -457,11 +459,19 @@ class InfrastructureManager:
 
             vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
             appdbis_res = [s0 for appdbis in appdbis_list for s0 in appdbis.search_vm(s)]
-            local_res = InfrastructureManager.search_vm(sel_inf, s, auth)
+            local_msg, local_res = InfrastructureManager.search_vm(sel_inf, s, auth)
             # Check that now the image URL is in the RADL
             if not s.getValue("disk.0.image.url") and not vmrc_res and not appdbis_res and not local_res:
-                sel_inf.add_cont_msg("No VMI obtained from VMRC nor AppDBIS nor Sites to system: " + system_id)
-                raise Exception("No VMI obtained from VMRC nor AppDBIS not Sites to system: " + system_id)
+                msg = "No VMI obtained from Sites"
+                if vmrc_list:
+                    msg += " nor VMRC"
+                if appdbis_list:
+                    msg += " nor AppDBIS"
+                msg += " to system '" + system_id + "'"
+                if local_msg:
+                    msg += ": " + local_msg
+                #sel_inf.add_cont_msg(msg)
+                raise Exception(msg)
 
             n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
                  for s0 in (vmrc_res + appdbis_res + local_res)]

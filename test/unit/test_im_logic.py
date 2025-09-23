@@ -1505,7 +1505,8 @@ configure step2 (
                                          [{"name": "ubuntu-22.04-raw", "uri": "imageuri2"},
                                           {"name": "ubuntu-20.04-raw", "uri": "imageuri3"},
                                           {"name": "ubuntu-20.04-raw", "uri": "imageuri4"}]]
-        res = IM.search_vm(inf, radl_sys, auth)
+        msg, res = IM.search_vm(inf, radl_sys, auth)
+        self.assertEqual(msg, "")
         self.assertEqual(len(res), 2)
         self.assertEqual(res[0].name, "s0")
         self.assertEqual(res[0].getValue("disk.0.image.url"), "imageuri")
