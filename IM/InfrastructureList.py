@@ -134,6 +134,9 @@ class InfrastructureList():
         - inf_id(str): ID of the infrastructure to save. If None all will be saved.
         """
         with InfrastructureList._lock:
+            if InfrastructureList._pending_to_save:
+                for elem in InfrastructureList._pending_to_save:
+                    InfrastructureList.logger.debug("Trying to save pending Inf ID: %s" % elem)
             InfrastructureList._pending_to_save.add(inf_id)
             to_save = set(InfrastructureList._pending_to_save)
 
