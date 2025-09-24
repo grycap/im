@@ -67,19 +67,30 @@ class InfrastructureList():
     @staticmethod
     def get_inf_ids(auth=None):
         """ Get the IDs of the Infrastructures """
+        db_inf_ids = InfrastructureList._get_inf_ids_from_db(auth)
+        # In case that some DB error, also get IDs from memory
+        mem_inf_ids = [inf.id for inf in list(InfrastructureList.infrastructure_list.values())
+                       if not inf.has_expired() and (auth is None or inf.is_authorized(auth))]
         if auth:
-            # In this case only loads the auth data to improve performance
             inf_ids = []
-            for inf_id in InfrastructureList._get_inf_ids_from_db(auth):
+            for inf_id in db_inf_ids:
                 inf = None
-                res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
-                if res:
-                    inf = res[inf_id]
+                # First check if we have it in memory
+                if inf_id in InfrastructureList.infrastructure_list:
+                    inf = InfrastructureList.infrastructure_list[inf_id]
+                    if inf.has_expired():
+                        inf = None
+                if not inf:
+                    res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
+                    if res:
+                        inf = res[inf_id]
+                # Confirm that auth is authorized
                 if inf and inf.is_authorized(auth):
                     inf_ids.append(inf.id)
-            return inf_ids
         else:
-            return InfrastructureList._get_inf_ids_from_db()
+            inf_ids = db_inf_ids
+
+        return list(set(db_inf_ids + mem_inf_ids))
 
     @staticmethod
     def get_infrastructure(inf_id):
@@ -240,7 +251,7 @@ class InfrastructureList():
 
     @staticmethod
     def _save_data_to_db(db_url, inf_list, inf_id=None):
-        if not inf_list:
+        if not inf_list or (inf_id and inf_id not in inf_list):
             InfrastructureList.logger.info("No data to save to the database!.")
             return True
         db = DataBase(db_url)

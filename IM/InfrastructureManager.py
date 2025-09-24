@@ -228,13 +228,10 @@ class InfrastructureManager:
     def get_infrastructure(inf_id, auth):
         """Return infrastructure info with some id if valid authorization provided."""
 
-        if inf_id not in IM.InfrastructureList.InfrastructureList.get_inf_ids():
-            InfrastructureManager.logger.error("Error, incorrect Inf ID: %s" % inf_id)
-            raise IncorrectInfrastructureException()
         sel_inf = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
         if not sel_inf:
-            InfrastructureManager.logger.error("Error loading Inf ID: %s" % inf_id)
-            raise IncorrectInfrastructureException("Error loading Inf ID data.")
+            InfrastructureManager.logger.error("Error, incorrect Inf ID: %s" % inf_id)
+            raise IncorrectInfrastructureException()
         if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error to Inf ID: %s" % inf_id)
             raise UnauthorizedUserException()
