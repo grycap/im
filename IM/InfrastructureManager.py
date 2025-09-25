@@ -2046,7 +2046,9 @@ class InfrastructureManager:
                         res[cloud_id]["compute"].append(vm)
 
                         cont = 0
-                        while concrete_system.getValue(f"disk.{cont}.size") or cont == 0:
+                        while (concrete_system.getValue(f"disk.{cont}.size") or
+                                concrete_system.getValue(f"disk.{cont}.content") or
+                                cont == 0):
                             if concrete_system.getValue(f"disk.{cont}.size"):
                                 volume_size = concrete_system.getFeature(f"disk.{cont}.size").getValue('G')
                                 vol_info = {"sizeInGigabytes": volume_size}
