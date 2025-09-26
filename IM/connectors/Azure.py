@@ -1210,15 +1210,36 @@ class AzureCloudConnector(CloudConnector):
 
     def list_images(self, auth_data, filters=None):
         location = self.DEFAULT_LOCATION
-        offers = ["*"]
-        publisher = ['Canonical', 'MicrosoftSQLServer', 'MicrosoftWindowsDesktop',
-                     'MicrosoftWindowsServer', 'nvidia', 'Oracle', 'RedHat', 'SUSE']
+        offers_filter = ["*"]
+        publisher = ['Canonical', 'RedHat', 'almalinux', 'resf' 'MicrosoftSQLServer',
+                     'MicrosoftWindowsDesktop', 'MicrosoftWindowsServer', 'nvidia', 'Oracle', 'SUSE']
+
+        # Filter publisher by distribution name
+        dist = None
+        if filters:
+            dist = filters.get('distribution', None)
+
+        if dist:
+            dist = dist.lower()
+            if dist == 'ubuntu':
+                publisher = ['Canonical']
+            elif dist == 'rhel':
+                publisher = ['RedHat']
+            elif dist in ['almalinux', 'alma']:
+                publisher = ['almalinux']
+            elif dist in ['rocky', 'rockylinux', 'rocky-linux']:
+                publisher = ['resf']
+            elif dist in ['sles', 'suse']:
+                publisher = ['SUSE']
+            elif dist == 'windows':
+                publisher = ['MicrosoftWindowsServer', 'MicrosoftWindowsDesktop']
+
         if filters and 'location' in filters and filters['location']:
             location = filters['location']
         if filters and 'publisher' in filters and filters['publisher']:
             publisher = filters['publisher'].split(",")
         if filters and 'offer' in filters and filters['offer']:
-            offers = filters['offer'].split(",")
+            offers_filter = filters['offer'].split(",")
 
         credentials, subscription_id = self.get_credentials(auth_data)
         compute_client = ComputeManagementClient(credentials, subscription_id)
@@ -1230,16 +1251,26 @@ class AzureCloudConnector(CloudConnector):
 
         images = []
         for pub in publisher:
-            if offers == ["*"]:
-                offers = compute_client.virtual_machine_images.list_offers(location, pub)
-                offers = [offer.name for offer in offers]
-            for offer in offers:
-                skus = compute_client.virtual_machine_images.list_skus(location, pub, offer)
-                for sku in skus:
-                    images.append((pub, offer, sku.name))
+            try:
+                if offers_filter == ["*"]:
+                    offers = compute_client.virtual_machine_images.list_offers(location, pub)
+                    offers_names = [offer.name for offer in offers]
+                else:
+                    offers_names = offers_filter
+                for offer in offers_names:
+                    skus = compute_client.virtual_machine_images.list_skus(location, pub, offer)
+                    for sku in skus:
+                        images.append((pub, offer, sku.name))
+            except Exception:
+                self.log_exception("Error getting images for publisher %s" % pub)
 
         res = []
         for pub, offer, sku in images:
+            name = "%s %s %s" % (pub, offer, sku)
+            if "-pro" in name.lower():
+                # Skip pro versions
+                continue
+            name = name.replace("_", ".")  # In most cases version number has _ instead of .
             res.append({"uri": "azr://%s/%s/%s/latest" % (pub, offer, sku),
-                               "name": "%s %s %s" % (pub, offer, sku)})
+                               "name": name})
         return self._filter_images(res, filters)

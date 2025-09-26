@@ -637,7 +637,7 @@ class TestAzureConnector(TestCloudConnectorBase):
 
         images = azure_cloud.list_images(auth)
 
-        self.assertEqual(len(images), 16)
+        self.assertEqual(len(images), 18)
         self.assertEqual(images[0], {'uri': 'azr://Canonical/offer1/sku1/latest', 'name': 'Canonical offer1 sku1'})
 
         images = azure_cloud.list_images(auth, filters={"publisher": "*"})
