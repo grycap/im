@@ -804,3 +804,6 @@ IM 1.19.1:
     * Enable to filter ips by project in OST conn
     * Fix error caused by the Removal of DSS key algorithm support in Paramiko package
     * Enable to specify admin users using OIDC groups
+    * Improve image list in Azure conn.
+    * Fix storage estimate in K8s conn with configmaps.
+    * Fix issue with Almalinux SO contextualization.
