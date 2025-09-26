@@ -1026,6 +1026,8 @@ def RESTGetCloudInfo(cloudid=None, param=None):
         elif param == 'quotas':
             quotas = InfrastructureManager.GetCloudQuotas(cloudid, auth)
             return format_output(quotas, default_type="application/json", field_name="quotas")
+        else:
+            return return_error(404, "Incorrect cloud property")
     except InvaliddUserException as ex:
         return return_error(401, "Error getting cloud info: %s" % get_ex_error(ex))
     except Exception as ex:
