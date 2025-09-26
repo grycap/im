@@ -286,12 +286,12 @@ and, optionally, an availability zone.
 
     policies:
       - deploy_group_on_cloudid:
-        type: tosca.policies.Placement
+        type: tosca.policies.indigo.Placement
         properties: { cloud_id: cloudid1 }
         targets: [ my_placement_group ]
 
       - deploy_on_cloudid:
-        type: tosca.policies.Placement
+        type: tosca.policies.indigo.Placement
         properties: { cloud_id: cloudid2, availability_zone: some_zone }
         targets: [ compute_three ]
 
