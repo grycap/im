@@ -228,13 +228,10 @@ class InfrastructureManager:
     def get_infrastructure(inf_id, auth):
         """Return infrastructure info with some id if valid authorization provided."""
 
-        if inf_id not in IM.InfrastructureList.InfrastructureList.get_inf_ids():
-            InfrastructureManager.logger.error("Error, incorrect Inf ID: %s" % inf_id)
-            raise IncorrectInfrastructureException()
         sel_inf = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
         if not sel_inf:
-            InfrastructureManager.logger.error("Error loading Inf ID: %s" % inf_id)
-            raise IncorrectInfrastructureException("Error loading Inf ID data.")
+            InfrastructureManager.logger.error("Error, incorrect Inf ID: %s" % inf_id)
+            raise IncorrectInfrastructureException()
         if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error to Inf ID: %s" % inf_id)
             raise UnauthorizedUserException()
@@ -393,10 +390,11 @@ class InfrastructureManager:
     def search_vm(inf, radl_sys, auth):
         # If an images is already set do not search
         if radl_sys.getValue("disk.0.image.url"):
-            return []
+            return "", []
 
         dist = radl_sys.getValue('disk.0.os.flavour')
         version = radl_sys.getValue('disk.0.os.version')
+        msg = ""
         res = []
         for c in CloudInfo.get_cloud_list(auth):
             cloud_site = c.getCloudConnector(inf)
@@ -404,6 +402,7 @@ class InfrastructureManager:
                 images = cloud_site.list_images(auth, filters={"distribution": dist, "version": version})
             except Exception as ex:
                 images = []
+                msg += "Error getting images from cloud: %s (%s)\n" % (c.id, ex)
                 InfrastructureManager.logger.warning("Inf ID: %s: Error getting images " % inf.id +
                                                      "from cloud: %s (%s)" % (c.id, ex))
 
@@ -412,7 +411,7 @@ class InfrastructureManager:
                 new_sys.setValue("disk.0.image.url", images[0]["uri"])
                 res.append(new_sys)
 
-        return res
+        return msg, res
 
     @staticmethod
     def systems_with_iis(sel_inf, radl, auth):
@@ -457,11 +456,18 @@ class InfrastructureManager:
 
             vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
             appdbis_res = [s0 for appdbis in appdbis_list for s0 in appdbis.search_vm(s)]
-            local_res = InfrastructureManager.search_vm(sel_inf, s, auth)
+            local_msg, local_res = InfrastructureManager.search_vm(sel_inf, s, auth)
             # Check that now the image URL is in the RADL
             if not s.getValue("disk.0.image.url") and not vmrc_res and not appdbis_res and not local_res:
-                sel_inf.add_cont_msg("No VMI obtained from VMRC nor AppDBIS nor Sites to system: " + system_id)
-                raise Exception("No VMI obtained from VMRC nor AppDBIS not Sites to system: " + system_id)
+                msg = "No VMI obtained from Sites"
+                if vmrc_list:
+                    msg += " nor VMRC"
+                if appdbis_list:
+                    msg += " nor AppDBIS"
+                msg += " to system '" + system_id + "'"
+                if local_msg:
+                    msg += ": " + local_msg
+                raise Exception(msg)
 
             n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
                  for s0 in (vmrc_res + appdbis_res + local_res)]
@@ -1352,9 +1358,10 @@ class InfrastructureManager:
             return True
 
     @staticmethod
-    def check_oidc_token(im_auth):
+    def check_oidc_token(im_auth, admin_users=None):
         token = im_auth["token"]
         success = False
+        issuer = None
         try:
             # decode the token to get the info
             decoded_token = JWT().get_info(token)
@@ -1443,6 +1450,20 @@ class InfrastructureManager:
         if not success:
             InfrastructureManager.logger.error("Incorrect OIDC auth token: %s" % userinfo)
             raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
+
+        if admin_users:
+            for admin_auth in admin_users:
+                if (im_auth.get("username") == admin_auth.get("username") and
+                        im_auth.get("password") == admin_auth.get("password")):
+                    im_auth['admin'] = True
+                    break
+
+        if Config.OIDC_ADMIN_GROUPS:
+            user_groups = userinfo.get(Config.OIDC_GROUPS_CLAIM, [])
+            for elem in Config.OIDC_ADMIN_GROUPS:
+                if elem['issuer'] == issuer and elem['group'] in user_groups:
+                    im_auth['admin'] = True
+                    break
 
     @staticmethod
     def get_auth_from_vault(auth):
@@ -1538,6 +1559,12 @@ class InfrastructureManager:
         if not im_auth:
             raise InvaliddUserException("No credentials provided for the InfrastructureManager.")
 
+        admin_users = []
+        if Config.ADMIN_USER:
+            admin_users = Config.ADMIN_USER
+            if isinstance(Config.ADMIN_USER, dict):
+                admin_users = [Config.ADMIN_USER]
+
         for im_auth_item in im_auth:
             im_auth_item['admin'] = False
             if Config.FORCE_OIDC_AUTH and "token" not in im_auth_item:
@@ -1545,7 +1572,7 @@ class InfrastructureManager:
 
             # First check if an OIDC token is included
             if "token" in im_auth_item:
-                InfrastructureManager.check_oidc_token(im_auth_item)
+                InfrastructureManager.check_oidc_token(im_auth_item, admin_users)
             elif "username" in im_auth_item:
                 if im_auth_item['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
                     # This is a OpenID user do not enable to get data using user/pass creds
@@ -1554,19 +1581,14 @@ class InfrastructureManager:
                 # Now check if the user is in authorized
                 if not InfrastructureManager.check_im_user(im_auth_item):
                     raise InvaliddUserException()
-            else:
-                raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
-            if Config.ADMIN_USER:
-                admin_users = Config.ADMIN_USER
-                if isinstance(Config.ADMIN_USER, dict):
-                    admin_users = [Config.ADMIN_USER]
                 for admin_auth in admin_users:
-                    if ((im_auth_item.get("token") is None or admin_auth.get("token") is not None) and
-                            im_auth_item.get("username") == admin_auth.get("username") and
+                    if (im_auth_item.get("username") == admin_auth.get("username") and
                             im_auth_item.get("password") == admin_auth.get("password")):
                         im_auth_item['admin'] = True
                         break
+            else:
+                raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
@@ -2034,7 +2056,9 @@ class InfrastructureManager:
                         res[cloud_id]["compute"].append(vm)
 
                         cont = 0
-                        while concrete_system.getValue(f"disk.{cont}.size") or cont == 0:
+                        while (concrete_system.getValue(f"disk.{cont}.size") or
+                                concrete_system.getValue(f"disk.{cont}.content") or
+                                cont == 0):
                             if concrete_system.getValue(f"disk.{cont}.size"):
                                 volume_size = concrete_system.getFeature(f"disk.{cont}.size").getValue('G')
                                 vol_info = {"sizeInGigabytes": volume_size}

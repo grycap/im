@@ -1,3 +1,4 @@
 sphinx_rtd_theme
 sphinx_toolbox
 snowballstemmer != 3.0 # this error causes problems
+graphviz
