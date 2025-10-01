@@ -700,10 +700,7 @@ class InfrastructureInfo:
             for self_im_auth in self.auth.getAuthInfo("InfrastructureManager"):
                 if self._is_authorized(self_im_auth, auth):
                     return True
-
-            return False
-        else:
-            return False
+        return False
 
     def touch(self):
         """

@@ -172,7 +172,7 @@ class Authentication:
     def read_auth_data(filename):
         """
         Read a file to load the Authentication data.
-        The file has the following format:
+        The file has the following format or a JSON file with the same data:
 
         id = one; type = OpenNebula; host = oneserver:2633; username = user; password = pass
         type = InfrastructureManager; username = user; password = 'pass;test'
@@ -189,10 +189,21 @@ class Authentication:
         """
         if isinstance(filename, list):
             lines = filename
+            if len(lines) == 1:
+                try:
+                    auth_json = json.loads(lines[0])  # Check if it's a JSON string
+                    return auth_json
+                except json.JSONDecodeError:
+                    pass
         else:
-            auth_file = open(filename, 'r')
-            lines = auth_file.readlines()
-            auth_file.close()
+            try:
+                with open(filename, 'r') as auth_file:
+                    auth_json = json.load(auth_file)
+                return auth_json
+            except json.JSONDecodeError:
+                with open(filename, 'r') as auth_file:
+                    lines = auth_file.readlines()
+                auth_file.close()
 
         res = []
 
@@ -207,8 +218,7 @@ class Authentication:
                         break
                     else:
                         value = key_value[1].strip().replace("\\n", "\n")
-                        # Enable to specify a filename and set the contents of
-                        # it
+                        # Enable to specify a filename and set the contents of it
                         if value.startswith("file(") and value.endswith(")"):
                             filename = value[5:len(value) - 1]
                             try:

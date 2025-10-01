@@ -50,6 +50,15 @@ class TestAuth(unittest.TestCase):
         self.assertEqual(auth_data[0]['proxy'][:37], "-----BEGIN RSA PRIVATE KEY-----\nMIIEo")
         os.unlink("/tmp/privatekey.pem")
 
+    def test_auth_read_json(self):
+        tests_path = os.path.dirname(os.path.abspath(__file__))
+        auth = Authentication.read_auth_data(os.path.join(tests_path, "../files/auth.json"))
+        self.assertEqual(auth, [{'type': 'InfrastructureManager', 'username': 'user', 'password': "pass"},
+                                {'id': 'one', 'password': 'pass', 'type': 'OpenNebula',
+                                 'username': 'user', 'host': 'server:2633'},
+                                {'id': 'gce', 'password': 'some\nonsense', 'type': 'GCE',
+                                 'username': 'user', 'project': 'project'}])
+
     def test_get_auth(self):
         auth_lines = ["""id = a1; type = InfrastructureManager; username = someuser; password = somepass """,
                       """id = ''; type = VMRC; username = someuser; password = somepass; """]

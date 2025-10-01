@@ -650,7 +650,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                     tmp_dir + "/basic_task_all.yml")
         f = open(tmp_dir + '/basic_task_all.yml', 'a')
         f.write("\n  vars:\n")
-        f.write("    - pk_file: " + pk_file + ".pub\n")
+        f.write("      pk_file: " + pk_file + ".pub\n")
         f.write("  hosts: '{{IM_HOST}}'\n")
         f.close()
         recipe_files.append("basic_task_all.yml")

@@ -326,6 +326,30 @@ appear in a value)(from version 1.6.6)::
    id = id_value ; type = value_of_type ; username = value_of_username ; password = 'some;"password'
    id = id_value ; type = value_of_type ; username = value_of_username ; password = "some;'password"
 
+The authorization file can be also set in JSON format (from version 1.19.1)::
+
+   [
+      {
+         "type": "InfrastructureManager",
+         "username": "user",
+         "password": "pass"
+      },
+      {
+         "id": "one",
+         "type": "OpenNebula",
+         "host": "server:2633",
+         "username": "user",
+         "password": "pass"
+      },
+      {
+         "id": "gce",
+         "type": "GCE",
+         "username": "user",
+         "password": "some\npass",
+         "project": "project"
+      }
+   ]
+
 The available keys are:
 
 * ``type`` indicates the service that refers the credential. The services
