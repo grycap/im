@@ -14,7 +14,7 @@ jobs:
         uses: eosc-synergy/sqaaas-step-action@v1
         id: tox_unit_test
         with:
-#          name: tox_unit_test
+          name: tox_unit_test
 #          tool: tox
 #          tox_env: py3
           container: "python:3.10"
