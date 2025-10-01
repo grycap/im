@@ -12,7 +12,7 @@ requests >= 2.19
 scp
 tosca-parser
 defusedxml
-urllib3>=2.5
+urllib3>=2.0
 suds-py3
 xmltodict
 PyMySQL
