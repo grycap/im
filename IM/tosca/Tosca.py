@@ -5,7 +5,6 @@ import copy
 import requests_cache
 import json
 import re
-from toscaparser.nodetemplate import NodeTemplate
 
 try:
     unicode("hola")
@@ -16,6 +15,8 @@ try:
     from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
+from toscaparser.nodetemplate import NodeTemplate
+from uuid import uuid1
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
@@ -41,6 +42,7 @@ class Tosca:
     logger = logging.getLogger('InfrastructureManager')
 
     def __init__(self, yaml_str, verify=True, tosca_repo=None):
+        self.id = str(uuid1())
         self.tosca_repo = tosca_repo
         self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
@@ -280,10 +282,10 @@ class Tosca:
                 else:
                     radl.systems.append(k8s_sys)
                     radl.networks.extend(nets)
-                    conf = configure(node.name, None)
+                    conf = configure(k8s_sys.name, None)
                     radl.configures.append(conf)
                     level = Tosca._get_dependency_level(node)
-                    cont_items.append(contextualize_item(node.name, conf.name, level))
+                    cont_items.append(contextualize_item(k8s_sys.name, conf.name, level))
                     cloud_id = self._get_placement_property(k8s_sys.name, "cloud_id")
                     dep = deploy(k8s_sys.name, num_instances, cloud_id)
                     radl.deploys.append(dep)
@@ -1285,14 +1287,23 @@ class Tosca:
         if inf_info:
             vm_list = inf_info.get_vm_list_by_system_name()
 
-            if host_node.name not in vm_list:
+            if node.type == "tosca.nodes.Container.Application.Docker":
+                # In case of Containers the system name is not the node name
+                sys_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_ ]', '-', node.name) + "-"
+                found = [name for name in vm_list.keys() if name.startswith(sys_name)]
+                if found:
+                    sys_name = found[0]
+            else:
+                sys_name = host_node.name
+
+            if sys_name not in vm_list:
                 Tosca.logger.warning("There are no VM associated with the name %s." % host_node.name)
                 return None
             else:
                 # As default assume that there will be only one VM per group
-                vm = vm_list[host_node.name][0]
-                if index is not None and len(vm_list[host_node.name]) < index:
-                    index = len(vm_list[host_node.name]) - 1
+                vm = vm_list[sys_name][0]
+                if index is not None and len(vm_list[sys_name]) < index:
+                    index = len(vm_list[sys_name]) - 1
 
             if attribute_name == "tosca_id":
                 return vm.id
@@ -1441,7 +1452,7 @@ class Tosca:
                                     res.append(url + ":%s" % outport.get_remote_port())
                     if priv_net:
                         # set the internal DNS name
-                        url = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_]', '-', node.name)
+                        url = vm.info.systems[0].name
                         if priv_net.getOutPorts():
                             for outport in priv_net.getOutPorts():
                                 res.append(url + ":%s" % outport.get_local_port())
@@ -1536,7 +1547,7 @@ class Tosca:
                                                outport.get_remote_port())
                     else:
                         # set the internal DNS name
-                        url = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_]', '-', node.name)
+                        url = k8s_sys.name
                         if net.getOutPorts():
                             for outport in net.getOutPorts():
                                 res.append(url + ":%s" % outport.get_local_port())
@@ -2237,7 +2248,10 @@ class Tosca:
 
     def _gen_k8s_system(self, node, nodetemplates):
         """Generate the system for a K8s app."""
-        res = system(node.name)
+        # Replace non-allowed characters in K8s names with '-'
+        system_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_ ]', '-', node.name)
+        # Add the TOSCA ID to avoid name collisions
+        res = system(f"{system_name}-{self.id[0:8]}")
         nets = []
         cms = []
 
@@ -2303,19 +2317,19 @@ class Tosca:
                                 res.setValue('disk.%d.mount_path' % num, mount_path)
                     elif prop.name == 'publish_ports':
                         # Asume that publish_ports must be published as NodePort
-                        pub = network("%s_pub" % node.name)
+                        pub = network("%s_pub" % res.name)
                         pub.setValue("outbound", "yes")
                         pub.setValue("outports", self._format_outports(value, False))
                         nets.append(pub)
-                        res.setValue("net_interface.0.connection", "%s_pub" % node.name)
+                        res.setValue("net_interface.0.connection", "%s_pub" % res.name)
                         if value and value[0] and 'endpoint' in value[0]:
                             res.setValue("net_interface.0.dns_name", value[0]['endpoint'])
                     elif prop.name == 'expose_ports':
                         # Asume that publish_ports must be published as ClusterIP
-                        priv = network("%s_priv" % node.name)
+                        priv = network("%s_priv" % res.name)
                         priv.setValue("outbound", "no")
                         priv.setValue("outports", self._format_outports(value))
                         nets.append(priv)
-                        res.setValue("net_interface.0.connection", "%s_priv" % node.name)
+                        res.setValue("net_interface.0.connection", "%s_priv" % res.name)
 
         return res, nets
