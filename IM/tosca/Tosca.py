@@ -1297,7 +1297,7 @@ class Tosca:
                 sys_name = host_node.name
 
             if sys_name not in vm_list:
-                Tosca.logger.warning("There are no VM associated with the name %s." % sys_name)
+                Tosca.logger.warning("There are no VM associated with the name %s." % host_node.name)
                 return None
             else:
                 # As default assume that there will be only one VM per group
