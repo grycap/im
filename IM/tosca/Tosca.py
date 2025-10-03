@@ -5,6 +5,8 @@ import copy
 import requests_cache
 import json
 import re
+from random import choice
+from string import ascii_letters, digits
 
 try:
     unicode("hola")
@@ -15,8 +17,8 @@ try:
     from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
-from toscaparser.nodetemplate import NodeTemplate
 from uuid import uuid1
+from toscaparser.nodetemplate import NodeTemplate
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
@@ -52,9 +54,18 @@ class Tosca:
                 def verify_fake(tpl):
                     return True
                 ToscaTemplate.verify_template = verify_fake
+            self._gen_random_input_values()
             self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
         except Exception as ex:
             raise Exception("Error parsing TOSCA template: %s" % str(ex))
+
+    def _gen_random_input_values(self):
+        input_values = self.yaml.get('topology_template', {}).get('inputs', {})
+        for name, elem in input_values.items():
+            if elem.get('type') == "string" and re.match(r'random\(\d+\)', elem.get('default', '')):
+                length = int(re.findall(r'random\((\d+)\)', elem['default'])[0])
+                elem['default'] = ''.join(choice(ascii_letters + digits) for _ in range(length))
+                Tosca.logger.debug("Generated random value for input: %s" % name)
 
     def serialize(self):
         return yaml.safe_dump(self.yaml)
