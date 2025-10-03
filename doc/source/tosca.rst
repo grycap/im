@@ -419,7 +419,14 @@ value of a internally defined value.
 
       outputs:
         node_ip:
-          value: { get_attribute: [ front, ansible_output, lrms_front_end_front_conf_front, tasks, 'grycap.nomad : nomad_secret_id', output ] }
+          value:
+            get_attribute: 
+              - front
+              - ansible_output
+              - lrms_front_end_front_conf_front
+              - tasks
+              - 'grycap.nomad : nomad_secret_id'
+              - output
 
 
 Random Input values
@@ -433,9 +440,9 @@ string input value (from version 1.19.2).
 .. code-block:: yaml
 
     ...
+
       inputs:
         app_password:
           type: string
           description: Password for the App
           default: 'random(12)'
-
