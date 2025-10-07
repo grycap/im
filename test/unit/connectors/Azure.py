@@ -699,6 +699,44 @@ class TestAzureConnector(TestCloudConnectorBase):
         res = azure_cloud.launch_with_retry(inf, radl, radl, 1, auth, 1, 0)
         self.assertEqual(res, [(False, 'Attempt 1: Error: Invalid rg_name. It must be unique per infrastructure.\n')])
 
+    @patch('IM.connectors.Azure.ComputeManagementClient')
+    @patch('IM.connectors.Azure.ClientSecretCredential')
+    def test_get_quotas(self, credentials, compute_client):
+        auth = Authentication([{'id': 'azure', 'type': 'Azure', 'subscription_id': 'subscription_id',
+                                'client_id': 'client', 'secret': 'password', 'tenant': 'tenant'}])
+        azure_cloud = self.get_azure_cloud()
+
+        cclient = MagicMock()
+        compute_client.return_value = cclient
+        name1 = MagicMock(localized_value='Total Regional vCPUs')
+        name2 = MagicMock(localized_value='Standard DSv3 Family vCPUs')
+        name3 = MagicMock(localized_value='Standard Dv3 Family vCPUs')
+        name4 = MagicMock(localized_value='Standard Storage Managed Disks')
+        name5 = MagicMock(localized_value='Virtual Machines')
+        elem1 = MagicMock(limit=10, current_value=5)
+        elem2 = MagicMock(limit=8, current_value=4)
+        elem3 = MagicMock(limit=6, current_value=2)
+        elem4 = MagicMock(limit=20, current_value=10)
+        elem5 = MagicMock(limit=20, current_value=1)
+        elem1.name = name1
+        elem2.name = name2
+        elem3.name = name3
+        elem4.name = name4
+        elem5.name = name5
+        cclient.usage.list.return_value = [
+            elem1, elem2, elem3, elem4, elem5
+        ]
+
+        expected_quotas = {
+            'cores': {'used': 5, 'limit': 10},
+            'Standard_DSv3': {'cores': {'used': 4, 'limit': 8}},
+            'Standard_Dv3': {'cores': {'used': 2, 'limit': 6}},
+            'volumes': {'used': 10, 'limit': 20},
+            'instances': {'used': 1, 'limit': 20}
+        }
+        quotas = azure_cloud.get_quotas(auth, "northeurope")
+        self.assertEqual(quotas, expected_quotas)
+
 
 if __name__ == '__main__':
     unittest.main()

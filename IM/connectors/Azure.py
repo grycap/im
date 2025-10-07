@@ -1282,3 +1282,39 @@ class AzureCloudConnector(CloudConnector):
             res.append({"uri": "azr://%s/%s/%s/latest" % (pub, offer, sku),
                                "name": name})
         return self._filter_images(res, filters)
+
+    def get_quotas(self, auth_data, region=None):
+        credentials, subscription_id = self.get_credentials(auth_data)
+        compute_client = ComputeManagementClient(credentials, subscription_id)
+        location = self.DEFAULT_LOCATION
+        if region:
+            location = region
+
+        # Initialize default values
+        quotas = {}
+
+        try:
+            usage_list = compute_client.usage.list(location)
+            for usage in usage_list:
+                name = usage.name.localized_value.lower()
+                if name == "total regional vcpus":
+                    quotas["cores"] = {}
+                    quotas["cores"]["used"] = usage.current_value
+                    quotas["cores"]["limit"] = usage.limit
+                elif name == "virtual machines":
+                    quotas["instances"] = {}
+                    quotas["instances"]["used"] = usage.current_value
+                    quotas["instances"]["limit"] = usage.limit
+                elif "storage" in name and "disks" in name:
+                    quotas["volumes"] = {}
+                    quotas["volumes"]["used"] = usage.current_value
+                    quotas["volumes"]["limit"] = usage.limit
+                elif "family vcpus" in name:
+                    fam = usage.name.localized_value[:-13].strip().replace(" ", "_")
+                    quotas[fam] = {"cores": {}}
+                    quotas[fam]["cores"]["used"] = usage.current_value
+                    quotas[fam]["cores"]["limit"] = usage.limit
+            return quotas
+        except Exception:
+            self.log_exception("Error retrieving Azure quotas")
+            return {}
