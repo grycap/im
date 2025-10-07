@@ -1287,6 +1287,11 @@ class AzureCloudConnector(CloudConnector):
         credentials, subscription_id = self.get_credentials(auth_data)
         compute_client = ComputeManagementClient(credentials, subscription_id)
         location = self.DEFAULT_LOCATION
+        try:
+            # Get the region from the auth data
+            location = auth_data.getAuthInfo(self.type)[0].get('region', location)
+        except Exception:
+            pass
         if region:
             location = region
 
