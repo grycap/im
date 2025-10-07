@@ -558,11 +558,15 @@ class AzureCloudConnector(CloudConnector):
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
         image_values = (url[1] + url[2]).split("/")
-        if len(image_values) not in [3, 4]:
+        if len(image_values) not in [3, 4, 5]:
             raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version"
+                            " or azr://region/publisher/offer/sku/version"
                             " or azr://[snapshots|disk]/rgname/diskname")
 
         location = self.DEFAULT_LOCATION
+        if len(image_values) == 5:
+            location = image_values[0]
+            image_values = image_values[1:]
         if system.getValue('availability_zone'):
             location = system.getValue('availability_zone')
 
@@ -837,12 +841,6 @@ class AzureCloudConnector(CloudConnector):
         return vms
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
-        location = self.DEFAULT_LOCATION
-        if radl.systems[0].getValue('availability_zone'):
-            location = radl.systems[0].getValue('availability_zone')
-        else:
-            radl.systems[0].setValue('availability_zone', location)
-
         credentials, subscription_id = self.get_credentials(auth_data)
         compute_client = ComputeManagementClient(credentials, subscription_id)
 
@@ -852,11 +850,21 @@ class AzureCloudConnector(CloudConnector):
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
         image_values = (url[1] + url[2]).split("/")
-        if len(image_values) not in [3, 4]:
+        if len(image_values) not in [3, 4, 5]:
             raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version"
+                            " or azr://region/publisher/offer/sku/version"
                             " or azr://[snapshots|disk|image]/rgname/diskname")
         if len(image_values) == 3 and image_values[0] not in ["snapshot", "disk"]:
             raise Exception("Incorrect image url: it must be snapshot or disk.")
+
+        location = self.DEFAULT_LOCATION
+        if len(image_values) == 5:
+            location = image_values[0]
+            image_values = image_values[1:]
+        if radl.systems[0].getValue('availability_zone'):
+            location = radl.systems[0].getValue('availability_zone')
+        else:
+            radl.systems[0].setValue('availability_zone', location)
 
         if len(image_values) == 4:
             offers = compute_client.virtual_machine_images.list(location,
@@ -1274,3 +1282,44 @@ class AzureCloudConnector(CloudConnector):
             res.append({"uri": "azr://%s/%s/%s/latest" % (pub, offer, sku),
                                "name": name})
         return self._filter_images(res, filters)
+
+    def get_quotas(self, auth_data, region=None):
+        credentials, subscription_id = self.get_credentials(auth_data)
+        compute_client = ComputeManagementClient(credentials, subscription_id)
+        location = self.DEFAULT_LOCATION
+        try:
+            # Get the region from the auth data
+            location = auth_data.getAuthInfo(self.type)[0].get('region', location)
+        except Exception:
+            pass
+        if region:
+            location = region
+
+        # Initialize default values
+        quotas = {}
+
+        try:
+            usage_list = compute_client.usage.list(location)
+            for usage in usage_list:
+                name = usage.name.localized_value.lower()
+                if name == "total regional vcpus":
+                    quotas["cores"] = {}
+                    quotas["cores"]["used"] = usage.current_value
+                    quotas["cores"]["limit"] = usage.limit
+                elif name == "virtual machines":
+                    quotas["instances"] = {}
+                    quotas["instances"]["used"] = usage.current_value
+                    quotas["instances"]["limit"] = usage.limit
+                elif "storage" in name and "disks" in name:
+                    quotas["volumes"] = {}
+                    quotas["volumes"]["used"] = usage.current_value
+                    quotas["volumes"]["limit"] = usage.limit
+                elif "family vcpus" in name:
+                    fam = usage.name.localized_value[:-13].strip().replace(" ", "_")
+                    quotas[fam] = {"cores": {}}
+                    quotas[fam]["cores"]["used"] = usage.current_value
+                    quotas[fam]["cores"]["limit"] = usage.limit
+            return quotas
+        except Exception:
+            self.log_exception("Error retrieving Azure quotas")
+            return {}

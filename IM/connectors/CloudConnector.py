@@ -361,12 +361,13 @@ class CloudConnector(LoggerMixin):
                 res.append(image)
         return res
 
-    def get_quotas(self, auth_data):
+    def get_quotas(self, auth_data, region=None):
         """
         Get the number of used and available resources in the cloud provider
 
         Arguments:
           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - region(str): Region to get the quotas. If None, the default region is used.
 
         Returns: dict with the following structure (if there are no limit in some metric, value is set to 1):
                     {

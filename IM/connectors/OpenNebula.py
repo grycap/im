@@ -1308,7 +1308,7 @@ class OpenNebulaCloudConnector(CloudConnector):
 
         return res
 
-    def get_quotas(self, auth_data):
+    def get_quotas(self, auth_data, region=None):
         server = ServerProxy(self.server_url, allow_none=True)
         session_id = self.getSessionID(auth_data)
 

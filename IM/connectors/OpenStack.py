@@ -2187,9 +2187,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return None
 
-    def get_quotas(self, auth_data):
+    def get_quotas(self, auth_data, region=None):
         driver = self.get_driver(auth_data)
         tenant_id = self._get_tenant_id(auth_data.getAuthInfo(self.type, self.cloud.server)[0])
+        if region:
+            # In this case the region parameter refers to the tenant_id
+            tenant_id = region
         quotas = driver.ex_get_quota_set(tenant_id)
         try:
             net_quotas = driver.ex_get_network_quotas(tenant_id)
