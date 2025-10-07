@@ -558,11 +558,15 @@ class AzureCloudConnector(CloudConnector):
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
         image_values = (url[1] + url[2]).split("/")
-        if len(image_values) not in [3, 4]:
+        if len(image_values) not in [3, 4, 5]:
             raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version"
+                            " or azr://region/publisher/offer/sku/version"
                             " or azr://[snapshots|disk]/rgname/diskname")
 
         location = self.DEFAULT_LOCATION
+        if len(image_values) == 5:
+            location = image_values[0]
+            image_values = image_values[1:]
         if system.getValue('availability_zone'):
             location = system.getValue('availability_zone')
 
@@ -837,12 +841,6 @@ class AzureCloudConnector(CloudConnector):
         return vms
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
-        location = self.DEFAULT_LOCATION
-        if radl.systems[0].getValue('availability_zone'):
-            location = radl.systems[0].getValue('availability_zone')
-        else:
-            radl.systems[0].setValue('availability_zone', location)
-
         credentials, subscription_id = self.get_credentials(auth_data)
         compute_client = ComputeManagementClient(credentials, subscription_id)
 
@@ -852,11 +850,21 @@ class AzureCloudConnector(CloudConnector):
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
         image_values = (url[1] + url[2]).split("/")
-        if len(image_values) not in [3, 4]:
+        if len(image_values) not in [3, 4, 5]:
             raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version"
+                            " or azr://region/publisher/offer/sku/version"
                             " or azr://[snapshots|disk|image]/rgname/diskname")
         if len(image_values) == 3 and image_values[0] not in ["snapshot", "disk"]:
             raise Exception("Incorrect image url: it must be snapshot or disk.")
+
+        location = self.DEFAULT_LOCATION
+        if len(image_values) == 5:
+            location = image_values[0]
+            image_values = image_values[1:]
+        if radl.systems[0].getValue('availability_zone'):
+            location = radl.systems[0].getValue('availability_zone')
+        else:
+            radl.systems[0].setValue('availability_zone', location)
 
         if len(image_values) == 4:
             offers = compute_client.virtual_machine_images.list(location,
