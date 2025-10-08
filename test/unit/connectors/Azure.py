@@ -751,7 +751,6 @@ class TestAzureConnector(TestCloudConnectorBase):
         }
         quotas = azure_cloud.get_quotas(auth, "northeurope")
         self.assertEqual(quotas, expected_quotas)
-        
 
 
 if __name__ == '__main__':
