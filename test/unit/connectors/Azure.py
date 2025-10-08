@@ -93,6 +93,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         client = MagicMock()
         compute_client.return_value = client
         client.resource_skus.list.return_value = [sku]
+        AzureCloudConnector.instance_type_list = {}
 
         concrete = azure_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
@@ -223,6 +224,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         os_cap.value = "102400"
         sku.capabilities = [cpu_cap, mem_cap, res_cap, os_cap]
         cclient.resource_skus.list.return_value = [sku]
+        AzureCloudConnector.instance_type_list = {}
 
         prices = MagicMock()
         prices.json.return_value = {'Items': [{'armSkuName': 'Standard_A1', 'unitPrice': 0.1}]}
@@ -394,6 +396,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         cclient = MagicMock()
         compute_client.return_value = cclient
         cclient.resource_skus.list.return_value = [sku]
+        AzureCloudConnector.instance_type_list = {}
 
         prices = MagicMock()
         prices.json.return_value = {'Items': [{'armSkuName': 'Standard_A1', 'unitPrice': 0.1}]}
@@ -550,6 +553,7 @@ class TestAzureConnector(TestCloudConnectorBase):
         cclient = MagicMock()
         compute_client.return_value = cclient
         cclient.resource_skus.list.return_value = [sku]
+        AzureCloudConnector.instance_type_list = {}
 
         prices = MagicMock()
         prices.json.return_value = {'Items': [{'armSkuName': 'Standard_A2', 'unitPrice': 0.1}]}
@@ -583,6 +587,7 @@ class TestAzureConnector(TestCloudConnectorBase):
 
         success, _ = azure_cloud.alterVM(vm, new_radl, auth)
 
+        print(self.log.getvalue())
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 

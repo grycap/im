@@ -281,7 +281,7 @@ class AzureCloudConnector(CloudConnector):
     def get_instance_type_list(self, credentials, subscription_id, location):
         compute_client = ComputeManagementClient(credentials, subscription_id)
 
-        if location in AzureCloudConnector.instance_type_list:
+        if AzureCloudConnector.instance_type_list and location in AzureCloudConnector.instance_type_list:
             return AzureCloudConnector.instance_type_list[location]
 
         try:
@@ -1177,6 +1177,8 @@ class AzureCloudConnector(CloudConnector):
                 return (True, "")
 
             instance_type = self.get_instance_type(new_system, credentials, subscription_id)
+            if not instance_type:
+                raise Exception("Instance type not found for the new flavor.")
             vm_parameters = " { 'hardware_profile': { 'vm_size': %s } } " % instance_type.name
 
             async_vm_update = compute_client.virtual_machines.begin_create_or_update(group_name,
