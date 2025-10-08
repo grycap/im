@@ -57,6 +57,7 @@ class Tosca:
             self._gen_random_input_values()
             self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
         except Exception as ex:
+            Tosca.logger.exception("Error parsing TOSCA template")
             raise Exception("Error parsing TOSCA template: %s" % str(ex))
 
     def _gen_random_input_values(self):
