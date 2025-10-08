@@ -287,7 +287,8 @@ class AzureCloudConnector(CloudConnector):
         try:
             skus = list(compute_client.resource_skus.list(filter="location eq '%s'" % location))
             prices = AzureInstanceTypeInfo.get_price_list(location)
-            inst_types = [AzureInstanceTypeInfo.fromSKU(sku, prices) for sku in skus if sku.resource_type == "virtualMachines"]
+            inst_types = [AzureInstanceTypeInfo.fromSKU(sku, prices)
+                          for sku in skus if sku.resource_type == "virtualMachines"]
             inst_types.sort(key=lambda x: (x.price if x.price else 9999999, x.cpu, x.mem, x.gpu, x.res_disk_space))
             AzureCloudConnector.instance_type_list[location] = inst_types
             return inst_types
