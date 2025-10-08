@@ -19,6 +19,7 @@ import random
 import string
 import base64
 import re
+import requests
 try:
     from urlparse import urlparse
 except ImportError:
@@ -70,10 +71,12 @@ class AzureInstanceTypeInfo:
             - gpu(int, optional): the number of gpus of this instance
             - gpu_model(str, optional): the model of the gpus of this instance
             - gpu_vendor(str, optional): the model of the gpus of this instance
+            - sgx(bool, optional): True if the instance has SGX support
+            - family(str, optional): family of the instance
     """
 
     def __init__(self, name="", cpu=1, mem=0, os_disk_space=0, res_disk_space=0,
-                 gpu=0, gpu_model=None, gpu_vendor=None, sgx=False):
+                 gpu=0, gpu_model=None, gpu_vendor=None, sgx=False, family=None):
         self.name = name
         self.cpu = cpu
         self.mem = mem
@@ -83,6 +86,8 @@ class AzureInstanceTypeInfo:
         self.gpu_model = gpu_model
         self.gpu_vendor = gpu_vendor
         self.sgx = sgx
+        self.family = family
+        self.price = None
 
     def set_sgx(self):
         """Guess SGX from instance name"""
@@ -126,7 +131,7 @@ class AzureInstanceTypeInfo:
                 self.gpu_model = "Tesla M60"
 
     @staticmethod
-    def fromSKU(sku):
+    def fromSKU(sku, prices=None):
         """Get an instance type object from SKU Json data"""
         gpu = os_disk_space = res_disk_space = mem = cpu = 0
         for elem in sku.capabilities:
@@ -140,10 +145,40 @@ class AzureInstanceTypeInfo:
                 os_disk_space = int(elem.value)
             elif elem.name == "GPUs":
                 gpu = int(elem.value)
-        instance_type = AzureInstanceTypeInfo(sku.name, cpu, mem, os_disk_space, res_disk_space, gpu)
+        instance_type = AzureInstanceTypeInfo(sku.name, cpu, mem, os_disk_space, res_disk_space, gpu, family=sku.family)
         instance_type.set_gpu_models()
         instance_type.set_sgx()
+        if prices and sku.name in prices:
+            instance_type.price = prices[sku.name]
         return instance_type
+
+    @staticmethod
+    def get_price_list(region='westeurope'):
+        """Get the price list from Azure"""
+        url = "https://prices.azure.com/api/retail/prices"
+        url += "?$filter=serviceName eq 'Virtual Machines'"
+        url += " and armRegionName eq '%s'" % region
+        vm_prices = []
+
+        try:
+            # Iterate over paginated results
+            while url:
+                response = requests.get(url, timeout=5)
+                data = response.json()
+                items = data.get("Items", [])
+                vm_prices.extend(items)
+                url = data.get("NextPageLink")
+        except Exception:
+            pass
+
+        # Process and print the results
+        res = {}
+        for item in vm_prices:
+            sku = item.get("armSkuName")
+            price = item.get("unitPrice")
+            if sku and region and price:
+                res[sku] = price
+        return res
 
 
 class AzureCloudConnector(CloudConnector):
@@ -156,12 +191,14 @@ class AzureCloudConnector(CloudConnector):
 
     type = "Azure"
     """str with the name of the provider."""
-    INSTANCE_TYPE = 'ExtraSmall'
+    INSTANCE_TYPE = 'Standard_A0'
     """Default instance type."""
     DEFAULT_LOCATION = "westeurope"
     """Default location to use"""
     DEFAULT_USER = 'azureuser'
     """ default user to SSH access the VM """
+    instance_type_list = {}
+    """ Information about the instance types """
 
     PROVISION_STATE_MAP = {
         'Accepted': VirtualMachine.PENDING,
@@ -244,10 +281,16 @@ class AzureCloudConnector(CloudConnector):
     def get_instance_type_list(self, credentials, subscription_id, location):
         compute_client = ComputeManagementClient(credentials, subscription_id)
 
+        if AzureCloudConnector.instance_type_list and location in AzureCloudConnector.instance_type_list:
+            return AzureCloudConnector.instance_type_list[location]
+
         try:
             skus = list(compute_client.resource_skus.list(filter="location eq '%s'" % location))
-            inst_types = [AzureInstanceTypeInfo.fromSKU(sku) for sku in skus if sku.resource_type == "virtualMachines"]
-            inst_types.sort(key=lambda x: (x.cpu, x.mem, x.gpu, x.res_disk_space))
+            prices = AzureInstanceTypeInfo.get_price_list(location)
+            inst_types = [AzureInstanceTypeInfo.fromSKU(sku, prices)
+                          for sku in skus if sku.resource_type == "virtualMachines"]
+            inst_types.sort(key=lambda x: (x.price if x.price else 9999999, x.cpu, x.mem, x.gpu, x.res_disk_space))
+            AzureCloudConnector.instance_type_list[location] = inst_types
             return inst_types
         except Exception:
             self.log_exception("Error getting instance type list.")
@@ -317,6 +360,9 @@ class AzureCloudConnector(CloudConnector):
                           conflict="other", missing="other")
         system.addFeature(Feature("instance_type", "=", instance_type.name),
                           conflict="other", missing="other")
+        if instance_type.price:
+            system.addFeature(Feature("price", "=", instance_type.price),
+                              conflict="me", missing="other")
         if instance_type.gpu:
             system.addFeature(Feature("gpu.count", "=", instance_type.gpu),
                               conflict="other", missing="other")
@@ -1131,6 +1177,8 @@ class AzureCloudConnector(CloudConnector):
                 return (True, "")
 
             instance_type = self.get_instance_type(new_system, credentials, subscription_id)
+            if not instance_type:
+                raise Exception("Instance type not found for the new flavor.")
             vm_parameters = " { 'hardware_profile': { 'vm_size': %s } } " % instance_type.name
 
             async_vm_update = compute_client.virtual_machines.begin_create_or_update(group_name,
@@ -1285,7 +1333,6 @@ class AzureCloudConnector(CloudConnector):
 
     def get_quotas(self, auth_data, region=None):
         credentials, subscription_id = self.get_credentials(auth_data)
-        compute_client = ComputeManagementClient(credentials, subscription_id)
         location = self.DEFAULT_LOCATION
         try:
             # Get the region from the auth data
@@ -1294,8 +1341,10 @@ class AzureCloudConnector(CloudConnector):
             pass
         if region:
             location = region
+        return self._get_quotas(credentials, subscription_id, location)
 
-        # Initialize default values
+    def _get_quotas(self, credentials, subscription_id, location):
+        compute_client = ComputeManagementClient(credentials, subscription_id)
         quotas = {}
 
         try:
@@ -1315,7 +1364,7 @@ class AzureCloudConnector(CloudConnector):
                     quotas["volumes"]["used"] = usage.current_value
                     quotas["volumes"]["limit"] = usage.limit
                 elif "family vcpus" in name:
-                    fam = usage.name.localized_value[:-13].strip().replace(" ", "_")
+                    fam = usage.name.value
                     quotas[fam] = {"cores": {}}
                     quotas[fam]["cores"]["used"] = usage.current_value
                     quotas[fam]["cores"]["limit"] = usage.limit
