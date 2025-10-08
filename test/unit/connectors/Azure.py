@@ -143,7 +143,8 @@ class TestAzureConnector(TestCloudConnectorBase):
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ClientSecretCredential')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    def test_20_launch(self, save_data, credentials, network_client, compute_client, resource_client):
+    @patch('requests.get')
+    def test_20_launch(self, get_mock, save_data, credentials, network_client, compute_client, resource_client):
         radl_data = """
             network net1 (outbound = 'yes' and outports = '8080,9000:9100' and sg_name = 'nsgname')
             network net2 ()
@@ -222,6 +223,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         os_cap.value = "102400"
         sku.capabilities = [cpu_cap, mem_cap, res_cap, os_cap]
         cclient.resource_skus.list.return_value = [sku]
+
+        prices = MagicMock()
+        prices.json.return_value = {'Items': [{'armSkuName': 'Standard_A1', 'unitPrice': 0.1}]}
+        get_mock.return_value = prices
 
         cclient.virtual_machines.begin_create_or_update.side_effect = self.create_vm
 
@@ -344,7 +349,8 @@ class TestAzureConnector(TestCloudConnectorBase):
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.DnsManagementClient')
     @patch('IM.connectors.Azure.ClientSecretCredential')
-    def test_30_updateVMInfo(self, credentials, dns_client, compute_client, network_client):
+    @patch('requests.get')
+    def test_30_updateVMInfo(self, get_mock, credentials, dns_client, compute_client, network_client):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -388,6 +394,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         cclient = MagicMock()
         compute_client.return_value = cclient
         cclient.resource_skus.list.return_value = [sku]
+
+        prices = MagicMock()
+        prices.json.return_value = {'Items': [{'armSkuName': 'Standard_A1', 'unitPrice': 0.1}]}
+        get_mock.return_value = prices
 
         avm = MagicMock()
         avm.provisioning_state = "Succeeded"
@@ -493,7 +503,8 @@ class TestAzureConnector(TestCloudConnectorBase):
     @patch('IM.connectors.Azure.ComputeManagementClient')
     @patch('IM.connectors.Azure.NetworkManagementClient')
     @patch('IM.connectors.Azure.ClientSecretCredential')
-    def test_55_alter(self, credentials, network_client, compute_client, resource_client):
+    @patch('requests.get')
+    def test_55_alter(self, get_mock, credentials, network_client, compute_client, resource_client):
         radl_data = """
             network net (outbound = 'yes')
             system test (
@@ -539,6 +550,10 @@ class TestAzureConnector(TestCloudConnectorBase):
         cclient = MagicMock()
         compute_client.return_value = cclient
         cclient.resource_skus.list.return_value = [sku]
+
+        prices = MagicMock()
+        prices.json.return_value = {'Items': [{'armSkuName': 'Standard_A2', 'unitPrice': 0.1}]}
+        get_mock.return_value = prices
 
         vm = MagicMock()
         vm.provisioning_state = "Succeeded"
@@ -709,8 +724,8 @@ class TestAzureConnector(TestCloudConnectorBase):
         cclient = MagicMock()
         compute_client.return_value = cclient
         name1 = MagicMock(localized_value='Total Regional vCPUs')
-        name2 = MagicMock(localized_value='Standard DSv3 Family vCPUs')
-        name3 = MagicMock(localized_value='Standard Dv3 Family vCPUs')
+        name2 = MagicMock(localized_value='Standard DSv3 Family vCPUs', value='standardDSv3Family')
+        name3 = MagicMock(localized_value='Standard Dv3 Family vCPUs', value='standardDv3Family')
         name4 = MagicMock(localized_value='Standard Storage Managed Disks')
         name5 = MagicMock(localized_value='Virtual Machines')
         elem1 = MagicMock(limit=10, current_value=5)
@@ -729,13 +744,14 @@ class TestAzureConnector(TestCloudConnectorBase):
 
         expected_quotas = {
             'cores': {'used': 5, 'limit': 10},
-            'Standard_DSv3': {'cores': {'used': 4, 'limit': 8}},
-            'Standard_Dv3': {'cores': {'used': 2, 'limit': 6}},
+            'standardDSv3Family': {'cores': {'used': 4, 'limit': 8}},
+            'standardDv3Family': {'cores': {'used': 2, 'limit': 6}},
             'volumes': {'used': 10, 'limit': 20},
             'instances': {'used': 1, 'limit': 20}
         }
         quotas = azure_cloud.get_quotas(auth, "northeurope")
         self.assertEqual(quotas, expected_quotas)
+        
 
 
 if __name__ == '__main__':
