@@ -163,7 +163,7 @@ class AzureInstanceTypeInfo:
         try:
             # Iterate over paginated results
             while url:
-                response = requests.get(url)
+                response = requests.get(url, timeout=5)
                 data = response.json()
                 items = data.get("Items", [])
                 vm_prices.extend(items)
