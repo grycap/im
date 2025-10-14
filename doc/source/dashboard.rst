@@ -26,7 +26,7 @@ How to deploy the dashboard
 Register a client in an OIDC server with the following properties:
 
 - redirect uri: `https://<DASHBOARD_HOST>:<PORT>/login/oidc/authorized`
-- scopes: 'openid', 'email', 'profile', 'offline_access' ('eduperson_entitlement' in EGI Check-In optional)
+- scopes: 'openid', 'email', 'profile', 'offline_access' ('entitlements' in EGI Check-In optional)
 - introspection endpoint enabled
 
 Create the `config.json` file (see the [example](app/config-sample.json)) setting the following variables:
