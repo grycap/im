@@ -511,7 +511,7 @@ class CloudConnector(LoggerMixin):
             return str(spanning_cidr(nets))
 
     @staticmethod
-    def get_instance_selectors(system, mem_unit="M", disk_unit="M"):
+    def get_instance_selectors(system, mem_unit="MI", disk_unit="MI"):
         cpu = 1
         cpu_op_str = ">="
         if system.getFeature('cpu.count'):
