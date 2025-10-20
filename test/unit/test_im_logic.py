@@ -1407,9 +1407,9 @@ configure step2 (
 
     @patch('IM.InfrastructureManager.VMRC')
     @patch('IM.InfrastructureManager.FedcloudInfo')
-    def test_systems_with_iis(self, appdbis, vmrc):
+    def test_systems_with_iis(self, egiis, vmrc):
         auth = self.getAuth([0], [0])
-        auth.auth_list.append({"type": "AppDBIS", "host": "http://is.marie.hellasgrid.gr"})
+        auth.auth_list.append({"type": "EGIIS", "host": "https://is.cloud.egi.eu"})
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.os.name", "=", "linux"),
                                Feature("disk.0.os.flavour", "=", "ubuntu"),
@@ -1418,13 +1418,13 @@ configure step2 (
         inf = InfrastructureInfo()
         inf.id = "1"
 
-        sys_appdb = system("s0", [Feature("disk.0.os.name", "=", "linux"),
-                                  Feature("disk.0.os.flavour", "=", "ubuntu"),
-                                  Feature("disk.0.os.version", "=", "18.04"),
-                                  Feature("disk.0.image.url", "=", "https://fedcloud.eu"),
-                                  Feature("disk.0.image.vo", "=", "fedcloud.egi.eu")])
+        sys_egi = system("s0", [Feature("disk.0.os.name", "=", "linux"),
+                                Feature("disk.0.os.flavour", "=", "ubuntu"),
+                                Feature("disk.0.os.version", "=", "18.04"),
+                                Feature("disk.0.image.url", "=", "https://fedcloud.eu"),
+                                Feature("disk.0.image.vo", "=", "fedcloud.egi.eu")])
 
-        appdbis.search_vm.return_value = [sys_appdb]
+        egiis.search_vm.return_value = [sys_egi]
 
         sys_vmrc = system("s0", [Feature("disk.0.os.name", "=", "linux"),
                                  Feature("disk.0.os.flavour", "=", "ubuntu"),

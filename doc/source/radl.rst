@@ -328,13 +328,14 @@ machine.  The supported features are:
    * ``aws://<region>/<snapshot-id>``, for Amazon Web Service;
    * ``aws://<region>/<snapshot-name>``, for Amazon Web Service;
    * ``gce://<region>/<image-id>``, for Google Cloud;
-   * ``azr://<image-id>``, for Microsoft Azure Clasic;
-   * ``azr://<publisher>/<offer>/<sku>/<version>``, for Microsoft Azure;
+   * ``azr://<image-id>``, for Microsoft Azure Clasic (deprecated);
+   * ``azr://[region]/<publisher>/<offer>/<sku>/<version>``, for Microsoft Azure;
    * ``azr://[snapshots|disk]/<rgname>/<diskname>``, for Microsoft Azure;
    * ``<fedcloud_endpoint_url>/<image_id>``, for FedCloud OCCI connector.
    * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI, OpenStack or EGI connectors using AppDB info (from vers. 1.6.0, 1.8.6 and 1.10.2 respectively).
-     In case of EGI connector the ``vo_name`` is not required as it will be get from auth data.
-   * ``appdb://<apc_name>?<vo_name>``, for FedCloud OCCI, OpenStack or EGI connectors without setting site_name.
+     In case of EGI connector the ``vo_name`` is not required as it will be get from auth data (deprecated use egi protocol instead).
+   * ``appdb://<apc_name>?<vo_name>``, for FedCloud OCCI, OpenStack or EGI connectors without setting site_name (deprecated use egi protocol instead).
+   * ``egi://<site_name>/<apc_name>?<vo_name>``, for OpenStack or EGI connectors using EGI IS info (from vers. 1.19.0).
    * ``docker://<docker_image>``, for Docker images.
    * ``fbw://<fns_server>/<image-id>``, for FogBow images.
    * ``lin://linode/<image-id>``, for Linode images.
