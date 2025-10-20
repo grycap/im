@@ -819,3 +819,13 @@ class CloudConnector(LoggerMixin):
         if converted - int(converted) < 0.0000000000001:
             converted = int(converted)
         return converted
+
+    @staticmethod
+    def loose_version_compare(user_version, system_version):
+        pattern = r'^\d+(?:\.\d+){0,2}$'
+        if re.match(pattern, user_version) and re.match(pattern, system_version):
+            u = [int(x) for x in user_version.split(".")]
+            s = [int(x) for x in system_version.split(".")]
+            return s[:len(u)] == u
+        else:
+            return user_version == system_version

@@ -2164,7 +2164,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if version is not None:
                 image_version = image.extra.get('os_version', None)
                 if image_version:
-                    if version.lower() != image_version.lower():
+                    if self.loose_version_compare(version, image_version):
                         continue
                 elif version.lower() not in image.name.lower():
                     continue
