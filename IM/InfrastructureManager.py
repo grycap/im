@@ -417,7 +417,7 @@ class InfrastructureManager:
     def systems_with_iis(sel_inf, radl, auth):
         """
         Concrete systems using Image Information Systems.
-        Currently supported VMRC, AppDBIS and EGIIS
+        Currently supported VMRC and AppDBIS/EGIIS
         NOTE: consider not-fake deploys (vm_number > 0)
         """
         # Get VMRC credentials
@@ -427,13 +427,11 @@ class InfrastructureManager:
                 vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'], vmrc_elem['password']))
 
         # Get AppDBIS credentials
-        appdbis_list = []
-        for appdbis_elem in auth.getAuthInfo('AppDBIS'):
-            appdbis_list.append(FedcloudInfo)
-
-        # Get EGIIS credentials
         egiis_list = []
-        for egiis_elem in auth.getAuthInfo('EGIIS'):
+        for _ in auth.getAuthInfo('AppDBIS'):
+            egiis_list.append(FedcloudInfo)
+        # Get EGIIS credentials
+        for _ in auth.getAuthInfo('EGIIS'):
             egiis_list.append(FedcloudInfo)
 
         systems_with_vmrc = {}
@@ -460,25 +458,22 @@ class InfrastructureManager:
                     s_without_apps.addFeature(f)
 
             vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
-            appdbis_res = [s0 for appdbis in appdbis_list for s0 in appdbis.search_vm(s)]
             egiis_res = [s0 for egiis in egiis_list for s0 in egiis.search_vm(s)]
             local_msg, local_res = InfrastructureManager.search_vm(sel_inf, s, auth)
             # Check that now the image URL is in the RADL
-            if not s.getValue("disk.0.image.url") and not vmrc_res and not appdbis_res and not egiis_res and not local_res:
+            if not s.getValue("disk.0.image.url") and not vmrc_res and not egiis_res and not local_res:
                 msg = "No VMI obtained from Sites"
                 if vmrc_list:
                     msg += " nor VMRC"
-                if appdbis_list:
-                    msg += " nor AppDBIS"
                 if egiis_list:
-                    msg += " nor EGIIS"
+                    msg += " nor EGI IS"
                 msg += " to system '" + system_id + "'"
                 if local_msg:
                     msg += ": " + local_msg
                 raise Exception(msg)
 
             n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
-                 for s0 in (vmrc_res + appdbis_res + egiis_res + local_res)]
+                 for s0 in (vmrc_res + egiis_res + local_res)]
             systems_with_vmrc[system_id] = n if n else [s_without_apps]
 
         return systems_with_vmrc
