@@ -187,25 +187,10 @@ class FedcloudInfo:
         if not filters:
             filters = {}
 
-        if "app" in filters:
-            app = filters["app"]
-        else:
-            app = ""
-
-        if "distribution" in filters:
-            distribution = filters["distribution"]
-        else:
-            distribution = ".*"
-
         if "vo" in filters:
             vo = filters["vo"]
         else:
             vo = None
-
-        if "version" in filters:
-            version = filters["version"]
-        else:
-            version = ".*"
 
         params = {}
         if vo:
@@ -216,22 +201,23 @@ class FedcloudInfo:
 
         res = []
         for image in images:
-            app_name_reg = r".*%s.* \[%s\/%s\/.*]" % (
-                app.lower(),
-                distribution.lower(),
-                version,
-            )
-            if not re.search(app_name_reg, image["name"].lower()):
-                continue
+            image_name = image["name"].lower()
+            accept = True
+            for elem in ["distribution", "version", "app"]:
+                if filters.get(elem) and filters.get(elem).lower() not in image_name:
+                    accept = False
+                    break
 
-            endpoint = urlparse(image["endpoint"])
-            res.append(
-                {
-                    "uri": "ost://%s/%s" % (endpoint[1], image["id"]),
-                    "name": image["name"],
-                    "vo": image["vo"],
-                }
-            )
+            if accept:
+                endpoint = urlparse(image["endpoint"])
+                res.append(
+                    {
+                        "uri": "ost://%s/%s" % (endpoint[1], image["id"]),
+                        "name": image["name"],
+                        "vo": image["vo"],
+                    }
+                )
+
         if vo and do_order:
             sites = FedcloudInfo.get_sites_supporting_vo(vo)
             if sites:
