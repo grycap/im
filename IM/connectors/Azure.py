@@ -595,10 +595,9 @@ class AzureCloudConnector(CloudConnector):
 
         return res
 
-    def get_azure_vm_create_json(self, group_name, vm_name, nics, radl,
+    def get_azure_vm_create_json(self, group_name, vm_name, nics, system,
                                  instance_type, custom_data, compute_client, tags):
         """ Create the VM parameters structure. """
-        system = radl.systems[0]
         url = urlparse(system.getValue("disk.0.image.url"))
         # the url has to have the format: azr://publisher/offer/sku/version
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
@@ -733,6 +732,8 @@ class AzureCloudConnector(CloudConnector):
                 })
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                device_letter = chr(ord('c') + cont - 1)
+                system.setValue(f"disk.{cont}.device", f"/dev/sd{device_letter}")
                 self.log_info("Adding a %s GB disk." % disk_size)
                 data_disks.append({
                     'name': '%s_disk_%d' % (vm_name, cont),
@@ -857,7 +858,7 @@ class AzureCloudConnector(CloudConnector):
                 custom_data = self.get_cloud_init_data(radl, vm)
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
                 vm_parameters = self.get_azure_vm_create_json(rg_name, vm_name,
-                                                              nics, radl, instance_type, custom_data,
+                                                              nics, vm.info.systems[0], instance_type, custom_data,
                                                               compute_client, tags)
 
                 async_vm_creation = compute_client.virtual_machines.begin_create_or_update(rg_name,
