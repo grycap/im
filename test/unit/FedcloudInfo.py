@@ -62,7 +62,8 @@ class TestFedcloudInfo(unittest.TestCase):
                         "egi_id": "egi_vm_images/docker:22.04",
                         "id": "93759c63-b998-4222-84eb-5fa10af1113b",
                         "endpoint": "https://keystone.recas.ba.infn.it/v3",
-                        "mpuri": "registry.egi.eu/egi_vm_images/docker:22.04-sha256:09ef8b577905758d51bc2515f8bef89a9ee11202b64878bb59a02417b55c95ce",
+                        "mpuri": ("registry.egi.eu/egi_vm_images/docker:22.04-sha256:"
+                                  "09ef8b577905758d51bc2515f8bef89a9ee11202b64878bb59a02417b55c95ce"),
                         "name": "registry.egi.eu egi_vm_images/docker:22.04",
                         "version": "2025-10-07-fc45d0d3",
                         "vo": "fedcloud.egi.eu",
@@ -71,7 +72,8 @@ class TestFedcloudInfo(unittest.TestCase):
                         "egi_id": "egi_vm_images/ubuntu:24.04",
                         "id": "8d4755c8-6157-4dd0-a60e-3f8cfbfcbc60",
                         "endpoint": "https://keystone.recas.ba.infn.it/v3",
-                        "mpuri": "registry.egi.eu/egi_vm_images/ubuntu:24.04-sha256:4bcb811d1fa2f53e794d9be240c36f004e45308128b2cba9e3a51a7975bd2359",
+                        "mpuri": ("registry.egi.eu/egi_vm_images/ubuntu:24.04-sha256:"
+                                  "4bcb811d1fa2f53e794d9be240c36f004e45308128b2cba9e3a51a7975bd2359"),
                         "name": "registry.egi.eu egi_vm_images/ubuntu:24.04",
                         "version": "2025-10-07-fc45d0d3",
                         "vo": "fedcloud.egi.eu",
