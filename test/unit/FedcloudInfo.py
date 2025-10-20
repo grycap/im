@@ -120,5 +120,6 @@ class TestFedcloudInfo(unittest.TestCase):
         res = FedcloudInfo.search_vm(radl_system)
 
         self.assertEqual(len(res), 1)
-        self.assertEqual(res[0].getValue("disk.0.image.url"), "ost://keystone.recas.ba.infn.it/8d4755c8-6157-4dd0-a60e-3f8cfbfcbc60")
+        self.assertEqual(res[0].getValue("disk.0.image.url"),
+                         "ost://keystone.recas.ba.infn.it/8d4755c8-6157-4dd0-a60e-3f8cfbfcbc60")
         self.assertEqual(res[0].getValue("disk.0.image.vo"), "fedcloud.egi.eu")
