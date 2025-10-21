@@ -102,11 +102,15 @@ class Tosca:
         return None
 
     def _get_tosca_from_repo(self, input_yaml):
-        if 'tosca_definitions_version' not in input_yaml or not input_yaml.get('imports'):
+        if ('tosca_definitions_version' not in input_yaml or
+                not input_yaml.get('imports') or
+                len(input_yaml.get('imports')) != 1 or
+                not isinstance(input_yaml.get('imports')[0], dict) or
+                input_yaml.get('imports')[0].get("template_file") is None):
             return input_yaml
 
         # Check if the import URL
-        import_file = input_yaml.get('imports')[0]
+        import_file = input_yaml.get('imports')[0].get("template_file")
         if self.tosca_repo:
             import_file_url = urlparse(import_file)
             # If the import is a URL, check if it is in the TOSCA repository

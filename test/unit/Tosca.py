@@ -518,7 +518,8 @@ class TestTosca(unittest.TestCase):
 
         # Test with a full URL in the template_file and not in the repo
         tosca_yaml = yaml.safe_load(tosca_data)
-        tosca_yaml["imports"][0] = "https://raw.githubusercontent.com/grycap/tosca/main/templates/simple-node-disk.yml"
+        tosca_yaml["imports"][0]["template_file"] = \
+            "https://raw.githubusercontent.com/grycap/tosca/main/templates/simple-node-disk.yml"
         tosca = Tosca(yaml.safe_dump(tosca_yaml))
         _, radl = tosca.to_radl()
         radl = parse_radl(str(radl))
