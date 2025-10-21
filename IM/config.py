@@ -132,6 +132,7 @@ class Config:
     OAIPMH_REPO_DESCRIPTION = None
     OAIPMH_REPO_BASE_IDENTIFIER_URL = None
     OIDC_ADMIN_GROUPS = []
+    AWM = False
 
 
 config = ConfigParser()

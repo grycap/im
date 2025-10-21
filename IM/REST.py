@@ -65,6 +65,10 @@ app = flask.Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 flask_server = None
 
+if Config.AWM:
+    from IM.awm import awm_bp
+    app.register_blueprint(awm_bp, url_prefix="/awm")
+
 
 def run_in_thread(host, port):
     flask_thr = threading.Thread(target=run, args=(host, port))

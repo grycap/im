@@ -34,6 +34,9 @@ class Repository():
     def get(self, element):
         raise NotImplementedError
 
+    def get_by_path(self, path):
+        raise NotImplementedError
+
     @staticmethod
     def create(repository_url):
         if "github.com" or "githubusercontent.com" in repository_url:
@@ -62,11 +65,15 @@ class GitHubRepository(Repository):
         owner, repo, branch, path = self._getRepoDetails()
         url = "https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1" % (owner, repo, branch)
         response = self.cache_session.get(url)
+        response.raise_for_status()
         res = [elem for elem in response.json()["tree"] if elem["type"] == "blob" and elem["path"].startswith(path)]
         return dict(zip([elem['path'][len(path) + 1:] for elem in res], res))
 
     def get(self, element):
+        return self.get_by_path(element['path']).text
+
+    def get_by_path(self, path):
         owner, repo, branch, _ = self._getRepoDetails()
-        url = "https://raw.githubusercontent.com/%s/%s/%s/%s" % (owner, repo, branch, element["path"])
+        url = "https://raw.githubusercontent.com/%s/%s/%s/%s" % (owner, repo, branch, path)
         response = self.cache_session.get(url)
-        return response.text
+        return response
