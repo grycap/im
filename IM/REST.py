@@ -477,7 +477,6 @@ class Infrastructure(flask_restx.Resource):
 
     @infra_ns.doc(security='IM Auth',
                   description='Undeploy the virtual machines associated to the infrastructure with ID.',
-                  produces=['text/plain'],
                   params={
                       "force": "Optional parameter and is a flag to specify that the infra "
                                "will be from the IM although not all resources are deleted.",
@@ -630,7 +629,7 @@ class Infrastructure(flask_restx.Resource):
 class InfrastructureProperty(flask_restx.Resource):
 
     @infra_ns.doc(security='IM Auth',
-                  description='Get infrastructure propery.',
+                  description='Get infrastructure property: state, outputs, contmsg, data, radl, tosca and authorization',
                   produces=['application/json', 'text/plain'],
                   params={
                       "headeronly": "Optional parameter if this flag is set to yes, true or 1 only the initial "
@@ -732,6 +731,11 @@ class InfrastructureProperty(flask_restx.Resource):
             return return_error(400, "Error Getting Inf. prop: %s" % get_ex_error(ex))
 
     @infra_ns.doc(security='IM Auth',
+                  description='Change the authorization data of the infrastructure with ID InfId. '
+                              'The body of the request contains the new authorization data in json format.'
+                              ' It can be a pair username-password or a token. In case of using a token'
+                              ' it must be a valid access token.',
+                  consumes=['application/json'],
                   params={
                       "overwrite": "Optional parameter and is a flag to specify if the authorization data will be "
                                    "overwrited or will be appended."
@@ -794,7 +798,10 @@ class InfrastructureProperty(flask_restx.Resource):
 @infra_ns.route('/<string:infid>/vms/<string:vmid>')
 class VirtualMachine(flask_restx.Resource):
 
-    @infra_ns.doc(security='IM Auth')
+    @infra_ns.doc(security='IM Auth',
+                  description='Return information about the virtual machine with ID VMId '
+                              'associated to the infrastructure with ID InfId',
+                  produces=['application/json', 'text/plain'])
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(401, 'Unauthorized')
     @infra_ns.response(403, 'Forbidden')
@@ -824,6 +831,7 @@ class VirtualMachine(flask_restx.Resource):
             return return_error(400, "Error Getting VM info: %s" % get_ex_error(ex))
 
     @infra_ns.doc(security='IM Auth',
+                  description='Undeploy the virtual machine VMId associated to the infrastructure with ID infId',
                   params={
                       "context": "Optional parameter and is a flag to specify if the contextualization step "
                                  "will be launched just after the VM deletion."
@@ -868,7 +876,11 @@ class VirtualMachine(flask_restx.Resource):
             logger.exception("Error Removing resources")
             return return_error(400, "Error Removing resources: %s" % get_ex_error(ex))
 
-    @infra_ns.doc(security='IM Auth')
+    @infra_ns.doc(security='IM Auth',
+                  description='Change the features of the virtual machine with ID VMId '
+                              'in the infrastructure with with ID infId.',
+                  consumes=['application/json', 'text/yaml', 'text/plain'],
+                  produces=['application/json', 'text/plain'])
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(401, 'Unauthorized')
     @infra_ns.response(403, 'Forbidden')
@@ -919,7 +931,10 @@ class VirtualMachine(flask_restx.Resource):
 @infra_ns.route('/<string:infid>/vms/<int:vmid>/<string:prop>')
 class VirtualMachineProperty(flask_restx.Resource):
 
-    @infra_ns.doc(security='IM Auth')
+    @infra_ns.doc(security='IM Auth',
+                  description='Return a property associated to the virtual machine with ID VMId '
+                              'in the infrastructure with with ID infId',
+                  produces=['application/json', 'text/plain'])
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(401, 'Unauthorized')
     @infra_ns.response(403, 'Forbidden')
@@ -1032,9 +1047,12 @@ class VirtualMachineProperty(flask_restx.Resource):
 class InfrastructureOperation(flask_restx.Resource):
 
     @infra_ns.doc(security='IM Auth',
+                  description='Performs an Infrastructure operation: start, stop or reconfigure.',
+                  consumes=['application/json', 'text/yaml', 'text/plain'],
                   params={
                       "vm_list": "The vm_list parameter is optional and is a coma separated list of IDs of the "
-                                 "VMs to reconfigure. If not specified all the VMs will be reconfigured"
+                                 "VMs to reconfigure. If not specified all the VMs will be reconfigured. "
+                                 "Used only in reconfigure operation."
                   })
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(401, 'Unauthorized')
@@ -1102,7 +1120,8 @@ class InfrastructureOperation(flask_restx.Resource):
 @infra_ns.route('/<string:infid>/vms/<int:vmid>/<string:op>')
 class VirtualMachineOperation(flask_restx.Resource):
 
-    @infra_ns.doc(security='IM Auth')
+    @infra_ns.doc(security='IM Auth',
+                  description='Performs a Virtual Machine operation: start, stop or reboot.')
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(401, 'Unauthorized')
     @infra_ns.response(403, 'Forbidden')
@@ -1144,6 +1163,7 @@ class VirtualMachineOperation(flask_restx.Resource):
 @service_ns.route('/version')
 class Version(flask_restx.Resource):
 
+    @infra_ns.doc(description='Get IM server version.')
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(400, 'Invalid status value')
     def get(self):
@@ -1158,6 +1178,9 @@ class Version(flask_restx.Resource):
 class DiskSnapshot(flask_restx.Resource):
 
     @infra_ns.doc(security='IM Auth',
+                  description='Create a snapshot of the specified diskNum in the VM VMId of the '
+                              'infrastructure with ID InfId and returns the image url of the new '
+                              'created image in IM format.',
                   params={
                       "image_name": "The name to assing to the created snapshot.",
                       "auto_delete": "Optional parameter, this flag specifies that the snapshot will be "
@@ -1224,6 +1247,10 @@ class CloudInfo(flask_restx.Resource):
         return filters
 
     @infra_ns.doc(security='IM Auth',
+                  description='Return a list of URIs referencing the available images in the specified '
+                              'cloud provider. Or the quotas of the specified cloud provider. '
+                              'The id cloudId is relative to the id field in the AUTHORIZATION header.',
+                  produces=['application/json'],
                   params={
                       "filter": "Optional parameter, it enables filtering the list of images. "
                                 "It is a comma separated list of keypair values ('key1=val1,key2=value2'). "
@@ -1266,6 +1293,10 @@ class CloudInfo(flask_restx.Resource):
 class Stats(flask_restx.Resource):
 
     @infra_ns.doc(security='IM Auth',
+                  description='Return the stats of the current user in the IM service. '
+                              'Return all the infrastructures in the interval init_date-end_date '
+                              'parameters deployed by the user showing some aggregated information.',
+                  produces=['application/json'],
                   param={
                       "init_date": "Optional parameter, it is a date with format YYYY/MM/dd. "
                                    "Only will be returned infrastructure created afther this date.",
@@ -1347,11 +1378,15 @@ class OAIPMH(flask_restx.Resource):
         response_xml = oai.processRequest(flask.request, metadata_dict)
         return flask.make_response(response_xml, 200, {'Content-Type': 'text/xml'})
 
+    @infra_ns.doc(description='Get OAI-PMH (https://www.openarchives.org/pmh/) information about TOSCA templates.',
+                  produces=['text/xml'])
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(400, 'Invalid status value')
     def get(self):
         return self.oaipmh()
 
+    @infra_ns.doc(description='Get OAI-PMH (https://www.openarchives.org/pmh/) information about TOSCA templates.',
+                  produces=['text/xml'])
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(400, 'Invalid status value')
     def post(self):
@@ -1361,6 +1396,7 @@ class OAIPMH(flask_restx.Resource):
 @service_ns.route('/static/<string:filename>')
 class StaticFiles(flask_restx.Resource):
 
+    @infra_ns.doc(description='Returns a preconfigured static file.')
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(404, 'Not found')
     def get(self, filename):
