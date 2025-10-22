@@ -288,10 +288,12 @@ def ReturnOptions(**kwargs):
 class Infrastructures(flask_restx.Resource):
 
     @infra_ns.doc(security='IM Auth',
+                  produces=['application/json', 'text/uri-list'],
+                  description='Return a list of URIs referencing the infrastructures associated to the IM user.',
                   params={
                       "filter": "The filter parameter is optional and it is a regular expression (python format)"
-                      " to search in the RADL or TOSCA used to create the infrastructure. "
-                      "If not specified all the user infrastructures will be returned."
+                                " to search in the RADL or TOSCA used to create the infrastructure. "
+                                "If not specified all the user infrastructures will be returned."
                   })
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(401, 'Unauthorized')
@@ -321,6 +323,10 @@ class Infrastructures(flask_restx.Resource):
             return return_error(400, "Error Getting Inf. List: %s" % get_ex_error(ex))
 
     @infra_ns.doc(security='IM Auth',
+                  description="Create and configure an infrastructure with the requirements specified in "
+                              "RADL or TOSCA document.",
+                  consumes=['application/json', 'text/taml', 'text/plain'],
+                  produces=['application/json', 'text/uri-list'],
                   params={
                       "async": "Optional parameter and is a flag to specify if "
                                "the call will not wait for the VMs to be created.",
@@ -396,7 +402,10 @@ class Infrastructures(flask_restx.Resource):
             logger.exception("Error Creating Inf.")
             return return_error(400, "Error Creating Inf.: %s" % get_ex_error(ex))
 
-    @infra_ns.doc(security='IM Auth')
+    @infra_ns.doc(security='IM Auth',
+                  description='Take control of the infrastructure serialized in in the body and '
+                              'return the ID associated in the server. (See GET /infrastructures/{infId}/data).',
+                  produces=['application/json', 'text/uri-list'])
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(401, 'Unauthorized')
     @infra_ns.response(403, 'Forbidden')
@@ -433,7 +442,10 @@ class Infrastructures(flask_restx.Resource):
 @infra_ns.route('/<string:infid>')
 class Infrastructure(flask_restx.Resource):
 
-    @infra_ns.doc(security='IM Auth')
+    @infra_ns.doc(security='IM Auth',
+                  description='Return a list of URIs referencing the virtual machines associated '
+                              'to the infrastructure with ID InfId',
+                  produces=['application/json', 'text/uri-list'])
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(401, 'Unauthorized')
     @infra_ns.response(403, 'Forbidden')
@@ -464,6 +476,8 @@ class Infrastructure(flask_restx.Resource):
             return return_error(400, "Error Getting Inf. info: %s" % get_ex_error(ex))
 
     @infra_ns.doc(security='IM Auth',
+                  description='Undeploy the virtual machines associated to the infrastructure with ID.',
+                  produces=['text/plain'],
                   params={
                       "force": "Optional parameter and is a flag to specify that the infra "
                                "will be from the IM although not all resources are deleted.",
@@ -519,6 +533,10 @@ class Infrastructure(flask_restx.Resource):
             return return_error(400, "Error Destroying Inf: %s" % get_ex_error(ex))
 
     @infra_ns.doc(security='IM Auth',
+                  description="Add the resources specified in the body contents (in TOSCA, "
+                              "RADL plain or in JSON formats) to the infrastructure with ID infId.",
+                  consumes=['application/json', 'text/taml', 'text/plain'],
+                  produces=['application/json', 'text/uri-list'],
                   params={
                       "context": "Optional parameter and is a flag to specify if the contextualization step "
                                  "will be launched just after the VM addition."
@@ -612,6 +630,8 @@ class Infrastructure(flask_restx.Resource):
 class InfrastructureProperty(flask_restx.Resource):
 
     @infra_ns.doc(security='IM Auth',
+                  description='Get infrastructure propery.',
+                  produces=['application/json', 'text/plain'],
                   params={
                       "headeronly": "Optional parameter if this flag is set to yes, true or 1 only the initial "
                                     "part of the infrastructure contextualization log will be returned (without "
