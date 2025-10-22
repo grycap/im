@@ -52,6 +52,7 @@ dependencies = [
     "apache-libcloud >= 3.2.0",
     "RADL >= 1.3.3",
     "flask",
+    "flask-restx",
     "netaddr",
     "requests >= 2.19",
     "scp",
