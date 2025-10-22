@@ -39,6 +39,7 @@ from IM.tosca.Tosca import Tosca
 from IM.openid.JWT import JWT
 from IM.oaipmh.oai import OAI
 from IM.oaipmh.utils import Repository
+from IM import __version__
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -63,7 +64,19 @@ HTML_ERROR_TEMPLATE = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 REST_URL = None
 app = flask.Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
-api = flask_restx.Api(app, version='1.0', title='IM REST API', description='Infrastructure Manager (IM) REST API')
+
+# Flask RESTX
+authorizations = {
+    'IM Auth': {
+        'type': 'apiKey',
+        'in': 'header',
+        'name': 'Authorization',
+        'description': 'Add IM Auth'
+    }
+}
+api = flask_restx.Api(app, version=__version__, title='IM REST API',
+                      description='Infrastructure Manager (IM) REST API',
+                      authorizations=authorizations, security='Bearer Auth')
 infra_ns = flask_restx.Namespace('infrastructures', description='Manages Virtual Infrastructures.')
 cloud_ns = flask_restx.Namespace('clouds', description='Get cloud information.')
 oai_ns = flask_restx.Namespace('oai', description='Get OAI-PMH information.')
@@ -72,6 +85,8 @@ api.add_namespace(infra_ns)
 api.add_namespace(cloud_ns)
 api.add_namespace(oai_ns)
 api.add_namespace(service_ns)
+
+
 flask_server = None
 
 
@@ -269,9 +284,18 @@ def ReturnOptions(**kwargs):
     return {}
 
 
-@infra_ns.route('/', '')
+@infra_ns.route('')
 class Infrastructures(flask_restx.Resource):
 
+    @infra_ns.doc(security='IM Auth',
+                  params={
+                      "filter": "The filter parameter is optional and it is a regular expression (python format)"
+                      " to search in the RADL or TOSCA used to create the infrastructure. "
+                      "If not specified all the user infrastructures will be returned."
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(400, 'Invalid status value')
     def get(self):
         try:
             auth = get_auth_header()
@@ -296,6 +320,19 @@ class Infrastructures(flask_restx.Resource):
             logger.exception("Error Getting Inf. List")
             return return_error(400, "Error Getting Inf. List: %s" % get_ex_error(ex))
 
+    @infra_ns.doc(security='IM Auth',
+                  params={
+                      "async": "Optional parameter and is a flag to specify if "
+                               "the call will not wait for the VMs to be created.",
+                      "dry_run": "Optional parameter and is a flag to specify if "
+                                 "the call will not create the VMs and will only return the ammount "
+                                 "of resources needed to deploy the infrastructure."
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(415, 'Unsupported Media Type')
+    @infra_ns.response(400, 'Invalid status value')
     def post(self):
         try:
             auth = get_auth_header()
@@ -359,6 +396,12 @@ class Infrastructures(flask_restx.Resource):
             logger.exception("Error Creating Inf.")
             return return_error(400, "Error Creating Inf.: %s" % get_ex_error(ex))
 
+    @infra_ns.doc(security='IM Auth')
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(415, 'Unsupported Media Type')
+    @infra_ns.response(400, 'Invalid status value')
     def put(self):
         try:
             auth = get_auth_header()
@@ -390,6 +433,12 @@ class Infrastructures(flask_restx.Resource):
 @infra_ns.route('/<string:infid>')
 class Infrastructure(flask_restx.Resource):
 
+    @infra_ns.doc(security='IM Auth')
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(400, 'Invalid status value')
     def get(self, infid):
         try:
             auth = get_auth_header()
@@ -414,6 +463,18 @@ class Infrastructure(flask_restx.Resource):
             logger.exception("Error Getting Inf. info")
             return return_error(400, "Error Getting Inf. info: %s" % get_ex_error(ex))
 
+    @infra_ns.doc(security='IM Auth',
+                  params={
+                      "force": "Optional parameter and is a flag to specify that the infra "
+                               "will be from the IM although not all resources are deleted.",
+                      "async": "Optional parameter and is a flag to specify if the call will "
+                               "not wait the infrastructure to be deleted."
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(400, 'Invalid status value')
     def delete(self, infid):
         try:
             auth = get_auth_header()
@@ -457,6 +518,17 @@ class Infrastructure(flask_restx.Resource):
             logger.exception("Error Destroying Inf")
             return return_error(400, "Error Destroying Inf: %s" % get_ex_error(ex))
 
+    @infra_ns.doc(security='IM Auth',
+                  params={
+                      "context": "Optional parameter and is a flag to specify if the contextualization step "
+                                 "will be launched just after the VM addition."
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(415, 'Unsupported Media Type')
+    @infra_ns.response(400, 'Invalid status value')
     def post(self, infid):
         try:
             auth = get_auth_header()
@@ -539,6 +611,21 @@ class Infrastructure(flask_restx.Resource):
 @infra_ns.route('/<string:infid>/<string:prop>')
 class InfrastructureProperty(flask_restx.Resource):
 
+    @infra_ns.doc(security='IM Auth',
+                  params={
+                      "headeronly": "Optional parameter if this flag is set to yes, true or 1 only the initial "
+                                    "part of the infrastructure contextualization log will be returned (without "
+                                    "any VM contextualization log). Only used with 'contmsg' property.",
+                      "delete": "Optional parameter, if this flag is set to yes, true or 1 the data not only will "
+                                "be exported but also the infrastructure will be set deleted (the virtual "
+                                "infrastructure will not be modified). Only used with 'data' property"
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(415, 'Unsupported Media Type')
+    @infra_ns.response(400, 'Invalid status value')
     def get(self, infid, prop):
         try:
             auth = get_auth_header()
@@ -562,7 +649,8 @@ class InfrastructureProperty(flask_restx.Resource):
                 res = InfrastructureManager.GetInfrastructureRADL(infid, auth)
             elif prop == "tosca":
                 accept = get_media_type('Accept')
-                if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                if (accept and "application/json" not in accept and
+                        "*/*" not in accept and "application/*" not in accept):
                     return return_error(415, "Unsupported Accept Media Types: %s" % accept)
                 auth = InfrastructureManager.check_auth_data(auth)
                 sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
@@ -572,13 +660,15 @@ class InfrastructureProperty(flask_restx.Resource):
                     flask.abort(403, "'tosca' infrastructure property is not valid in this infrastructure")
             elif prop == "state":
                 accept = get_media_type('Accept')
-                if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                if (accept and "application/json" not in accept and "*/*" not in accept and
+                        "application/*" not in accept):
                     return return_error(415, "Unsupported Accept Media Types: %s" % accept)
                 res = InfrastructureManager.GetInfrastructureState(infid, auth)
                 return format_output(res, default_type="application/json", field_name="state")
             elif prop == "outputs":
                 accept = get_media_type('Accept')
-                if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                if (accept and "application/json" not in accept and "*/*" not in accept and
+                        "application/*" not in accept):
                     return return_error(415, "Unsupported Accept Media Types: %s" % accept)
                 auth = InfrastructureManager.check_auth_data(auth)
                 sel_inf = InfrastructureManager.get_infrastructure(infid, auth)
@@ -589,7 +679,8 @@ class InfrastructureProperty(flask_restx.Resource):
                 return format_output(res, default_type="application/json", field_name="outputs")
             elif prop == "data":
                 accept = get_media_type('Accept')
-                if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                if (accept and "application/json" not in accept and "*/*" not in accept and
+                        "application/*" not in accept):
                     return return_error(415, "Unsupported Accept Media Types: %s" % accept)
 
                 delete = False
@@ -620,6 +711,17 @@ class InfrastructureProperty(flask_restx.Resource):
             logger.exception("Error Getting Inf. prop")
             return return_error(400, "Error Getting Inf. prop: %s" % get_ex_error(ex))
 
+    @infra_ns.doc(security='IM Auth',
+                  params={
+                      "overwrite": "Optional parameter and is a flag to specify if the authorization data will be "
+                                   "overwrited or will be appended."
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(415, 'Unsupported Media Type')
+    @infra_ns.response(400, 'Invalid status value')
     def post(self, infid, prop):
         if prop != "authorization":
             return return_error(400, "Invalid infrastructure property")
@@ -672,6 +774,12 @@ class InfrastructureProperty(flask_restx.Resource):
 @infra_ns.route('/<string:infid>/vms/<string:vmid>')
 class VirtualMachine(flask_restx.Resource):
 
+    @infra_ns.doc(security='IM Auth')
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(400, 'Invalid status value')
     def get(self, infid, vmid):
         try:
             auth = get_auth_header()
@@ -695,6 +803,16 @@ class VirtualMachine(flask_restx.Resource):
             logger.exception("Error Getting VM info")
             return return_error(400, "Error Getting VM info: %s" % get_ex_error(ex))
 
+    @infra_ns.doc(security='IM Auth',
+                  params={
+                      "context": "Optional parameter and is a flag to specify if the contextualization step "
+                                 "will be launched just after the VM deletion."
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(400, 'Invalid status value')
     def delete(self, infid, vmid):
         try:
             auth = get_auth_header()
@@ -730,6 +848,13 @@ class VirtualMachine(flask_restx.Resource):
             logger.exception("Error Removing resources")
             return return_error(400, "Error Removing resources: %s" % get_ex_error(ex))
 
+    @infra_ns.doc(security='IM Auth')
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(415, 'Unsupported Media Type')
+    @infra_ns.response(400, 'Invalid status value')
     def put(self, infid, vmid):
         try:
             auth = get_auth_header()
@@ -774,6 +899,12 @@ class VirtualMachine(flask_restx.Resource):
 @infra_ns.route('/<string:infid>/vms/<int:vmid>/<string:prop>')
 class VirtualMachineProperty(flask_restx.Resource):
 
+    @infra_ns.doc(security='IM Auth')
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(400, 'Invalid status value')
     def get(self, infid, vmid, prop):
         try:
             auth = get_auth_header()
@@ -880,6 +1011,17 @@ class VirtualMachineProperty(flask_restx.Resource):
 @infra_ns.route('/<string:infid>/<string:op>')
 class InfrastructureOperation(flask_restx.Resource):
 
+    @infra_ns.doc(security='IM Auth',
+                  params={
+                      "vm_list": "The vm_list parameter is optional and is a coma separated list of IDs of the "
+                                 "VMs to reconfigure. If not specified all the VMs will be reconfigured"
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(415, 'Unsupported Media Type')
+    @infra_ns.response(400, 'Invalid status value')
     def put(self, infid, op):
         try:
             auth = get_auth_header()
@@ -907,7 +1049,8 @@ class InfrastructureOperation(flask_restx.Resource):
                     if content_type:
                         if "application/json" in content_type:
                             radl_data = parse_radl_json(radl_data)
-                        elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
+                        elif ("text/yaml" in content_type or "text/x-yaml" in content_type or
+                                "application/yaml" in content_type):
                             tosca_data = Tosca(radl_data)
                             _, radl_data = tosca_data.to_radl()
                         elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
@@ -939,6 +1082,12 @@ class InfrastructureOperation(flask_restx.Resource):
 @infra_ns.route('/<string:infid>/vms/<int:vmid>/<string:op>')
 class VirtualMachineOperation(flask_restx.Resource):
 
+    @infra_ns.doc(security='IM Auth')
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(400, 'Invalid status value')
     def put(self, infid, vmid, op):
         try:
             auth = get_auth_header()
@@ -975,6 +1124,8 @@ class VirtualMachineOperation(flask_restx.Resource):
 @service_ns.route('/version')
 class Version(flask_restx.Resource):
 
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(400, 'Invalid status value')
     def get(self):
         try:
             from IM import __version__ as version
@@ -982,9 +1133,21 @@ class Version(flask_restx.Resource):
         except Exception as ex:
             return return_error(400, "Error getting IM version: %s" % get_ex_error(ex))
 
+
 @infra_ns.route('/<string:infid>/vms/<int:vmid>/disks/<int:disknum>/snapshot')
 class DiskSnapshot(flask_restx.Resource):
 
+    @infra_ns.doc(security='IM Auth',
+                  params={
+                      "image_name": "The name to assing to the created snapshot.",
+                      "auto_delete": "Optional parameter, this flag specifies that the snapshot will be "
+                                     "deleted when the infrastructure is destroyed"
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(403, 'Forbidden')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(400, 'Invalid status value')
     def put(self, infid, vmid, disknum):
         try:
             auth = get_auth_header()
@@ -1040,6 +1203,17 @@ class CloudInfo(flask_restx.Resource):
                 filters[kv[0]] = kv[1]
         return filters
 
+    @infra_ns.doc(security='IM Auth',
+                  params={
+                      "filter": "Optional parameter, it enables filtering the list of images. "
+                                "It is a comma separated list of keypair values ('key1=val1,key2=value2'). "
+                                "This field is cloud provider specific (e.g. 'region=region_name' for Amazon EC2"
+                                ", GCE or Azure)."
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(404, 'Not found')
+    @infra_ns.response(400, 'Invalid status value')
     def get(self, cloudid, param):
         try:
             auth = get_auth_header()
@@ -1071,6 +1245,16 @@ class CloudInfo(flask_restx.Resource):
 @service_ns.route('/stats')
 class Stats(flask_restx.Resource):
 
+    @infra_ns.doc(security='IM Auth',
+                  param={
+                      "init_date": "Optional parameter, it is a date with format YYYY/MM/dd. "
+                                   "Only will be returned infrastructure created afther this date.",
+                      "end_date": "Optional parameter,it is a date with format YYYY/MM/dd. "
+                                  "Only will be returned infrastructure created before this date."
+                  })
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(401, 'Unauthorized')
+    @infra_ns.response(400, 'Invalid status value')
     def get(self):
         try:
             auth = get_auth_header()
@@ -1113,7 +1297,7 @@ class Stats(flask_restx.Resource):
             return return_error(400, "Error getting stats: %s" % get_ex_error(ex))
 
 
-@oai_ns.route('/', '')
+@oai_ns.route('')
 class OAIPMH(flask_restx.Resource):
 
     @staticmethod
@@ -1123,7 +1307,7 @@ class OAIPMH(flask_restx.Resource):
             return return_error(400, "OAI-PMH not enabled.")
 
         oai = OAI(Config.OAIPMH_REPO_NAME, flask.request.base_url, Config.OAIPMH_REPO_DESCRIPTION,
-                Config.OAIPMH_REPO_BASE_IDENTIFIER_URL, repo_admin_email=Config.OAIPMH_REPO_ADMIN_EMAIL)
+                  Config.OAIPMH_REPO_BASE_IDENTIFIER_URL, repo_admin_email=Config.OAIPMH_REPO_ADMIN_EMAIL)
 
         # Get list of TOSCA templates from Config.OAIPMH_REPO_BASE_IDENTIFIER_URL
         metadata_dict = {}
@@ -1143,9 +1327,13 @@ class OAIPMH(flask_restx.Resource):
         response_xml = oai.processRequest(flask.request, metadata_dict)
         return flask.make_response(response_xml, 200, {'Content-Type': 'text/xml'})
 
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(400, 'Invalid status value')
     def get(self):
         return self.oaipmh()
 
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(400, 'Invalid status value')
     def post(self):
         return self.oaipmh()
 
@@ -1153,6 +1341,8 @@ class OAIPMH(flask_restx.Resource):
 @service_ns.route('/static/<string:filename>')
 class StaticFiles(flask_restx.Resource):
 
+    @infra_ns.response(200, 'Successful operation')
+    @infra_ns.response(404, 'Not found')
     def get(self, filename):
         if Config.STATIC_FILES_DIR:
             return flask.send_from_directory(Config.STATIC_FILES_DIR, filename)
