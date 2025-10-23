@@ -76,6 +76,8 @@ authorizations = {
 }
 api = flask_restx.Api(app, version=__version__, title='IM REST API',
                       description='Infrastructure Manager (IM) REST API',
+                      license='GPL 3.0', license_url='https://www.gnu.org/licenses/gpl-3.0.en.html',
+                      contact_email='products@grycap.upv.es',
                       authorizations=authorizations, security='Bearer Auth')
 infra_ns = flask_restx.Namespace('infrastructures', description='Manages Virtual Infrastructures.')
 cloud_ns = flask_restx.Namespace('clouds', description='Get cloud information.')
