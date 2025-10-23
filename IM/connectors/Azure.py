@@ -73,10 +73,11 @@ class AzureInstanceTypeInfo:
             - gpu_vendor(str, optional): the model of the gpus of this instance
             - sgx(bool, optional): True if the instance has SGX support
             - family(str, optional): family of the instance
+            - arch(str, optional): architecture type of the instance x86_64 or arm64
     """
 
     def __init__(self, name="", cpu=1, mem=0, os_disk_space=0, res_disk_space=0,
-                 gpu=0, gpu_model=None, gpu_vendor=None, sgx=False, family=None):
+                 gpu=0, gpu_model=None, gpu_vendor=None, sgx=False, family=None, arch='x86_64'):
         self.name = name
         self.cpu = cpu
         self.mem = mem
@@ -88,6 +89,7 @@ class AzureInstanceTypeInfo:
         self.sgx = sgx
         self.family = family
         self.price = None
+        self.arch = arch
 
     def set_sgx(self):
         """Guess SGX from instance name"""
@@ -134,6 +136,7 @@ class AzureInstanceTypeInfo:
     def fromSKU(sku, prices=None):
         """Get an instance type object from SKU Json data"""
         gpu = os_disk_space = res_disk_space = mem = cpu = 0
+        arch = "x86_64"
         for elem in sku.capabilities:
             if elem.name == "vCPUs":
                 cpu = int(elem.value)
@@ -145,7 +148,11 @@ class AzureInstanceTypeInfo:
                 os_disk_space = int(elem.value)
             elif elem.name == "GPUs":
                 gpu = int(elem.value)
-        instance_type = AzureInstanceTypeInfo(sku.name, cpu, mem, os_disk_space, res_disk_space, gpu, family=sku.family)
+            elif elem.name == "CpuArchitectureType":
+                if "arm" in elem.value.lower():
+                    arch = "arm64"
+        instance_type = AzureInstanceTypeInfo(sku.name, cpu, mem, os_disk_space,
+                                              res_disk_space, gpu, family=sku.family, arch=arch)
         instance_type.set_gpu_models()
         instance_type.set_sgx()
         if prices and sku.name in prices:
@@ -315,6 +322,7 @@ class AzureCloudConnector(CloudConnector):
         gpu_model = system.getValue('gpu.model')
         gpu_vendor = system.getValue('gpu.vendor')
         sgx = system.getValue('cpu.sgx')
+        arch = system.getValue('cpu.arch', 'x86_64')
 
         instace_types = self.get_instance_type_list(credentials, subscription_id, location)
 
@@ -323,7 +331,8 @@ class AzureCloudConnector(CloudConnector):
             if instace_type.name == self.INSTANCE_TYPE:
                 default = instace_type
 
-            comparison = cpu_op(instace_type.cpu, cpu)
+            comparison = arch == instace_type.arch
+            comparison = comparison and cpu_op(instace_type.cpu, cpu)
             comparison = comparison and memory_op(instace_type.mem, memory)
             comparison = comparison and disk_free_op(instace_type.res_disk_space, disk_free)
 
