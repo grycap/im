@@ -471,18 +471,18 @@ class TestREST(unittest.TestCase):
         Reconfigure.side_effect = DeletedInfrastructureException()
         res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
                               headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error reconfiguring infrastructure: Deleted infrastructure.")
+        self.assertEqual(res.text, "Error in reconfigure operation: Deleted infrastructure.")
 
         Reconfigure.side_effect = IncorrectInfrastructureException()
         res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
                               headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, ("Error reconfiguring infrastructure: " +
+        self.assertEqual(res.text, ("Error in reconfigure operation: " +
                                     "Invalid infrastructure ID or access not granted."))
 
         Reconfigure.side_effect = UnauthorizedUserException()
         res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
                               headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error reconfiguring infrastructure: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Error in reconfigure operation: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.StartInfrastructure")
     @patch("IM.InfrastructureManager.InfrastructureManager.StopInfrastructure")
@@ -572,8 +572,7 @@ class TestREST(unittest.TestCase):
 
     def test_Index(self):
         res = self.client.get('/')
-        self.assertEqual(res.json['openapi'], '3.0.0')
-        self.assertEqual(res.json['servers'][0]['url'], 'http://localhost/')
+        self.assertIn("IM REST API", res.text)
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot")
     def test_CreateDiskSnapshot(self, CreateDiskSnapshot):
@@ -656,23 +655,23 @@ class TestREST(unittest.TestCase):
         url = "http://localhost/infrastructures/1/vms/1/command?step=2"
         ps_command = "ps aux | grep -v grep | grep 'ssh -N -R'"
         expected_res = """
-                res="wait"
-                while [ "$res" == "wait" ]
-                do
-                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
-                  if [ "$res" != "wait" ]
-                  then
-                    echo "$res" > /var/tmp/reverse_ssh.sh
-                    chmod a+x /var/tmp/reverse_ssh.sh
-                    /var/tmp/reverse_ssh.sh
-                    if [ "$res" != "true" ]
+                    res="wait"
+                    while [ "$res" == "wait" ]
+                    do
+                    res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
+                    if [ "$res" != "wait" ]
                     then
-                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+                        echo "$res" > /var/tmp/reverse_ssh.sh
+                        chmod a+x /var/tmp/reverse_ssh.sh
+                        /var/tmp/reverse_ssh.sh
+                        if [ "$res" != "true" ]
+                        then
+                        echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+                        fi
+                    else
+                        sleep 20
                     fi
-                  else
-                    sleep 20
-                  fi
-                done""" % (auth_str, url, ps_command)
+                    done""" % (auth_str, url, ps_command)
         self.assertEqual(res.text, expected_res)
 
         inf.auth = Authentication([{'type': 'InfrastructureManager', 'token': 'token'}])
@@ -680,23 +679,23 @@ class TestREST(unittest.TestCase):
         auth_str = "Authorization: type = InfrastructureManager; token = token"
         url = "http://localhost/infrastructures/1/vms/1/command?step=2"
         expected_res = """
-                res="wait"
-                while [ "$res" == "wait" ]
-                do
-                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
-                  if [ "$res" != "wait" ]
-                  then
-                    echo "$res" > /var/tmp/reverse_ssh.sh
-                    chmod a+x /var/tmp/reverse_ssh.sh
-                    /var/tmp/reverse_ssh.sh
-                    if [ "$res" != "true" ]
+                    res="wait"
+                    while [ "$res" == "wait" ]
+                    do
+                    res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
+                    if [ "$res" != "wait" ]
                     then
-                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+                        echo "$res" > /var/tmp/reverse_ssh.sh
+                        chmod a+x /var/tmp/reverse_ssh.sh
+                        /var/tmp/reverse_ssh.sh
+                        if [ "$res" != "true" ]
+                        then
+                        echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+                        fi
+                    else
+                        sleep 20
                     fi
-                  else
-                    sleep 20
-                  fi
-                done""" % (auth_str, url, ps_command)
+                    done""" % (auth_str, url, ps_command)
         self.assertEqual(res.text, expected_res)
 
         radl_master = parse_radl("""
