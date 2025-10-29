@@ -62,7 +62,7 @@ Allocation = Annotated[
 ]
 
 
-class AllocationlId(BaseModel):
+class AllocationId(BaseModel):
     kind: Literal['AllocationId'] = 'AllocationId'
     id: str = Field(..., description="Unique identifier for this allocation")
     infoLink: str | None = Field(None, description="Endpoint that returns more details about this entity")

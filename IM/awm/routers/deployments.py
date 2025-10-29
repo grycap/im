@@ -22,18 +22,18 @@ def _init_table(db):
     if not db.table_exists("deployments"):
         logger.info("Creating deployments table")
         if db.db_type == DataBase.MYSQL:
-            db.execute("CREATE TABLE deployments (id VARCHAR(255) PRIMARY KEY, data TEXT, created TIMESTAMP)")
+            db.execute("CREATE TABLE deployments (id VARCHAR(255) PRIMARY KEY, data TEXT, owner VARCHAR(255), created TIMESTAMP)")
         elif db.db_type == DataBase.SQLITE:
-            db.execute("CREATE TABLE deployments (id TEXT PRIMARY KEY, data TEXT, created TIMESTAMP)")
+            db.execute("CREATE TABLE deployments (id TEXT PRIMARY KEY, data TEXT, owner VARCHAR(255), created TIMESTAMP)")
         elif db.db_type == DataBase.MONGO:
             db.connection.create_collection("deployments")
-            db.connection["deployments"].create_index([("id", 1)], unique=True)
+            db.connection["deployments"].create_index([("id", 1), ("owner", 1)], unique=True)
         return True
     return False
 
 
 def _get_im_auth_header(token, allocation=None):
-    auth_data = [{"type": "InfrastructureManager", "token":  token}]
+    auth_data = [{"type": "InfrastructureManager", "token": token}]
     if allocation:
         if allocation.kind == "EoscNodeAllocation":
             # @TODO: Implement deployment to EOSC
@@ -58,15 +58,17 @@ def _get_im_auth_header(token, allocation=None):
     return Authentication(auth_data)
 
 
-def _get_deployment(deployment_id, user_token):
+def _get_deployment(deployment_id, user_info):
     dep_info = None
+    user_token = user_info['token']
+    user_id = user_info['sub']
     db = DataBase(Config.DATA_DB)
     if db.connect():
         _init_table(db)
         if db.db_type == DataBase.MONGO:
-            res = db.find("deployments", {"id": deployment_id}, {"id": True, "data": True})
+            res = db.find("deployments", {"id": deployment_id, "owner": user_id}, {"id": True, "data": True})
         else:
-            res = db.select("SELECT id, data FROM deployments WHERE id = %s", (deployment_id,))
+            res = db.select("SELECT id, data FROM deployments WHERE id = %s and owner = %s", (deployment_id, user_id))
         db.close()
         if res:
             if db.db_type == DataBase.MONGO:
@@ -91,7 +93,7 @@ def _get_deployment(deployment_id, user_token):
     return dep_info, 200
 
 
-@deployments_bp.route("/", methods=["GET"])
+@deployments_bp.route("", methods=["GET"])
 @require_auth
 def list_deployments(user_info=None):
     # Query params
@@ -149,7 +151,7 @@ def list_deployments(user_info=None):
 @deployments_bp.route("/<deployment_id>", methods=["GET"])
 @require_auth
 def get_deployment(deployment_id, user_info=None):
-    dep_info, status_code = _get_deployment(deployment_id, user_info['token'])
+    dep_info, status_code = _get_deployment(deployment_id, user_info)
     return Response(dep_info.model_dump_json(exclude_unset=True), status=status_code,
                     mimetype="application/json")
 
@@ -157,7 +159,7 @@ def get_deployment(deployment_id, user_info=None):
 @deployments_bp.route("/<deployment_id>", methods=["DELETE"])
 @require_auth
 def delete_deployment(deployment_id, user_info=None):
-    dep_info, status_code = _get_deployment(deployment_id, user_info['token'])
+    dep_info, status_code = _get_deployment(deployment_id, user_info)
     if status_code != 200:
         return Response(dep_info.model_dump_json(exclude_unset=True), status=status_code,
                         mimetype="application/json")
@@ -182,7 +184,7 @@ def delete_deployment(deployment_id, user_info=None):
     return Response(status=204)
 
 
-@deployments_bp.route("/", methods=["POST"])
+@deployments_bp.route("", methods=["POST"])
 @require_auth
 def deploy_workload(user_info=None):
     # Parse incoming JSON into Deployment model

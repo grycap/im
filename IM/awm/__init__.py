@@ -8,6 +8,7 @@ from IM.awm.routers.deployments import deployments_bp
 from IM.awm.routers.service import service_bp
 from IM.awm.routers.tools import tools_bp
 from IM.awm.routers.users import users_bp
+from IM.config import Config
 
 
 awm_bp = Blueprint("awm", __name__)
@@ -23,7 +24,7 @@ def awm_swagger():
         with open(abs_file_path, 'r', encoding='utf-8') as f:
             awm_spec = yaml.safe_load(f)
             awm_spec['servers'] = [{
-                'url': f'{request.url_root}',
+                'url': f'{request.url_root}{Config.AWM_PATH.lstrip("/")}',
                 'description': 'Local server'
             }]
     return yaml.safe_dump(awm_spec), 200, {'Content-Type': 'application/x-yaml'}

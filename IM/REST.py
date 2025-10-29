@@ -93,7 +93,7 @@ flask_server = None
 
 if Config.AWM:
     from IM.awm import awm_bp
-    app.register_blueprint(awm_bp, url_prefix="/awm")
+    app.register_blueprint(awm_bp, url_prefix=Config.AWM_PATH)
 
 
 def run_in_thread(host, port):

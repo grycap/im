@@ -39,7 +39,7 @@ def _get_tool_info_from_repo(elem: str, path: str) -> ToolInfo:
     return tool
 
 
-@tools_bp.route("/", methods=["GET"])
+@tools_bp.route("", methods=["GET"])
 @require_auth
 def list_tools(user_info=None):
     # query params with simple validation

@@ -133,6 +133,7 @@ class Config:
     OAIPMH_REPO_BASE_IDENTIFIER_URL = None
     OIDC_ADMIN_GROUPS = []
     AWM = False
+    AWM_PATH = '/awm'
 
 
 config = ConfigParser()
