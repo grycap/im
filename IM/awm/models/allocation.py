@@ -1,5 +1,5 @@
 from typing import Union, Literal, Annotated
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, RootModel
 from datetime import datetime
 
 
@@ -56,10 +56,19 @@ Credentials = Annotated[
 ]
 
 
-Allocation = Annotated[
+AllocationUnion = Annotated[
     Union[EoscNodeEnvironment, CredentialsOpenStack, CredentialsKubernetes],
     Field(discriminator='kind')
 ]
+
+
+class Allocation(RootModel[
+    Annotated[
+        Union[EoscNodeEnvironment, CredentialsOpenStack, CredentialsKubernetes],
+        Field(discriminator='kind')
+    ]
+]):
+    pass
 
 
 class AllocationId(BaseModel):

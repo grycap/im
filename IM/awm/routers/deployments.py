@@ -10,7 +10,7 @@ from IM.config import Config
 from IM.InfrastructureManager import InfrastructureManager
 from IM.tosca.Tosca import Tosca
 from IM.auth import Authentication
-from . import require_auth
+from . import require_auth, return_error, validate_from_limit
 
 deployments_bp = Blueprint("deployments", __name__, url_prefix="/deployments")
 
@@ -81,30 +81,26 @@ def _get_deployment(deployment_id, user_info):
                 auth_data = _get_im_auth_header(user_token, dep_info.deployment.allocation)
                 state_info = InfrastructureManager.GetInfrastructureState(deployment_id, auth_data)
             except Exception as ex:
-                msg = Error(description=str(ex))
+                msg = Error(id="400", description=str(ex))
                 return msg, 400
             dep_info.status = state_info['state']
         else:
             msg = Error(id="404", description=f"Deployment {deployment_id} not found")
             return msg, 404
     else:
-        msg = Error(description="Database connection failed")
+        msg = Error(id="503", description="Database connection failed")
         return msg, 503
     return dep_info, 200
 
 
-@deployments_bp.route("", methods=["GET"])
+@deployments_bp.route("/deployments", methods=["GET"])
 @require_auth
 def list_deployments(user_info=None):
     # Query params
-    try:
-        from_ = int(request.args.get("from", 0))
-    except (TypeError, ValueError):
-        from_ = 0
-    try:
-        limit = int(request.args.get("limit", 100))
-    except (TypeError, ValueError):
-        limit = 100
+    from_, limit = validate_from_limit(request)
+    if from_ < 0 or limit < 1:
+        return return_error("Invalid 'from' or 'limit' parameter", status_code=400)
+
     # all_nodes = request.args.get("allNodes", "false").lower() in ("1", "true", "yes")
 
     deployments = []
@@ -112,7 +108,7 @@ def list_deployments(user_info=None):
     if db.connect():
         _init_table(db)
         if db.db_type == DataBase.MONGO:
-            res = db.find("deployments", projection={"data": True}, sort=[('created', -1)])
+            res = db.find("deployments", filter={"owner": user_info['sub']}, projection={"data": True}, sort=[('created', -1)])
             for count, elem in enumerate(res):
                 if from_ > count:
                     continue
@@ -124,19 +120,18 @@ def list_deployments(user_info=None):
                     break
             count = len(res)
         else:
-            sql = "SELECT data FROM deployments order by created LIMIT %s OFFSET %s"
-            res = db.select(sql, (limit, from_))
+            sql = "SELECT data FROM deployments WHERE owner = %s order by created LIMIT %s OFFSET %s"
+            res = db.select(sql, (user_info['sub'], limit, from_))
             for elem in res:
                 deployment_data = elem[0]
                 deployment_info = DeploymentInfo.model_validate_json(deployment_data)
                 # @TODO: Should we get the state from the IM?
                 deployments.append(deployment_info)
-            res = db.select("SELECT count(id) from deployments")
+            res = db.select("SELECT count(id) from deployments WHERE owner = %s", (user_info['sub'],))
             count = res[0][0] if res else 0
         db.close()
     else:
-        msg = Error(description="Database connection failed")
-        return Response(msg.model_dump_json(exclude_unset=True), status=503, mimetype="application/json")
+        return return_error("Database connection failed", 503)
 
     page = PageOfDeployments(from_=from_, limit=limit, elements=deployments, count=count,
                              self_=request.url)
@@ -148,7 +143,7 @@ def list_deployments(user_info=None):
     return Response(page.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
 
 
-@deployments_bp.route("/<deployment_id>", methods=["GET"])
+@deployments_bp.route("/deployment/<deployment_id>", methods=["GET"])
 @require_auth
 def get_deployment(deployment_id, user_info=None):
     dep_info, status_code = _get_deployment(deployment_id, user_info)
@@ -156,7 +151,7 @@ def get_deployment(deployment_id, user_info=None):
                     mimetype="application/json")
 
 
-@deployments_bp.route("/<deployment_id>", methods=["DELETE"])
+@deployments_bp.route("/deployment/<deployment_id>", methods=["DELETE"])
 @require_auth
 def delete_deployment(deployment_id, user_info=None):
     dep_info, status_code = _get_deployment(deployment_id, user_info)
@@ -168,9 +163,7 @@ def delete_deployment(deployment_id, user_info=None):
     try:
         InfrastructureManager.DestroyInfrastructure(deployment_id, auth_data)
     except Exception as ex:
-        error_msg = Error(description=str(ex))
-        return Response(error_msg.model_dump_json(exclude_unset=True), status=400,
-                        mimetype="application/json")
+        return return_error(f"Failed to delete deployment: {str(ex)}", 400)
 
     db = DataBase(Config.DATA_DB)
     if db.connect():
@@ -180,11 +173,13 @@ def delete_deployment(deployment_id, user_info=None):
         else:
             db.select("DELETE FROM deployments WHERE id = %s", (deployment_id,))
         db.close()
+    else:
+        return return_error("Database connection failed", 503)
 
     return Response(status=204)
 
 
-@deployments_bp.route("", methods=["POST"])
+@deployments_bp.route("/deployments", methods=["POST"])
 @require_auth
 def deploy_workload(user_info=None):
     # Parse incoming JSON into Deployment model
@@ -192,8 +187,7 @@ def deploy_workload(user_info=None):
         payload = request.get_data(as_text=True)
         deployment_req = Deployment.model_validate_json(payload)
     except Exception as e:
-        err = Error(description=f"Invalid deployment body: {e}")
-        return Response(err.model_dump_json(exclude_unset=True), status=400, mimetype="application/json")
+        return return_error(f"Invalid deployment body: {e}", status_code=400)
 
     # Create the infrastructure in the IM
     if deployment_req.tool.kind == "ToolId":
@@ -207,16 +201,14 @@ def deploy_workload(user_info=None):
         tosca_data = Tosca(tool.blueprint, tosca_repo=Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
         _, radl_data = tosca_data.to_radl()
     except Exception as ex:
-        err = Error(description=f"Invalid tool blueprint: {str(ex)}")
-        return Response(err.model_dump_json(exclude_unset=True), status=400, mimetype="application/json")
+        return return_error(f"Invalid tool blueprint: {str(ex)}", status_code=400)
 
     auth_data = _get_im_auth_header(user_info['token'], deployment_req.allocation)
 
     try:
         deployment_id = InfrastructureManager.CreateInfrastructure(radl_data, auth_data, True)
     except Exception as ex:
-        msg = Error(description=str(ex))
-        return Response(msg.model_dump_json(exclude_unset=True), status=400, mimetype="application/json")
+        return return_error(f"Failed to create deployment: {str(ex)}", status_code=400)
 
     db = DataBase(Config.DATA_DB)
     if db.connect():
@@ -224,21 +216,21 @@ def deploy_workload(user_info=None):
         deployment_info = DeploymentInfo(id=deployment_id,
                                          deployment=deployment_req,
                                          status="pending",
-                                         self_=f"{request.url.rstrip('/')}/{deployment_id}")
+                                         self_=(f"{request.url_root.rstrip('/')}"
+                                                "{Config.AWM_PATH}/deployment/{deployment_id}"))
         data = deployment_info.model_dump_json(exclude_unset=True)
         if db.db_type == DataBase.MONGO:
             res = db.replace("deployments", {"id": deployment_id}, {"id": deployment_id, "data": data,
+                                                                    "owner": user_info['sub'],
                                                                     "created": time.time()})
         else:
-            res = db.execute("replace into deployments (id, data, created) values (%s, %s, %s)",
-                             (deployment_id, data, time.time()))
+            res = db.execute("replace into deployments (id, data, created, owner) values (%s, %s, %s, %s)",
+                             (deployment_id, data, time.time(), user_info['sub']))
         db.close()
         if not res:
-            msg = Error(description="Failed to store deployment information in the database")
-            return Response(msg.model_dump_json(exclude_unset=True), status=503, mimetype="application/json")
+            return return_error("Failed to store deployment information in the database", 503)
     else:
-        msg = Error(description="Database connection failed")
-        return Response(msg.model_dump_json(exclude_unset=True), status=503, mimetype="application/json")
+        return return_error("Database connection failed", 503)
 
     dep_id = DeploymentId(id=deployment_id, kind="DeploymentId", self_=deployment_info.self_)
     return Response(dep_id.model_dump_json(exclude_unset=True), status=201, mimetype="application/json")

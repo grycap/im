@@ -823,7 +823,7 @@ components:
       properties:
         kind:
           type: string
-          default: EoscNodeAllocation
+          default: EoscNodeEnvironment
         offer:
           $ref: "#/components/schemas/EoscNodeEnvironment_offer"
         projectId:

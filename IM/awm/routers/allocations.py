@@ -4,11 +4,10 @@ import uuid
 from flask import Blueprint, request, Response
 from IM.awm.models.allocation import AllocationInfo, Allocation, AllocationId
 from IM.awm.models.page import PageOfAllocations
-from IM.awm.models.error import Error
 from IM.awm.models.success import Success
 from IM.db import DataBase
 from IM.config import Config
-from . import require_auth
+from . import require_auth, return_error, validate_from_limit
 
 
 allocations_bp = Blueprint("allocations", __name__)
@@ -30,18 +29,13 @@ def _init_table(db):
     return False
 
 
-@allocations_bp.route("", methods=["GET"])
+@allocations_bp.route("/allocations", methods=["GET"])
 @require_auth
 def list_allocations(user_info=None):
     # Query params
-    try:
-        from_ = int(request.args.get("from", 0))
-    except (TypeError, ValueError):
-        from_ = 0
-    try:
-        limit = int(request.args.get("limit", 100))
-    except (TypeError, ValueError):
-        limit = 100
+    from_, limit = validate_from_limit(request)
+    if from_ < 0 or limit < 1:
+        return return_error("Invalid 'from' or 'limit' parameter", status_code=400)
 
     # all_nodes_raw = request.args.get("allNodes", "false").lower()
     # all_nodes = all_nodes_raw in ("1", "true", "yes", "on")
@@ -51,28 +45,40 @@ def list_allocations(user_info=None):
     if db.connect():
         _init_table(db)
         if db.db_type == DataBase.MONGO:
-            res = db.find("allocations", projection={"data": True}, sort=[('created', -1)])
+            res = db.find("allocations", filter={"owner": user_info['sub']},
+                          projection={"data": True}, sort=[('created', -1)])
             for count, elem in enumerate(res):
                 if from_ > count:
                     continue
                 allocation_data = elem['data']
-                allocation_info = AllocationInfo.model_validate_json(allocation_data)
+                allocation = Allocation.model_validate_json(allocation_data)
+                allocation_info = AllocationInfo(
+                    id=elem['id'],
+                    self_=f"{request.url_root.rstrip('/')}{Config.AWM_PATH}/allocation/{elem['id']}",
+                    allocation=allocation
+                )
                 allocations.append(allocation_info)
                 if len(allocations) >= limit:
                     break
             count = len(res)
         else:
-            sql = "SELECT data FROM allocations order by created LIMIT %s OFFSET %s"
-            res = db.select(sql, (limit, from_))
+            sql = "SELECT id, data FROM allocations WHERE owner = %s order by created LIMIT %s OFFSET %s"
+            res = db.select(sql, (user_info['sub'], limit, from_))
             for elem in res:
-                allocation_data = elem[0]
-                allocation_info = AllocationInfo.model_validate_json(allocation_data)
+                allocation_id = elem[0]
+                allocation_data = elem[1]
+                allocation = Allocation.model_validate_json(allocation_data)
+                allocation_info = AllocationInfo(
+                    id=allocation_id,
+                    self_=f"{request.url_root.rstrip('/')}{Config.AWM_PATH}/allocation/{allocation_id}",
+                    allocation=allocation
+                )
                 allocations.append(allocation_info)
-            res = db.select("SELECT count(id) from allocations")
+            res = db.select("SELECT count(id) from allocations WHERE owner = %s", (user_info['sub'],))
             count = res[0][0] if res else 0
         db.close()
     else:
-        logger.error("Could not connect to the database")
+        return return_error("Database connection failed", 503)
 
     page = PageOfAllocations(from_=from_, limit=limit, elements=allocations, count=count)
     return Response(page.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
@@ -91,68 +97,94 @@ def _get_allocation(allocation_id, user_info):
         db.close()
         if res:
             if db.db_type == DataBase.MONGO:
+                allocation_id = res[0]["id"]
                 allocation_data = res[0]["data"]
             else:
+                allocation_id = res[0][0]
                 allocation_data = res[0][1]
-            allocation_info = AllocationInfo.model_validate_json(allocation_data)
+            allocation = Allocation.model_validate_json(allocation_data)
+            allocation_info = AllocationInfo(
+                id=allocation_id,
+                self_=f"{request.url_root.rstrip('/')}{Config.AWM_PATH}/allocation/{allocation_id}",
+                allocation=allocation
+            )
     else:
-        logger.error("Could not connect to the database")
+        return return_error("Database connection failed", 503)
+
     return allocation_info
 
 
-@allocations_bp.route("/<allocation_id>", methods=["GET"])
+@allocations_bp.route("/allocation/<allocation_id>", methods=["GET"])
 @require_auth
 def get_allocation(allocation_id, user_info=None):
     allocation_info = _get_allocation(allocation_id, user_info)
     if allocation_info is None:
-        err = Error(description="Allocation not found")
-        return Response(err.model_dump_json(exclude_unset=True), status=404, mimetype="application/json")
+        return return_error("Allocation not found", status_code=404)
     return Response(allocation_info.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
 
 
-@allocations_bp.route("", methods=["POST"])
+@allocations_bp.route("/allocations", methods=["POST"])
 @require_auth
-def create_allocation(user_info=None):
+def create_allocation(user_info=None, allocation_id=None):
     try:
         payload = request.get_data(as_text=True)
         allocation = Allocation.model_validate_json(payload)
     except Exception as e:
-        err = Error(description=f"Invalid allocation body: {e}")
-        return Response(err.model_dump_json(exclude_unset=True), status=400, mimetype="application/json")
+        return return_error(f"Invalid allocation body: {e}", status_code=400)
 
     db = DataBase(Config.DATA_DB)
     if db.connect():
         _init_table(db)
-        allocation_id = str(uuid.uuid4())
+        data = allocation.model_dump_json(exclude_unset=True)
         if db.db_type == DataBase.MONGO:
-            db.replace("allocations", {"id": allocation.id}, {"id": allocation_id, "data": allocation,
-                                                              "created": time.time()})
+            if allocation_id is None:  # new allocation
+                allocation_id = str(uuid.uuid4())
+                replace = {"id": allocation_id, "data": data,
+                           "owner": user_info['sub'],
+                           "created": time.time()}
+            else:  # update existing allocation
+                replace = {"id": allocation_id, "data": data,
+                           "owner": user_info['sub']}
+            db.replace("allocations", {"id": allocation_id}, replace)
         else:
-            db.execute("replace into allocations (id, data, created) values (%s, %s, %s)",
-                       (allocation_id, allocation, time.time()))
+            sql = "replace into allocations (id, data, owner"
+            if allocation_id is None:  # new allocation
+                allocation_id = str(uuid.uuid4())
+                sql += ", created) values (%s, %s, %s, %s)"
+                values = (allocation_id, data, user_info['sub'], time.time())
+            else:  # update existing allocation
+                sql += ") values (%s, %s, %s)"
+                values = (allocation_id, data, user_info['sub'])
+            db.execute(sql, values)
         db.close()
     else:
-        logger.error("Could not connect to the database")
+        return return_error("Database connection failed", 503)
 
     allocation_id_model = AllocationId(id=allocation_id)
     return Response(allocation_id_model.model_dump_json(exclude_unset=True), status=201, mimetype="application/json")
 
 
-@allocations_bp.route("/<allocation_id>", methods=["PUT"])
+@allocations_bp.route("/allocation/<allocation_id>", methods=["PUT"])
 @require_auth
 def update_allocation(allocation_id, user_info=None):
-    # Not implemented
-    err = Error(description="Not implemented")
-    return Response(err.model_dump_json(exclude_unset=True), status=503, mimetype="application/json")
+    allocation_info = _get_allocation(allocation_id, user_info)
+    if allocation_info is None:
+        return return_error("Allocation not found", status_code=404)
+
+    response = create_allocation(allocation_id=allocation_id)
+    if response.status_code != 201:
+        return response
+
+    allocation_info = _get_allocation(allocation_id, user_info)
+    return Response(allocation_info.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
 
 
-@allocations_bp.route("/<allocation_id>", methods=["DELETE"])
+@allocations_bp.route("/allocation/<allocation_id>", methods=["DELETE"])
 @require_auth
 def delete_allocation(allocation_id, user_info=None):
-    allocation_info = _get_allocation(allocation_id)
+    allocation_info = _get_allocation(allocation_id, user_info)
     if allocation_info is None:
-        err = Error(description="Allocation not found")
-        return Response(err.model_dump_json(exclude_unset=True), status=404, mimetype="application/json")
+        return return_error("Allocation not found", status_code=404)
 
     db = DataBase(Config.DATA_DB)
     if db.connect():
@@ -163,7 +195,7 @@ def delete_allocation(allocation_id, user_info=None):
             db.execute("DELETE FROM allocations WHERE id = %s", (allocation_id,))
         db.close()
     else:
-        logger.error("Could not connect to the database")
+        return return_error("Database connection failed", 503)
 
     success = Success(msg="")
     return Response(success.model_dump_json(exclude_unset=True), status=204, mimetype="application/json")

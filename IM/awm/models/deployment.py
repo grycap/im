@@ -1,7 +1,7 @@
 
 from typing import Literal
 from pydantic import BaseModel, Field, HttpUrl
-from IM.awm.models.allocation import Allocation
+from IM.awm.models.allocation import AllocationUnion
 from IM.awm.models.tool import Tool
 
 
@@ -15,7 +15,7 @@ class DeploymentId(BaseModel):
 
 
 class Deployment(BaseModel):
-    allocation: Allocation
+    allocation: AllocationUnion
     tool: Tool
 
 

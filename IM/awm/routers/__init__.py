@@ -4,6 +4,25 @@ from flask import Response, request
 from IM.awm.models.error import Error
 
 
+def return_error(message, status_code=500):
+    err = Error(id=f"{status_code}", description=message)
+    return Response(err.model_dump_json(exclude_unset=True),
+                    status=status_code,
+                    mimetype="application/json")
+
+
+def validate_from_limit(request):
+    try:
+        from_ = int(request.args.get("from", 0))
+    except (TypeError, ValueError):
+        from_ = 0
+    try:
+        limit = int(request.args.get("limit", 100))
+    except (TypeError, ValueError):
+        limit = 100
+    return from_, limit
+
+
 def require_auth(f):
     @wraps(f)
     def wrapper(*args, **kwargs):

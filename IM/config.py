@@ -134,6 +134,7 @@ class Config:
     OIDC_ADMIN_GROUPS = []
     AWM = False
     AWM_PATH = '/awm'
+    AWM_TOOLS_REPO = None
 
 
 config = ConfigParser()

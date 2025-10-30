@@ -1,12 +1,12 @@
 import logging
 import yaml
-from flask import Blueprint, request, make_response
+from flask import Blueprint, request, Response
 from IM.awm.models.tool import ToolInfo
 from IM.awm.models.page import PageOfTools
 from IM.awm.models.error import Error
 from IM.oaipmh.utils import Repository
 from IM.config import Config
-from . import require_auth
+from . import require_auth, return_error, validate_from_limit
 
 tools_bp = Blueprint("tools", __name__, url_prefix="/tools")
 logger = logging.getLogger(__name__)
@@ -39,32 +39,25 @@ def _get_tool_info_from_repo(elem: str, path: str) -> ToolInfo:
     return tool
 
 
-@tools_bp.route("", methods=["GET"])
+@tools_bp.route("/tools", methods=["GET"])
 @require_auth
 def list_tools(user_info=None):
     # query params with simple validation
-    try:
-        from_ = int(request.args.get("from", 0))
-        limit = int(request.args.get("limit", 100))
-    except ValueError:
-        msg = Error(description="Invalid 'from' or 'limit' parameter")
-        return make_response(msg.model_dump_json(exclude_unset=True), 400, {"Content-Type": "application/json"})
-
+    from_, limit = validate_from_limit(request)
     if from_ < 0 or limit < 1:
-        msg = Error(description="Invalid 'from' or 'limit' parameter")
-        return make_response(msg.model_dump_json(exclude_unset=True), 400, {"Content-Type": "application/json"})
+        return return_error("Invalid 'from' or 'limit' parameter", status_code=400)
 
     # keep support for allNodes param though not used
     # all_nodes = request.args.get("allNodes", "false").lower() in ("1", "true", "yes")
 
     tools = []
     try:
-        repo = Repository.create(Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
+        repo = Repository.create(Config.AWM_TOOLS_REPO)
         tools_list = repo.list()
     except Exception as e:
         logger.error("Failed to get list of Tools: %s", e)
         msg = Error(description="Failed to get list of Tools")
-        return make_response(msg.model_dump_json(exclude_unset=True), 503, {"Content-Type": "application/json"})
+        return Response(msg.model_dump_json(exclude_unset=True), 503, mimetype="application/json")
 
     count = 0
     for _, elem in tools_list.items():
@@ -80,38 +73,38 @@ def list_tools(user_info=None):
             logger.error("Failed to get tool info: %s", ex)
 
     page = PageOfTools(from_=from_, limit=limit, elements=tools, count=len(tools_list))
-    return make_response(page.model_dump_json(exclude_unset=True), 200, {"Content-Type": "application/json"})
+    return page.model_dump_json(exclude_unset=True)
 
 
 def get_tool_from_repo(tool_id: str, token: str, self_link: str = None):
     # tool_id was provided with underscores; convert back path
     repo_tool_id = tool_id.replace("_", "/")
     try:
-        repo = Repository.create(Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
+        repo = Repository.create(Config.AWM_TOOLS_REPO)
         response = repo.get_by_path(repo_tool_id)
     except Exception as e:
         logger.error("Failed to get tool info: %s", e)
-        msg = Error(description="Failed to get tool info")
-        return make_response(msg.model_dump_json(exclude_unset=True), 503, {"Content-Type": "application/json"})
+        msg = Error(id="503", description="Failed to get tool info")
+        return msg, 503
 
     if response.status_code == 404:
-        msg = Error(description="Tool not found")
-        return msg.model_dump_json(exclude_unset=True), 404
+        msg = Error(id="404", description="Tool not found")
+        return msg, 404
     if response.status_code != 200:
         logger.error("Failed to fetch tool: %s", response.text)
-        msg = Error(description="Failed to fetch tool")
-        return msg.model_dump_json(exclude_unset=True), 503
+        msg = Error(id="503", description="Failed to fetch tool")
+        return msg, 503
 
     tool = _get_tool_info_from_repo(response.text, repo_tool_id)
     return tool, 200
 
 
-@tools_bp.route("/<tool_id>", methods=["GET"])
+@tools_bp.route("/tool/<tool_id>", methods=["GET"])
 @require_auth
 def get_tool(tool_id: str, user_info=None):
     # build self link from current full URL
     self_link = request.url
     tool_or_msg, status_code = get_tool_from_repo(tool_id, user_info["token"], self_link)
-    if status_code != 200:
-        return make_response(tool_or_msg, status_code, {"Content-Type": "application/json"})
-    return make_response(tool_or_msg.model_dump_json(exclude_unset=True), 200, {"Content-Type": "application/json"})
+
+    return Response(tool_or_msg.model_dump_json(exclude_unset=True),
+                    status=status_code, mimetype="application/json")
