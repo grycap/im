@@ -1498,7 +1498,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             if ansible_version_env:
                 # restore original value
                 os.environ['ANSIBLE_VERSION'] = ansible_version_env
-            else:
+            elif 'ANSIBLE_VERSION' in os.environ:
                 del os.environ['ANSIBLE_VERSION']
 
             if not success:
