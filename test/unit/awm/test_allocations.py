@@ -3,10 +3,9 @@ import sys
 sys.path.append(".")
 sys.path.append("..")
 
-import unittest
 import flask
+import unittest
 from IM.awm import awm_bp
-from IM.db import DataBase
 from mock import patch, MagicMock
 
 
@@ -20,15 +19,16 @@ class TestAllocations(unittest.TestCase):
         app.register_blueprint(awm_bp, url_prefix='/awm')
         self.client = app.test_client()
 
-    def _get_database_mock(self, selects=[]):
+    def _get_database_mock(self, selects=None):
         mock_db_instance = MagicMock()
         mock_db_instance.connect.return_value = True
-        mock_db_instance.select.side_effect = selects
+        mock_db_instance.select.side_effect = selects if selects else []
         return mock_db_instance
 
     @patch('IM.awm.authorization.check_OIDC')
     @patch('IM.awm.routers.allocations.DataBase')
     def test_list_allocations(self, mock_db, mock_check_oidc):
+        """Test AWM allocations listing endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}
         selects = [
             [['id1', '{"kind": "CredentialsKubernetes","host": "http://k8s.io"}']],
@@ -60,6 +60,7 @@ class TestAllocations(unittest.TestCase):
     @patch('IM.awm.authorization.check_OIDC')
     @patch('IM.awm.routers.allocations.DataBase')
     def test_get_allocation(self, mock_db, mock_check_oidc):
+        """Test AWM get allocation endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}
         selects = [
             [['id1', '{"kind": "CredentialsKubernetes","host": "http://k8s.io"}']],
@@ -82,12 +83,15 @@ class TestAllocations(unittest.TestCase):
     @patch('IM.awm.authorization.check_OIDC')
     @patch('IM.awm.routers.allocations.DataBase')
     @patch('uuid.uuid4')
-    def test_create_allocation(self, mock_uuid, mock_db, mock_check_oidc):
+    @patch('time.time')
+    def test_create_allocation(self, mock_time, mock_uuid, mock_db, mock_check_oidc):
+        """Test AWM create allocation endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}
         mock_db_instance = MagicMock()
         mock_db_instance.connect.return_value = True
         mock_db.return_value = mock_db_instance
         mock_uuid.return_value = 'new-id'
+        mock_time.return_value = 1000
 
         headers = {
             "Authorization": "Bearer you-very-secret-token",
@@ -100,7 +104,7 @@ class TestAllocations(unittest.TestCase):
         response = self.client.post('/awm/allocations', headers=headers, json=payload)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json, {'id': 'new-id'})
-        mock_db_instance.insert.assert_called_with(
-            "replace into allocations (id, owner, data, created) values (%s, %s, %s, %s)",
-            ('new-id', 'test-user', '{"kind": "CredentialsKubernetes","host": "http://k8s.io"}', datetime.now())
+        mock_db_instance.execute.assert_called_with(
+            "replace into allocations (id, data, owner, created) values (%s, %s, %s, %s)",
+            ('new-id', '{"kind":"CredentialsKubernetes","host":"http://k8s.io/"}', 'test-user', 1000)
         )
