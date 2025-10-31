@@ -108,3 +108,18 @@ class TestAllocations(unittest.TestCase):
             "replace into allocations (id, data, owner, created) values (%s, %s, %s, %s)",
             ('new-id', '{"kind":"CredentialsKubernetes","host":"http://k8s.io/"}', 'test-user', 1000)
         )
+
+    @patch('IM.awm.authorization.check_OIDC')
+    @patch('IM.awm.routers.allocations.DataBase')
+    def test_delete_allocation(self, mock_db, mock_check_oidc):
+        """Test AWM get allocation endpoint."""
+        mock_check_oidc.return_value = {'sub': 'test-user'}
+        selects = [
+            [['id1', '{"kind": "CredentialsKubernetes","host": "http://k8s.io"}']],
+        ]
+        mock_db_instance = self._get_database_mock(selects)
+        mock_db.return_value = mock_db_instance
+        headers = {"Authorization": "Bearer you-very-secret-token"}
+        response = self.client.delete('/awm/allocation/id1', headers=headers)
+        self.assertEqual(response.status_code, 204)
+        mock_db_instance.execute.assert_called_with("DELETE FROM allocations WHERE id = %s", ('id1',))
