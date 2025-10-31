@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, Response
 from IM.awm.models.user_info import UserInfo
 from . import require_auth
 
@@ -17,11 +17,13 @@ def get_user_info(user_info=None):
             user_info.get("entitlements", user_info.get("eduperson_entitlement"))
         ),
     )
-    return user.model_dump_json(exclude_unset=True)
+    return Response(user.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
 
 
 def _get_vos_from_entitlemets(entitlements):
     vos = []
+    if not entitlements:
+        return vos
     for elem in entitlements:
         # format: urn:mace:egi.eu:group:eosc-synergy.eu:role=vm_operator#aai.egi.eu
         # or      urn:mace:egi.eu:group:demo.fedcloud.egi.eu:vm_operator:role=member#aai.egi.eu
