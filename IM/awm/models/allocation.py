@@ -62,12 +62,7 @@ AllocationUnion = Annotated[
 ]
 
 
-class Allocation(RootModel[
-    Annotated[
-        Union[EoscNodeEnvironment, CredentialsOpenStack, CredentialsKubernetes],
-        Field(discriminator='kind')
-    ]
-]):
+class Allocation(RootModel[AllocationUnion]):
     pass
 
 
