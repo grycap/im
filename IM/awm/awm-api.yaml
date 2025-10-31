@@ -268,10 +268,6 @@ paths:
       responses:
         "204":
           description: Accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Success"
         "400":
           description: Invalid parameters or configuration
           content:
@@ -523,10 +519,6 @@ paths:
       responses:
         "204":
           description: Accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeploymentId"
         "400":
           description: Invalid parameters or configuration
           content:
@@ -632,10 +624,6 @@ paths:
       responses:
         "204":
           description: Accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Success"
         "400":
           description: Invalid parameters or configuration
           content:

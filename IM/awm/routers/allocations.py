@@ -81,7 +81,7 @@ def list_allocations(user_info=None):
         return return_error("Database connection failed", 503)
 
     page = PageOfAllocations(from_=from_, limit=limit, elements=allocations, count=count)
-    return Response(page.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
+    return Response(page.model_dump_json(exclude_unset=True, by_alias=True), status=200, mimetype="application/json")
 
 
 def _get_allocation(allocation_id, user_info):
@@ -120,7 +120,7 @@ def get_allocation(allocation_id, user_info=None):
     allocation_info = _get_allocation(allocation_id, user_info)
     if allocation_info is None:
         return return_error("Allocation not found", status_code=404)
-    return Response(allocation_info.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
+    return Response(allocation_info.model_dump_json(exclude_unset=True, by_alias=True), status=200, mimetype="application/json")
 
 
 @allocations_bp.route("/allocations", methods=["POST"])
@@ -161,7 +161,8 @@ def create_allocation(user_info=None, allocation_id=None):
         return return_error("Database connection failed", 503)
 
     allocation_id_model = AllocationId(id=allocation_id)
-    return Response(allocation_id_model.model_dump_json(exclude_unset=True), status=201, mimetype="application/json")
+    return Response(allocation_id_model.model_dump_json(exclude_unset=True, by_alias=True),
+                    status=201, mimetype="application/json")
 
 
 @allocations_bp.route("/allocation/<allocation_id>", methods=["PUT"])
@@ -176,7 +177,7 @@ def update_allocation(allocation_id, user_info=None):
         return response
 
     allocation_info = _get_allocation(allocation_id, user_info)
-    return Response(allocation_info.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
+    return Response(allocation_info.model_dump_json(exclude_unset=True, by_alias=True), status=200, mimetype="application/json")
 
 
 @allocations_bp.route("/allocation/<allocation_id>", methods=["DELETE"])
@@ -197,5 +198,4 @@ def delete_allocation(allocation_id, user_info=None):
     else:
         return return_error("Database connection failed", 503)
 
-    success = Success(msg="")
-    return Response(success.model_dump_json(exclude_unset=True), status=204, mimetype="application/json")
+    return Response(status=204)

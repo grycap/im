@@ -44,8 +44,8 @@ class TestAllocations(unittest.TestCase):
                         'elements': [{'allocation': {'host': 'http://k8s.io/',
                                                      'kind': 'CredentialsKubernetes'},
                                       'id': 'id1',
-                                      'self_': 'http://localhost/awm/allocation/id1'}],
-                        'from_': 0,
+                                      'self': 'http://localhost/awm/allocation/id1'}],
+                        'from': 0,
                         'limit': 100}
         self.assertEqual(response.json, expected_res)
         mock_db_instance.select.assert_any_call(
@@ -71,7 +71,7 @@ class TestAllocations(unittest.TestCase):
         response = self.client.get('/awm/allocation/id1', headers=headers)
         self.assertEqual(response.status_code, 200)
         expected_res = {'id': 'id1',
-                        'self_': 'http://localhost/awm/allocation/id1',
+                        'self': 'http://localhost/awm/allocation/id1',
                         'allocation': {'kind': 'CredentialsKubernetes',
                                        'host': 'http://k8s.io/'}}
         self.assertEqual(response.json, expected_res)

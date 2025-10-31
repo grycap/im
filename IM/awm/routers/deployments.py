@@ -58,7 +58,7 @@ def _get_im_auth_header(token, allocation=None):
     return Authentication(auth_data)
 
 
-def _get_deployment(deployment_id, user_info):
+def _get_deployment(deployment_id, user_info, get_state=True):
     dep_info = None
     user_token = user_info['token']
     user_id = user_info['sub']
@@ -66,24 +66,30 @@ def _get_deployment(deployment_id, user_info):
     if db.connect():
         _init_table(db)
         if db.db_type == DataBase.MONGO:
-            res = db.find("deployments", {"id": deployment_id, "owner": user_id}, {"id": True, "data": True})
+            res = db.find("deployments", {"id": deployment_id, "owner": user_id}, {"data": True})
         else:
-            res = db.select("SELECT id, data FROM deployments WHERE id = %s and owner = %s", (deployment_id, user_id))
+            res = db.select("SELECT data FROM deployments WHERE id = %s and owner = %s", (deployment_id, user_id))
         db.close()
         if res:
             if db.db_type == DataBase.MONGO:
                 deployment_data = res[0]["data"]
             else:
-                deployment_data = res[0][1]
-            dep_info = DeploymentInfo.model_validate_json(deployment_data)
+                deployment_data = res[0][0]
+            try:
+                dep_info = DeploymentInfo.model_validate_json(deployment_data)
+            except Exception as ex:
+                logger.error(f"Failed to parse deployment info from database: {str(ex)}")
+                msg = Error(id="500", description="Internal server error: corrupted deployment data")
+                return msg, 500
 
             try:
                 auth_data = _get_im_auth_header(user_token, dep_info.deployment.allocation)
-                state_info = InfrastructureManager.GetInfrastructureState(deployment_id, auth_data)
+                if get_state:
+                    state_info = InfrastructureManager.GetInfrastructureState(deployment_id, auth_data)
+                    dep_info.status = state_info['state']
             except Exception as ex:
                 msg = Error(id="400", description=str(ex))
                 return msg, 400
-            dep_info.status = state_info['state']
         else:
             msg = Error(id="404", description=f"Deployment {deployment_id} not found")
             return msg, 404
@@ -108,12 +114,17 @@ def list_deployments(user_info=None):
     if db.connect():
         _init_table(db)
         if db.db_type == DataBase.MONGO:
-            res = db.find("deployments", filter={"owner": user_info['sub']}, projection={"data": True}, sort=[('created', -1)])
+            res = db.find("deployments", filt={"owner": user_info['sub']},
+                          projection={"data": True}, sort=[('created', -1)])
             for count, elem in enumerate(res):
                 if from_ > count:
                     continue
                 deployment_data = elem['data']
-                deployment_info = DeploymentInfo.model_validate_json(deployment_data)
+                try:
+                    deployment_info = DeploymentInfo.model_validate_json(deployment_data)
+                except Exception as ex:
+                    logger.error("Failed to parse deployment info from database: %s", str(ex))
+                    continue
                 # @TODO: Should we get the state from the IM?
                 deployments.append(deployment_info)
                 if len(deployments) >= limit:
@@ -124,7 +135,11 @@ def list_deployments(user_info=None):
             res = db.select(sql, (user_info['sub'], limit, from_))
             for elem in res:
                 deployment_data = elem[0]
-                deployment_info = DeploymentInfo.model_validate_json(deployment_data)
+                try:
+                    deployment_info = DeploymentInfo.model_validate_json(deployment_data)
+                except Exception as ex:
+                    logger.error("Failed to parse deployment info from database: %s", str(ex))
+                    continue
                 # @TODO: Should we get the state from the IM?
                 deployments.append(deployment_info)
             res = db.select("SELECT count(id) from deployments WHERE owner = %s", (user_info['sub'],))
@@ -140,21 +155,21 @@ def list_deployments(user_info=None):
         page.nextPage = f"{base_url}?from={from_ + limit}&limit={limit}"
     if from_ > 0 and count > 0:
         page.prevPage = f"{base_url}?from={max(0, from_ - limit)}&limit={limit}"
-    return Response(page.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
+    return Response(page.model_dump_json(exclude_unset=True, by_alias=True), status=200, mimetype="application/json")
 
 
 @deployments_bp.route("/deployment/<deployment_id>", methods=["GET"])
 @require_auth
 def get_deployment(deployment_id, user_info=None):
     dep_info, status_code = _get_deployment(deployment_id, user_info)
-    return Response(dep_info.model_dump_json(exclude_unset=True), status=status_code,
+    return Response(dep_info.model_dump_json(exclude_unset=True, by_alias=True), status=status_code,
                     mimetype="application/json")
 
 
 @deployments_bp.route("/deployment/<deployment_id>", methods=["DELETE"])
 @require_auth
 def delete_deployment(deployment_id, user_info=None):
-    dep_info, status_code = _get_deployment(deployment_id, user_info)
+    dep_info, status_code = _get_deployment(deployment_id, user_info, get_state=False)
     if status_code != 200:
         return Response(dep_info.model_dump_json(exclude_unset=True), status=status_code,
                         mimetype="application/json")
@@ -171,7 +186,7 @@ def delete_deployment(deployment_id, user_info=None):
         if db.db_type == DataBase.MONGO:
             db.delete("deployments", {"id": deployment_id})
         else:
-            db.select("DELETE FROM deployments WHERE id = %s", (deployment_id,))
+            db.execute("DELETE FROM deployments WHERE id = %s", (deployment_id,))
         db.close()
     else:
         return return_error("Database connection failed", 503)
@@ -217,7 +232,7 @@ def deploy_workload(user_info=None):
                                          deployment=deployment_req,
                                          status="pending",
                                          self_=(f"{request.url_root.rstrip('/')}"
-                                                "{Config.AWM_PATH}/deployment/{deployment_id}"))
+                                                f"{Config.AWM_PATH}/deployment/{deployment_id}"))
         data = deployment_info.model_dump_json(exclude_unset=True)
         if db.db_type == DataBase.MONGO:
             res = db.replace("deployments", {"id": deployment_id}, {"id": deployment_id, "data": data,
@@ -233,4 +248,4 @@ def deploy_workload(user_info=None):
         return return_error("Database connection failed", 503)
 
     dep_id = DeploymentId(id=deployment_id, kind="DeploymentId", self_=deployment_info.self_)
-    return Response(dep_id.model_dump_json(exclude_unset=True), status=201, mimetype="application/json")
+    return Response(dep_id.model_dump_json(exclude_unset=True, by_alias=True), status=201, mimetype="application/json")
