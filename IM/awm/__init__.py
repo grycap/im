@@ -1,4 +1,3 @@
-import json
 import os
 import yaml
 from flask import Blueprint, request
@@ -7,7 +6,7 @@ from IM.awm.routers.allocations import allocations_bp
 from IM.awm.routers.deployments import deployments_bp
 from IM.awm.routers.service import service_bp
 from IM.awm.routers.tools import tools_bp
-from IM.awm.routers.users import users_bp
+# from IM.awm.routers.users import users_bp
 from IM.config import Config
 
 
@@ -35,6 +34,7 @@ awm_bp.register_blueprint(allocations_bp, url_prefix="/")
 awm_bp.register_blueprint(deployments_bp, url_prefix="/")
 awm_bp.register_blueprint(tools_bp, url_prefix="/")
 awm_bp.register_blueprint(service_bp, url_prefix="/version")
-awm_bp.register_blueprint(users_bp, url_prefix="/user")
+# Removed from the spec
+# awm_bp.register_blueprint(users_bp, url_prefix="/user")
 
 api = Api(awm_bp, title="AWM API")

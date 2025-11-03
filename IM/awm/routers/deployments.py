@@ -202,8 +202,8 @@ def delete_deployment(deployment_id, user_info=None):
     else:
         return return_error("Database connection failed", 503)
 
-    msg = Success(message="Deleted")
-    return Response(msg.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
+    msg = Success(message="Deleting")
+    return Response(msg.model_dump_json(exclude_unset=True), status=202, mimetype="application/json")
 
 
 @deployments_bp.route("/deployments", methods=["POST"])
@@ -263,5 +263,5 @@ def deploy_workload(user_info=None):
     else:
         return return_error("Database connection failed", 503)
 
-    dep_id = DeploymentId(id=deployment_id, kind="DeploymentId", self_=deployment_info.self_)
-    return Response(dep_id.model_dump_json(exclude_unset=True, by_alias=True), status=201, mimetype="application/json")
+    dep_id = DeploymentId(id=deployment_id, kind="DeploymentId", infoLink=deployment_info.self_)
+    return Response(dep_id.model_dump_json(exclude_unset=True), status=202, mimetype="application/json")

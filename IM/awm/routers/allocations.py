@@ -38,8 +38,7 @@ def list_allocations(user_info=None):
     if from_ < 0 or limit < 1:
         return return_error("Invalid 'from' or 'limit' parameter", status_code=400)
 
-    # all_nodes_raw = request.args.get("allNodes", "false").lower()
-    # all_nodes = all_nodes_raw in ("1", "true", "yes", "on")
+    # all_nodes = request.args.get("allNodes", "false").lower() in ("1", "true", "yes")
 
     allocations = []
     db = DataBase(Config.DATA_DB)

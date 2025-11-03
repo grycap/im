@@ -34,8 +34,8 @@ def _get_tool_info_from_repo(elem: str, path: str, version: str = None) -> ToolI
         self_=url,
         version='latest',
         type="vm",  # @TODO(type): Determine type based on tool_info
-        name=metadata.get("template_name"),
-        description=tosca.get("description"),
+        name=metadata.get("template_name", ""),
+        description=tosca.get("description", ""),
         blueprint=elem,
         blueprintType="tosca",
     )
@@ -80,7 +80,8 @@ def list_tools(user_info=None):
             logger.error("Failed to get tool info: %s", ex)
 
     page = PageOfTools(from_=from_, limit=limit, elements=tools, count=len(tools_list))
-    return page.model_dump_json(exclude_unset=True, by_alias=True)
+    return Response(page.model_dump_json(exclude_unset=True, by_alias=True), status=200,
+                    mimetype="application/json")
 
 
 def get_tool_from_repo(tool_id: str, version: str = None):

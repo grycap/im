@@ -31,7 +31,7 @@ class TestAllocations(unittest.TestCase):
         """Test AWM allocations listing endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}
         selects = [
-            [['id1', '{"kind": "CredentialsKubernetes","host": "http://k8s.io"}']],
+            [['id1', '{"kind": "KubernetesEnvironment","host": "http://k8s.io"}']],
             [[2]]
         ]
         mock_db_instance = self._get_database_mock(selects)
@@ -42,7 +42,7 @@ class TestAllocations(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         expected_res = {'count': 2,
                         'elements': [{'allocation': {'host': 'http://k8s.io/',
-                                                     'kind': 'CredentialsKubernetes'},
+                                                     'kind': 'KubernetesEnvironment'},
                                       'id': 'id1',
                                       'self': 'http://localhost/awm/allocation/id1'}],
                         'from': 0,
@@ -63,7 +63,7 @@ class TestAllocations(unittest.TestCase):
         """Test AWM get allocation endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}
         selects = [
-            [['id1', '{"kind": "CredentialsKubernetes","host": "http://k8s.io"}']],
+            [['id1', '{"kind": "KubernetesEnvironment","host": "http://k8s.io"}']],
         ]
         mock_db_instance = self._get_database_mock(selects)
         mock_db.return_value = mock_db_instance
@@ -72,7 +72,7 @@ class TestAllocations(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         expected_res = {'id': 'id1',
                         'self': 'http://localhost/awm/allocation/id1',
-                        'allocation': {'kind': 'CredentialsKubernetes',
+                        'allocation': {'kind': 'KubernetesEnvironment',
                                        'host': 'http://k8s.io/'}}
         self.assertEqual(response.json, expected_res)
         mock_db_instance.select.assert_called_with(
@@ -98,7 +98,7 @@ class TestAllocations(unittest.TestCase):
             "Content-Type": "application/json"
         }
         payload = {
-            "kind": "CredentialsKubernetes",
+            "kind": "KubernetesEnvironment",
             "host": "http://k8s.io"
         }
         response = self.client.post('/awm/allocations', headers=headers, json=payload)
@@ -106,7 +106,7 @@ class TestAllocations(unittest.TestCase):
         self.assertEqual(response.json, {'id': 'new-id', 'infoLink': 'http://localhost/awm/allocations/new-id'})
         mock_db_instance.execute.assert_called_with(
             "replace into allocations (id, data, owner, created) values (%s, %s, %s, %s)",
-            ('new-id', '{"kind":"CredentialsKubernetes","host":"http://k8s.io/"}', 'test-user', 1000)
+            ('new-id', '{"kind":"KubernetesEnvironment","host":"http://k8s.io/"}', 'test-user', 1000)
         )
 
     @patch('IM.awm.authorization.check_OIDC')
@@ -116,7 +116,7 @@ class TestAllocations(unittest.TestCase):
         """Test AWM get allocation endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}
         selects = [
-            [['id1', '{"kind": "CredentialsKubernetes","host": "http://k8s.io"}']],
+            [['id1', '{"kind": "KubernetesEnvironment","host": "http://k8s.io"}']],
         ]
         mock_db_instance = self._get_database_mock(selects)
         mock_db.return_value = mock_db_instance
