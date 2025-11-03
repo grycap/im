@@ -7,6 +7,7 @@ from IM.awm.models.page import PageOfAllocations
 from IM.awm.models.success import Success
 from IM.db import DataBase
 from IM.config import Config
+import IM.awm
 from . import require_auth, return_error, validate_from_limit
 
 
@@ -161,7 +162,8 @@ def create_allocation(user_info=None, allocation_id=None):
     else:
         return return_error("Database connection failed", 503)
 
-    allocation_id_model = AllocationId(id=allocation_id)
+    url = f"{request.url_root.rstrip('/')}{Config.AWM_PATH}/allocations/{allocation_id}"
+    allocation_id_model = AllocationId(id=allocation_id, infoLink=url)
     return Response(allocation_id_model.model_dump_json(exclude_unset=True, by_alias=True),
                     status=201, mimetype="application/json")
 
@@ -187,6 +189,15 @@ def delete_allocation(allocation_id, user_info=None):
     allocation_info = _get_allocation(allocation_id, user_info)
     if allocation_info is None:
         return return_error("Allocation not found", status_code=404)
+
+    # check if this allocation is used in any deployment
+    response = IM.awm.routers.deployments.list_deployments()
+    if response.status_code != 200:
+        return response
+
+    for dep_info in response.json.get("elements"):
+        if dep_info.deplyment.allocation.id == allocation_id:
+            return return_error("Allocation in use", 409)
 
     db = DataBase(Config.DATA_DB)
     if db.connect():

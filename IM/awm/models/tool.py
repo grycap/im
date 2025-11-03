@@ -6,8 +6,8 @@ from datetime import datetime
 class ToolId(BaseModel):
     kind: Literal['ToolId'] = 'ToolId'
     id: str = Field(..., description="Unique identifier for this tool blueprint")
-    version: str = Field(..., description="The specific version of this blueprint version")
-    infoLink: HttpUrl = Field(..., description="URL that returns the full details of this tool blueprint")
+    version: str | None = Field(None, description="The specific version of this blueprint version")
+    infoLink: HttpUrl | None = Field(None, description="URL that returns the full details of this tool blueprint")
 
 
 class ToolInfo(BaseModel):

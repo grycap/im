@@ -29,8 +29,8 @@ class TestDeployment(unittest.TestCase):
     @staticmethod
     def _get_deployment_info():
         return ('{"id": "dep_id", '
-                '"deployment": {"tool": {"kind": "ToolId", "id": "toolid"}, '
-                '"allocation": {"kind": "AllocationId", "id": "aid"}}, '
+                '"deployment": {"tool": {"kind": "ToolId", "id": "toolid", "version": "latest", "infoLink": "http://some.url"}, '
+                '"allocation": {"kind": "AllocationId", "id": "aid", "infoLink": "http://some.url"}}, '
                 '"status": "pending"}')
 
     @patch('IM.awm.authorization.check_OIDC')
@@ -58,11 +58,14 @@ class TestDeployment(unittest.TestCase):
                     "deployment": {
                         "allocation": {
                             "kind": "AllocationId",
-                            "id": "aid"
+                            "id": "aid",
+                            "infoLink": "http://some.url/"
                         },
                         "tool": {
                             "kind": "ToolId",
-                            "id": "toolid"
+                            "id": "toolid",
+                            "version": "latest",
+                            "infoLink": "http://some.url/"
                         },
                     },
                     "id": "dep_id",
@@ -83,7 +86,8 @@ class TestDeployment(unittest.TestCase):
     @patch('IM.awm.authorization.check_OIDC')
     @patch('IM.awm.routers.deployments.DataBase')
     @patch('IM.awm.routers.deployments.InfrastructureManager')
-    def test_get_deployment(self, mock_im, mock_db, mock_check_oidc):
+    @patch('IM.awm.routers.deployments._get_allocation')
+    def test_get_deployment(self, mock_get_allocation, mock_im, mock_db, mock_check_oidc):
         """Test AWM deployments get endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user', 'token': 'astoken'}
         selects = [
@@ -91,6 +95,12 @@ class TestDeployment(unittest.TestCase):
         ]
         mock_db_instance = self._get_database_mock(selects)
         mock_db.return_value = mock_db_instance
+
+        ainfo = MagicMock()
+        ainfo.allocation = MagicMock()
+        ainfo.allocation.kind = "KubernetesEnvironment"
+        ainfo.allocation.host = "http://some.url/"
+        mock_get_allocation.return_value = ainfo
 
         mock_im.GetInfrastructureState.return_value = {"state": "running"}
 
@@ -100,15 +110,15 @@ class TestDeployment(unittest.TestCase):
         expected_res = {
             "deployment": {
                 "allocation": {
-                    "kind": "CredentialsKubernetes",
-                    "host": "http://k8s.io/",
+                    "kind": "AllocationId",
+                    "id": "aid",
+                    "infoLink": "http://some.url/"
                 },
                 "tool": {
-                    "kind": "ToolInfo",
+                    "kind": "ToolId",
                     "id": "toolid",
-                    "type": "vm",
-                    "blueprint": "bp",
-                    "blueprintType": "tosca",
+                    "version": "latest",
+                    "infoLink": "http://some.url/"
                 },
             },
             "id": "dep_id",

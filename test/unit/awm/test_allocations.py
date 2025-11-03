@@ -103,7 +103,7 @@ class TestAllocations(unittest.TestCase):
         }
         response = self.client.post('/awm/allocations', headers=headers, json=payload)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json, {'id': 'new-id'})
+        self.assertEqual(response.json, {'id': 'new-id', 'infoLink': 'http://localhost/awm/allocations/new-id'})
         mock_db_instance.execute.assert_called_with(
             "replace into allocations (id, data, owner, created) values (%s, %s, %s, %s)",
             ('new-id', '{"kind":"CredentialsKubernetes","host":"http://k8s.io/"}', 'test-user', 1000)
@@ -111,7 +111,8 @@ class TestAllocations(unittest.TestCase):
 
     @patch('IM.awm.authorization.check_OIDC')
     @patch('IM.awm.routers.allocations.DataBase')
-    def test_delete_allocation(self, mock_db, mock_check_oidc):
+    @patch('IM.awm.routers.deployments.list_deployments')
+    def test_delete_allocation(self, moch_list_dep, mock_db, mock_check_oidc):
         """Test AWM get allocation endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}
         selects = [
@@ -119,6 +120,8 @@ class TestAllocations(unittest.TestCase):
         ]
         mock_db_instance = self._get_database_mock(selects)
         mock_db.return_value = mock_db_instance
+        moch_list_dep.return_value.status_code = 200
+        moch_list_dep.return_value.json = {"from": 0, "limit": 100, "count": 0, "self": "", "elements": []}
         headers = {"Authorization": "Bearer you-very-secret-token"}
         response = self.client.delete('/awm/allocation/id1', headers=headers)
         self.assertEqual(response.status_code, 200)

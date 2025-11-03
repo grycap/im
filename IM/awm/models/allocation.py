@@ -31,9 +31,9 @@ class EoscNodeEnvironment(BaseModel):
     awmAPI: HttpUrl = Field(..., description="Base URL for the AWM API of the EOSC node where this environment was allocated, or null for environments private to the calling user that accessed via explicit credentials")
 
 
-class CredentialsOpenStack(BaseModel):
+class OpenStackEnvironment(BaseModel):
     """Credentials for OpenStack"""
-    kind: Literal['CredentialsOpenStack'] = 'CredentialsOpenStack'
+    kind: Literal['OpenStackEnvironment'] = 'OpenStackEnvironment'
     userName: str = None
     domain: str = None
     domainId: str = None
@@ -45,20 +45,20 @@ class CredentialsOpenStack(BaseModel):
     apiVersion: str = None
 
 
-class CredentialsKubernetes(BaseModel):
+class KubernetesEnvironment(BaseModel):
     """Credentials for Kubernetes"""
-    kind: Literal['CredentialsKubernetes'] = 'CredentialsKubernetes'
+    kind: Literal['KubernetesEnvironment'] = 'KubernetesEnvironment'
     host: HttpUrl
 
 
 Credentials = Annotated[
-    Union[CredentialsOpenStack, CredentialsKubernetes],
+    Union[OpenStackEnvironment, KubernetesEnvironment],
     Field(discriminator='kind')
 ]
 
 
 AllocationUnion = Annotated[
-    Union[EoscNodeEnvironment, CredentialsOpenStack, CredentialsKubernetes],
+    Union[EoscNodeEnvironment, OpenStackEnvironment, KubernetesEnvironment],
     Field(discriminator='kind')
 ]
 
@@ -70,7 +70,7 @@ class Allocation(RootModel[AllocationUnion]):
 class AllocationId(BaseModel):
     kind: Literal['AllocationId'] = 'AllocationId'
     id: str = Field(..., description="Unique identifier for this allocation")
-    infoLink: HttpUrl = Field(..., description="Endpoint that returns more details about this entity")
+    infoLink: HttpUrl | None = Field(None, description="Endpoint that returns more details about this entity")
 
 
 class AllocationInfo(BaseModel):
@@ -80,4 +80,3 @@ class AllocationInfo(BaseModel):
 
     class Config:
         populate_by_name = True
-

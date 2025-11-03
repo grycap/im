@@ -37,10 +37,10 @@ def _init_table(db):
 def _get_im_auth_header(token, allocation=None):
     auth_data = [{"type": "InfrastructureManager", "token": token}]
     if allocation:
-        if allocation.kind == "EoscNodeAllocation":
+        if allocation.kind == "EoscNodeEnvironment":
             # @TODO: Implement deployment to EOSC
             pass
-        elif allocation.kind == "CredentialsOpenStack":
+        elif allocation.kind == "OpenStackEnvironment":
             ost_auth_data = {"id": "ost", "type": "OpenStack", "auth_version": "3.x_oidc_access_token"}
             ost_auth_data["username"] = allocation.userName
             ost_auth_data["password"] = token
@@ -51,7 +51,7 @@ def _get_im_auth_header(token, allocation=None):
                 ost_auth_data["region"] = allocation.region
             # @TODO: Add all the other parameters
             auth_data.append(ost_auth_data)
-        elif allocation.kind == "CredentialsKubernetes":
+        elif allocation.kind == "KubernetesEnvironment":
             # @TODO: How the TM will get now the token?
             k8s_auth_data = {"type": "kubernetes", "token": token}
             k8s_auth_data["host"] = str(allocation.host)
@@ -132,7 +132,6 @@ def list_deployments(user_info=None):
                 except Exception as ex:
                     logger.error("Failed to parse deployment info from database: %s", str(ex))
                     continue
-                # @TODO: Should we get the state from the IM?
                 deployments.append(deployment_info)
                 if len(deployments) >= limit:
                     break
@@ -147,7 +146,6 @@ def list_deployments(user_info=None):
                 except Exception as ex:
                     logger.error("Failed to parse deployment info from database: %s", str(ex))
                     continue
-                # @TODO: Should we get the state from the IM?
                 deployments.append(deployment_info)
             res = db.select("SELECT count(id) from deployments WHERE owner = %s", (user_info['sub'],))
             count = res[0][0] if res else 0
