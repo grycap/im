@@ -6,17 +6,21 @@ from datetime import datetime
 class ToolId(BaseModel):
     kind: Literal['ToolId'] = 'ToolId'
     id: str = Field(..., description="Unique identifier for this tool blueprint")
-    infoLink: str | None = Field(None, description="URL that returns the full details of this tool blueprint")
+    version: str = Field(..., description="The specific version of this blueprint version")
+    infoLink: HttpUrl = Field(..., description="URL that returns the full details of this tool blueprint")
 
 
 class ToolInfo(BaseModel):
     kind: Literal['ToolInfo'] = 'ToolInfo'
     id: str = Field(..., description="Unique identifier for this tool blueprint")
+    nodeId: str | None = Field(None, description="Unique identifier of the EOSC node where this tool blueprint is hosted")
     type: Literal["vm", "container"]
-    blueprint: str = Field(..., description="Blueprint of the tool's workload")
+    blueprint: str = Field(..., description="Prescriptive IaC script of the tool's workload")
     blueprintType: Literal["tosca", "ansible", "helm"]
     name: str = None
     description: str = None
+    published: bool = None
+    favorite: bool = None
     authorName: str = None
     authorEmail: EmailStr = None
     organisation: str = None
@@ -24,6 +28,7 @@ class ToolInfo(BaseModel):
     license: str = None
     version: str = None
     versionFrom: datetime = None
+    versionLatest: datetime = None
     repository: HttpUrl = None
     helpdesk: HttpUrl = None
     validated: bool = False
@@ -32,6 +37,3 @@ class ToolInfo(BaseModel):
 
     class Config:
         populate_by_name = True
-
-
-Tool = Union[ToolId, ToolInfo]

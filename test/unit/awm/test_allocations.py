@@ -121,5 +121,6 @@ class TestAllocations(unittest.TestCase):
         mock_db.return_value = mock_db_instance
         headers = {"Authorization": "Bearer you-very-secret-token"}
         response = self.client.delete('/awm/allocation/id1', headers=headers)
-        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"message": "Deleted"})
         mock_db_instance.execute.assert_called_with("DELETE FROM allocations WHERE id = %s", ('id1',))

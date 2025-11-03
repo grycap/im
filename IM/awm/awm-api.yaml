@@ -1,6 +1,8 @@
+---
 openapi: 3.0.3
 info:
   title: EOSC Application Workflow Management API
+  version: 0.1.25
   description: Deployment service for European Open Science Cloud nodes
   contact:
     name: EOSC
@@ -8,726 +10,15 @@ info:
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-  version: 0.1.20
 servers:
 - url: https://localhost:8080
   description: Local development server
-paths:
-  /allocations:
-    get:
-      tags:
-      - Allocations
-      summary: List all credentials or EOSC environments of the user
-      operationId: list_allocations
-      parameters:
-      - name: from
-        in: query
-        description: Index of the first element to return
-        required: false
-        schema:
-          type: integer
-          minimum: 0
-          default: 0
-      - name: limit
-        in: query
-        description: Maximum number of elements to return
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 100
-      - name: allNodes
-        in: query
-        required: true
-        schema:
-          type: boolean
-          default: false
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PageOfAllocations"
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.allocations_controller
-    post:
-      tags:
-      - Allocations
-      summary: Record credentials or EOSC environment of the user
-      operationId: record_allocation
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Allocation"
-        required: true
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AllocationId"
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.allocations_controller
-  /allocation/{allocationId}:
-    get:
-      tags:
-      - Allocations
-      summary: Retrieve information about existing credentials or EOSC environment of the user
-      operationId: get_allocation_info
-      parameters:
-      - name: allocationId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AllocationInfo"
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.allocations_controller
-    put:
-      tags:
-      - Allocations
-      summary: Update existing credentials or EOSC environment of the user
-      operationId: update_allocation
-      parameters:
-      - name: allocationId
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Allocation"
-        required: true
-      responses:
-        "200":
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AllocationInfo"
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.allocations_controller
-    delete:
-      tags:
-      - Allocations
-      summary: Delete existing credentials or EOSC environment of the user
-      operationId: delete_allocation
-      parameters:
-      - name: allocationId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "204":
-          description: Accepted
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.allocations_controller
-  /tools:
-    get:
-      tags:
-      - Tools
-      summary: List all tool blueprints
-      operationId: list_tools
-      parameters:
-      - name: from
-        in: query
-        description: Index of the first element to return
-        required: false
-        schema:
-          type: integer
-          minimum: 0
-          default: 0
-      - name: limit
-        in: query
-        description: Maximum number of elements to return
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 100
-      - name: allNodes
-        in: query
-        required: true
-        schema:
-          type: boolean
-          default: false
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PageOfTools"
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.tools_controller
-  /tool/{toolId}:
-    get:
-      tags:
-      - Tools
-      summary: Get information about a tool blueprint
-      operationId: get_tool
-      parameters:
-      - name: toolId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ToolInfo"
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.tools_controller
-  /deployments:
-    get:
-      tags:
-      - Deployments
-      summary: List existing deployments
-      operationId: list_deployments
-      parameters:
-      - name: from
-        in: query
-        description: Index of the first element to return
-        required: false
-        schema:
-          type: integer
-          minimum: 0
-          default: 0
-      - name: limit
-        in: query
-        description: Maximum number of elements to return
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 100
-      - name: allNodes
-        in: query
-        required: true
-        schema:
-          type: boolean
-          default: false
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PageOfDeployments"
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.deployments_controller
-    post:
-      tags:
-      - Deployments
-      summary: |
-        Deploy workload to an EOSC environment or an infrastructure for which
-        the user has credentials
-      operationId: deploy_workload
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Deployment"
-        required: true
-      responses:
-        "204":
-          description: Accepted
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.deployments_controller
-  /deployment/{deploymentId}:
-    get:
-      tags:
-      - Deployments
-      summary: Get information about an existing deployment
-      operationId: get_deployment
-      parameters:
-      - name: deploymentId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: Accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeploymentInfo"
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.deployments_controller
-    delete:
-      tags:
-      - Deployments
-      summary: Tear down an existing deployment
-      operationId: delete_deployment
-      parameters:
-      - name: deploymentId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "204":
-          description: Accepted
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.deployments_controller
-  /user/info:
-    get:
-      tags:
-      - Users
-      summary: Retrieve information about the user
-      operationId: get_user_info
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserInfo"
-        "400":
-          description: Invalid parameters or configuration
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: Authorization required
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "403":
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "419":
-          description: Re-delegate credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "503":
-          description: Try again later
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-      security:
-      - OIDC: []
-      x-openapi-router-controller: awm.controllers.users_controller
-  /version:
-    get:
-      tags:
-      - Service
-      summary: Return service version information
-      operationId: version
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Version"
-      x-openapi-router-controller: awm.controllers.service_controller
 components:
   schemas:
     Date:
       type: string
       format: date
+      example: 2025-02-17
     Version:
       type: string
     Success:
@@ -736,8 +27,6 @@ components:
         message:
           type: string
           description: Confirmation message
-      example:
-        message: ""
     Error:
       type: object
       properties:
@@ -749,14 +38,15 @@ components:
           description: Error message
         details:
           type: object
-          additionalProperties: true
+          additionalProperties:
+            type: string
           description: Additional details about the error
     CredentialsOpenStack:
       type: object
       required:
-      - authVersion
-      - host
-      - kind
+        - kind
+        - host
+        - authVersion
       properties:
         kind:
           type: string
@@ -780,14 +70,14 @@ components:
         authVersion:
           type: string
           enum:
-          - 3.x-oidc
+            - "3.x-oidc"
         apiVersion:
           type: string
     CredentialsKubernetes:
       type: object
       required:
-      - host
-      - kind
+        - kind
+        - host
       properties:
         kind:
           type: string
@@ -796,24 +86,62 @@ components:
           type: string
           format: url
     Credentials:
-      type: object
+      oneOf:
+        - $ref: "#/components/schemas/CredentialsOpenStack"
+        - $ref: "#/components/schemas/CredentialsKubernetes"
       discriminator:
         propertyName: kind
-      oneOf:
-      - $ref: "#/components/schemas/CredentialsOpenStack"
-      - $ref: "#/components/schemas/CredentialsKubernetes"
     EoscNodeEnvironment:
       type: object
       required:
-      - awmAPI
-      - nodeName
-      - offer
+        - kind
+        - offer
+        - nodeId
+        - projectId
+        - awmApi
       properties:
         kind:
           type: string
-          default: EoscNodeEnvironment
+          default: EoscNodeAllocation
         offer:
-          $ref: "#/components/schemas/EoscNodeEnvironment_offer"
+          type: object
+          required:
+            - offerId
+            - offerType
+          properties:
+            offerId:
+              type: string
+            offerName:
+              type: string
+            offerType:
+              type: string
+              enum:
+                - openstack
+                - kubernetes
+            cpus:
+              type: integer
+              minimum: 1
+            gpus:
+              type: integer
+            memory:
+              type: integer
+              minimum: 1
+              description: RAM quota in GB
+            fastStorage:
+              type: integer
+              description: SSD or NVMe based (fast) storage quota in GB
+            bulkStorage:
+              type: integer
+              description: HDD based (slow) storage quota in GB
+            s3Storage:
+              type: integer
+              description: S3 storage quota in GB
+            registryStorage:
+              type: integer
+              description: Container Registry storage quota in GB
+            creditsPerDay:
+              type: integer
+              minimum: 1
         projectId:
           type: string
         hostname:
@@ -822,25 +150,42 @@ components:
         provisionedOn:
           type: string
           format: date-time
+          example: 2025-02-17T14:27:01.000+0100
         expiresOn:
           type: string
           format: date-time
+          example: 2025-02-17T14:27:01.000+0100
+        nodeId:
+          type: string
+          description: Unique identifier of the EOSC node where this environment was allocated
         nodeName:
           type: string
           description: Name of the EOSC node where this environment was allocated
         nodeUI:
           type: string
-          description: URL to the interactive UI of the EOSC node where this environment was allocated
           format: url
+          description: URL to the interactive UI of the EOSC node where this environment was allocated
         awmAPI:
           type: string
-          description: "Base URL for the AWM API of the EOSC node where this environment was allocated, or null for environments private to the calling user that accessed via explicit credentials"
           format: url
+          description: |-
+            Base URL for the AWM API of the EOSC node where this environment was allocated, 
+            or null for environments private to the calling user that are accessed via 
+            explicit credentials
+          nullable: true
+    Allocation:
+      oneOf:
+        - $ref: "#/components/schemas/EoscNodeEnvironment"
+        - $ref: "#/components/schemas/CredentialsOpenStack"
+        - $ref: "#/components/schemas/CredentialsKubernetes"
+      discriminator:
+        propertyName: kind
     AllocationId:
       type: object
+      description: Where to deploy
       required:
-      - id
-      - kind
+        - id
+        - infoLink
       properties:
         kind:
           type: string
@@ -848,39 +193,32 @@ components:
         id:
           type: string
           description: Unique identifier for this allocation
-        self:
+        infoLink:
           type: string
-          description: Endpoint that returns more details about this entity
           format: url
-      example:
-        kind: ""
-        self: ""
-        id: ""
-    Allocation:
-      type: object
-      discriminator:
-        propertyName: kind
-      oneOf:
-      - $ref: "#/components/schemas/EoscNodeEnvironment"
-      - $ref: "#/components/schemas/CredentialsOpenStack"
-      - $ref: "#/components/schemas/CredentialsKubernetes"
+          description: Endpoint that returns more details about this allocation
     AllocationInfo:
-      type: object
       allOf:
-      - $ref: "#/components/schemas/Allocation"
-      - required:
-        - id
-        properties:
-          id:
-            type: string
-          self:
-            type: string
-            description: Endpoint that returns the details of this allocation
-            format: url
+        - $ref: "#/components/schemas/Allocation"
+        - type: object
+          required:
+            - id
+            - self
+          properties:
+            id:
+              type: string
+              description: Unique identifier for this allocation
+            self:
+              type: string
+              format: url
+              description: Endpoint that returns the details of this allocation
     ToolId:
       type: object
+      description: What to deploy
       required:
-      - id
+        - id
+        - version
+        - infoLink
       properties:
         kind:
           type: string
@@ -888,16 +226,19 @@ components:
         id:
           type: string
           description: Unique identifier for this tool blueprint
+        version:
+          type: string
+          description: The specific version of this blueprint version
         infoLink:
           type: string
-          description: URL that returns the full details of this tool blueprint
           format: url
+          description: URL that returns the full details of this tool blueprint
     ToolInfo:
       type: object
       required:
-      - blueprint
-      - blueprintType
-      - type
+        - type
+        - blueprint
+        - blueprintType
       properties:
         kind:
           type: string
@@ -905,25 +246,34 @@ components:
         id:
           type: string
           description: Unique identifier for this tool blueprint
+        nodeId:
+          type: string
+          description: Unique identifier of the EOSC node where this tool blueprint is hosted
         type:
           type: string
           enum:
-          - vm
-          - container
+            - vm
+            - container
         blueprint:
           type: string
-          description: Blueprint of the tool's workload
+          description: Prescriptive IaC script of the tool's workload
         blueprintType:
           type: string
-          default: tosca
           enum:
-          - tosca
-          - ansible
-          - helm
+            - tosca
+            - ansible
+            - helm
+          default: tosca
         name:
           type: string
         description:
           type: string
+        published:
+          type: boolean
+          default: false
+        favorite:
+          type: boolean
+          default: false
         authorName:
           type: string
         authorEmail:
@@ -939,9 +289,15 @@ components:
           type: string
         version:
           type: string
+          description: The blueprint version used in a deployment
         versionFrom:
           type: string
+          description: The modified datetime of the blueprint version used in a deployment
           format: date-time
+          example: 2025-02-17T14:27:01.000+0100
+        versionLatest:
+          type: string
+          description: The latest version of the blueprint
         repository:
           type: string
           format: url
@@ -953,42 +309,16 @@ components:
         validatedOn:
           type: string
           format: date-time
+          example: 2025-02-17T14:27:01.000+0100
         self:
           type: string
-          description: Endpoint that returns the details of this tool blueprint
           format: url
-      example:
-        authorEmail: ""
-        keywords: ""
-        kind: ""
-        description: ""
-        organisation: ""
-        type: ""
-        repository: ""
-        version: ""
-        versionFrom: ""
-        helpdesk: ""
-        blueprint: ""
-        license: ""
-        validatedOn: ""
-        blueprintType: ""
-        validated: ""
-        authorName: ""
-        name: ""
-        self: ""
-        id: ""
-    Tool:
-      type: object
-      discriminator:
-        propertyName: kind
-      oneOf:
-      - $ref: "#/components/schemas/ToolId"
-      - $ref: "#/components/schemas/ToolInfo"
+          description: Endpoint that returns the details of this tool blueprint
     DeploymentId:
       type: object
       required:
-      - id
-      - kind
+        - id
+        - infoLink
       properties:
         kind:
           type: string
@@ -996,55 +326,56 @@ components:
         id:
           type: string
           description: Unique identifier for this deployment
-        self:
+        infoLink:
           type: string
-          description: Endpoint that returns more details about this entity
           format: url
-      example:
-        kind: ""
-        self: ""
-        id: ""
+          description: Endpoint that returns more details about this deployment
     Deployment:
       type: object
       required:
-      - allocation
-      - tool
+        - tool
+        - allocation
       properties:
         tool:
-          $ref: "#/components/schemas/Tool"
+          $ref: "#/components/schemas/ToolId"
         allocation:
-          $ref: "#/components/schemas/Allocation"
+          $ref: "#/components/schemas/AllocationId"
     DeploymentInfo:
-      type: object
       allOf:
-      - $ref: "#/components/schemas/Deployment"
-      - required:
-        - id
-        properties:
-          id:
-            type: string
-          status:
-            type: string
-            enum:
-            - unknown
-            - pending
-            - running
-            - stopped
-            - "off"
-            - failed
-            - configured
-            - unconfigured
-            - deleting
-          self:
-            type: string
-            description: Endpoint that returns the details of this deployment
-            format: url
+        - $ref: "#/components/schemas/Deployment"
+        - type: object
+          required:
+            - id
+            - self
+          properties:
+            kind:
+              type: string
+              default: DeploymentInfo
+            id:
+              type: string
+              description: Unique identifier for this deployment
+            status:
+              type: string
+              enum:
+                - unknown
+                - pending
+                - running
+                - stopped
+                - off
+                - failed
+                - configured
+                - unconfigured
+                - deleting
+            self:
+              type: string
+              format: url
+              description: Endpoint that returns the details of this deployment
     Page:
       type: object
       required:
-      - count
-      - from
-      - limit
+        - from
+        - limit
+        - count
       properties:
         from:
           type: integer
@@ -1057,130 +388,754 @@ components:
           description: Total number of elements
         self:
           type: string
-          description: Endpoint that returned this page
           format: url
+          description: Endpoint that returned this page
         prevPage:
           type: string
-          description: Endpoint that returns the previous page
           format: url
+          description: Endpoint that returns the previous page
         nextPage:
           type: string
-          description: Endpoint that returns the next page
           format: url
+          description: Endpoint that returns the next page
     PageOfAllocations:
-      type: object
       allOf:
-      - $ref: "#/components/schemas/Page"
-      - required:
-        - elements
-        properties:
-          elements:
-            type: array
-            items:
-              $ref: "#/components/schemas/AllocationInfo"
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required:
+            - elements
+          properties:
+            elements:
+              type: array
+              items:
+                $ref: "#/components/schemas/AllocationInfo"
     PageOfTools:
-      type: object
       allOf:
-      - $ref: "#/components/schemas/Page"
-      - required:
-        - elements
-        properties:
-          elements:
-            type: array
-            items:
-              $ref: "#/components/schemas/ToolInfo"
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required:
+            - elements
+          properties:
+            elements:
+              type: array
+              items:
+                $ref: "#/components/schemas/ToolInfo"
     PageOfDeployments:
-      type: object
       allOf:
-      - $ref: "#/components/schemas/Page"
-      - required:
-        - elements
-        properties:
-          elements:
-            type: array
-            items:
-              $ref: "#/components/schemas/DeploymentInfo"
-    UserInfo:
-      type: object
-      properties:
-        kind:
-          type: string
-        base_id:
-          type: string
-        user_dn:
-          type: string
-        delegation_id:
-          type: string
-        dn:
-          type: array
-          items:
-            type: string
-        vos:
-          type: array
-          description: Virtual organisation name(s)
-          items:
-            type: string
-        vos_id:
-          type: array
-          description: Virtual organisation identifier(s)
-          items:
-            type: string
-        voms_cred:
-          type: array
-          items:
-            type: string
-      example:
-        delegation_id: ""
-        user_dn: ""
-        base_id: ""
-        voms_cred: ""
-        kind: ""
-        dn: ""
-        vos: ""
-        vos_id: ""
-    EoscNodeEnvironment_offer:
-      type: object
-      required:
-      - offerId
-      - offerType
-      properties:
-        offerId:
-          type: string
-        offerName:
-          type: string
-        offerType:
-          type: string
-          enum:
-          - openstack
-          - kubernetes
-        cpus:
-          type: integer
-          minimum: 1
-        gpus:
-          type: integer
-        memory:
-          type: integer
-          minimum: 1
-          description: RAM quota in GB
-        fastStorage:
-          type: integer
-          description: SSD or NVMe based (fast) storage quota in GB
-        bulkStorage:
-          type: integer
-          description: HDD based (slow) storage quota in GB
-        s3Storage:
-          type: integer
-          description: S3 storage quota in GB
-        registryStorage:
-          type: integer
-          description: Container Registry storage quota in GB
-        creditsPerDay:
-          type: integer
-          minimum: 1
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required:
+            - elements
+          properties:
+            elements:
+              type: array
+              items:
+                $ref: "#/components/schemas/DeploymentInfo"
   securitySchemes:
     OIDC:
-      type: http
       description: OpenID Connect access token issued by EOSC AAI
+      type: http
       scheme: bearer
       bearerFormat: JWT
-      x-bearerInfoFunc: awm.controllers.authorization_controller.check_OIDC
+
+paths:
+  /allocations:
+    get:
+      summary: List all credentials or EOSC environments of the user
+      operationId: listAllocations
+      parameters:
+      - name: from
+        description: Index of the first element to return
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: limit
+        description: Maximum number of elements to return at once
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 100
+      - name: allNodes
+        in: query
+        required: true
+        schema:
+          type: boolean
+          default: false
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageOfAllocations"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Allocations
+
+    post:
+      summary: Record credentials or EOSC environment of the user
+      operationId: recordAllocation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Allocation"
+        required: true
+      responses:
+        201:
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocationId"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Allocations
+
+  /allocation/{allocationId}:
+    parameters:
+      - name: allocationId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      summary: Retrieve information about existing credentials or EOSC environment of the user
+      operationId: getAllocationInfo
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocationInfo"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Allocations
+
+    put:
+      summary: Update existing credentials or EOSC environment of the user
+      operationId: updateAllocation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Allocation"
+        required: true
+      responses:
+        200:
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocationInfo"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Allocations
+
+    delete:
+      summary: Remove existing credentials or EOSC environment of the user
+      operationId: deleteAllocation
+      responses:
+        200:
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        409:
+          description: In use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Allocations 
+
+  /tools:
+    get:
+      summary: List all tool blueprints
+      operationId: listTools
+      parameters:
+      - name: from
+        description: Index of the first element to return
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: limit
+        description: Maximum number of elements to return
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 100
+      - name: includePublished
+        description: Return published blueprints
+        in: query
+        required: true
+        schema:
+          type: boolean
+          default: true
+      - name: includePersonal
+        description: Return blueprints private to the caller (not  yet published)
+        in: query
+        required: true
+        schema:
+          type: boolean
+          default: false
+      - name: onlyFavorites
+        description: Return only those blueprints that were marked as a favorite by the caller
+        in: query
+        required: true
+        schema:
+          type: boolean
+          default: false
+      - name: allNodes
+        in: query
+        required: true
+        schema:
+          type: boolean
+          default: false
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageOfTools"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Tools
+
+  /tool/{toolId}:
+    parameters:
+      - name: toolId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        description: If missing, the latest version will be returned
+        in: query
+        required: false
+        schema:
+          type: string
+
+    get:
+      summary: Get information about a tool blueprint
+      operationId: getTool
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolInfo"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Tools
+
+  /deployments:
+    get:
+      summary: List existing deployments
+      operationId: listDeployments
+      parameters:
+      - name: from
+        description: Index of the first element to return
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: limit
+        description: Maximum number of elements to return at once
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          default: 100
+      - name: allNodes
+        in: query
+        required: true
+        schema:
+          type: boolean
+          default: false
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageOfDeployments"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Deployments
+
+    post:
+      summary: |
+        Deploy workload to an EOSC environment or an infrastructure for which
+        the user has credentials
+      operationId: deployWorkload
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Deployment"
+        required: true
+      responses:
+        202:
+          description: Deploying
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeploymentId"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Deployments
+
+  /deployment/{deploymentId}:
+    parameters:
+      - name: deploymentId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      summary: Get information about an existing deployment
+      operationId: getDeployment
+      responses:
+        200:
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeploymentInfo"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Deployments
+
+    delete:
+      summary: Tear down an existing deployment
+      operationId: deleteDeployment
+      responses:
+        202:
+          description: Deleting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        400:
+          description: Invalid parameters or configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        401:
+          description: Authorization required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        403:
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        419:
+          description: Re-delegate credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        503:
+          description: Try again later
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - OIDC: []
+      tags:
+        - Deployments
+
+  /version:
+    get:
+      summary: Return service version information
+      operationId: version
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+      tags:
+        - Service
+info:
+  title: EOSC Application Workflow Management API
+  version: 0.1.25
+  description: Deployment service for European Open Science Cloud nodes
+  contact:
+    name: EOSC
+    url: https://open-science-cloud.ec.europa.eu/
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+
+
+

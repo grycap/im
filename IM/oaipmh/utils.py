@@ -59,6 +59,8 @@ class GitHubRepository(Repository):
             repo = url.path.split("/")[2]
             branch = url.path.split("/")[4]
             path = "/".join(url.path.split("/")[5:])
+        else:
+            raise Exception("Invalid repository type.")
         return owner, repo, branch, path
 
     def list(self):
@@ -75,5 +77,11 @@ class GitHubRepository(Repository):
     def get_by_path(self, path):
         owner, repo, branch, _ = self._getRepoDetails()
         url = "https://raw.githubusercontent.com/%s/%s/%s/%s" % (owner, repo, branch, path)
+        response = self.cache_session.get(url)
+        return response
+
+    def get_by_sha(self, sha):
+        owner, repo, _, _ = self._getRepoDetails()
+        url = 'https://api.github.com/repos/%s/%s/git/blobs/%s' % (owner, repo, sha)
         response = self.cache_session.get(url)
         return response

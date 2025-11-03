@@ -29,9 +29,8 @@ class TestDeployment(unittest.TestCase):
     @staticmethod
     def _get_deployment_info():
         return ('{"id": "dep_id", '
-                '"deployment": {"tool": {"kind": "ToolInfo", "id": "toolid", "type": "vm", '
-                '"blueprintType": "tosca", "blueprint": "bp"}, '
-                '"allocation": {"kind": "CredentialsKubernetes","host": "http://k8s.io"}}, '
+                '"deployment": {"tool": {"kind": "ToolId", "id": "toolid"}, '
+                '"allocation": {"kind": "AllocationId", "id": "aid"}}, '
                 '"status": "pending"}')
 
     @patch('IM.awm.authorization.check_OIDC')
@@ -58,15 +57,12 @@ class TestDeployment(unittest.TestCase):
                 {
                     "deployment": {
                         "allocation": {
-                            "kind": "CredentialsKubernetes",
-                            "host": "http://k8s.io/",
+                            "kind": "AllocationId",
+                            "id": "aid"
                         },
                         "tool": {
-                            "kind": "ToolInfo",
-                            "id": "toolid",
-                            "type": "vm",
-                            "blueprint": "bp",
-                            "blueprintType": "tosca",
+                            "kind": "ToolId",
+                            "id": "toolid"
                         },
                     },
                     "id": "dep_id",
@@ -140,7 +136,8 @@ class TestDeployment(unittest.TestCase):
 
         headers = {"Authorization": "Bearer you-very-secret-token"}
         response = self.client.delete('/awm/deployment/dep_id', headers=headers)
-        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"message": "Deleted"})
         mock_db_instance.execute.assert_called_with("DELETE FROM deployments WHERE id = %s", ('dep_id',))
 
     @patch('IM.awm.authorization.check_OIDC')

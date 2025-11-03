@@ -45,7 +45,7 @@ def list_allocations(user_info=None):
     if db.connect():
         _init_table(db)
         if db.db_type == DataBase.MONGO:
-            res = db.find("allocations", filter={"owner": user_info['sub']},
+            res = db.find("allocations", filt={"owner": user_info['sub']},
                           projection={"data": True}, sort=[('created', -1)])
             for count, elem in enumerate(res):
                 if from_ > count:
@@ -109,7 +109,8 @@ def _get_allocation(allocation_id, user_info):
                 allocation=allocation
             )
     else:
-        return return_error("Database connection failed", 503)
+        logger.error("Database connection failed")
+        return None
 
     return allocation_info
 
@@ -198,4 +199,5 @@ def delete_allocation(allocation_id, user_info=None):
     else:
         return return_error("Database connection failed", 503)
 
-    return Response(status=204)
+    msg = Success(message="Deleted")
+    return Response(msg.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")

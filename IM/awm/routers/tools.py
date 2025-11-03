@@ -1,3 +1,4 @@
+import base64
 import logging
 import yaml
 from flask import Blueprint, request, Response
@@ -12,30 +13,36 @@ tools_bp = Blueprint("tools", __name__, url_prefix="/tools")
 logger = logging.getLogger(__name__)
 
 
-def _build_self_link_for_list(pid: str) -> str:
+def _build_self_link_for_list(pid: str, version: str = None) -> str:
     base = request.url_root.rstrip("/")
     path = request.path
     if not path.endswith("/"):
         path = path + "/"
-    return f"{base}{path}{pid}"
+    url = f"{base}{path}{pid}"
+    if version:
+        url += "?version=%s" % version
+    return url
 
 
-def _get_tool_info_from_repo(elem: str, path: str) -> ToolInfo:
+def _get_tool_info_from_repo(elem: str, path: str, version: str = None) -> ToolInfo:
     tosca = yaml.safe_load(elem)
     metadata = tosca.get("metadata", {})
     tool_id = path.replace("/", "_")
-    url = _build_self_link_for_list(tool_id)
+    url = _build_self_link_for_list(tool_id, version)
     tool = ToolInfo(
         id=tool_id,
         self_=url,
-        type="vm",  # @TODO: Determine type based on tool_info
+        version='latest',
+        type="vm",  # @TODO(type): Determine type based on tool_info
         name=metadata.get("template_name"),
         description=tosca.get("description"),
         blueprint=elem,
-        blueprint_type="tosca",
+        blueprintType="tosca",
     )
     if metadata.get("template_author"):
-        tool.author_name = metadata.get("template_author")
+        tool.authorName = metadata.get("template_author")
+    if version:
+        tool.version = version
     return tool
 
 
@@ -65,7 +72,7 @@ def list_tools(user_info=None):
         if from_ > count - 1:
             continue
         try:
-            tool = _get_tool_info_from_repo(repo.get(elem), elem['path'])
+            tool = _get_tool_info_from_repo(repo.get(elem), elem['path'], elem['sha'])
             tools.append(tool)
             if len(tools) >= limit:
                 break
@@ -73,15 +80,18 @@ def list_tools(user_info=None):
             logger.error("Failed to get tool info: %s", ex)
 
     page = PageOfTools(from_=from_, limit=limit, elements=tools, count=len(tools_list))
-    return page.model_dump_json(exclude_unset=True)
+    return page.model_dump_json(exclude_unset=True, by_alias=True)
 
 
-def get_tool_from_repo(tool_id: str, token: str, self_link: str = None):
+def get_tool_from_repo(tool_id: str, version: str = None):
     # tool_id was provided with underscores; convert back path
     repo_tool_id = tool_id.replace("_", "/")
     try:
         repo = Repository.create(Config.AWM_TOOLS_REPO)
-        response = repo.get_by_path(repo_tool_id)
+        if version:
+            response = repo.get_by_sha(version)
+        else:
+            response = repo.get_by_path(repo_tool_id)
     except Exception as e:
         logger.error("Failed to get tool info: %s", e)
         msg = Error(id="503", description="Failed to get tool info")
@@ -95,7 +105,12 @@ def get_tool_from_repo(tool_id: str, token: str, self_link: str = None):
         msg = Error(id="503", description="Failed to fetch tool")
         return msg, 503
 
-    tool = _get_tool_info_from_repo(response.text, repo_tool_id)
+    if version:
+        template = base64.b64decode(response.json().get("content").encode()).decode()
+    else:
+        template = response.text
+
+    tool = _get_tool_info_from_repo(template, repo_tool_id, version)
     return tool, 200
 
 
@@ -103,8 +118,10 @@ def get_tool_from_repo(tool_id: str, token: str, self_link: str = None):
 @require_auth
 def get_tool(tool_id: str, user_info=None):
     # build self link from current full URL
-    self_link = request.url
-    tool_or_msg, status_code = get_tool_from_repo(tool_id, user_info["token"], self_link)
+    version = request.args.get("version")
+    if version == 'latest':
+        version = None
+    tool_or_msg, status_code = get_tool_from_repo(tool_id, version)
 
-    return Response(tool_or_msg.model_dump_json(exclude_unset=True),
+    return Response(tool_or_msg.model_dump_json(exclude_unset=True, by_alias=True),
                     status=status_code, mimetype="application/json")

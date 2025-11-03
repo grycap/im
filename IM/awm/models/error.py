@@ -1,8 +1,8 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any
+from typing import Dict, Optional
 
 
 class Error(BaseModel):
-    id: str | None = Field(None, description="Error type")
-    description: str | None = Field("Error", description="Error message")
-    details: Dict[str, Any] | None = Field(None, description="Additional details about the error")
+    id: str = Field(..., description="Error type")
+    description: Optional[str] = Field(None, description="Error message")
+    details: Optional[Dict[str, str]] = Field(None, description="Additional details about the error")

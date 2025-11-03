@@ -4,12 +4,14 @@ from flask import Blueprint, request, Response
 from IM.awm.models.deployment import DeploymentInfo, DeploymentId, Deployment
 from IM.awm.models.page import PageOfDeployments
 from IM.awm.models.error import Error
+from IM.awm.models.success import Success
 from IM.db import DataBase
 from IM.awm.routers.tools import get_tool_from_repo
 from IM.config import Config
 from IM.InfrastructureManager import InfrastructureManager
 from IM.tosca.Tosca import Tosca
 from IM.auth import Authentication
+from IM.awm.routers.allocations import _get_allocation
 from . import require_auth, return_error, validate_from_limit
 
 deployments_bp = Blueprint("deployments", __name__, url_prefix="/deployments")
@@ -83,8 +85,13 @@ def _get_deployment(deployment_id, user_info, get_state=True):
                 return msg, 500
 
             try:
-                auth_data = _get_im_auth_header(user_token, dep_info.deployment.allocation)
                 if get_state:
+                    # Get the allocation info from the Allocation
+                    allocation_info = _get_allocation(dep_info.deployment.allocation.id, user_info)
+                    if not allocation_info:
+                        return "Invalid AllocationId.", 400
+                    allocation = allocation_info.allocation
+                    auth_data = _get_im_auth_header(user_token, allocation)
                     state_info = InfrastructureManager.GetInfrastructureState(deployment_id, auth_data)
                     dep_info.status = state_info['state']
             except Exception as ex:
@@ -174,7 +181,13 @@ def delete_deployment(deployment_id, user_info=None):
         return Response(dep_info.model_dump_json(exclude_unset=True), status=status_code,
                         mimetype="application/json")
 
-    auth_data = _get_im_auth_header(user_info['token'], dep_info.deployment.allocation)
+    # Get the allocation info from the Allocation
+    allocation_info = _get_allocation(dep_info.deployment.allocation.id, user_info)
+    if not allocation_info:
+        return return_error("Invalid AllocationId.", status_code=400)
+    allocation = allocation_info.allocation
+
+    auth_data = _get_im_auth_header(user_info['token'], allocation)
     try:
         InfrastructureManager.DestroyInfrastructure(deployment_id, auth_data)
     except Exception as ex:
@@ -191,7 +204,8 @@ def delete_deployment(deployment_id, user_info=None):
     else:
         return return_error("Database connection failed", 503)
 
-    return Response(status=204)
+    msg = Success(message="Deleted")
+    return Response(msg.model_dump_json(exclude_unset=True), status=200, mimetype="application/json")
 
 
 @deployments_bp.route("/deployments", methods=["POST"])
@@ -204,22 +218,26 @@ def deploy_workload(user_info=None):
     except Exception as e:
         return return_error(f"Invalid deployment body: {e}", status_code=400)
 
-    # Create the infrastructure in the IM
-    if deployment_req.tool.kind == "ToolId":
-        tool, status_code = get_tool_from_repo(deployment_req.tool.id, user_info['token'])
-        if status_code != 200:
-            return Response(tool, status=400, mimetype="application/json")
-    else:
-        tool = deployment_req.tool
+    # Get the Tool from the ID
+    tool, status_code = get_tool_from_repo(deployment_req.tool.id, deployment_req.tool.version)
+    if status_code != 200:
+        return Response(tool, status=400, mimetype="application/json")
 
+    # Translate the TOSCA to RADL
     try:
         tosca_data = Tosca(tool.blueprint, tosca_repo=Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
         _, radl_data = tosca_data.to_radl()
     except Exception as ex:
         return return_error(f"Invalid tool blueprint: {str(ex)}", status_code=400)
 
-    auth_data = _get_im_auth_header(user_info['token'], deployment_req.allocation)
+    # Get the allocation info from the Allocation
+    allocation_info = _get_allocation(deployment_req.allocation.id, user_info)
+    if not allocation_info:
+        return return_error("Invalid AllocationId.", status_code=400)
+    allocation = allocation_info.allocation
 
+    # Create the infrastructure in the IM
+    auth_data = _get_im_auth_header(user_info['token'], allocation)
     try:
         deployment_id = InfrastructureManager.CreateInfrastructure(radl_data, auth_data, True)
     except Exception as ex:
