@@ -161,7 +161,7 @@ def create_allocation(user_info=None, allocation_id=None):
     else:
         return return_error("Database connection failed", 503)
 
-    url = f"{request.url_root.rstrip('/')}{Config.AWM_PATH}/allocations/{allocation_id}"
+    url = f"{request.url_root.rstrip('/')}{Config.AWM_PATH}/allocation/{allocation_id}"
     allocation_id_model = AllocationId(id=allocation_id, infoLink=url)
     return Response(allocation_id_model.model_dump_json(exclude_unset=True, by_alias=True),
                     status=201, mimetype="application/json")

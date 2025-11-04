@@ -34,10 +34,10 @@ class EoscNodeEnvironment(BaseModel):
 class OpenStackEnvironment(BaseModel):
     """Credentials for OpenStack"""
     kind: Literal['OpenStackEnvironment'] = 'OpenStackEnvironment'
-    userName: str = None
+    userName: str
     domain: str = None
     domainId: str = None
-    tenant: str = None
+    tenant: str
     tenantId: str = None
     region: str = None
     host: HttpUrl

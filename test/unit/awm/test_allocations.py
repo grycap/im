@@ -103,7 +103,7 @@ class TestAllocations(unittest.TestCase):
         }
         response = self.client.post('/awm/allocations', headers=headers, json=payload)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json, {'id': 'new-id', 'infoLink': 'http://localhost/awm/allocations/new-id'})
+        self.assertEqual(response.json, {'id': 'new-id', 'infoLink': 'http://localhost/awm/allocation/new-id'})
         mock_db_instance.execute.assert_called_with(
             "replace into allocations (id, data, owner, created) values (%s, %s, %s, %s)",
             ('new-id', '{"kind":"KubernetesEnvironment","host":"http://k8s.io/"}', 'test-user', 1000)
