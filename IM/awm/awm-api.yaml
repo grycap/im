@@ -584,6 +584,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
           description: Not found
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: In use
         419:
           content:
             application/json:
