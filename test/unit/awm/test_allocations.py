@@ -117,6 +117,7 @@ class TestAllocations(unittest.TestCase):
         mock_check_oidc.return_value = {'sub': 'test-user'}
         selects = [
             [['id1', '{"kind": "KubernetesEnvironment","host": "http://k8s.io"}']],
+            [['id1', '{"kind": "KubernetesEnvironment","host": "http://k8s.io"}']]
         ]
         mock_db_instance = self._get_database_mock(selects)
         mock_db.return_value = mock_db_instance
@@ -127,3 +128,28 @@ class TestAllocations(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json, {"message": "Deleted"})
         mock_db_instance.execute.assert_called_with("DELETE FROM allocations WHERE id = %s", ('id1',))
+
+        moch_list_dep.return_value.status_code = 200
+        moch_list_dep.return_value.json = {"from": 0, "limit": 100, "count": 0, "self": "",
+                                           "elements": [
+                                               {
+                                                   "deployment": {
+                                                       "allocation": {
+                                                           "kind": "AllocationId",
+                                                           "id": "id1",
+                                                           "infoLink": "http://some.url/"
+                                                       },
+                                                       "tool": {
+                                                           "kind": "ToolId",
+                                                           "id": "toolid",
+                                                           "version": "latest",
+                                                           "infoLink": "http://some.url/"
+                                                       },
+                                                   },
+                                                   "id": "dep_id",
+                                                   "status": "pending",
+                                               }
+                                           ]}
+        response = self.client.delete('/awm/allocation/id1', headers=headers)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json, {'description': 'Allocation in use', 'id': '409'})

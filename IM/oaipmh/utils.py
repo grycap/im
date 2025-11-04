@@ -77,7 +77,7 @@ class GitHubRepository(Repository):
     def get_by_path(self, path, details=False):
         owner, repo, branch, _ = self._getRepoDetails()
         if details:
-            url = "https://api.github.com/repos/%s/%s/contents/%s?ref=%s"  % (owner, repo, path, branch)
+            url = "https://api.github.com/repos/%s/%s/contents/%s?ref=%s" % (owner, repo, path, branch)
         else:
             url = "https://raw.githubusercontent.com/%s/%s/%s/%s" % (owner, repo, branch, path)
         response = self.cache_session.get(url)

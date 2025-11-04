@@ -29,7 +29,8 @@ class TestDeployment(unittest.TestCase):
     @staticmethod
     def _get_deployment_info():
         return ('{"id": "dep_id", '
-                '"deployment": {"tool": {"kind": "ToolId", "id": "toolid", "version": "latest", "infoLink": "http://some.url"}, '
+                '"deployment": {"tool": {"kind": "ToolId", "id": "toolid", '
+                '"version": "latest", "infoLink": "http://some.url"}, '
                 '"allocation": {"kind": "AllocationId", "id": "aid", "infoLink": "http://some.url"}}, '
                 '"status": "pending"}')
 

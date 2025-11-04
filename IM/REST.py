@@ -635,7 +635,8 @@ class Infrastructure(flask_restx.Resource):
 class InfrastructureProperty(flask_restx.Resource):
 
     @infra_ns.doc(security='IM Auth',
-                  description='Get infrastructure property: state, outputs, contmsg, data, radl, tosca and authorization',
+                  description=('Get infrastructure property: state, outputs, contmsg, '
+                               'data, radl, tosca and authorization'),
                   produces=['application/json', 'text/plain'],
                   params={
                       "headeronly": "Optional parameter if this flag is set to yes, true or 1 only the initial "

@@ -5,12 +5,9 @@ from IM.awm.models.tool import ToolId
 
 
 class DeploymentId(BaseModel):
-    id: str = Field(..., description="Unique identifier for this deployment")
+    id: str
     kind: Literal["DeploymentId"] = "DeploymentId"
-    infoLink: HttpUrl | None = Field(None, description="Endpoint that returns more details about this entity")
-
-    class Config:
-        populate_by_name = True
+    infoLink: HttpUrl = None
 
 
 class Deployment(BaseModel):
@@ -20,7 +17,7 @@ class Deployment(BaseModel):
 
 class DeploymentInfo(BaseModel):
     deployment: Deployment
-    id: str = Field(..., description="Unique identifier for this tool blueprint")
+    id: str
     status: Literal["unknown",
                     "pending",
                     "running",
@@ -30,8 +27,7 @@ class DeploymentInfo(BaseModel):
                     "configured",
                     "unconfigured",
                     "deleting"]
-    self_: HttpUrl | None = Field(None, alias="self",
-                                  description="Endpoint that returns the details of this tool blueprint")
+    self_: HttpUrl | None = Field(None, alias="self")
 
     class Config:
         populate_by_name = True

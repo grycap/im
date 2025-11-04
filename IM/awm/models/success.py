@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Success(BaseModel):
-    message: str | None = Field("Success", description="Confirmation message")
+    message: str = None

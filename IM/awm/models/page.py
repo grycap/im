@@ -8,12 +8,12 @@ from IM.awm.models.deployment import DeploymentInfo
 
 class Page(BaseModel):
     """Page Base class for pagination"""
-    from_: int = Field(..., alias="from", description="Index of the first element to return")
-    limit: int = Field(..., description="Maximum number of elements to return")
-    count: int = Field(..., description="Total number of elements")
-    self_: HttpUrl | None = Field(None, alias="self", description="Endpoint that returned this page")
-    prevPage: HttpUrl | None = Field(None, description="Endpoint that returns the previous page")
-    nextPage: HttpUrl | None = Field(None, description="Endpoint that returns the next page")
+    from_: int = Field(..., alias="from")
+    limit: int
+    count: int
+    self_: HttpUrl | None = Field(None, alias="self")
+    prevPage: HttpUrl = None
+    nextPage: HttpUrl = None
 
     class Config:
         populate_by_name = True

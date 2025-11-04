@@ -20,9 +20,11 @@ def _init_table(db):
     if not db.table_exists("allocations"):
         logger.info("Creating allocations table")
         if db.db_type == DataBase.MYSQL:
-            db.execute("CREATE TABLE allocations (id VARCHAR(255) PRIMARY KEY, data TEXT, owner VARCHAR(255), created TIMESTAMP)")
+            db.execute("CREATE TABLE allocations (id VARCHAR(255) PRIMARY KEY, data TEXT, "
+                       "owner VARCHAR(255), created TIMESTAMP)")
         elif db.db_type == DataBase.SQLITE:
-            db.execute("CREATE TABLE allocations (id TEXT PRIMARY KEY, data TEXT, owner VARCHAR(255), created TIMESTAMP)")
+            db.execute("CREATE TABLE allocations (id TEXT PRIMARY KEY, data TEXT, "
+                       "owner VARCHAR(255), created TIMESTAMP)")
         elif db.db_type == DataBase.MONGO:
             db.connection.create_collection("allocations")
             db.connection["allocations"].create_index([("id", 1), ("owner", 1)], unique=True)
@@ -121,7 +123,8 @@ def get_allocation(allocation_id, user_info=None):
     allocation_info = _get_allocation(allocation_id, user_info)
     if allocation_info is None:
         return return_error("Allocation not found", status_code=404)
-    return Response(allocation_info.model_dump_json(exclude_unset=True, by_alias=True), status=200, mimetype="application/json")
+    return Response(allocation_info.model_dump_json(exclude_unset=True, by_alias=True),
+                    status=200, mimetype="application/json")
 
 
 @allocations_bp.route("/allocations", methods=["POST"])
@@ -167,6 +170,19 @@ def create_allocation(user_info=None, allocation_id=None):
                     status=201, mimetype="application/json")
 
 
+def _check_allocation_in_use(allocation_id):
+    # check if this allocation is used in any deployment
+    response = IM.awm.routers.deployments.list_deployments()
+    if response.status_code != 200:
+        return response
+
+    for dep_info in response.json.get("elements"):
+        if dep_info.get('deployment', {}).get('allocation', {}).get('id') == allocation_id:
+            return return_error("Allocation in use", 409)
+
+    return None
+
+
 @allocations_bp.route("/allocation/<allocation_id>", methods=["PUT"])
 @require_auth
 def update_allocation(allocation_id, user_info=None):
@@ -174,12 +190,18 @@ def update_allocation(allocation_id, user_info=None):
     if allocation_info is None:
         return return_error("Allocation not found", status_code=404)
 
+    # check if this allocation is used in any deployment
+    response = _check_allocation_in_use(allocation_id)
+    if response:
+        return response
+
     response = create_allocation(allocation_id=allocation_id)
     if response.status_code != 201:
         return response
 
     allocation_info = _get_allocation(allocation_id, user_info)
-    return Response(allocation_info.model_dump_json(exclude_unset=True, by_alias=True), status=200, mimetype="application/json")
+    return Response(allocation_info.model_dump_json(exclude_unset=True, by_alias=True),
+                    status=200, mimetype="application/json")
 
 
 @allocations_bp.route("/allocation/<allocation_id>", methods=["DELETE"])
@@ -190,13 +212,9 @@ def delete_allocation(allocation_id, user_info=None):
         return return_error("Allocation not found", status_code=404)
 
     # check if this allocation is used in any deployment
-    response = IM.awm.routers.deployments.list_deployments()
-    if response.status_code != 200:
+    response = _check_allocation_in_use(allocation_id)
+    if response:
         return response
-
-    for dep_info in response.json.get("elements"):
-        if dep_info.deplyment.allocation.id == allocation_id:
-            return return_error("Allocation in use", 409)
 
     db = DataBase(Config.DATA_DB)
     if db.connect():

@@ -24,9 +24,11 @@ def _init_table(db):
     if not db.table_exists("deployments"):
         logger.info("Creating deployments table")
         if db.db_type == DataBase.MYSQL:
-            db.execute("CREATE TABLE deployments (id VARCHAR(255) PRIMARY KEY, data TEXT, owner VARCHAR(255), created TIMESTAMP)")
+            db.execute("CREATE TABLE deployments (id VARCHAR(255) PRIMARY KEY, data TEXT"
+                       ", owner VARCHAR(255), created TIMESTAMP)")
         elif db.db_type == DataBase.SQLITE:
-            db.execute("CREATE TABLE deployments (id TEXT PRIMARY KEY, data TEXT, owner VARCHAR(255), created TIMESTAMP)")
+            db.execute("CREATE TABLE deployments (id TEXT PRIMARY KEY, data TEXT"
+                       ", owner VARCHAR(255), created TIMESTAMP)")
         elif db.db_type == DataBase.MONGO:
             db.connection.create_collection("deployments")
             db.connection["deployments"].create_index([("id", 1), ("owner", 1)], unique=True)

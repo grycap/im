@@ -1,21 +1,21 @@
-from typing import List, Union, Literal
+from typing import List, Literal
 from pydantic import BaseModel, Field, EmailStr, HttpUrl
 from datetime import datetime
 
 
 class ToolId(BaseModel):
     kind: Literal['ToolId'] = 'ToolId'
-    id: str = Field(..., description="Unique identifier for this tool blueprint")
-    version: str | None = Field(None, description="The specific version of this blueprint version")
-    infoLink: HttpUrl | None = Field(None, description="URL that returns the full details of this tool blueprint")
+    id: str
+    version: str = None
+    infoLink: HttpUrl = None
 
 
 class ToolInfo(BaseModel):
     kind: Literal['ToolInfo'] = 'ToolInfo'
-    id: str = Field(..., description="Unique identifier for this tool blueprint")
-    nodeId: str | None = Field(None, description="Unique identifier of the EOSC node where this tool blueprint is hosted")
+    id: str
+    nodeId: str = None
     type: Literal["vm", "container"]
-    blueprint: str = Field(..., description="Prescriptive IaC script of the tool's workload")
+    blueprint: str
     blueprintType: Literal["tosca", "ansible", "helm"]
     name: str = None
     description: str = None
@@ -33,7 +33,7 @@ class ToolInfo(BaseModel):
     helpdesk: HttpUrl = None
     validated: bool = False
     validatedOn: datetime = None
-    self_: HttpUrl | None = Field(None, alias="self", description="Endpoint that returns the details of this tool blueprint")
+    self_: HttpUrl | None = Field(None, alias="self")
 
     class Config:
         populate_by_name = True
