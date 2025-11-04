@@ -18,9 +18,9 @@ components:
       discriminator:
         propertyName: kind
       oneOf:
-      - $ref: '#/components/schemas/EoscNodeEnvironment'
       - $ref: '#/components/schemas/OpenStackEnvironment'
       - $ref: '#/components/schemas/KubernetesEnvironment'
+      - $ref: '#/components/schemas/EoscNodeEnvironment'
     AllocationId:
       description: Where to deploy
       properties:
@@ -252,6 +252,9 @@ components:
       - kind
       - host
       - authVersion
+      - userName
+      - tenant
+      - domain
       type: object
     Page:
       properties:
