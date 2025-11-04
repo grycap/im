@@ -15,7 +15,7 @@ allocations_bp = Blueprint("allocations", __name__)
 logger = logging.getLogger(__name__)
 
 
-def _init_table(db):
+def _init_table(db: DataBase) -> bool:
     """ Creates de database """
     if not db.table_exists("allocations"):
         logger.info("Creating allocations table")
@@ -34,7 +34,7 @@ def _init_table(db):
 
 @allocations_bp.route("/allocations", methods=["GET"])
 @require_auth
-def list_allocations(user_info=None):
+def list_allocations(user_info: dict = None) -> Response:
     # Query params
     from_, limit = validate_from_limit(request)
     if from_ < 0 or limit < 1:
@@ -86,7 +86,7 @@ def list_allocations(user_info=None):
     return Response(page.model_dump_json(exclude_unset=True, by_alias=True), status=200, mimetype="application/json")
 
 
-def _get_allocation(allocation_id, user_info):
+def _get_allocation(allocation_id: str, user_info: dict) -> AllocationInfo:
     allocation_info = None
     user_id = user_info['sub']
     db = DataBase(Config.DATA_DB)
@@ -119,7 +119,7 @@ def _get_allocation(allocation_id, user_info):
 
 @allocations_bp.route("/allocation/<allocation_id>", methods=["GET"])
 @require_auth
-def get_allocation(allocation_id, user_info=None):
+def get_allocation(allocation_id: str, user_info: dict = None) -> Response:
     allocation_info = _get_allocation(allocation_id, user_info)
     if allocation_info is None:
         return return_error("Allocation not found", status_code=404)
@@ -129,7 +129,7 @@ def get_allocation(allocation_id, user_info=None):
 
 @allocations_bp.route("/allocations", methods=["POST"])
 @require_auth
-def create_allocation(user_info=None, allocation_id=None):
+def create_allocation(user_info: dict = None, allocation_id: str = None) -> Response:
     try:
         payload = request.get_data(as_text=True)
         allocation = Allocation.model_validate_json(payload)
@@ -170,7 +170,7 @@ def create_allocation(user_info=None, allocation_id=None):
                     status=201, mimetype="application/json")
 
 
-def _check_allocation_in_use(allocation_id):
+def _check_allocation_in_use(allocation_id: str) -> Response:
     # check if this allocation is used in any deployment
     response = IM.awm.routers.deployments.list_deployments()
     if response.status_code != 200:
@@ -185,7 +185,7 @@ def _check_allocation_in_use(allocation_id):
 
 @allocations_bp.route("/allocation/<allocation_id>", methods=["PUT"])
 @require_auth
-def update_allocation(allocation_id, user_info=None):
+def update_allocation(allocation_id: str, user_info: dict = None) -> Response:
     allocation_info = _get_allocation(allocation_id, user_info)
     if allocation_info is None:
         return return_error("Allocation not found", status_code=404)
@@ -206,7 +206,7 @@ def update_allocation(allocation_id, user_info=None):
 
 @allocations_bp.route("/allocation/<allocation_id>", methods=["DELETE"])
 @require_auth
-def delete_allocation(allocation_id, user_info=None):
+def delete_allocation(allocation_id: str, user_info: dict = None) -> Response:
     allocation_info = _get_allocation(allocation_id, user_info)
     if allocation_info is None:
         return return_error("Allocation not found", status_code=404)

@@ -1,6 +1,8 @@
 import base64
 import logging
 import yaml
+from typing import Tuple
+from pydantic import BaseModel
 from flask import Blueprint, request, Response
 from IM.awm.models.tool import ToolInfo
 from IM.awm.models.page import PageOfTools
@@ -13,7 +15,7 @@ tools_bp = Blueprint("tools", __name__)
 logger = logging.getLogger(__name__)
 
 
-def _get_tool_type(tosca):
+def _get_tool_type(tosca: dict) -> str:
     try:
         node_templates = tosca.get('topology_template', {}).get('node_templates', {})
         for _, node in node_templates.items():
@@ -50,7 +52,7 @@ def _get_tool_info_from_repo(elem: str, path: str, version: str = None) -> ToolI
 
 @tools_bp.route("/tools", methods=["GET"])
 @require_auth
-def list_tools(user_info=None):
+def list_tools(user_info: dict = None) -> Response:
     # query params with simple validation
     from_, limit = validate_from_limit(request)
     if from_ < 0 or limit < 1:
@@ -86,7 +88,7 @@ def list_tools(user_info=None):
                     mimetype="application/json")
 
 
-def get_tool_from_repo(tool_id: str, version: str = None):
+def get_tool_from_repo(tool_id: str, version: str = None) -> Tuple[BaseModel, int]:
     # tool_id was provided with underscores; convert back path
     repo_tool_id = tool_id.replace("_", "/")
     try:
@@ -118,7 +120,7 @@ def get_tool_from_repo(tool_id: str, version: str = None):
 
 @tools_bp.route("/tool/<tool_id>", methods=["GET"])
 @require_auth
-def get_tool(tool_id: str, user_info=None):
+def get_tool(tool_id: str, user_info: dict = None) -> Response:
     # build self link from current full URL
     version = request.args.get("version")
     if version == 'latest':

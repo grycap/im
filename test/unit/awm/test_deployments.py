@@ -98,9 +98,9 @@ class TestDeployment(unittest.TestCase):
         mock_db.return_value = mock_db_instance
 
         ainfo = MagicMock()
-        ainfo.allocation = MagicMock()
-        ainfo.allocation.kind = "KubernetesEnvironment"
-        ainfo.allocation.host = "http://some.url/"
+        ainfo.allocation.root = MagicMock()
+        ainfo.allocation.root.kind = "KubernetesEnvironment"
+        ainfo.allocation.root.host = "http://some.url/"
         mock_get_allocation.return_value = ainfo
 
         mock_im.GetInfrastructureState.return_value = {"state": "running"}
@@ -145,9 +145,9 @@ class TestDeployment(unittest.TestCase):
         mock_db.return_value = mock_db_instance
 
         ainfo = MagicMock()
-        ainfo.allocation = MagicMock()
-        ainfo.allocation.kind = "KubernetesEnvironment"
-        ainfo.allocation.host = "http://some.url/"
+        ainfo.allocation.root = MagicMock()
+        ainfo.allocation.root.kind = "KubernetesEnvironment"
+        ainfo.allocation.root.host = "http://some.url/"
         mock_get_allocation.return_value = ainfo
 
         mock_im.DeleteInfrastructure.return_value = True
@@ -182,9 +182,9 @@ class TestDeployment(unittest.TestCase):
         mock_tosca.return_value = mock_tosca_instance
 
         ainfo = MagicMock()
-        ainfo.allocation = MagicMock()
-        ainfo.allocation.kind = "KubernetesEnvironment"
-        ainfo.allocation.host = "http://some.url/"
+        ainfo.allocation.root = MagicMock()
+        ainfo.allocation.root.kind = "KubernetesEnvironment"
+        ainfo.allocation.root.host = "http://some.url/"
         mock_get_allocation.return_value = ainfo
 
         headers = {"Authorization": "Bearer you-very-secret-token"}

@@ -4,13 +4,14 @@ from pydantic import BaseModel, HttpUrl
 class EOSCNode(BaseModel):
     """Class that represents an EOSC Node"""
     nodeId: str
-    awm: HttpUrl = None
+    nodeName: str
+    awmAPI: HttpUrl = None
 
 
 class EOSCNodeRegistry():
     """Class to interact with the central EOSC Node Registry"""
 
-    def list_nodes(self):
+    def list_nodes(self): 
         """Return the list of available nodes"""
         # @TODO(list): Complete
         return []

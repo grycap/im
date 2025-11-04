@@ -1,17 +1,18 @@
+from typing import Tuple
 from functools import wraps
 from IM.awm.authorization import authenticate
-from flask import Response, request
+from flask import Response, request, Request
 from IM.awm.models.error import Error
 
 
-def return_error(message, status_code=500):
+def return_error(message: str, status_code: int = 500) -> Response:
     err = Error(id=f"{status_code}", description=message)
     return Response(err.model_dump_json(exclude_unset=True),
                     status=status_code,
                     mimetype="application/json")
 
 
-def validate_from_limit(request):
+def validate_from_limit(request: Request) -> Tuple[int, int]:
     try:
         from_ = int(request.args.get("from", 0))
     except (TypeError, ValueError):

@@ -1,10 +1,13 @@
 import logging
 import time
+from pydantic import BaseModel
+from typing import Tuple
 from flask import Blueprint, request, Response
 from IM.awm.models.deployment import DeploymentInfo, DeploymentId, Deployment
 from IM.awm.models.page import PageOfDeployments
 from IM.awm.models.error import Error
 from IM.awm.models.success import Success
+from IM.awm.models.allocation import AllocationUnion
 from IM.db import DataBase
 from IM.awm.routers.tools import get_tool_from_repo
 from IM.config import Config
@@ -19,7 +22,7 @@ deployments_bp = Blueprint("deployments", __name__)
 logger = logging.getLogger(__name__)
 
 
-def _init_table(db):
+def _init_table(db: DataBase) -> bool:
     """ Creates de database """
     if not db.table_exists("deployments"):
         logger.info("Creating deployments table")
@@ -36,7 +39,7 @@ def _init_table(db):
     return False
 
 
-def _get_im_auth_header(token, allocation=None):
+def _get_im_auth_header(token: str, allocation: AllocationUnion = None) -> Authentication:
     auth_data = [{"type": "InfrastructureManager", "token": token}]
     if allocation:
         if allocation.kind == "EoscNodeEnvironment":
@@ -62,7 +65,7 @@ def _get_im_auth_header(token, allocation=None):
     return Authentication(auth_data)
 
 
-def _get_deployment(deployment_id, user_info, get_state=True):
+def _get_deployment(deployment_id: str, user_info: dict, get_state: bool = True) -> Tuple[BaseModel, int]:
     dep_info = None
     user_token = user_info['token']
     user_id = user_info['sub']
@@ -110,7 +113,7 @@ def _get_deployment(deployment_id, user_info, get_state=True):
 
 @deployments_bp.route("/deployments", methods=["GET"])
 @require_auth
-def list_deployments(user_info=None):
+def list_deployments(user_info: dict = None) -> Response:
     # Query params
     from_, limit = validate_from_limit(request)
     if from_ < 0 or limit < 1:
@@ -167,7 +170,7 @@ def list_deployments(user_info=None):
 
 @deployments_bp.route("/deployment/<deployment_id>", methods=["GET"])
 @require_auth
-def get_deployment(deployment_id, user_info=None):
+def get_deployment(deployment_id: str, user_info: dict = None) -> Response:
     dep_info, status_code = _get_deployment(deployment_id, user_info)
     return Response(dep_info.model_dump_json(exclude_unset=True, by_alias=True), status=status_code,
                     mimetype="application/json")
@@ -175,7 +178,7 @@ def get_deployment(deployment_id, user_info=None):
 
 @deployments_bp.route("/deployment/<deployment_id>", methods=["DELETE"])
 @require_auth
-def delete_deployment(deployment_id, user_info=None):
+def delete_deployment(deployment_id: str, user_info: dict = None) -> Response:
     dep_info, status_code = _get_deployment(deployment_id, user_info, get_state=False)
     if status_code != 200:
         return Response(dep_info.model_dump_json(exclude_unset=True), status=status_code,
@@ -210,7 +213,7 @@ def delete_deployment(deployment_id, user_info=None):
 
 @deployments_bp.route("/deployments", methods=["POST"])
 @require_auth
-def deploy_workload(user_info=None):
+def deploy_workload(user_info: dict = None) -> Response:
     # Parse incoming JSON into Deployment model
     try:
         payload = request.get_data(as_text=True)
