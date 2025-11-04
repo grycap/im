@@ -14,7 +14,7 @@ from IM.auth import Authentication
 from IM.awm.routers.allocations import _get_allocation
 from . import require_auth, return_error, validate_from_limit
 
-deployments_bp = Blueprint("deployments", __name__, url_prefix="/deployments")
+deployments_bp = Blueprint("deployments", __name__)
 
 logger = logging.getLogger(__name__)
 

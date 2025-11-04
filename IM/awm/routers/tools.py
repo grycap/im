@@ -9,31 +9,33 @@ from IM.oaipmh.utils import Repository
 from IM.config import Config
 from . import require_auth, return_error, validate_from_limit
 
-tools_bp = Blueprint("tools", __name__, url_prefix="/tools")
+tools_bp = Blueprint("tools", __name__)
 logger = logging.getLogger(__name__)
 
 
-def _build_self_link_for_list(pid: str, version: str = None) -> str:
-    base = request.url_root.rstrip("/")
-    path = request.path
-    if not path.endswith("/"):
-        path = path + "/"
-    url = f"{base}{path}{pid}"
-    if version:
-        url += "?version=%s" % version
-    return url
+def _get_tool_type(tosca):
+    try:
+        node_templates = tosca.get('topology_template', {}).get('node_templates', {})
+        for _, node in node_templates.items():
+            if node.get('type', '') == 'tosca.nodes.Container.Application.Docker':
+                return "container"
+    except Exception:
+        logger.exception("Error getting tool type using default 'vm'")
+    return "vm"
 
 
 def _get_tool_info_from_repo(elem: str, path: str, version: str = None) -> ToolInfo:
     tosca = yaml.safe_load(elem)
     metadata = tosca.get("metadata", {})
     tool_id = path.replace("/", "_")
-    url = _build_self_link_for_list(tool_id, version)
+    url = f"{request.url_root.rstrip('/')}{Config.AWM_PATH}/tool/{tool_id}"
+    if version:
+        url += "?version=%s" % version
     tool = ToolInfo(
         id=tool_id,
         self_=url,
         version='latest',
-        type="vm",  # @TODO(type): Determine type based on tool_info
+        type=_get_tool_type(tosca),
         name=metadata.get("template_name", ""),
         description=tosca.get("description", ""),
         blueprint=elem,
@@ -92,7 +94,7 @@ def get_tool_from_repo(tool_id: str, version: str = None):
         if version:
             response = repo.get_by_sha(version)
         else:
-            response = repo.get_by_path(repo_tool_id)
+            response = repo.get_by_path(repo_tool_id, True)
     except Exception as e:
         logger.error("Failed to get tool info: %s", e)
         msg = Error(id="503", description="Failed to get tool info")
@@ -106,10 +108,9 @@ def get_tool_from_repo(tool_id: str, version: str = None):
         msg = Error(id="503", description="Failed to fetch tool")
         return msg, 503
 
-    if version:
-        template = base64.b64decode(response.json().get("content").encode()).decode()
-    else:
-        template = response.text
+    template = base64.b64decode(response.json().get("content").encode()).decode()
+    if not version:
+        version = response.json().get("sha")
 
     tool = _get_tool_info_from_repo(template, repo_tool_id, version)
     return tool, 200
