@@ -7,6 +7,8 @@ import base64
 import flask
 import unittest
 from IM.awm import awm_bp
+from pydantic import HttpUrl
+from IM.awm.node_registry import EOSCNode
 from mock import patch, MagicMock
 
 
@@ -48,6 +50,58 @@ class TestTools(unittest.TestCase):
                         'limit': 100}
 
         self.assertEqual(response.json, expexted_res)
+
+    @patch('IM.awm.authorization.check_OIDC')
+    @patch('IM.awm.routers.tools.Repository')
+    @patch('IM.awm.routers.tools.EOSCNodeRegistry')
+    @patch('requests.get')
+    def test_list_tools_remote(self, mock_get, mock_reg, mock_repo, mock_check_oidc):
+        mock_check_oidc.return_value = {'sub': 'test-user', 'name': 'username', 'token': 'at'}
+        headers = {"Authorization": "Bearer you-very-secret-token"}
+
+        blueprint = "description: DESC\nmetadata:\n  template_name: NAME"
+        repo = MagicMock()
+        mock_repo.create.return_value = repo
+        repo.list.return_value = {"elem": {"path": "path", "sha": "version"}}
+        repo.get.return_value = blueprint
+
+        node1 = EOSCNode(awmAPI=HttpUrl("http://server1.com"), nodeId="n1")
+        node2 = EOSCNode(awmAPI=HttpUrl("http://server2.com"), nodeId="n2")
+        mock_reg.list_nodes.return_value = [node1, node2]
+
+        resp1 = MagicMock()
+        resp1.status_code = 200
+        resp1.json.return_value = {'count': 1,
+                                   'elements': [{'blueprint': blueprint,
+                                                 'blueprintType': 'tosca',
+                                                 'id': 'tool1',
+                                                 'type': 'vm'}],
+                                   'from': 0,
+                                   'limit': 100}
+        resp2 = MagicMock()
+        resp2.status_code = 200
+        resp2.json.return_value = {'count': 2,
+                                   'elements': [{'blueprint': blueprint,
+                                                 'blueprintType': 'tosca',
+                                                 'id': 'tool2',
+                                                 'type': 'vm'},
+                                                {'blueprint': blueprint,
+                                                 'blueprintType': 'tosca',
+                                                 'id': 'tool3',
+                                                 'type': 'vm'}],
+                                   'from': 0,
+                                   'limit': 100}
+        mock_get.side_effect = [resp1, resp2, resp1, resp1]
+
+        response = self.client.get("/awm/tools?allNodes=true", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["count"], 4)
+        self.assertEqual(len(response.json["elements"]), 4)
+
+        response = self.client.get("/awm/tools?allNodes=true&from=1&limit=2", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["count"], 3)
+        self.assertEqual(len(response.json["elements"]), 2)
 
     @patch('IM.awm.authorization.check_OIDC')
     @patch('IM.awm.routers.tools.Repository')

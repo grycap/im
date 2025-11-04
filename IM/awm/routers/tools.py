@@ -1,12 +1,13 @@
 import base64
 import logging
 import yaml
-from typing import Tuple
+from typing import Tuple, List
 from pydantic import BaseModel
 from flask import Blueprint, request, Response
 from IM.awm.models.tool import ToolInfo
 from IM.awm.models.page import PageOfTools
 from IM.awm.models.error import Error
+from IM.awm.node_registry import EOSCNodeRegistry
 from IM.oaipmh.utils import Repository
 from IM.config import Config
 from . import require_auth, return_error, validate_from_limit
@@ -50,6 +51,16 @@ def _get_tool_info_from_repo(elem: str, path: str, version: str = None) -> ToolI
     return tool
 
 
+def list_remote_tools(from_: int, limit: int, count: int, user_info: dict = None) -> Tuple[int, List[ToolInfo]]:
+    total = 0
+    tools = []
+    for node in EOSCNodeRegistry.list_nodes():
+        node_total, node_tools = node.list_tools(from_, limit, count + total, user_info["token"])
+        total += node_total
+        tools.extend(node_tools)
+    return total, tools
+
+
 @tools_bp.route("/tools", methods=["GET"])
 @require_auth
 def list_tools(user_info: dict = None) -> Response:
@@ -57,9 +68,6 @@ def list_tools(user_info: dict = None) -> Response:
     from_, limit = validate_from_limit(request)
     if from_ < 0 or limit < 1:
         return return_error("Invalid 'from' or 'limit' parameter", status_code=400)
-
-    # keep support for allNodes param though not used
-    # all_nodes = request.args.get("allNodes", "false").lower() in ("1", "true", "yes")
 
     tools = []
     try:
@@ -83,7 +91,13 @@ def list_tools(user_info: dict = None) -> Response:
         except Exception as ex:
             logger.error("Failed to get tool info: %s", ex)
 
-    page = PageOfTools(from_=from_, limit=limit, elements=tools, count=len(tools_list))
+    remote_count = 0
+    all_nodes = request.args.get("allNodes", "false").lower() in ("1", "true", "yes")
+    if all_nodes:
+        remote_count, remote_tools = list_remote_tools(from_, limit, count, user_info)
+        tools.extend(remote_tools)
+
+    page = PageOfTools(from_=from_, limit=limit, elements=tools, count=len(tools_list) + remote_count)
     return Response(page.model_dump_json(exclude_unset=True, by_alias=True), status=200,
                     mimetype="application/json")
 
