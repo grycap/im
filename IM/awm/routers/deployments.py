@@ -93,7 +93,7 @@ def _get_deployment(deployment_id, user_info, get_state=True):
                     if not allocation_info:
                         return "Invalid AllocationId.", 400
                     allocation = allocation_info.allocation
-                    auth_data = _get_im_auth_header(user_token, allocation)
+                    auth_data = _get_im_auth_header(user_token, allocation.root)
                     state_info = InfrastructureManager.GetInfrastructureState(deployment_id, auth_data)
                     dep_info.status = state_info['state']
             except Exception as ex:
@@ -187,7 +187,7 @@ def delete_deployment(deployment_id, user_info=None):
         return return_error("Invalid AllocationId.", status_code=400)
     allocation = allocation_info.allocation
 
-    auth_data = _get_im_auth_header(user_info['token'], allocation)
+    auth_data = _get_im_auth_header(user_info['token'], allocation.root)
     try:
         InfrastructureManager.DestroyInfrastructure(deployment_id, auth_data)
     except Exception as ex:
@@ -237,7 +237,7 @@ def deploy_workload(user_info=None):
     allocation = allocation_info.allocation
 
     # Create the infrastructure in the IM
-    auth_data = _get_im_auth_header(user_info['token'], allocation)
+    auth_data = _get_im_auth_header(user_info['token'], allocation.root)
     try:
         deployment_id = InfrastructureManager.CreateInfrastructure(radl_data, auth_data, True)
     except Exception as ex:
