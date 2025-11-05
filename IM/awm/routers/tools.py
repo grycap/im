@@ -53,9 +53,11 @@ def _get_tool_info_from_repo(elem: str, path: str, version: str = None) -> ToolI
 
 def list_remote_tools(from_: int, limit: int, count: int, user_info: dict = None) -> Tuple[int, List[ToolInfo]]:
     total = 0
+    num_tools = 0
     tools = []
     for node in EOSCNodeRegistry.list_nodes():
-        node_total, node_tools = node.list_tools(from_, limit, count + total, user_info["token"])
+        node_total, node_tools = node.list_tools(from_, limit, count + num_tools, user_info["token"])
+        num_tools += len(node_tools) if node_tools else node_total
         total += node_total
         tools.extend(node_tools)
     return total, tools

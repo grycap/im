@@ -12,19 +12,17 @@ class EOSCNode(BaseModel):
     awmAPI: HttpUrl
 
     def list_tools(self, from_: int, limit: int, count: int, token: str) -> Tuple[int, List[ToolInfo]]:
-        init = 0 if count > from_ else from_ - count
+        init = max(0, from_ - count)
         elems = limit - (count - from_)
-        if elems > 0:
-            url = f"{self.awmAPI}tools?from{init}&limit={elems}"
-            try:
-                headers = {"Authorization": f"Bearer {token}"}
-                response = requests.get(url, headers=headers, timeout=30)
-                if response.status_code == 200:
-                    page = PageOfTools.model_validate(response.json())
-                    return page.count, page.elements
-            except Exception:
-                return 0, []
-        else:
+        url = f"{self.awmAPI}tools?from0&limit={elems}"
+        try:
+            headers = {"Authorization": f"Bearer {token}"}
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.status_code == 200:
+                page = PageOfTools.model_validate(response.json())
+                tools = page.elements[init:] if len(page.elements) > init else []
+                return page.count, tools
+        except Exception:
             return 0, []
 
 

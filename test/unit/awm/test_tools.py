@@ -9,7 +9,7 @@ import unittest
 from IM.awm import awm_bp
 from pydantic import HttpUrl
 from IM.awm.node_registry import EOSCNode
-from mock import patch, MagicMock
+from mock import patch, MagicMock, call
 
 
 class TestTools(unittest.TestCase):
@@ -91,17 +91,31 @@ class TestTools(unittest.TestCase):
                                                  'type': 'vm'}],
                                    'from': 0,
                                    'limit': 100}
-        mock_get.side_effect = [resp1, resp2, resp1, resp1]
+        mock_get.side_effect = [resp1, resp2, resp1, resp1, resp1, resp2]
 
         response = self.client.get("/awm/tools?allNodes=true", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["count"], 4)
         self.assertEqual(len(response.json["elements"]), 4)
+        mock_get.assert_any_call('http://server1.com/tools?from0&limit=99',
+                                 headers={'Authorization': 'Bearer at'}, timeout=30)
+        mock_get.assert_any_call('http://server2.com/tools?from0&limit=98',
+                                 headers={'Authorization': 'Bearer at'}, timeout=30)
 
         response = self.client.get("/awm/tools?allNodes=true&from=1&limit=2", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["count"], 3)
         self.assertEqual(len(response.json["elements"]), 2)
+        mock_get.assert_any_call('http://server1.com/tools?from0&limit=2',
+                                 headers={'Authorization': 'Bearer at'}, timeout=30)
+        mock_get.assert_any_call('http://server2.com/tools?from0&limit=1',
+                                 headers={'Authorization': 'Bearer at'}, timeout=30)
+
+        response = self.client.get("/awm/tools?allNodes=true&from=3&limit=2", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["count"], 4)
+        self.assertEqual(len(response.json["elements"]), 1)
+
 
     @patch('IM.awm.authorization.check_OIDC')
     @patch('IM.awm.routers.tools.Repository')
