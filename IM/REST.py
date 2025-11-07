@@ -305,6 +305,7 @@ class Infrastructures(flask_restx.Resource):
     @infra_ns.response(401, 'Unauthorized')
     @infra_ns.response(400, 'Invalid status value')
     def get(self):
+        """List user infrastructures."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -331,7 +332,7 @@ class Infrastructures(flask_restx.Resource):
     @infra_ns.doc(security='IM Auth',
                   description="Create and configure an infrastructure with the requirements specified in "
                               "RADL or TOSCA document.",
-                  consumes=['application/json', 'text/taml', 'text/plain'],
+                  consumes=['application/json', 'text/yaml', 'text/plain'],
                   produces=['application/json', 'text/uri-list'],
                   params={
                       "async": "Optional parameter and is a flag to specify if "
@@ -346,6 +347,7 @@ class Infrastructures(flask_restx.Resource):
     @infra_ns.response(415, 'Unsupported Media Type')
     @infra_ns.response(400, 'Invalid status value')
     def post(self):
+        """Creates an infrastructures."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -418,6 +420,7 @@ class Infrastructures(flask_restx.Resource):
     @infra_ns.response(415, 'Unsupported Media Type')
     @infra_ns.response(400, 'Invalid status value')
     def put(self):
+        """Import an infrastructure."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -458,6 +461,7 @@ class Infrastructure(flask_restx.Resource):
     @infra_ns.response(404, 'Not found')
     @infra_ns.response(400, 'Invalid status value')
     def get(self, infid):
+        """List of VMs in a infrastructure."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -495,6 +499,7 @@ class Infrastructure(flask_restx.Resource):
     @infra_ns.response(404, 'Not found')
     @infra_ns.response(400, 'Invalid status value')
     def delete(self, infid):
+        """Delete an infrastructure."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -540,7 +545,7 @@ class Infrastructure(flask_restx.Resource):
     @infra_ns.doc(security='IM Auth',
                   description="Add the resources specified in the body contents (in TOSCA, "
                               "RADL plain or in JSON formats) to the infrastructure with ID infId.",
-                  consumes=['application/json', 'text/taml', 'text/plain'],
+                  consumes=['application/json', 'text/yaml', 'text/plain'],
                   produces=['application/json', 'text/uri-list'],
                   params={
                       "context": "Optional parameter and is a flag to specify if the contextualization step "
@@ -553,6 +558,7 @@ class Infrastructure(flask_restx.Resource):
     @infra_ns.response(415, 'Unsupported Media Type')
     @infra_ns.response(400, 'Invalid status value')
     def post(self, infid):
+        """Add resources to an infrastructures."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -653,6 +659,7 @@ class InfrastructureProperty(flask_restx.Resource):
     @infra_ns.response(415, 'Unsupported Media Type')
     @infra_ns.response(400, 'Invalid status value')
     def get(self, infid, prop):
+        """Get Infrastructure property."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -754,6 +761,7 @@ class InfrastructureProperty(flask_restx.Resource):
     @infra_ns.response(415, 'Unsupported Media Type')
     @infra_ns.response(400, 'Invalid status value')
     def post(self, infid, prop):
+        """Change the authorization data of the infrastructure."""
         if prop != "authorization":
             return return_error(400, "Invalid infrastructure property")
 
@@ -815,6 +823,7 @@ class VirtualMachine(flask_restx.Resource):
     @infra_ns.response(404, 'Not found')
     @infra_ns.response(400, 'Invalid status value')
     def get(self, infid, vmid):
+        """Get VM info."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -849,6 +858,7 @@ class VirtualMachine(flask_restx.Resource):
     @infra_ns.response(404, 'Not found')
     @infra_ns.response(400, 'Invalid status value')
     def delete(self, infid, vmid):
+        """Delete a VM."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -895,6 +905,7 @@ class VirtualMachine(flask_restx.Resource):
     @infra_ns.response(415, 'Unsupported Media Type')
     @infra_ns.response(400, 'Invalid status value')
     def put(self, infid, vmid):
+        """Alter VM."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -948,6 +959,7 @@ class VirtualMachineProperty(flask_restx.Resource):
     @infra_ns.response(404, 'Not found')
     @infra_ns.response(400, 'Invalid status value')
     def get(self, infid, vmid, prop):
+        """Get a VM property."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -1068,6 +1080,7 @@ class InfrastructureOperation(flask_restx.Resource):
     @infra_ns.response(415, 'Unsupported Media Type')
     @infra_ns.response(400, 'Invalid status value')
     def put(self, infid, op):
+        """Performs an Infrastructure operation."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -1135,6 +1148,7 @@ class VirtualMachineOperation(flask_restx.Resource):
     @infra_ns.response(404, 'Not found')
     @infra_ns.response(400, 'Invalid status value')
     def put(self, infid, vmid, op):
+        """Performs a Virtual Machine operation."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -1174,6 +1188,7 @@ class Version(flask_restx.Resource):
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(400, 'Invalid status value')
     def get(self):
+        """Get IM server version."""
         try:
             from IM import __version__ as version
             return format_output(version, field_name="version")
@@ -1199,6 +1214,7 @@ class DiskSnapshot(flask_restx.Resource):
     @infra_ns.response(404, 'Not found')
     @infra_ns.response(400, 'Invalid status value')
     def put(self, infid, vmid, disknum):
+        """Create a disk snapshot."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -1269,6 +1285,7 @@ class CloudInfo(flask_restx.Resource):
     @infra_ns.response(404, 'Not found')
     @infra_ns.response(400, 'Invalid status value')
     def get(self, cloudid, param):
+        """Get the list of available images or quotas in the specified cloud provider."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -1314,6 +1331,7 @@ class Stats(flask_restx.Resource):
     @infra_ns.response(401, 'Unauthorized')
     @infra_ns.response(400, 'Invalid status value')
     def get(self):
+        """Get IM server stats."""
         try:
             auth = get_auth_header()
         except Exception:
@@ -1390,6 +1408,7 @@ class OAIPMH(flask_restx.Resource):
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(400, 'Invalid status value')
     def get(self):
+        """Get OAI-PMH information about TOSCA templates."""
         return self.oaipmh()
 
     @infra_ns.doc(description='Get OAI-PMH (https://www.openarchives.org/pmh/) information about TOSCA templates.',
@@ -1397,6 +1416,7 @@ class OAIPMH(flask_restx.Resource):
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(400, 'Invalid status value')
     def post(self):
+        """Get OAI-PMH information about TOSCA templates."""
         return self.oaipmh()
 
 
@@ -1407,6 +1427,7 @@ class StaticFiles(flask_restx.Resource):
     @infra_ns.response(200, 'Successful operation')
     @infra_ns.response(404, 'Not found')
     def get(self, filename):
+        """Returns a preconfigured static file."""
         if Config.STATIC_FILES_DIR:
             return flask.send_from_directory(Config.STATIC_FILES_DIR, filename)
         else:
