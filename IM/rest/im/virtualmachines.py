@@ -153,7 +153,7 @@ def RESTOperateVM(infid=None, vmid=None, op=None, auth=None):
     elif op == "reboot":
         res = InfrastructureManager.RebootVM(infid, vmid, auth)
     else:
-        flask.abort(404)
+        return return_error(404, 'Invalid VM operation')
     return flask.make_response(res, 200, {'Content-Type': 'text/plain'})
 
 

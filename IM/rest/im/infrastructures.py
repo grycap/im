@@ -82,7 +82,7 @@ def RESTGetInfrastructureProperty(infid=None, prop=None, auth=None):
         if "TOSCA" in sel_inf.extra_info:
             res = sel_inf.extra_info["TOSCA"].serialize()
         else:
-            flask.abort(403, "'tosca' infrastructure property is not valid in this infrastructure")
+            return return_error(403, "'tosca' infrastructure property is not valid in this infrastructure")
     elif prop == "state":
         accept = get_media_type('Accept')
         if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
@@ -98,7 +98,7 @@ def RESTGetInfrastructureProperty(infid=None, prop=None, auth=None):
         if "TOSCA" in sel_inf.extra_info:
             res = sel_inf.extra_info["TOSCA"].get_outputs(sel_inf)
         else:
-            flask.abort(403, "'outputs' infrastructure property is not valid in this infrastructure")
+            return return_error(403, "'outputs' infrastructure property is not valid in this infrastructure")
         return format_output(res, default_type="application/json", field_name="outputs")
     elif prop == "data":
         accept = get_media_type('Accept')
@@ -316,7 +316,7 @@ def RESTOperateInfrastructure(infid=None, op=None, auth=None):
     elif op == "stop":
         res = InfrastructureManager.StopInfrastructure(infid, auth)
     else:
-        flask.abort(404)
+        return return_error(404, "Invalid Infrastructure Operation.")
     return flask.make_response(res, 200, {'Content-Type': 'text/plain'})
 
 
