@@ -478,7 +478,7 @@ class CloudConnector(LoggerMixin):
             tags[Config.VM_TAG_USERNAME] = im_username
         if Config.VM_TAG_INF_ID and Config.VM_TAG_INF_ID not in tags and inf:
             tags[Config.VM_TAG_INF_ID] = inf.id
-        from IM.REST import REST_URL
+        from IM.rest.REST import REST_URL
         if Config.VM_TAG_IM_URL and Config.VM_TAG_IM_URL not in tags and REST_URL:
             tags[Config.VM_TAG_IM_URL] = REST_URL
         if Config.VM_TAG_IM and Config.VM_TAG_IM not in tags:

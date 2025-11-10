@@ -56,7 +56,6 @@ def return_error(code, msg):
         return flask.Response(msg, status=code, mimetype='text/plain')
 
 
-
 def get_media_type(header):
     """
     Function to get specified the header media type.

@@ -6,7 +6,7 @@ from radl.radl_json import parse_radl as parse_radl_json
 from IM.tosca.Tosca import Tosca
 from IM import get_ex_error
 from IM.auth import Authentication
-from IM.rest.utils import get_auth_header, return_error, format_output, get_media_type, require_auth
+from IM.rest.utils import return_error, format_output, get_media_type, require_auth
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
 from IM.InfrastructureManager import (InfrastructureManager, DeletedInfrastructureException,
                                       IncorrectInfrastructureException, UnauthorizedUserException,

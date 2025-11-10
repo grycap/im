@@ -4,7 +4,7 @@ import logging
 from IM.config import Config
 from IM.InfrastructureManager import InfrastructureManager
 from IM import get_ex_error
-from IM.rest.utils import return_error, get_auth_header, format_output, require_auth
+from IM.rest.utils import return_error, format_output, require_auth
 
 
 sys_bp = flask.Blueprint("service", __name__, url_prefix='/')

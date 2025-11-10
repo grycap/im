@@ -235,6 +235,10 @@ def GetStats(init_date, end_date, auth_data):
     return WaitRequest(request)
 
 
+# Global variable for the REST API server
+rest_api = None
+
+
 def launch_daemon():
     """
     Launch the IM daemon
@@ -248,6 +252,7 @@ def launch_daemon():
     if Config.ACTIVATE_REST:
         # If specified launch the REST server
         import IM.rest.REST
+        global rest_api
         rest_api = IM.rest.REST.RestAPI(Config.REST_ADDRESS, Config.REST_PORT)
         if Config.ACTIVATE_XMLRPC:
             rest_api.run_in_thread()
@@ -372,10 +377,9 @@ def im_stop():
     Function to safely stop the service
     """
     try:
-        if Config.ACTIVATE_REST:
+        if rest_api:
             # we have to stop the REST server
-            import IM.REST
-            IM.REST.stop()
+            rest_api.stop()
 
         # Assure that the IM data are correctly saved
         InfrastructureManager.logger.info('Stopping Infrastructure Manager daemon...')

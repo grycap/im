@@ -116,7 +116,6 @@ class TestTools(unittest.TestCase):
         self.assertEqual(response.json["count"], 4)
         self.assertEqual(len(response.json["elements"]), 1)
 
-
     @patch('IM.rest.awm.authorization.check_OIDC')
     @patch('IM.rest.awm.routers.tools.Repository')
     def test_get_tool(self, mock_repo, mock_check_oidc):
