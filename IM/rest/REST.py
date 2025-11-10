@@ -33,6 +33,13 @@ from IM.rest.im.infrastructures import infs_bp
 from IM.rest.im.clouds import clouds_bp
 from IM.rest.im.oai import oai_bp
 from IM.rest.im.service import sys_bp
+from IM import get_ex_error
+from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
+from IM.InfrastructureManager import (DeletedInfrastructureException,
+                                      IncorrectInfrastructureException,
+                                      UnauthorizedUserException,
+                                      InvaliddUserException,
+                                      DisabledFunctionException)
 
 
 logger = logging.getLogger('InfrastructureManager')
@@ -87,6 +94,30 @@ class RestAPI():
         @app.route('/<path:url>', methods=['OPTIONS'])
         def ReturnOptions(**kwargs):
             return {}
+
+        @app.errorhandler(DeletedInfrastructureException)
+        @app.errorhandler(IncorrectInfrastructureException)
+        @app.errorhandler(DeletedVMException)
+        @app.errorhandler(IncorrectVMException)
+        def handle_not_found(ex):
+            return return_error(404, f"Not found: {get_ex_error(ex)}")
+
+        @app.errorhandler(UnauthorizedUserException)
+        @app.errorhandler(DisabledFunctionException)
+        def handle_forbidden(ex):
+            return return_error(403, f"Forbidden: {get_ex_error(ex)}")
+
+        @app.errorhandler(IncorrectStateException)
+        def handle_conflict(ex):
+            return return_error(409, f"Conflict: {get_ex_error(ex)}")
+
+        @app.errorhandler(InvaliddUserException)
+        def handle_unauthorized(ex):
+            return return_error(401, f"Unauthorized: {get_ex_error(ex)}")
+
+        @app.errorhandler(Exception)
+        def handle_general(ex):
+            return return_error(400, f"Bad Request: {get_ex_error(ex)}")
 
         @app.errorhandler(HTTPException)
         def handle_http_exception(error):

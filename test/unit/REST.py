@@ -72,14 +72,14 @@ class TestREST(unittest.TestCase):
         GetInfrastructureList.side_effect = InvaliddUserException()
         res = self.client.get('/infrastructures', headers=headers)
         self.assertEqual(401, res.status_code)
-        self.assertEqual(res.json, {"message": "Error Getting Inf. List: Invalid InfrastructureManager credentials",
+        self.assertEqual(res.json, {"message": "Unauthorized: Invalid InfrastructureManager credentials",
                                     "code": 401})
 
         GetInfrastructureList.side_effect = UnauthorizedUserException()
         res = self.client.get('/infrastructures', headers=headers)
-        self.assertEqual(400, res.status_code)
-        self.assertEqual(res.json, {"message": "Error Getting Inf. List: Access to this infrastructure not granted.",
-                                    "code": 400})
+        self.assertEqual(403, res.status_code)
+        self.assertEqual(res.json, {"message": "Forbidden: Access to this infrastructure not granted.",
+                                    "code": 403})
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureInfo")
     def test_GetInfrastructureInfo(self, GetInfrastructureInfo):
@@ -96,17 +96,17 @@ class TestREST(unittest.TestCase):
         GetInfrastructureInfo.side_effect = DeletedInfrastructureException()
         res = self.client.get('/infrastructures/1', headers=headers)
         self.assertEqual(404, res.status_code)
-        self.assertEqual(res.text, "Error Getting Inf. info: Deleted infrastructure.")
+        self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
         GetInfrastructureInfo.side_effect = IncorrectInfrastructureException()
         res = self.client.get('/infrastructures/1', headers=headers)
         self.assertEqual(404, res.status_code)
-        self.assertEqual(res.text, "Error Getting Inf. info: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
         GetInfrastructureInfo.side_effect = UnauthorizedUserException()
         res = self.client.get('/infrastructures/1', headers=headers)
         self.assertEqual(403, res.status_code)
-        self.assertEqual(res.text, "Error Getting Inf. info: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureContMsg")
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureRADL")
@@ -238,7 +238,7 @@ class TestREST(unittest.TestCase):
         CreateInfrastructure.side_effect = InvaliddUserException()
         res = self.client.post('/infrastructures', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error Creating Inf. info: Invalid InfrastructureManager credentials")
+        self.assertEqual(res.text, "Error Creating Inf.: Invalid InfrastructureManager credentials")
 
         CreateInfrastructure.side_effect = UnauthorizedUserException()
         res = self.client.post('/infrastructures', headers=headers,
@@ -277,23 +277,23 @@ class TestREST(unittest.TestCase):
 
         GetVMInfo.side_effect = DeletedInfrastructureException()
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM. info: Deleted infrastructure.")
+        self.assertEqual(res.text, "Error Getting VM info: Deleted infrastructure.")
 
         GetVMInfo.side_effect = IncorrectInfrastructureException()
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM. info: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Error Getting VM info: Invalid infrastructure ID or access not granted.")
 
         GetVMInfo.side_effect = UnauthorizedUserException()
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM. info: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Error Getting VM info: Access to this infrastructure not granted.")
 
         GetVMInfo.side_effect = DeletedVMException()
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM. info: Deleted VM.")
+        self.assertEqual(res.text, "Error Getting VM info: Deleted VM.")
 
         GetVMInfo.side_effect = IncorrectVMException()
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM. info: Invalid VM ID")
+        self.assertEqual(res.text, "Error Getting VM info: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMProperty")
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMContMsg")
@@ -314,23 +314,23 @@ class TestREST(unittest.TestCase):
 
         GetVMProperty.side_effect = DeletedInfrastructureException()
         res = self.client.get('/infrastructures/1/vms/1/prop', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM. property: Deleted infrastructure.")
+        self.assertEqual(res.text, "Error Getting VM property: Deleted infrastructure.")
 
         GetVMProperty.side_effect = IncorrectInfrastructureException()
         res = self.client.get('/infrastructures/1/vms/1/prop', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM. property: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Error Getting VM property: Invalid infrastructure ID or access not granted.")
 
         GetVMProperty.side_effect = UnauthorizedUserException()
         res = self.client.get('/infrastructures/1/vms/1/prop', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM. property: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Error Getting VM property: Access to this infrastructure not granted.")
 
         GetVMProperty.side_effect = DeletedVMException()
         res = self.client.get('/infrastructures/1/vms/1/prop', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM. property: Deleted VM.")
+        self.assertEqual(res.text, "Error Getting VM property: Deleted VM.")
 
         GetVMProperty.side_effect = IncorrectVMException()
         res = self.client.get('/infrastructures/1/vms/1/prop', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM. property: Invalid VM ID")
+        self.assertEqual(res.text, "Error Getting VM property: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.AddResource")
     @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
@@ -656,24 +656,23 @@ class TestREST(unittest.TestCase):
         url = "http://localhost/infrastructures/1/vms/1/command?step=2"
         ps_command = "ps aux | grep -v grep | grep 'ssh -N -R'"
         expected_res = """
-                res="wait"
-                while [ "$res" == "wait" ]
-                do
-                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
-                  if [ "$res" != "wait" ]
-                  then
-                    echo "$res" > /var/tmp/reverse_ssh.sh
-                    chmod a+x /var/tmp/reverse_ssh.sh
-                    /var/tmp/reverse_ssh.sh
-                    if [ "$res" != "true" ]
-                    then
-                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
-                    fi
-                  else
-                    sleep 20
-                  fi
-                done""" % (auth_str, url, ps_command)
-        self.maxDiff = None
+            res="wait"
+            while [ "$res" == "wait" ]
+            do
+              res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
+              if [ "$res" != "wait" ]
+              then
+                echo "$res" > /var/tmp/reverse_ssh.sh
+                chmod a+x /var/tmp/reverse_ssh.sh
+                /var/tmp/reverse_ssh.sh
+                if [ "$res" != "true" ]
+                then
+                  echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+                fi
+              else
+                sleep 20
+              fi
+            done""" % (auth_str, url, ps_command)
         self.assertEqual(res.text, expected_res)
 
         inf.auth = Authentication([{'type': 'InfrastructureManager', 'token': 'token'}])
@@ -681,23 +680,23 @@ class TestREST(unittest.TestCase):
         auth_str = "Authorization: type = InfrastructureManager; token = token"
         url = "http://localhost/infrastructures/1/vms/1/command?step=2"
         expected_res = """
-                res="wait"
-                while [ "$res" == "wait" ]
-                do
-                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
-                  if [ "$res" != "wait" ]
-                  then
-                    echo "$res" > /var/tmp/reverse_ssh.sh
-                    chmod a+x /var/tmp/reverse_ssh.sh
-                    /var/tmp/reverse_ssh.sh
-                    if [ "$res" != "true" ]
-                    then
-                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
-                    fi
-                  else
-                    sleep 20
-                  fi
-                done""" % (auth_str, url, ps_command)
+            res="wait"
+            while [ "$res" == "wait" ]
+            do
+              res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
+              if [ "$res" != "wait" ]
+              then
+                echo "$res" > /var/tmp/reverse_ssh.sh
+                chmod a+x /var/tmp/reverse_ssh.sh
+                /var/tmp/reverse_ssh.sh
+                if [ "$res" != "true" ]
+                then
+                  echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+                fi
+              else
+                sleep 20
+              fi
+            done""" % (auth_str, url, ps_command)
         self.assertEqual(res.text, expected_res)
 
         radl_master = parse_radl("""
