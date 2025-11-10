@@ -152,15 +152,15 @@ class TestREST(unittest.TestCase):
 
         GetInfrastructureRADL.side_effect = DeletedInfrastructureException()
         res = self.client.get('/infrastructures/1/radl', headers=headers)
-        self.assertEqual(res.text, "Error Getting Inf. prop: Deleted infrastructure.")
+        self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
         GetInfrastructureRADL.side_effect = IncorrectInfrastructureException()
         res = self.client.get('/infrastructures/1/radl', headers=headers)
-        self.assertEqual(res.text, "Error Getting Inf. prop: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
         GetInfrastructureRADL.side_effect = UnauthorizedUserException()
         res = self.client.get('/infrastructures/1/radl', headers=headers)
-        self.assertEqual(res.text, "Error Getting Inf. prop: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.DestroyInfrastructure")
     def test_DestroyInfrastructure(self, DestroyInfrastructure):
@@ -185,19 +185,19 @@ class TestREST(unittest.TestCase):
 
         DestroyInfrastructure.side_effect = DeletedInfrastructureException()
         res = self.client.delete('/infrastructures/1', headers=headers)
-        self.assertEqual(res.text, "Error Destroying Inf: Deleted infrastructure.")
+        self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
         DestroyInfrastructure.side_effect = IncorrectInfrastructureException()
         res = self.client.delete('/infrastructures/1', headers=headers)
-        self.assertEqual(res.text, "Error Destroying Inf: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
         DestroyInfrastructure.side_effect = UnauthorizedUserException()
         res = self.client.delete('/infrastructures/1', headers=headers)
-        self.assertEqual(res.text, "Error Destroying Inf: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
         DestroyInfrastructure.side_effect = IncorrectStateException()
         res = self.client.delete('/infrastructures/1', headers=headers)
-        self.assertEqual(res.text, "Error Destroying Inf: Invalid State to perform this operation.")
+        self.assertEqual(res.text, "Conflict: Invalid State to perform this operation.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
     @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
@@ -238,12 +238,12 @@ class TestREST(unittest.TestCase):
         CreateInfrastructure.side_effect = InvaliddUserException()
         res = self.client.post('/infrastructures', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error Creating Inf.: Invalid InfrastructureManager credentials")
+        self.assertEqual(res.text, "Unauthorized: Invalid InfrastructureManager credentials")
 
         CreateInfrastructure.side_effect = UnauthorizedUserException()
         res = self.client.post('/infrastructures', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error Creating Inf.: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateInfrastructure")
     def test_CreateInfrastructureWithErrors(self, CreateInfrastructure):
@@ -277,23 +277,23 @@ class TestREST(unittest.TestCase):
 
         GetVMInfo.side_effect = DeletedInfrastructureException()
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM info: Deleted infrastructure.")
+        self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
         GetVMInfo.side_effect = IncorrectInfrastructureException()
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM info: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
         GetVMInfo.side_effect = UnauthorizedUserException()
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM info: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
         GetVMInfo.side_effect = DeletedVMException()
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM info: Deleted VM.")
+        self.assertEqual(res.text, "Not found: Deleted VM.")
 
         GetVMInfo.side_effect = IncorrectVMException()
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM info: Invalid VM ID")
+        self.assertEqual(res.text, "Not found: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMProperty")
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMContMsg")
@@ -314,23 +314,23 @@ class TestREST(unittest.TestCase):
 
         GetVMProperty.side_effect = DeletedInfrastructureException()
         res = self.client.get('/infrastructures/1/vms/1/prop', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM property: Deleted infrastructure.")
+        self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
         GetVMProperty.side_effect = IncorrectInfrastructureException()
         res = self.client.get('/infrastructures/1/vms/1/prop', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM property: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
         GetVMProperty.side_effect = UnauthorizedUserException()
         res = self.client.get('/infrastructures/1/vms/1/prop', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM property: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
         GetVMProperty.side_effect = DeletedVMException()
         res = self.client.get('/infrastructures/1/vms/1/prop', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM property: Deleted VM.")
+        self.assertEqual(res.text, "Not found: Deleted VM.")
 
         GetVMProperty.side_effect = IncorrectVMException()
         res = self.client.get('/infrastructures/1/vms/1/prop', headers=headers)
-        self.assertEqual(res.text, "Error Getting VM property: Invalid VM ID")
+        self.assertEqual(res.text, "Not found: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.AddResource")
     @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
@@ -360,17 +360,17 @@ class TestREST(unittest.TestCase):
         AddResource.side_effect = DeletedInfrastructureException()
         res = self.client.post('/infrastructures/1', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error Adding resources: Deleted infrastructure.")
+        self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
         AddResource.side_effect = IncorrectInfrastructureException()
         res = self.client.post('/infrastructures/1', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error Adding resources: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
         AddResource.side_effect = UnauthorizedUserException()
         res = self.client.post('/infrastructures/1', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error Adding resources: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.RemoveResource")
     def test_RemoveResource(self, RemoveResource):
@@ -386,23 +386,23 @@ class TestREST(unittest.TestCase):
 
         RemoveResource.side_effect = DeletedInfrastructureException()
         res = self.client.delete('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Removing resources: Deleted infrastructure.")
+        self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
         RemoveResource.side_effect = IncorrectInfrastructureException()
         res = self.client.delete('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Removing resources: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
         RemoveResource.side_effect = UnauthorizedUserException()
         res = self.client.delete('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Removing resources: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
         RemoveResource.side_effect = DeletedVMException()
         res = self.client.delete('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Removing resources: Deleted VM.")
+        self.assertEqual(res.text, "Not found: Deleted VM.")
 
         RemoveResource.side_effect = IncorrectVMException()
         res = self.client.delete('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.text, "Error Removing resources: Invalid VM ID")
+        self.assertEqual(res.text, "Not found: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.AlterVM")
     def test_AlterVM(self, AlterVM):
@@ -429,27 +429,27 @@ class TestREST(unittest.TestCase):
         AlterVM.side_effect = DeletedInfrastructureException()
         res = self.client.put('/infrastructures/1/vms/1', headers=headers,
                               data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error modifying resources: Deleted infrastructure.")
+        self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
         AlterVM.side_effect = IncorrectInfrastructureException()
         res = self.client.put('/infrastructures/1/vms/1', headers=headers,
                               data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error modifying resources: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
         AlterVM.side_effect = UnauthorizedUserException()
         res = self.client.put('/infrastructures/1/vms/1', headers=headers,
                               data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error modifying resources: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
         AlterVM.side_effect = DeletedVMException()
         res = self.client.put('/infrastructures/1/vms/1', headers=headers,
                               data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error modifying resources: Deleted VM.")
+        self.assertEqual(res.text, "Not found: Deleted VM.")
 
         AlterVM.side_effect = IncorrectVMException()
         res = self.client.put('/infrastructures/1/vms/1', headers=headers,
                               data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error modifying resources: Invalid VM ID")
+        self.assertEqual(res.text, "Not found: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.Reconfigure")
     def test_Reconfigure(self, Reconfigure):
@@ -472,18 +472,17 @@ class TestREST(unittest.TestCase):
         Reconfigure.side_effect = DeletedInfrastructureException()
         res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
                               headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error reconfiguring infrastructure: Deleted infrastructure.")
+        self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
         Reconfigure.side_effect = IncorrectInfrastructureException()
         res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
                               headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, ("Error reconfiguring infrastructure: " +
-                                    "Invalid infrastructure ID or access not granted."))
+        self.assertEqual(res.text, ("Not found: Invalid infrastructure ID or access not granted."))
 
         Reconfigure.side_effect = UnauthorizedUserException()
         res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
                               headers=headers, data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error reconfiguring infrastructure: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.StartInfrastructure")
     @patch("IM.InfrastructureManager.InfrastructureManager.StopInfrastructure")
@@ -505,17 +504,17 @@ class TestREST(unittest.TestCase):
             StartInfrastructure.side_effect = DeletedInfrastructureException()
             StopInfrastructure.side_effect = DeletedInfrastructureException()
             res = self.client.put('/infrastructures/1/%s' % op, headers=headers)
-            self.assertEqual(res.text, "Error in %s operation: Deleted infrastructure." % op)
+            self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
             StartInfrastructure.side_effect = IncorrectInfrastructureException()
             StopInfrastructure.side_effect = IncorrectInfrastructureException()
             res = self.client.put('/infrastructures/1/%s' % op, headers=headers)
-            self.assertEqual(res.text, "Error in %s operation: Invalid infrastructure ID or access not granted." % op)
+            self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
             StartInfrastructure.side_effect = UnauthorizedUserException()
             StopInfrastructure.side_effect = UnauthorizedUserException()
             res = self.client.put('/infrastructures/1/%s' % op, headers=headers)
-            self.assertEqual(res.text, "Error in %s operation: Access to this infrastructure not granted." % op)
+            self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.StartVM")
     @patch("IM.InfrastructureManager.InfrastructureManager.StopVM")
@@ -541,31 +540,31 @@ class TestREST(unittest.TestCase):
             StopVM.side_effect = DeletedInfrastructureException()
             RebootVM.side_effect = DeletedInfrastructureException()
             res = self.client.put('/infrastructures/1/vms/1/%s' % op, headers=headers)
-            self.assertEqual(res.text, "Error in %s op in VM: Deleted infrastructure." % op)
+            self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
             StartVM.side_effect = IncorrectInfrastructureException()
             StopVM.side_effect = IncorrectInfrastructureException()
             RebootVM.side_effect = IncorrectInfrastructureException()
             res = self.client.put('/infrastructures/1/vms/1/%s' % op, headers=headers)
-            self.assertEqual(res.text, "Error in %s op in VM: Invalid infrastructure ID or access not granted." % op)
+            self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
             StartVM.side_effect = UnauthorizedUserException()
             StopVM.side_effect = UnauthorizedUserException()
             RebootVM.side_effect = UnauthorizedUserException()
             res = self.client.put('/infrastructures/1/vms/1/%s' % op, headers=headers)
-            self.assertEqual(res.text, "Error in %s op in VM: Access to this infrastructure not granted." % op)
+            self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
             StartVM.side_effect = DeletedVMException()
             StopVM.side_effect = DeletedVMException()
             RebootVM.side_effect = DeletedVMException()
             res = self.client.put('/infrastructures/1/vms/1/%s' % op, headers=headers)
-            self.assertEqual(res.text, "Error in %s op in VM: Deleted VM." % op)
+            self.assertEqual(res.text, "Not found: Deleted VM.")
 
             StartVM.side_effect = IncorrectVMException()
             StopVM.side_effect = IncorrectVMException()
             RebootVM.side_effect = IncorrectVMException()
             res = self.client.put('/infrastructures/1/vms/1/%s' % op, headers=headers)
-            self.assertEqual(res.text, "Error in %s op in VM: Invalid VM ID" % op)
+            self.assertEqual(res.text, "Not found: Invalid VM ID")
 
     def test_GeVersion(self):
         res = self.client.get('/version')
@@ -591,27 +590,27 @@ class TestREST(unittest.TestCase):
         CreateDiskSnapshot.side_effect = DeletedInfrastructureException()
         res = self.client.put('/infrastructures/1/vms/1/disks/0/snapshot?image_name=image_url&auto_delete=yes',
                               headers=headers)
-        self.assertEqual(res.text, "Error creating snapshot: Deleted infrastructure.")
+        self.assertEqual(res.text, "Not found: Deleted infrastructure.")
 
         CreateDiskSnapshot.side_effect = IncorrectInfrastructureException()
         res = self.client.put('/infrastructures/1/vms/1/disks/0/snapshot?image_name=image_url&auto_delete=yes',
                               headers=headers)
-        self.assertEqual(res.text, "Error creating snapshot: Invalid infrastructure ID or access not granted.")
+        self.assertEqual(res.text, "Not found: Invalid infrastructure ID or access not granted.")
 
         CreateDiskSnapshot.side_effect = UnauthorizedUserException()
         res = self.client.put('/infrastructures/1/vms/1/disks/0/snapshot?image_name=image_url&auto_delete=yes',
                               headers=headers)
-        self.assertEqual(res.text, "Error creating snapshot: Access to this infrastructure not granted.")
+        self.assertEqual(res.text, "Forbidden: Access to this infrastructure not granted.")
 
         CreateDiskSnapshot.side_effect = DeletedVMException()
         res = self.client.put('/infrastructures/1/vms/1/disks/0/snapshot?image_name=image_url&auto_delete=yes',
                               headers=headers)
-        self.assertEqual(res.text, "Error creating snapshot: Deleted VM.")
+        self.assertEqual(res.text, "Not found: Deleted VM.")
 
         CreateDiskSnapshot.side_effect = IncorrectVMException()
         res = self.client.put('/infrastructures/1/vms/1/disks/0/snapshot?image_name=image_url&auto_delete=yes',
                               headers=headers)
-        self.assertEqual(res.text, "Error creating snapshot: Invalid VM ID")
+        self.assertEqual(res.text, "Not found: Invalid VM ID")
 
     @patch("IM.InfrastructureManager.InfrastructureManager.ExportInfrastructure")
     def test_ExportInfrastructure(self, ExportInfrastructure):

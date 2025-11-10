@@ -2,7 +2,6 @@ import logging
 import flask
 from radl.radl_json import parse_radl as parse_radl_json
 from IM.tosca.Tosca import Tosca
-from IM import get_ex_error
 from IM.rest.utils import return_error, format_output, get_media_type, require_auth
 from IM.InfrastructureManager import InfrastructureManager
 
