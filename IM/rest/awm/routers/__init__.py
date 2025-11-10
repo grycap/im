@@ -1,8 +1,8 @@
 from typing import Tuple
 from functools import wraps
-from IM.awm.authorization import authenticate
+from IM.rest.awm.authorization import authenticate
 from flask import Response, request, Request
-from IM.awm.models.error import Error
+from IM.rest.awm.models.error import Error
 
 
 def return_error(message: str, status_code: int = 500) -> Response:

@@ -1,5 +1,5 @@
 from flask import Blueprint, Response
-from IM.awm.models.success import Success
+from IM.rest.awm.models.success import Success
 from IM import __version__
 
 service_bp = Blueprint("service", __name__)

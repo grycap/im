@@ -1,7 +1,7 @@
 import json
 import requests
 import time
-from IM.awm.oidc.jwt import JWT
+from IM.rest.awm.oidc.jwt import JWT
 
 
 class OpenIDClient(object):

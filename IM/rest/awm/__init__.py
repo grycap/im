@@ -2,10 +2,10 @@ import os
 import yaml
 from flask import Blueprint, request
 from flask_restx import Api
-from IM.awm.routers.allocations import allocations_bp
-from IM.awm.routers.deployments import deployments_bp
-from IM.awm.routers.service import service_bp
-from IM.awm.routers.tools import tools_bp
+from IM.rest.awm.routers.allocations import allocations_bp
+from IM.rest.awm.routers.deployments import deployments_bp
+from IM.rest.awm.routers.service import service_bp
+from IM.rest.awm.routers.tools import tools_bp
 # from IM.awm.routers.users import users_bp
 from IM.config import Config
 

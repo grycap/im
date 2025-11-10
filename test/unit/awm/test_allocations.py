@@ -5,7 +5,7 @@ sys.path.append("..")
 
 import flask
 import unittest
-from IM.awm import awm_bp
+from IM.rest.awm import awm_bp
 from mock import patch, MagicMock
 
 
@@ -25,8 +25,8 @@ class TestAllocations(unittest.TestCase):
         mock_db_instance.select.side_effect = selects if selects else []
         return mock_db_instance
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.allocations.DataBase')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.allocations.DataBase')
     def test_list_allocations(self, mock_db, mock_check_oidc):
         """Test AWM allocations listing endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}
@@ -57,8 +57,8 @@ class TestAllocations(unittest.TestCase):
             ('test-user',)
         )
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.allocations.DataBase')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.allocations.DataBase')
     def test_get_allocation(self, mock_db, mock_check_oidc):
         """Test AWM get allocation endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}
@@ -80,8 +80,8 @@ class TestAllocations(unittest.TestCase):
             ('id1', 'test-user')
         )
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.allocations.DataBase')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.allocations.DataBase')
     @patch('uuid.uuid4')
     @patch('time.time')
     def test_create_allocation(self, mock_time, mock_uuid, mock_db, mock_check_oidc):
@@ -109,9 +109,9 @@ class TestAllocations(unittest.TestCase):
             ('new-id', '{"kind":"KubernetesEnvironment","host":"http://k8s.io/"}', 'test-user', 1000)
         )
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.allocations.DataBase')
-    @patch('IM.awm.routers.deployments.list_deployments')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.allocations.DataBase')
+    @patch('IM.rest.awm.routers.deployments.list_deployments')
     def test_delete_allocation(self, moch_list_dep, mock_db, mock_check_oidc):
         """Test AWM get allocation endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}

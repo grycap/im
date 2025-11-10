@@ -1,8 +1,8 @@
 from typing import List
 from pydantic import BaseModel, Field, HttpUrl
-from IM.awm.models.allocation import AllocationInfo
-from IM.awm.models.tool import ToolInfo
-from IM.awm.models.deployment import DeploymentInfo
+from .allocation import AllocationInfo
+from .tool import ToolInfo
+from .deployment import DeploymentInfo
 
 
 class Page(BaseModel):

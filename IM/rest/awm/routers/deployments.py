@@ -3,18 +3,18 @@ import time
 from pydantic import BaseModel
 from typing import Tuple
 from flask import Blueprint, request, Response
-from IM.awm.models.deployment import DeploymentInfo, DeploymentId, Deployment
-from IM.awm.models.page import PageOfDeployments
-from IM.awm.models.error import Error
-from IM.awm.models.success import Success
-from IM.awm.models.allocation import AllocationUnion
+from IM.rest.awm.models.page import PageOfDeployments
+from IM.rest.awm.models.deployment import DeploymentInfo, Deployment, DeploymentId
+from IM.rest.awm.models.error import Error
+from IM.rest.awm.models.success import Success
+from IM.rest.awm.models.allocation import AllocationUnion
 from IM.db import DataBase
-from IM.awm.routers.tools import get_tool_from_repo
+from IM.rest.awm.routers.tools import get_tool_from_repo
 from IM.config import Config
 from IM.InfrastructureManager import InfrastructureManager
 from IM.tosca.Tosca import Tosca
 from IM.auth import Authentication
-from IM.awm.routers.allocations import _get_allocation
+from IM.rest.awm.routers.allocations import _get_allocation
 from . import require_auth, return_error, validate_from_limit
 
 deployments_bp = Blueprint("deployments", __name__)
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def _init_table(db: DataBase) -> bool:
-    """ Creates de database """
+    """Creates de database."""
     if not db.table_exists("deployments"):
         logger.info("Creating deployments table")
         if db.db_type == DataBase.MYSQL:

@@ -6,9 +6,9 @@ sys.path.append("..")
 import base64
 import flask
 import unittest
-from IM.awm import awm_bp
+from IM.rest.awm import awm_bp
 from pydantic import HttpUrl
-from IM.awm.node_registry import EOSCNode
+from IM.rest.awm.node_registry import EOSCNode
 from mock import patch, MagicMock, call
 
 
@@ -22,8 +22,8 @@ class TestTools(unittest.TestCase):
         app.register_blueprint(awm_bp, url_prefix='/awm')
         self.client = app.test_client()
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.tools.Repository')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.tools.Repository')
     def test_list_tools(self, mock_repo, mock_check_oidc):
         mock_check_oidc.return_value = {'sub': 'test-user', 'name': 'username'}
         headers = {"Authorization": "Bearer you-very-secret-token"}
@@ -51,9 +51,9 @@ class TestTools(unittest.TestCase):
 
         self.assertEqual(response.json, expexted_res)
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.tools.Repository')
-    @patch('IM.awm.routers.tools.EOSCNodeRegistry')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.tools.Repository')
+    @patch('IM.rest.awm.routers.tools.EOSCNodeRegistry')
     @patch('requests.get')
     def test_list_tools_remote(self, mock_get, mock_reg, mock_repo, mock_check_oidc):
         mock_check_oidc.return_value = {'sub': 'test-user', 'name': 'username', 'token': 'at'}
@@ -117,8 +117,8 @@ class TestTools(unittest.TestCase):
         self.assertEqual(len(response.json["elements"]), 1)
 
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.tools.Repository')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.tools.Repository')
     def test_get_tool(self, mock_repo, mock_check_oidc):
         mock_check_oidc.return_value = {'sub': 'test-user', 'name': 'username'}
         headers = {"Authorization": "Bearer you-very-secret-token"}

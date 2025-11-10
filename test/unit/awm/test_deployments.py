@@ -5,8 +5,8 @@ sys.path.append("..")
 
 import flask
 import unittest
-from IM.awm import awm_bp
-from IM.awm.models.tool import ToolInfo
+from IM.rest.awm import awm_bp
+from IM.rest.awm.models.tool import ToolInfo
 from mock import patch, MagicMock
 
 
@@ -34,8 +34,8 @@ class TestDeployment(unittest.TestCase):
                 '"allocation": {"kind": "AllocationId", "id": "aid", "infoLink": "http://some.url"}}, '
                 '"status": "pending"}')
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.deployments.DataBase')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.deployments.DataBase')
     def test_list_deployments(self, mock_db, mock_check_oidc):
         """Test AWM deployments listing endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user'}
@@ -84,10 +84,10 @@ class TestDeployment(unittest.TestCase):
             ('test-user',)
         )
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.deployments.DataBase')
-    @patch('IM.awm.routers.deployments.InfrastructureManager')
-    @patch('IM.awm.routers.deployments._get_allocation')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.deployments.DataBase')
+    @patch('IM.rest.awm.routers.deployments.InfrastructureManager')
+    @patch('IM.rest.awm.routers.deployments._get_allocation')
     def test_get_deployment(self, mock_get_allocation, mock_im, mock_db, mock_check_oidc):
         """Test AWM deployments get endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user', 'token': 'astoken'}
@@ -131,10 +131,10 @@ class TestDeployment(unittest.TestCase):
             ('dep_id', 'test-user')
         )
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.deployments.DataBase')
-    @patch('IM.awm.routers.deployments.InfrastructureManager')
-    @patch('IM.awm.routers.deployments._get_allocation')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.deployments.DataBase')
+    @patch('IM.rest.awm.routers.deployments.InfrastructureManager')
+    @patch('IM.rest.awm.routers.deployments._get_allocation')
     def test_delete_deployment(self, mock_get_allocation, mock_im, mock_db, mock_check_oidc):
         """Test AWM deployments delete endpoint."""
         mock_check_oidc.return_value = {'sub': 'test-user', 'token': 'astoken'}
@@ -158,12 +158,12 @@ class TestDeployment(unittest.TestCase):
         self.assertEqual(response.json, {"message": "Deleting"})
         mock_db_instance.execute.assert_called_with("DELETE FROM deployments WHERE id = %s", ('dep_id',))
 
-    @patch('IM.awm.authorization.check_OIDC')
-    @patch('IM.awm.routers.deployments.DataBase')
-    @patch('IM.awm.routers.deployments.InfrastructureManager')
-    @patch('IM.awm.routers.deployments.get_tool_from_repo')
-    @patch('IM.awm.routers.deployments.Tosca')
-    @patch('IM.awm.routers.deployments._get_allocation')
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.deployments.DataBase')
+    @patch('IM.rest.awm.routers.deployments.InfrastructureManager')
+    @patch('IM.rest.awm.routers.deployments.get_tool_from_repo')
+    @patch('IM.rest.awm.routers.deployments.Tosca')
+    @patch('IM.rest.awm.routers.deployments._get_allocation')
     def test_deploy_workload(self, mock_get_allocation, mock_tosca, mock_get_tool, mock_im, mock_db,
                              mock_check_oidc):
         """Test AWM deployments deploy endpoint."""

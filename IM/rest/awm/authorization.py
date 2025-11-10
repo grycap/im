@@ -1,6 +1,6 @@
 import logging
 from flask import Request
-from IM.awm.oidc.client import OpenIDClient
+from IM.rest.awm.oidc.client import OpenIDClient
 
 logger = logging.getLogger(__name__)
 

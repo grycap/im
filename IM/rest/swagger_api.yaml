@@ -1,0 +1,1682 @@
+openapi: 3.0.0
+
+info:
+  description: Infrastructure Manager (IM) REST API.
+  version: 1.19.0
+  title: Infrastructure Manager (IM) REST API
+  contact:
+    email: products@grycap.upv.es
+  license:
+    name: GPL 3.0
+    url: 'https://www.gnu.org/licenses/gpl-3.0.en.html'
+
+tags:
+  - name: infrastructures
+    description: Manages Virtual Infrastructures.
+  - name: version
+    description: Get IM server version.
+  - name: clouds
+    description: Get cloud information.
+  - name: stats
+    description: Get IM server stats.
+  - name: oai
+    description: Get OAI-PMH information.
+
+paths:
+
+  /version:
+    get:
+      tags:
+        - version
+      summary: Get IM server version.
+      description: Get IM server version.
+      operationId: GetVersion
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: 1.10.0
+        '400':
+          description: Invalid status value
+
+  /stats:
+    get:
+      tags:
+        - stats
+      summary: Get IM server stats.
+      description: >-
+        Return the stats of the current user in the IM service.
+        Return all the infrastructures in the interval init_date-end_date parameters deployed
+        by the user showing some aggregated information.
+      operationId: GetStats
+      parameters:
+        - name: init_date
+          in: query
+          description: >-
+            The init_date parameter is optional and it is a date with format
+            YYYY/MM/dd. Only will be returned infrastructure created afther this date.
+          required: false
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          description: >-
+            The end_date parameter is optional and it is a date with format
+            YYYY/MM/dd. Only will be returned infrastructure created before this date.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              examples:
+                response:
+                  value:
+                    - creation_date: '2022-03-07 13:16:14'
+                      tosca_name: 'kubernetes'
+                      vm_count: 2
+                      cpu_count: 4
+                      memory_size: 1024
+                      cloud_type: 'OSCAR'
+                      cloud_host: 'server.com'
+                      hybrid: false
+                      deleted: false
+                      im_user: 'username'
+                      inf_id: '1'
+                      last_date: '2022-03-23'
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+
+  /infrastructures:
+    get:
+      tags:
+        - infrastructures
+      summary: List user infrastructures.
+      security:
+        - IMAuth: []
+      description: >-
+        Return a list of URIs referencing the infrastructures associated to the
+        IM user.
+      operationId: GetInfrastructures
+      parameters:
+        - name: filter
+          in: query
+          description: >-
+            The filter parameter is optional and it is a regular expression
+            (python format) to search in the RADL or TOSCA used to create the
+            infrastructure. If not specified all the user infrastructures will
+            be returned.          
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/uri-list:
+              examples:
+                response:
+                  value: |
+                    http://server.com:8800/infrastructures/inf_id1
+                    http://server.com:8800/infrastructures/inf_id2
+            application/json:
+              examples:
+                response:
+                  value: |
+                    {
+                      "uri-list": [
+                        {"uri": "http://server.com:8800/infrastructures/inf_id1"},
+                        {"uri": "http://server.com:8800/infrastructures/inf_id2"}
+                      ]
+                    }
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+    post:
+      tags:
+        - infrastructures
+      summary: Creates an infrastructures.
+      security:
+        - IMAuth: []
+      description: >-
+        Create and configure an infrastructure with the requirements specified
+        in RADL or TOSCA document.
+      operationId: CreateInfrastructure
+      parameters:
+        - name: async
+          in: query
+          description: >-
+            The async parameter is optional and is a flag to specify if the call
+            will not wait for the VMs to be created.
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'false'
+        - name: dry_run
+          in: query
+          description: >-
+            parameter is optional and is a flag to specify if the call will not create the VMs
+            and will only return the ammount of resources needed to deploy the infrastructure.
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'false'
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+              example: |
+                network net (outbound = 'yes')
+                system node (
+                   cpu.count >= 2 and
+                   memory.size >= 2G and
+                   net_interface.0.connection = 'net' and
+                   disk.0.image.url = 'one://someserver.com/123'
+                )
+                deploy node 1
+          application/json:
+            schema:
+              type: string
+              example:
+                - class: network
+                  id: net
+                  outbound: "yes"
+                - class: system
+                  id: node
+                  cpu.count_min: 2
+                  memory.size_min: 2147483648
+                  net_interface.0.connection: net
+                  disk.0.image.url: "one://someserver.com/123"
+                - class: deploy
+                  system: wn
+                  vm_number: 1
+          text/yaml:
+            schema:
+              type: string
+              example:
+                tosca_definitions_version: tosca_simple_yaml_1_0
+                topology_template:
+                  node_templates:
+                    web_server:
+                      type: tosca.nodes.Compute
+                      capabilities:
+                        host:
+                          properties:
+                            num_cpus: 1
+                            mem_size: 1 GB
+                        os:
+                          properties:
+                            type: linux 
+                            distribution: CentOS
+                            version: 8
+        description: RADL (in plain RADL or in JSON formats) or TOSCA document (YAML).
+        required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/uri-list:
+              examples:
+                response:
+                  value: 'http://server.com:8800/infrastructures/inf_id1'
+            application/json:
+              examples:
+                response:
+                  value: |
+                    {
+                      "uri": "http://server.com:8800/infrastructures/inf_id1"
+                    }
+                response_dry_run:
+                  value: |
+                    {
+                      "compute": [
+                                      {"cpu": 2, "memory": 4096, "disk": 20},
+                                      {"cpu": 1, "memory": 2048, "disk": 10}
+                                 ],
+                      "storage": [
+                                      {"size": 100}
+                                 ]
+                    }
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+    put:
+      tags:
+        - infrastructures
+      summary: Import an infrastructure.
+      security:
+        - IMAuth: []
+      description: >-
+        Take control of the infrastructure serialized in in the body and return
+        the ID associated in the server. (See GET
+        /infrastructures/{infId}/data).
+      operationId: Importfrastructure
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+        description: >-
+          JSON data of the infrastructure obtained with GET
+          /infrastructures/{infId}/data.
+        required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/uri-list:
+              examples:
+                response:
+                  value: 'http://server.com:8800/infrastructures/inf_id1'
+            application/json:
+              examples:
+                response:
+                  value: |
+                    {
+                      "uri": "http://server.com:8800/infrastructures/inf_id1"
+                    }
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '415':
+          description: Unsupported Media type
+
+  /infrastructures/{InfId}:
+    get:
+      tags:
+        - infrastructures
+      summary: List of VMs in a infrastructure.
+      security:
+        - IMAuth: []
+      description: >-
+        Return a list of URIs referencing the virtual machines associated to the
+        infrastructure with ID InfId
+      operationId: GetVMList
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/uri-list:
+              examples:
+                response:
+                  value: |
+                    http://server.com:8800/infrastructures/inf_id/vms/0
+                    http://server.com:8800/infrastructures/inf_id/vms/1
+            application/json:
+              examples:
+                response:
+                  value: |
+                    {
+                      "uri-list": [
+                        {"uri": "http://server.com:8800/infrastructures/inf_id/vms/0"},
+                        {"uri": "http://server.com:8800/infrastructures/inf_id/vms/1"}
+                      ]
+                    }
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - infrastructures
+      summary: Add resources to an infrastructures.
+      security:
+        - IMAuth: []
+      description: >
+        Add the resources specified in the body contents (in TOSCA, RADL plain
+        or in JSON formats) to the infrastructure with ID infId.
+
+        In case of using RADL as input the deploy instructions in the radl must
+        refer to systems already defined. If all the systems defined in radl are
+        new, they will be added. Otherwise the new systems defined will be
+        ignored. All the systems specified in the deploy must be specified in
+        the radl. If they has been already defined only a reference is needed.
+        This is a simple example to deploy one new VM from an alreay defined
+        system:
+
+        Using TOSCA as input this method can be used to add or remove resources
+        depending on the number of resources specified in the new TOSCA document
+        sent. If new nodes are added in the body compared with the last TOSCA
+        sent to the IM, these new nodes will be added. For example an
+        infrastructure has been created with this TOSCA document:
+        [tosca_create.yml](https://github.com/grycap/im/blob/master/test/files/tosca_create.yml)
+        it launches one DB server and one Web server. If this TOSCA document is
+        sent as body of this POST function:
+        [tosca_add.yml](https://github.com/grycap/im/blob/master/test/files/tosca_add.yml),
+        a new web server will be added as the number of web servers has been
+        increased to two (count parameter of scalable capability). However if
+        this document is sent after the node addition (the number of web servers
+        will be two):
+        [tosca_remove.yml](https://github.com/grycap/im/blob/master/test/files/tosca_remove.yml)
+        , a web server (the VM with the ID 2 as specified in the removal_list
+        parameter) will be removed.      
+      operationId: AddResources
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: context
+          in: query
+          description: >-
+            The context parameter is optional and is a flag to specify if the
+            contextualization step will be launched just after the VM addition.
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'true'
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+              example: |
+                network net
+                system node
+                deploy node 1
+          application/json:
+            schema:
+              type: string
+              example:
+                - class: network
+                  id: net
+                  reference: true
+                - class: system
+                  id: node
+                  reference: true
+                - class: deploy
+                  system: wn
+                  vm_number: 1
+          text/yaml:
+            schema:
+              type: string
+              example:
+                tosca_definitions_version: tosca_simple_yaml_1_0
+                topology_template:
+                  node_templates:
+                    web_server:
+                      type: tosca.nodes.Compute
+                      capabilities:
+                        host:
+                          properties:
+                            num_cpus: 1
+                            mem_size: 1 GB
+                        os:
+                          properties:
+                            type: linux 
+                            distribution: CentOS
+                            version: 8              
+        description: RADL (in plain RADL or in JSON formats) or TOSCA document (YAML).
+        required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/uri-list:
+              examples:
+                response:
+                  value: |
+                    http://server.com:8800/infrastructures/inf_id/vms/0
+                    http://server.com:8800/infrastructures/inf_id/vms/1
+            application/json:
+              examples:
+                response:
+                  value: |
+                    {
+                      "uri-list": [
+                        {"uri": "http://server.com:8800/infrastructures/inf_id/vms/0"},
+                        {"uri": "http://server.com:8800/infrastructures/inf_id/vms/1"}
+                      ]
+                    }
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '415':
+          description: Unsupported Media type
+    delete:
+      tags:
+        - infrastructures
+      summary: Delete an infrastructure.
+      security:
+        - IMAuth: []
+      description: Undeploy the virtual machines associated to the infrastructure with ID.
+      operationId: DestroyInfrastructure
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: force
+          in: query
+          description: >-
+            The force parameter is optional and is a flag to specify that the
+            infra will be from the IM although not all resources are deleted.
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'false'
+        - name: async
+          in: query
+          description: >-
+            The async parameter is optional and is a flag to specify if the call
+            will not wait the infrastructure to be deleted. 
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'false'
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/state:
+    get:
+      tags:
+        - infrastructures
+      summary: Get infrastructure state.
+      security:
+        - IMAuth: []
+      description: Return a the state of the infrastructure with ID InfId.
+      operationId: GetInfrastructureState
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfrastructureState'
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/outputs:
+    get:
+      tags:
+        - infrastructures
+      summary: Get the infrastructure outputs.
+      security:
+        - IMAuth: []
+      description: >-
+        In case of TOSCA documents it will return a JSON object with the outputs
+        of the TOSCA document.
+      operationId: GetInfrastructureOutpus
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              examples:
+                response:
+                  value: |
+                    {
+                      "output_name1": "output_value1",
+                      "output_name2": "output_value2",
+                    }
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/contmsg:
+    get:
+      tags:
+        - infrastructures
+      summary: Get a infrastructure contextualization message.
+      security:
+        - IMAuth: []
+      description: >-
+        Return a string with the contextualization message. In case of
+        headeronly flag is set to ‘yes’, ‘true’ or ‘1’ only the initial part of
+        the infrastructure contextualization log will be returned (without any
+        VM contextualization log).
+      operationId: GetInfrastructureContmsg
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: headeronly
+          in: query
+          description: >-
+            In case of headeronly flag is set to `yes`, `true` or `1` only the
+            initial part of the infrastructure contextualization log will be
+            returned (without any VM contextualization log).
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'false'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/plain:
+              examples:
+                response:
+                  value: >
+                    2019-12-11 11:08:14.574891: Select master VM
+
+                    2019-12-11 11:08:14.576685: Wait master VM to boot
+
+                    2019-12-11 11:08:14.577905: Wait master VM to have the SSH
+                    active.
+            application/json:
+              examples:
+                response:
+                  value:
+                      contmsg: |
+                        2019-12-11 11:08:14.574891: Select master VM
+                        2019-12-11 11:08:14.576685: Wait master VM to boot
+                        2019-12-11 11:08:14.577905: Wait master VM to have the SSH active.
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/data:
+    get:
+      tags:
+        - infrastructures
+      summary: Export an infrastructure.
+      security:
+        - IMAuth: []
+      description: >-
+        Return the serialization of the infrastructure with ID InfId. This
+        function is useful to transfer the control of an infrastructure to other
+        IM server (See PUT /infrastructures). In case of delete flag is set to
+        ‘yes’, ‘true’ or ‘1’ the data not only will be exported but also the
+        infrastructure will be set deleted (the virtual infrastructure will not
+        be modified).
+      operationId: GetInfrastructureData
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: delete
+          in: query
+          description: >-
+            In case of delete flag is set to ‘yes’, ‘true’ or ‘1’ the data not
+            only will be exported but also the infrastructure will be set
+            deleted (the virtual infrastructure will not be modified).
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'false'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              examples:
+                response:
+                  value:
+                    vm_list: []
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/radl:
+    get:
+      tags:
+        - infrastructures
+      summary: Get the infrastructure RADL used to create it.
+      security:
+        - IMAuth: []
+      description: >-
+        Return a string with the original specified RADL of the infrastructure
+        with ID InfId.
+      operationId: GetInfrastructureRADL
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/plain:
+              examples:
+                response:
+                  value: |
+                    network net (outbound = 'yes')
+                    system node (
+                      ...
+                    )
+            application/json:
+              examples:
+                response:
+                  value:
+                    radl: "network net (outbound = 'yes')\nsystem node ( ... )"
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/tosca:
+    get:
+      tags:
+        - infrastructures
+      summary: Get the TOSCA representation of the infrastructure.
+      security:
+        - IMAuth: []
+      description: >-
+        Return a string with the TOSCA representation of the infrastructure with
+        ID InfId.
+      operationId: GetInfrastructureTOSCA
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              examples:
+                response:
+                  value:
+                    tosca: |
+                      tosca_definitions_version: tosca_simple_yaml_1_0
+                      description: Some TOSCA template
+                      ...
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/authorization:
+    get:
+      tags:
+        - infrastructures
+      summary: Get the list of infrastructure owners.
+      security:
+        - IMAuth: []
+      description: >-
+        Return a list of strings with the set of users of the infrastructure
+        with ID InfId.
+      operationId: GetInfrastructureOwners
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/plain:
+              examples:
+                response:
+                  value: |
+                    user1
+                    user2
+            application/json:
+              examples:
+                response:
+                  value:
+                    owners:
+                      - user1
+                      - user2
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - infrastructures
+      summary: Change the authorization data of the infrastructure.
+      security:
+        - IMAuth: []
+      description: >-
+        Change the authorization data of the infrastructure with ID InfId.
+        The body of the request contains the new authorization data in json
+        format. It can be a pair username-password or a token. In case of using
+        a token it must be a valid access token.
+      operationId: ChangeInfrastructureAuth
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: overwrite
+          in: query
+          description: >-
+            The overwrite parameter is optional and is a flag to specify if the
+            authorization data will be overwrited or will be appended.
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'false'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    username:
+                      type: string
+                      example: new_user
+                    password:
+                      type: string
+                      example: new_password
+                - type: object
+                  properties:
+                    token:
+                      type: string
+                      example: acces_token_new_user
+                
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/stop:
+    put:
+      tags:
+        - infrastructures
+      summary: Stop an infrastructure.
+      security:
+        - IMAuth: []
+      description: >-
+        Perform the stop operation in all the virtual machines in the
+        infrastructure.
+      operationId: StopInfrastructure
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/start:
+    put:
+      tags:
+        - infrastructures
+      summary: Start an infrastructure.
+      security:
+        - IMAuth: []
+      description: >-
+        Perform the start operation in all the (previuosly stopped) virtual
+        machines in the infrastructure.
+      operationId: StartInfrastructure
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/reconfigure:
+    put:
+      tags:
+        - infrastructures
+      summary: Reconfigure an infrastructure.
+      security:
+        - IMAuth: []
+      description: Re-start the contextualization process of the infrastructure.
+      operationId: ReconfigureInfrastructure
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: vm_list
+          in: query
+          description: >-
+            The vm_list parameter is optional and is a coma separated list of
+            IDs of the VMs to reconfigure. If not specified all the VMs will be
+            reconfigured
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+              example: |
+                configure node (
+                @begin
+                ---
+                  - tasks:
+                      - debug: msg="Some message"
+                @end
+                )
+          application/json:
+            schema:
+              type: string
+              example:
+                - class: configure
+                  id: node
+                  recipes: |
+                    - tasks:
+                        - debug: msg="Some message"
+        description: >-
+          Optional RADL (in plain RADL or in JSON formats) with new
+          configuration recipes. If not specified the current configuration
+          recipes will be executed again.
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '415':
+          description: Unsupported Media type
+
+  /infrastructures/{InfId}/vms/{VMId}:
+    get:
+      tags:
+        - infrastructures
+      summary: Get VM info.
+      security:
+        - IMAuth: []
+      description: >-
+        Return information about the virtual machine with ID VMId associated to
+        the infrastructure with ID InfId
+      operationId: GetVMInfo
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  network net (outbound = 'yes')
+                  system node (
+                     cpu.count >= 2 and
+                     memory.size >= 2G and
+                     net_interface.0.ip = '8.8.8.8' and
+                     net_interface.0.connection = 'net' and
+                     disk.0.image.url = 'one://someserver.com/123'
+                  )
+            application/json:
+              schema:
+                type: string
+              example:
+                - class: network
+                  id: net
+                  outbound: "yes"
+                - class: system
+                  id: node
+                  cpu.count_min: 2
+                  memory.size_min: 2147483648
+                  net_interface.0.ip: 8.8.8.8
+                  net_interface.0.connection: net
+                  disk.0.image.url: "one://someserver.com/123"
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    put:
+      tags:
+        - infrastructures
+      summary: Alter VM.
+      security:
+        - IMAuth: []
+      description: >-
+        Change the features of the virtual machine with ID VMId in the
+        infrastructure with with ID infId.
+      operationId: AlterVM
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+              example: |
+                system node (
+                   memory.size >= 4G
+                )
+          application/json:
+            schema:
+              type: string
+              example:
+                - class: system
+                  id: node
+                  memory.size_min: 4294967296
+        description: RADL (in plain RADL or in JSON formats).
+        required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  network net (outbound = 'yes')
+                  system node (
+                     cpu.count >= 2 and
+                     memory.size >= 4G and
+                     net_interface.0.ip = '8.8.8.8' and
+                     net_interface.0.connection = 'net' and
+                     disk.0.image.url = 'one://someserver.com/123'
+                  )
+            application/json:
+              schema:
+                type: string
+                example:
+                - class: network
+                  id: net
+                  outbound: "yes"
+                - class: system
+                  id: node
+                  cpu.count_min: 2
+                  memory.size_min: 4294967296
+                  net_interface.0.ip: 8.8.8.8
+                  net_interface.0.connection: net
+                  disk.0.image.url: "one://someserver.com/123"
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '415':
+          description: Unsupported Media type
+    delete:
+      tags:
+        - infrastructures
+      summary: Delete a VM.
+      security:
+        - IMAuth: []
+      description: >-
+        Undeploy the virtual machine VMId associated to the infrastructure with
+        ID infId
+      operationId: DestroyVM
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/vms/{VMId}/contmsg:
+    get:
+      tags:
+        - infrastructures
+      summary: Get a VM contextualization message.
+      security:
+        - IMAuth: []
+      description: >-
+        Return a string with the contextualization message associated to the
+        virtual machine with ID VMId in the infrastructure with with ID infId
+      operationId: GetVMContMsg
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/plain:
+              examples:
+                response:
+                  value: |
+                    Launch task: basic
+                    ...
+            application/json:
+              examples:
+                response:
+                  value:
+                    contmsg: |
+                      Launch task: basic
+                      ...
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/vms/{VMId}/{Property}:
+    get:
+      tags:
+        - infrastructures
+      summary: Get a VM property.
+      security:
+        - IMAuth: []
+      description: >-
+        Return a property associated to the virtual machine with ID VMId in the
+        infrastructure with with ID infId
+      operationId: GetVMProperty
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          schema:
+            type: string
+        - name: Property
+          in: path
+          description: The specific VM RADL property to get.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/plain:
+              examples:
+                response:
+                  value: property_value
+            application/json:
+              examples:
+                response:
+                  value:
+                    property_name: property_value
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/vms/{VMId}/stop:
+    put:
+      tags:
+        - infrastructures
+      summary: Stop a VM.
+      security:
+        - IMAuth: []
+      description: >-
+        Perform the stop operation in the virtual machine VMId of the
+        infrastructure InfId. The default behavior is suspending the VM if this
+        operation is not available the VM will be stopped.
+      operationId: StopVM
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/vms/{VMId}/start:
+    put:
+      tags:
+        - infrastructures
+      summary: Start a VM.
+      security:
+        - IMAuth: []
+      description: >-
+        Perform the start operation in the (previuosly stopped) virtual machine
+        VMId of the infrastructure InfId.
+      operationId: StartVM
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/vms/{VMId}/reboot:
+    put:
+      tags:
+        - infrastructures
+      summary: Reboot a VM.
+      security:
+        - IMAuth: []
+      description: >-
+        Perform the reboot operation in the virtual machine VMId of the
+        infrastructure InfId.
+      operationId: RebootVM
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /infrastructures/{InfId}/vms/{VMId}/disks/{diskNum}/snapshot:
+    put:
+      tags:
+        - infrastructures
+      summary: Create a disk snapshot.
+      security:
+        - IMAuth: []
+      description: >-
+        Create a snapshot of the specified diskNum in the VM VMId of the
+        infrastructure with ID InfId and returns the image url of the new
+        created image in IM format.
+      operationId: CreateSnapShot
+      parameters:
+        - name: InfId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: VMId
+          in: path
+          description: The ID of the specific VM.
+          required: true
+          schema:
+            type: string
+        - name: diskNum
+          in: path
+          description: The number of the specific disk.
+          required: true
+          schema:
+            type: string
+        - name: image_name
+          in: query
+          description: The name to assing to the created snapshot.
+          required: true
+          schema:
+            type: string
+        - name: auto_delete
+          in: query
+          description: >-
+            The auto_delete flag specifies that the snapshot will be deleted
+            when the infrastructure is destroyed
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'yes'
+              - 'no'
+              - 'true'
+              - 'false'
+              - '0'
+              - '1'
+            default: 'false'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: 'one://server.com/image_id'
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+
+  /clouds/{CloudId}/images:
+    get:
+      tags:
+        - clouds
+      summary: Get the list of available images in the specified cloud provider.
+      security:
+        - IMAuth: []
+      description: >
+        Return a list of URIs referencing the available images in the specified
+        cloud provider. The id cloudId is relative to the id field in the
+        AUTHORIZATION header.
+      operationId: GetCloudImages
+      parameters:
+        - name: CloudId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+        - name: filters
+          in: query
+          description: >-
+            The optional filters parameter enables filterin the list of images.
+            It is a comma separated list of keypair values
+            ('key1=val1,key2=value2').
+
+            This field is cloud provider specific (e.g. 'region=region_name' for
+            Amazon EC2, GCE or Azure).
+          required: false
+          schema:
+            type: string
+            default: ''
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              examples:
+                response:
+                  value:
+                    images:
+                      - uri: ost://hostname/image-id1
+                        name: Image Name1
+                      - uri: ost://hostname/image-id2
+                        name: Image Name2
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+
+  /clouds/{CloudId}/quotas:
+    get:
+      tags:
+        - clouds
+      summary: >-
+        Get available and used resources for the current user in the specified
+        cloud provider.
+      security:
+        - IMAuth: []
+      description: >
+        Return a dictionary with available and used resources for the current
+        user in the specified cloud provider. The id cloudId is relative to the
+        id field in the AUTHORIZATION header.
+      operationId: GetCloudQuotas
+      parameters:
+        - name: CloudId
+          in: path
+          description: The ID of the specific infrastructure.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              examples:
+                response:
+                  value:
+                    quotas:
+                      cores:
+                        used: 1
+                        limit: 10
+                      ram:
+                        used: 1
+                        limit: 10
+                      instances:
+                        used: 1
+                        limit: 10
+                      floating_ips:
+                        used: 1
+                        limit: 10
+                      security_groups:
+                        used: 1
+                        limit: 10
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+
+  /oai:
+    get:
+      tags:
+        - oai
+      summary: Get OAI-PMH information about TOSCA templates.
+      description: Get OAI-PMH (https://www.openarchives.org/pmh/) information about TOSCA templates.
+      operationId: OAI
+      responses:
+        '200':
+          description: successful operation
+          content:
+            text/xml:
+              examples:
+                response:
+                  value: |
+                    <OAI-PMHxmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd"xmlns="http://www.openarchives.org/OAI/2.0/">
+                    <responseDate>2024-09-10T06:59:58Z</responseDate>
+                    <request>https://server.com/oai</request>
+                    <errorcode="badVerb">Value of the verb argument is not a legal OAI-PMH verb,                     the verb argument is missing, or the verb argument is repeated.</error>
+                    </OAI-PMH>
+
+externalDocs:
+  description: Find out more about IM
+  url: 'http://www.grycap.upv.es/im'
+servers:
+  - url: 'https://appsgrycap.i3m.upv.es:31443/im'
+components:
+  schemas:
+    State:
+      type: string
+      enum:
+        - pending
+        - running
+        - configured
+        - unconfigured
+        - stopped
+        - 'off'
+        - failed
+        - unknown
+        - deleting
+      title: State
+      example: running
+    InfrastructureState:
+      type: object
+      properties:
+        state:
+          $ref: '#/components/schemas/State'
+        vm_states:
+          type: array
+          items:
+            $ref: '#/components/schemas/State'
+          example:
+            - running
+            - running
+      title: InfrastructureState
+
+  securitySchemes:
+    IMAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: >-
+        The Authentication header must provide the content of the
+        [Authorization
+        File](https://imdocs.readthedocs.io/en/latest/client.html#auth-file),
+        but putting all the elements in one line using “\n” as separator.

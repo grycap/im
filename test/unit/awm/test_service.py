@@ -5,7 +5,7 @@ sys.path.append("..")
 
 import flask
 import unittest
-from IM.awm import awm_bp
+from IM.rest.awm import awm_bp
 from IM import __version__
 
 

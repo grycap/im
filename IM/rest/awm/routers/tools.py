@@ -4,10 +4,10 @@ import yaml
 from typing import Tuple, List
 from pydantic import BaseModel
 from flask import Blueprint, request, Response
-from IM.awm.models.tool import ToolInfo
-from IM.awm.models.page import PageOfTools
-from IM.awm.models.error import Error
-from IM.awm.node_registry import EOSCNodeRegistry
+from IM.rest.awm.models.tool import ToolInfo
+from IM.rest.awm.models.page import PageOfTools
+from IM.rest.awm.models.error import Error
+from IM.rest.awm.node_registry import EOSCNodeRegistry
 from IM.oaipmh.utils import Repository
 from IM.config import Config
 from . import require_auth, return_error, validate_from_limit

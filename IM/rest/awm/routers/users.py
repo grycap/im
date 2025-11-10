@@ -1,5 +1,5 @@
 from flask import Blueprint, Response
-from IM.awm.models.user_info import UserInfo
+from IM.rest.awm.models.user_info import UserInfo
 from . import require_auth
 
 # Mantengo el nombre `router` para minimizar cambios al registrar el blueprint

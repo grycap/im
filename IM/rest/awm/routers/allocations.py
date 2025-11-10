@@ -2,12 +2,12 @@ import logging
 import time
 import uuid
 from flask import Blueprint, request, Response
-from IM.awm.models.allocation import AllocationInfo, Allocation, AllocationId
-from IM.awm.models.page import PageOfAllocations
-from IM.awm.models.success import Success
+from IM.rest.awm.models.allocation import AllocationInfo, Allocation, AllocationId
+from IM.rest.awm.models.page import PageOfAllocations
+from IM.rest.awm.models.success import Success
 from IM.db import DataBase
 from IM.config import Config
-import IM.awm
+import IM.rest.awm
 from . import require_auth, return_error, validate_from_limit
 
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def _init_table(db: DataBase) -> bool:
-    """ Creates de database """
+    """Creates de database."""
     if not db.table_exists("allocations"):
         logger.info("Creating allocations table")
         if db.db_type == DataBase.MYSQL:
@@ -172,7 +172,7 @@ def create_allocation(user_info: dict = None, allocation_id: str = None) -> Resp
 
 def _check_allocation_in_use(allocation_id: str) -> Response:
     # check if this allocation is used in any deployment
-    response = IM.awm.routers.deployments.list_deployments()
+    response = IM.rest.awm.routers.deployments.list_deployments()
     if response.status_code != 200:
         return response
 

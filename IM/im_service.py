@@ -247,11 +247,12 @@ def launch_daemon():
 
     if Config.ACTIVATE_REST:
         # If specified launch the REST server
-        import IM.REST
+        import IM.rest.REST
+        rest_api = IM.rest.REST.RestAPI(Config.REST_ADDRESS, Config.REST_PORT)
         if Config.ACTIVATE_XMLRPC:
-            IM.REST.run_in_thread(host=Config.REST_ADDRESS, port=Config.REST_PORT)
+            rest_api.run_in_thread()
         else:
-            IM.REST.run(host=Config.REST_ADDRESS, port=Config.REST_PORT)
+            rest_api.run()
 
     if Config.ACTIVATE_XMLRPC:
         if Config.XMLRCP_SSL:

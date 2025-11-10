@@ -2,8 +2,8 @@ import requests
 import logging
 from pydantic import BaseModel, HttpUrl
 from typing import List, Tuple
-from IM.awm.models.tool import ToolInfo
-from IM.awm.models.page import PageOfTools
+from IM.rest.awm.models.tool import ToolInfo
+from IM.rest.awm.models.page import PageOfTools
 
 
 logger = logging.getLogger(__name__)
