@@ -1130,6 +1130,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         nets = []
         pool_names = [pool.name for pool in driver.ex_list_floating_ip_pools()]
         get_subnets, ost_nets = self.get_ost_network_info(driver, pool_names)
+        num_nets = radl.systems[0].getNumNetworkIfaces()
 
         if get_subnets:
             net_map = self.map_networks(radl, ost_nets)
@@ -1144,12 +1145,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     if public == network.isPublic():
                         if net_map[i]:
                             network.setValue('provider_id', net_map[i].name)
-                            if net_map[i].name not in pool_names:
+                            # Assing the net only if it is not a pool or if this is the only network
+                            if net_map[i].name not in pool_names or num_nets == 1:
                                 nets.append(net_map[i])
                     i += 1
         else:
             # TO BE DEPRECATED
-            num_nets = radl.systems[0].getNumNetworkIfaces()
             used_nets = []
 
             # First set the public ones
