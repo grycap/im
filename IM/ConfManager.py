@@ -1498,6 +1498,8 @@ class ConfManager(LoggerMixin, threading.Thread):
             if ansible_version_env:
                 # restore original value
                 os.environ['ANSIBLE_VERSION'] = ansible_version_env
+            elif 'ANSIBLE_VERSION' in os.environ:
+                del os.environ['ANSIBLE_VERSION']
 
             if not success:
                 self.log_error("Error configuring master node: " + msg + "\n\n")

@@ -1639,7 +1639,7 @@ externalDocs:
   description: Find out more about IM
   url: 'http://www.grycap.upv.es/im'
 servers:
-  - url: 'https://appsgrycap.i3m.upv.es:31443/im'
+  - url: 'https://im.egi.eu/im'
 components:
   schemas:
     State:
