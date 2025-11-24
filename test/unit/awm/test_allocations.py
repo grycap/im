@@ -148,8 +148,10 @@ class TestAllocations(unittest.TestCase):
                                  headers={'Authorization': 'Bearer at'}, timeout=30)
         mock_get.assert_any_call('http://server2.com/allocations?from0&limit=1',
                                  headers={'Authorization': 'Bearer at'}, timeout=30)
-        self.assertEqual(str(response.json["nextPage"]), "http://localhost/awm/allocations?allNodes=true&from=3&limit=2")
-        self.assertEqual(str(response.json["prevPage"]), "http://localhost/awm/allocations?allNodes=true&from=0&limit=2")
+        self.assertEqual(str(response.json["nextPage"]),
+                         "http://localhost/awm/allocations?allNodes=true&from=3&limit=2")
+        self.assertEqual(str(response.json["prevPage"]),
+                         "http://localhost/awm/allocations?allNodes=true&from=0&limit=2")
 
     @patch('IM.rest.awm.authorization.check_OIDC')
     @patch('IM.rest.awm.routers.allocations.DataBase')
