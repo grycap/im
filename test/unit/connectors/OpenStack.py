@@ -295,8 +295,8 @@ class TestOSTConnector(TestCloudConnectorBase):
         ]
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
         self.assertEqual(driver.ex_create_subnet.call_args_list[0][0][2], "10.0.1.0/24")
-        self.assertEqual(driver.ex_create_security_group_rule.call_args_list[8][0][1:], ('tcp', 22, 22, '0.0.0.0/0'))
-        self.assertEqual(driver.ex_create_security_group.call_args_list[0][0][0], 'im-%s' % inf.id)
+        self.assertEqual(driver.ex_create_security_group_rule.call_args_list[6][0][1:], ('tcp', 22, 22, '0.0.0.0/0'))
+        self.assertEqual(driver.ex_create_security_group.call_args_list[0][0][0], 'im-%s-net2' % inf.id)
         sg_desc = "Security group created by the IM for Inf: SimpleRADL"
         self.assertEqual(driver.ex_create_security_group.call_args_list[0][0][1], sg_desc)
 
@@ -851,9 +851,8 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         self.assertEqual(node.destroy.call_args_list, [call()])
         self.assertEqual(driver.detach_volume.call_args_list[0][0][0], volume)
-        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[0][0][0].name, "im-infid")
-        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[1][0][0].name, "im-infid-public")
-        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[2][0][0].name, "im-infid-private")
+        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[0][0][0].name, "im-infid-public")
+        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[1][0][0].name, "im-infid-private")
         self.assertEqual(driver.ex_del_router_subnet.call_args_list[0][0][0], router)
         self.assertEqual(driver.ex_del_router_subnet.call_args_list[0][0][1].id, "subnet1")
         self.assertEqual(driver.ex_delete_network.call_args_list[0][0][0], net1)
