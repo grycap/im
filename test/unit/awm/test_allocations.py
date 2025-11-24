@@ -60,13 +60,15 @@ class TestAllocations(unittest.TestCase):
         )
 
     @patch('IM.rest.awm.authorization.check_OIDC')
-    @patch('IM.rest.awm.routers.allocations.EOSCNodeRegistry')
+    @patch('IM.rest.awm.node_registry.EOSCNodeRegistry.list_nodes')
     @patch('requests.get')
     @patch('IM.rest.awm.routers.allocations.DataBase')
-    def test_list_allocations_remote(self, mock_db, mock_get, mock_reg, mock_check_oidc):
+    def test_list_allocations_remote(self, mock_db, mock_get, mock_list_nodes, mock_check_oidc):
         mock_check_oidc.return_value = {'sub': 'test-user', 'name': 'username', 'token': 'at'}
         selects = [
             [['id1', '{"kind": "KubernetesEnvironment","host": "http://k8s.io"}']],
+            [[1]],
+            [],
             [[1]],
             [],
             [[1]],
@@ -78,7 +80,7 @@ class TestAllocations(unittest.TestCase):
 
         node1 = EOSCNode(awmAPI=HttpUrl("http://server1.com"), nodeId="n1")
         node2 = EOSCNode(awmAPI=HttpUrl("http://server2.com"), nodeId="n2")
-        mock_reg.list_nodes.return_value = [node1, node2]
+        mock_list_nodes.return_value = [node1, node2]
 
         resp1 = MagicMock()
         resp1.status_code = 200
@@ -102,7 +104,17 @@ class TestAllocations(unittest.TestCase):
                                                  'self': 'http://localhost/awm/allocation/id2'}],
                                    'from': 0,
                                    'limit': 100}
-        mock_get.side_effect = [resp1, resp2, resp1, resp1, resp1, resp2]
+
+        resp3 = MagicMock()
+        resp3.status_code = 200
+        resp3.json.return_value = {'count': 2,
+                                   'elements': [{'allocation': {'host': 'http://k8s.io/',
+                                                                'kind': 'KubernetesEnvironment'},
+                                                 'id': 'id1',
+                                                 'self': 'http://localhost/awm/allocation/id1'}],
+                                   'from': 0,
+                                   'limit': 100}
+        mock_get.side_effect = [resp1, resp2, resp1, resp1, resp1, resp2, resp1, resp3]
 
         headers = {"Authorization": "Bearer you-very-secret-token"}
         response = self.client.get("/awm/allocations?allNodes=true", headers=headers)
@@ -127,6 +139,17 @@ class TestAllocations(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["count"], 4)
         self.assertEqual(len(response.json["elements"]), 1)
+
+        response = self.client.get("/awm/allocations?allNodes=true&from=1&limit=2", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["count"], 4)
+        self.assertEqual(len(response.json["elements"]), 2)
+        mock_get.assert_any_call('http://server1.com/allocations?from0&limit=2',
+                                 headers={'Authorization': 'Bearer at'}, timeout=30)
+        mock_get.assert_any_call('http://server2.com/allocations?from0&limit=1',
+                                 headers={'Authorization': 'Bearer at'}, timeout=30)
+        self.assertEqual(str(response.json["nextPage"]), "http://localhost/awm/allocations?allNodes=true&from=3&limit=2")
+        self.assertEqual(str(response.json["prevPage"]), "http://localhost/awm/allocations?allNodes=true&from=0&limit=2")
 
     @patch('IM.rest.awm.authorization.check_OIDC')
     @patch('IM.rest.awm.routers.allocations.DataBase')

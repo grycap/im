@@ -79,3 +79,31 @@ class EOSCNodeRegistry():
         """Retun the node with ID `node_id`"""
         # @TODO(get): Complete
         return None
+
+    @staticmethod
+    def list_items(item: str, from_: int, limit: int, count: int, user_info) -> Tuple[int, List[Any]]:
+        """Return the list of remote items"""
+        total = 0
+        num_items = 0
+        items = []
+        for node in EOSCNodeRegistry.list_nodes():
+            node_total, node_items = node.list_items(item, from_, limit, count + num_items, user_info["token"])
+            num_items += len(node_items) if node_items else node_total
+            total += node_total
+            items.extend(node_items)
+        return total, items
+
+    @staticmethod
+    def list_allocations(from_: int, limit: int, count: int, user_info) -> Tuple[int, List[AllocationInfo]]:
+        """Return the list of remote allocations"""
+        return EOSCNodeRegistry.list_items("allocations", from_, limit, count, user_info)
+
+    @staticmethod
+    def list_tools(from_: int, limit: int, count: int, user_info) -> Tuple[int, List[ToolInfo]]:
+        """Return the list of remote tools"""
+        return EOSCNodeRegistry.list_items("tools", from_, limit, count, user_info)
+
+    @staticmethod
+    def list_deployments(from_: int, limit: int, count: int, user_info) -> Tuple[int, List[DeploymentInfo]]:
+        """Return the list of remote deployments"""
+        return EOSCNodeRegistry.list_items("tools", from_, limit, count, user_info)

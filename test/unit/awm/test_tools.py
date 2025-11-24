@@ -53,9 +53,9 @@ class TestTools(unittest.TestCase):
 
     @patch('IM.rest.awm.authorization.check_OIDC')
     @patch('IM.rest.awm.routers.tools.Repository')
-    @patch('IM.rest.awm.routers.tools.EOSCNodeRegistry')
+    @patch('IM.rest.awm.node_registry.EOSCNodeRegistry.list_nodes')
     @patch('requests.get')
-    def test_list_tools_remote(self, mock_get, mock_reg, mock_repo, mock_check_oidc):
+    def test_list_tools_remote(self, mock_get, mock_list_nodes, mock_repo, mock_check_oidc):
         mock_check_oidc.return_value = {'sub': 'test-user', 'name': 'username', 'token': 'at'}
         headers = {"Authorization": "Bearer you-very-secret-token"}
 
@@ -67,7 +67,7 @@ class TestTools(unittest.TestCase):
 
         node1 = EOSCNode(awmAPI=HttpUrl("http://server1.com"), nodeId="n1")
         node2 = EOSCNode(awmAPI=HttpUrl("http://server2.com"), nodeId="n2")
-        mock_reg.list_nodes.return_value = [node1, node2]
+        mock_list_nodes.return_value = [node1, node2]
 
         resp1 = MagicMock()
         resp1.status_code = 200

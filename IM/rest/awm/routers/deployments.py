@@ -33,6 +33,7 @@ from IM.InfrastructureManager import InfrastructureManager
 from IM.tosca.Tosca import Tosca
 from IM.auth import Authentication
 from IM.rest.awm.routers.allocations import _get_allocation
+from IM.rest.awm.node_registry import EOSCNodeRegistry
 from . import require_auth, return_error, validate_from_limit
 
 deployments_bp = Blueprint("deployments", __name__)
@@ -137,8 +138,6 @@ def list_deployments(user_info: dict = None) -> Response:
     if from_ < 0 or limit < 1:
         return return_error("Invalid 'from' or 'limit' parameter", status_code=400)
 
-    # all_nodes = request.args.get("allNodes", "false").lower() in ("1", "true", "yes")
-
     deployments = []
     db = DataBase(Config.DATA_DB)
     if db.connect():
@@ -176,13 +175,14 @@ def list_deployments(user_info: dict = None) -> Response:
     else:
         return return_error("Database connection failed", 503)
 
-    page = PageOfDeployments(from_=from_, limit=limit, elements=deployments, count=count,
-                             self_=request.url)
-    base_url = request.url_root.rstrip("/") + request.path
-    if from_ + limit < count:
-        page.nextPage = f"{base_url}?from={from_ + limit}&limit={limit}"
-    if from_ > 0 and count > 0:
-        page.prevPage = f"{base_url}?from={max(0, from_ - limit)}&limit={limit}"
+    all_nodes = request.args.get("allNodes", "false").lower() in ("1", "true", "yes")
+    if all_nodes:
+        remote_count, remote_tools = EOSCNodeRegistry.list_deployments(from_, limit, count, user_info)
+        deployments.extend(remote_tools)
+        count += remote_count
+
+    page = PageOfDeployments(from_=from_, limit=limit, elements=deployments, count=count, self_=request.url)
+    page.set_next_and_prev_pages(request, all_nodes)
     return Response(page.model_dump_json(exclude_unset=True, by_alias=True), status=200, mimetype="application/json")
 
 

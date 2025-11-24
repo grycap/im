@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from flask import Request
 from typing import List, Union
 from pydantic import BaseModel, Field, HttpUrl
 from .allocation import AllocationInfo
@@ -34,6 +35,17 @@ class Page(BaseModel):
 
     class Config:
         populate_by_name = True
+
+    def set_next_and_prev_pages(self, request: Request, all_nodes: bool):
+        base_url = request.url_root.rstrip("/") + request.path
+        if all_nodes:
+            base_url += "?allNodes=true&"
+        else:
+            base_url += "?"
+        if self.from_ + self.limit < self.count:
+            self.nextPage = HttpUrl(f"{base_url}from={self.from_ + self.limit}&limit={self.limit}")
+        if self.from_ > 0 and self.count > 0:
+            self.prevPage = HttpUrl(f"{base_url}from={max(0, self.from_ - self.limit)}&limit={self.limit}")
 
 
 class PageOfAllocations(Page):
