@@ -69,12 +69,6 @@ class KubernetesEnvironment(BaseModel):
     host: HttpUrl
 
 
-Credentials = Annotated[
-    Union[OpenStackEnvironment, KubernetesEnvironment],
-    Field(discriminator='kind')
-]
-
-
 AllocationUnion = Annotated[
     Union[EoscNodeEnvironment, OpenStackEnvironment, KubernetesEnvironment],
     Field(discriminator='kind')
