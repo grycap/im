@@ -19,10 +19,12 @@
 import logging
 import time
 import uuid
+from typing import Tuple, List
 from flask import Blueprint, request, Response
 from IM.rest.awm.models.allocation import AllocationInfo, Allocation, AllocationId
 from IM.rest.awm.models.page import PageOfAllocations
 from IM.rest.awm.models.success import Success
+from IM.rest.awm.node_registry import EOSCNodeRegistry
 from IM.db import DataBase
 from IM.config import Config
 import IM.rest.awm
@@ -50,6 +52,19 @@ def _init_table(db: DataBase) -> bool:
     return False
 
 
+def list_remote_allocations(from_: int, limit: int, count: int,
+                            user_info: dict = None) -> Tuple[int, List[AllocationInfo]]:
+    total = 0
+    num_allocations = 0
+    allocations = []
+    for node in EOSCNodeRegistry.list_nodes():
+        node_total, node_allocations = node.list_allocations(from_, limit, count + num_allocations, user_info["token"])
+        num_allocations += len(node_allocations) if node_allocations else node_total
+        total += node_total
+        allocations.extend(node_allocations)
+    return total, allocations
+
+
 @allocations_bp.route("/allocations", methods=["GET"])
 @require_auth
 def list_allocations(user_info: dict = None) -> Response:
@@ -57,8 +72,6 @@ def list_allocations(user_info: dict = None) -> Response:
     from_, limit = validate_from_limit(request)
     if from_ < 0 or limit < 1:
         return return_error("Invalid 'from' or 'limit' parameter", status_code=400)
-
-    # all_nodes = request.args.get("allNodes", "false").lower() in ("1", "true", "yes")
 
     allocations = []
     db = DataBase(Config.DATA_DB)
@@ -99,6 +112,12 @@ def list_allocations(user_info: dict = None) -> Response:
         db.close()
     else:
         return return_error("Database connection failed", 503)
+
+    all_nodes = request.args.get("allNodes", "false").lower() in ("1", "true", "yes")
+    if all_nodes:
+        remote_count, remote_tools = list_remote_allocations(from_, limit, count, user_info)
+        allocations.extend(remote_tools)
+        count += remote_count
 
     page = PageOfAllocations(from_=from_, limit=limit, elements=allocations, count=count)
     return Response(page.model_dump_json(exclude_unset=True, by_alias=True), status=200, mimetype="application/json")

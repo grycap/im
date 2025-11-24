@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import List
+from typing import List, Union
 from pydantic import BaseModel, Field, HttpUrl
 from .allocation import AllocationInfo
 from .tool import ToolInfo
@@ -49,3 +49,8 @@ class PageOfDeployments(Page):
 class PageOfTools(Page):
     """Page of Tools"""
     elements: List[ToolInfo]
+
+
+class PageOfItems(Page):
+    """Generic Page of any item"""
+    elements: List[Union[AllocationInfo, DeploymentInfo, ToolInfo]]

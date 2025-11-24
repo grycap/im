@@ -5,8 +5,10 @@ sys.path.append("..")
 
 import flask
 import unittest
+from pydantic import HttpUrl
 from IM.rest.awm import awm_bp
 from mock import patch, MagicMock
+from IM.rest.awm.node_registry import EOSCNode
 
 
 class TestAllocations(unittest.TestCase):
@@ -56,6 +58,75 @@ class TestAllocations(unittest.TestCase):
             'SELECT count(id) from allocations WHERE owner = %s',
             ('test-user',)
         )
+
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.allocations.EOSCNodeRegistry')
+    @patch('requests.get')
+    @patch('IM.rest.awm.routers.allocations.DataBase')
+    def test_list_allocations_remote(self, mock_db, mock_get, mock_reg, mock_check_oidc):
+        mock_check_oidc.return_value = {'sub': 'test-user', 'name': 'username', 'token': 'at'}
+        selects = [
+            [['id1', '{"kind": "KubernetesEnvironment","host": "http://k8s.io"}']],
+            [[1]],
+            [],
+            [[1]],
+            [],
+            [[1]]
+        ]
+        mock_db_instance = self._get_database_mock(selects)
+        mock_db.return_value = mock_db_instance
+
+        node1 = EOSCNode(awmAPI=HttpUrl("http://server1.com"), nodeId="n1")
+        node2 = EOSCNode(awmAPI=HttpUrl("http://server2.com"), nodeId="n2")
+        mock_reg.list_nodes.return_value = [node1, node2]
+
+        resp1 = MagicMock()
+        resp1.status_code = 200
+        resp1.json.return_value = {'count': 1,
+                                   'elements': [{'allocation': {'host': 'http://k8s.io/',
+                                                                'kind': 'KubernetesEnvironment'},
+                                                 'id': 'id1',
+                                                 'self': 'http://localhost/awm/allocation/id1'}],
+                                   'from': 0,
+                                   'limit': 100}
+        resp2 = MagicMock()
+        resp2.status_code = 200
+        resp2.json.return_value = {'count': 2,
+                                   'elements': [{'allocation': {'host': 'http://k8s.io/',
+                                                                'kind': 'KubernetesEnvironment'},
+                                                 'id': 'id1',
+                                                 'self': 'http://localhost/awm/allocation/id1'},
+                                                {'allocation': {'host': 'http://k8s2.io/',
+                                                                'kind': 'KubernetesEnvironment'},
+                                                 'id': 'id2',
+                                                 'self': 'http://localhost/awm/allocation/id2'}],
+                                   'from': 0,
+                                   'limit': 100}
+        mock_get.side_effect = [resp1, resp2, resp1, resp1, resp1, resp2]
+
+        headers = {"Authorization": "Bearer you-very-secret-token"}
+        response = self.client.get("/awm/allocations?allNodes=true", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["count"], 4)
+        self.assertEqual(len(response.json["elements"]), 4)
+        mock_get.assert_any_call('http://server1.com/allocations?from0&limit=99',
+                                 headers={'Authorization': 'Bearer at'}, timeout=30)
+        mock_get.assert_any_call('http://server2.com/allocations?from0&limit=98',
+                                 headers={'Authorization': 'Bearer at'}, timeout=30)
+
+        response = self.client.get("/awm/allocations?allNodes=true&from=1&limit=2", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["count"], 3)
+        self.assertEqual(len(response.json["elements"]), 2)
+        mock_get.assert_any_call('http://server1.com/allocations?from0&limit=2',
+                                 headers={'Authorization': 'Bearer at'}, timeout=30)
+        mock_get.assert_any_call('http://server2.com/allocations?from0&limit=1',
+                                 headers={'Authorization': 'Bearer at'}, timeout=30)
+
+        response = self.client.get("/awm/allocations?allNodes=true&from=3&limit=2", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["count"], 4)
+        self.assertEqual(len(response.json["elements"]), 1)
 
     @patch('IM.rest.awm.authorization.check_OIDC')
     @patch('IM.rest.awm.routers.allocations.DataBase')

@@ -19,9 +19,11 @@
 import requests
 import logging
 from pydantic import BaseModel, HttpUrl
-from typing import List, Tuple
+from typing import List, Tuple, Any
+from IM.rest.awm.models.page import PageOfItems
+from IM.rest.awm.models.allocation import AllocationInfo
 from IM.rest.awm.models.tool import ToolInfo
-from IM.rest.awm.models.page import PageOfTools
+from IM.rest.awm.models.deployment import DeploymentInfo
 
 
 logger = logging.getLogger(__name__)
@@ -35,19 +37,31 @@ class EOSCNode(BaseModel):
 
     def list_tools(self, from_: int, limit: int, count: int, token: str) -> Tuple[int, List[ToolInfo]]:
         """Return the list of tools of this node"""
+        return self.list_items("tools", from_, limit, count, token)
+
+    def list_allocations(self, from_: int, limit: int, count: int, token: str) -> Tuple[int, List[AllocationInfo]]:
+        """Return the list of allocations of this node"""
+        return self.list_items("allocations", from_, limit, count, token)
+
+    def list_deployments(self, from_: int, limit: int, count: int, token: str) -> Tuple[int, List[DeploymentInfo]]:
+        """Return the list of deployments of this node"""
+        return self.list_items("deployments", from_, limit, count, token)
+
+    def list_items(self, item: str, from_: int, limit: int, count: int, token: str) -> Tuple[int, List[Any]]:
+        """Return the list of Items of type 'item' of this node"""
         init = max(0, from_ - count)
         elems = limit - (count - from_)
-        url = f"{self.awmAPI}tools?from0&limit={elems}"
+        url = f"{self.awmAPI}{item}?from0&limit={elems}"
         try:
             headers = {"Authorization": f"Bearer {token}"}
             response = requests.get(url, headers=headers, timeout=30)
             response.raise_for_status()
             if response.status_code == 200:
-                page = PageOfTools.model_validate(response.json())
-                tools = page.elements[init:] if len(page.elements) > init else []
-                return page.count, tools
+                page = PageOfItems.model_validate(response.json())
+                items = page.elements[init:] if len(page.elements) > init else []
+                return page.count, items
         except Exception:
-            logger.exception("Error getting tools from node: %s", self.nodeId)
+            logger.exception(f"Error getting {item} from node: %s", self.nodeId)
         return 0, []
 
 

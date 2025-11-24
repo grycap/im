@@ -75,9 +75,9 @@ def _get_im_auth_header(token: str, allocation: AllocationUnion = None) -> Authe
             # @TODO: Add all the other parameters
             auth_data.append(ost_auth_data)
         elif allocation.kind == "KubernetesEnvironment":
-            # @TODO: How the TM will get now the token?
             k8s_auth_data = {"type": "kubernetes", "token": token}
             k8s_auth_data["host"] = str(allocation.host)
+            k8s_auth_data["password"] = token
         else:
             raise ValueError("Allocation kind not supported")
     return Authentication(auth_data)
