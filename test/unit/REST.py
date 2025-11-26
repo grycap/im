@@ -844,16 +844,20 @@ class TestREST(unittest.TestCase):
     def test_GetStats(self, GetStats):
         """Test REST GetStats."""
         headers = {"AUTHORIZATION": "type = InfrastructureManager; username = user; password = pass"}
-        GetStats.return_value = [{"key": 1}]
+        GetStats.return_value = [{"key": 1, "okey": 2}]
 
         res = self.client.get('/stats?init_date=2010-01-01&end_date=2022-01-01', headers=headers)
 
-        self.assertEqual(res.json, {"stats": [{"key": 1}]})
+        self.assertEqual(res.json, {"stats": [{"key": 1, "okey": 2}]})
         self.assertEqual(GetStats.call_args_list[0][0][0], '2010-01-01')
         self.assertEqual(GetStats.call_args_list[0][0][1], '2022-01-01')
         self.assertEqual(GetStats.call_args_list[0][0][2].auth_list, [{"type": "InfrastructureManager",
                                                                        "username": "user",
                                                                        "password": "pass"}])
+
+        headers["Accept"] = "text/csv"
+        res = self.client.get('/stats?init_date=2010-01-01&end_date=2022-01-01', headers=headers)
+        self.assertEqual(res.text, "key,okey\r\n1,2\r\n")
 
     @patch("requests_cache.CachedSession")
     def test_oaipmh(self, CachedSession):

@@ -73,6 +73,12 @@ paths:
         '200':
           description: successful operation
           content:
+            text/csv:
+              examples:
+                response:
+                  value: |
+                    creation_date,tosca_name,vm_count,cpu_count,memory_size,cloud_type,cloud_host,hybrid,deleted,im_user,inf_id,last_date
+                    2024-07-12 06:28:49,vm-icon-disk,1,4.0,8192.0,OpenStack,server.com,False,True,username,infid,2024-07-12 12:45:49
             application/json:
               examples:
                 response:
