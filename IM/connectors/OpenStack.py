@@ -1661,19 +1661,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if inf.radl.description and inf.radl.description.getValue('name'):
             sg_desc += " for Inf: %s" % inf.radl.description.getValue('name')
 
-        # First create a SG for the entire Infra
-        # Use the InfrastructureInfo lock to assure that only one VM create the SG
-        with inf._lock:
-            sg_name = "im-%s" % inf.id
-            sg = self._get_security_group(driver, sg_name)
-            if not sg:
-                self.log_info("Creating security group: %s" % sg_name)
-                sg = driver.ex_create_security_group(sg_name, sg_desc)
-                # open all the ports for the VMs in the security group
-                driver.ex_create_security_group_rule(sg, 'tcp', None, None, source_security_group=sg)
-                driver.ex_create_security_group_rule(sg, 'udp', None, None, source_security_group=sg)
-            res.append(sg)
-
+        # Create one SG per network
         i = 0
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
@@ -1828,7 +1816,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         Get the list of SGs for this infra
         """
-        sg_names = ["im-%s" % inf.id]
+        sg_names = []
         for net in inf.radl.networks:
             sg_name = net.getValue("sg_name")
             if not sg_name:
