@@ -500,7 +500,7 @@ GET ``http://imserver.com/clouds/<cloudId>/quotas``
     }
 
 GET ``http://imserver.com/stats``
-   :Response Content-type: application/json
+   :Response Content-type: application/json or text/csv
    :ok response: 200 OK
    :input fields: ``init_date`` (optional)
    :input fields: ``end_date`` (optional)

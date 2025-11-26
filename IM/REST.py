@@ -22,6 +22,8 @@ import flask
 import os
 import yaml
 import datetime
+import io
+import csv
 
 from cheroot.wsgi import Server as WSGIServer, PathInfoDispatcher
 from cheroot.ssl.builtin import BuiltinSSLAdapter
@@ -1119,7 +1121,23 @@ def RESTGetStats():
                 return return_error(400, "Incorrect format in end_date parameter: YYYY/MM/dd")
 
         stats = InfrastructureManager.GetStats(init_date, end_date, auth)
-        return format_output(stats, default_type="application/json", field_name="stats")
+
+        accept_type = get_media_type('Accept')
+        if not accept_type or "application/json" in accept_type or "*/*" in accept_type:
+            return format_output(stats, default_type="application/json", field_name="stats")
+        elif "text/csv" or "text/*" in accept_type:
+            output = io.StringIO()
+            csv_writer = csv.writer(output)
+
+            # Write header
+            header = stats[0].keys() if stats else []
+            csv_writer.writerow(header)
+
+            # Write data rows
+            for stat in stats:
+                csv_writer.writerow(stat.values())
+
+            return format_output(output.getvalue(), default_type="text/csv", field_name="stats")
     except Exception as ex:
         logger.exception("Error getting stats")
         return return_error(400, "Error getting stats: %s" % get_ex_error(ex))
