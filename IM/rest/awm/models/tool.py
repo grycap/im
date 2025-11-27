@@ -24,7 +24,7 @@ from datetime import datetime
 class ToolId(BaseModel):
     kind: Literal['ToolId'] = 'ToolId'
     id: str
-    version: str = None
+    version: str = 'latest'
     infoLink: HttpUrl = None
 
 
