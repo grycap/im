@@ -106,4 +106,4 @@ class EOSCNodeRegistry():
     @staticmethod
     def list_deployments(from_: int, limit: int, count: int, user_info) -> Tuple[int, List[DeploymentInfo]]:
         """Return the list of remote deployments"""
-        return EOSCNodeRegistry.list_items("tools", from_, limit, count, user_info)
+        return EOSCNodeRegistry.list_items("deployments", from_, limit, count, user_info)
