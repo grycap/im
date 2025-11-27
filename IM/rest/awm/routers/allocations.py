@@ -176,14 +176,13 @@ def create_allocation(user_info: dict = None, allocation_id: str = None) -> Resp
                            "owner": user_info['sub']}
             db.replace("allocations", {"id": allocation_id}, replace)
         else:
-            sql = "replace into allocations (id, data, owner"
             if allocation_id is None:  # new allocation
                 allocation_id = str(uuid.uuid4())
-                sql += ", created) values (%s, %s, %s, %s)"
+                sql = "replace into allocations (id, data ,owner, created) values (%s, %s, %s, %s)"
                 values = (allocation_id, data, user_info['sub'], time.time())
             else:  # update existing allocation
-                sql += ") values (%s, %s, %s)"
-                values = (allocation_id, data, user_info['sub'])
+                sql = "update allocations set data = %s where id = %s"
+                values = (data, allocation_id)
             db.execute(sql, values)
         db.close()
     else:
