@@ -53,5 +53,4 @@ class ToolInfo(BaseModel):
     validatedOn: datetime = None
     self_: HttpUrl | None = Field(None, alias="self")
 
-    class Config:
-        populate_by_name = True
+    model_config = {"populate_by_name": True}

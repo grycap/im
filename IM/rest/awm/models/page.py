@@ -33,8 +33,7 @@ class Page(BaseModel):
     prevPage: HttpUrl = None
     nextPage: HttpUrl = None
 
-    class Config:
-        populate_by_name = True
+    model_config = {"populate_by_name": True}
 
     def set_next_and_prev_pages(self, request: Request, all_nodes: bool):
         base_url = request.url_root.rstrip("/") + request.path

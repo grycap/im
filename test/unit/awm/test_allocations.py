@@ -249,3 +249,33 @@ class TestAllocations(unittest.TestCase):
         response = self.client.delete('/awm/allocation/id1', headers=headers)
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json, {'description': 'Allocation in use', 'id': '409'})
+
+    @patch('IM.rest.awm.authorization.check_OIDC')
+    @patch('IM.rest.awm.routers.allocations.DataBase')
+    @patch('IM.rest.awm.routers.deployments.list_deployments')
+    def test_update_allocation(self, moch_list_dep, mock_db, mock_check_oidc):
+        mock_check_oidc.return_value = {'sub': 'test-user'}
+        selects = [
+            [['id1', '{"kind": "KubernetesEnvironment","host": "http://k8s.io"}']],
+            [['id1', '{"kind": "KubernetesEnvironment","host": "http://k8s.io"}']]
+        ]
+        mock_db_instance = self._get_database_mock(selects)
+        mock_db.return_value = mock_db_instance
+
+        moch_list_dep.return_value.status_code = 200
+        moch_list_dep.return_value.json.return_value = {"from": 0, "limit": 100, "count": 0, "self": "", "elements": []}
+
+        headers = {"Authorization": "Bearer you-very-secret-token"}
+        payload = {
+            "kind": "KubernetesEnvironment",
+            "host": "http://k8s.io"
+        }
+        response = self.client.put('/awm/allocation/id1', headers=headers, json=payload)
+        assert response.status_code == 200
+        assert response.json == {'id': 'id1',
+                                 'allocation': {'host': 'http://k8s.io/', 
+                                                'kind': 'KubernetesEnvironment'}, 
+                                 'self': 'http://localhost/awm/allocation/id1'}
+        mock_db_instance.execute.assert_called_with(
+            "update allocations set data = %s where id = %s",
+            ('{"kind":"KubernetesEnvironment","host":"http://k8s.io/"}', 'id1'))
