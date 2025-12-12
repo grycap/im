@@ -495,7 +495,9 @@ GET ``http://imserver.com/clouds/<cloudId>/quotas``
          "ram": {"used": 1, "limit": 10},
          "instances": {"used": 1, "limit": 10},
          "floating_ips": {"used": 1, "limit": 10},
-         "security_groups": {"used": 1, "limit": 10}
+         "security_groups": {"used": 1, "limit": 10},
+         "volumes": {"used": 1, "limit": 10},
+         "volume_storage": {"used": 1, "limit": 10}
       }
     }
 
