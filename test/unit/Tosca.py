@@ -223,13 +223,12 @@ class TestTosca(unittest.TestCase):
         vm1.info.systems = [system1]
         inf_info.get_vm_list_by_system_name.return_value = {"server": [vm1]}
         _, radl = tosca.to_radl(inf_info)
-        print(radl)
         conf = None
         for elem in radl.configures:
             if elem.name == "test_server_conf":
                 conf = elem
         conf = yaml.safe_load(conf.recipes)[0]
-        print(str(radl))
+
         self.assertEqual(conf['vars']['wn_ips'], ["{{ hostvars[groups['server'][0]]['IM_NODE_PUBLIC_IP'] }}"])
 
     def test_tosca_compute_tags(self):
