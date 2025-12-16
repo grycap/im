@@ -78,7 +78,9 @@ class TestIM(unittest.TestCase):
         log.addHandler(ch)
 
     def tearDown(self):
-        IM.stop()
+        with patch("IM.InfrastructureList.InfrastructureList._save_data_to_db") as mock_func:
+            mock_func.return_value = True
+            IM.stop()
 
     @staticmethod
     def getAuth(im_users=[], vmrc_users=[], clouds=[]):
@@ -741,7 +743,8 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(infId, auth0)
 
     @patch('IM.InfrastructureList.InfrastructureList.get_inf_ids')
-    def test_get_inf_state(self, get_inf_ids):
+    @patch('IM.InfrastructureList.InfrastructureList._save_data_to_db')
+    def test_get_inf_state(self, mock_save_data, get_inf_ids):
         """Test GetInfrastructureState."""
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
 
@@ -1330,7 +1333,8 @@ configure step2 (
 
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_inf_delete_force(self):
+    @patch('IM.InfrastructureList.InfrastructureList._save_data_to_db')
+    def test_inf_delete_force(self, mock_save_data):
         """Force a DestroyInfrastructure."""
         auth0 = self.getAuth([0])
         infId = IM.CreateInfrastructure("", auth0)
@@ -1345,7 +1349,8 @@ configure step2 (
     def sleep_5(self, _):
         time.sleep(5)
 
-    def test_inf_delete_async(self):
+    @patch('IM.InfrastructureList.InfrastructureList._save_data_to_db')
+    def test_inf_delete_async(self, mock_save_data):
         """DestroyInfrastructure async."""
         auth0 = self.getAuth([0])
         infId = IM.CreateInfrastructure("", auth0)
