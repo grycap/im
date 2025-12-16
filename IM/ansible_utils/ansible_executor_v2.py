@@ -44,8 +44,7 @@ class IMDisplay(Display):
         self.output = output
         super(IMDisplay, self).__init__(verbosity)
 
-    def display(self, msg, color=None, stderr=False,
-                screen_only=False, log_only=False):
+    def display(self, msg, **kwargs):
         if self.output:
             if isinstance(self.output, logging.Logger):
                 self.output.info(msg)
