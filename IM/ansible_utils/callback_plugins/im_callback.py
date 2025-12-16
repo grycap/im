@@ -23,6 +23,7 @@ from ansible import constants as C
 from ansible.utils.color import colorize, hostcolor
 from ansible.utils.display import Display
 from ansible.plugins.callback import CallbackBase
+from IM.ansible_utils import CallbackContext
 
 
 class IMDisplay(Display):
@@ -40,11 +41,6 @@ class IMDisplay(Display):
         else:
             sys.stdout.write(msg)
             sys.stdout.flush()
-
-
-class CallbackContext:
-    executor = None
-    config = None
 
 
 class CallbackModule(CallbackBase):

@@ -31,7 +31,8 @@ from ansible.playbook import Playbook
 from ansible.template import Templar
 from ansible.plugins.loader import callback_loader
 from ansible.executor.task_queue_manager import TaskQueueManager
-from IM.ansible_utils.callback_plugins.im_callback import CallbackModule, CallbackContext
+from IM.ansible_utils.callback_plugins.im_callback import CallbackModule
+from IM.ansible_utils import CallbackContext
 
 
 class IMPlaybookExecutor(PlaybookExecutor):
