@@ -43,7 +43,7 @@ class Tosca:
 
     logger = logging.getLogger('InfrastructureManager')
 
-    def __init__(self, yaml_str, verify=True, tosca_repo=None):
+    def __init__(self, yaml_str, verify=True, tosca_repo=None, auth=None):
         self.id = str(uuid1())
         self.tosca_repo = tosca_repo
         self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
@@ -54,19 +54,25 @@ class Tosca:
                 def verify_fake(tpl):
                     return True
                 ToscaTemplate.verify_template = verify_fake
-            self._gen_random_input_values()
+            self._gen_special_input_values(auth)
             self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
         except Exception as ex:
             Tosca.logger.exception("Error parsing TOSCA template")
             raise Exception("Error parsing TOSCA template: %s" % str(ex))
 
-    def _gen_random_input_values(self):
+    def _gen_special_input_values(self, auth):
         input_values = self.yaml.get('topology_template', {}).get('inputs', {})
         for name, elem in input_values.items():
-            if elem.get('type') == "string" and re.match(r'random\(\d+\)', elem.get('default', '')):
-                length = int(re.findall(r'random\((\d+)\)', elem['default'])[0])
-                elem['default'] = ''.join(choice(ascii_letters + digits) for _ in range(length))
-                Tosca.logger.debug("Generated random value for input: %s" % name)
+            if elem.get('type') == "string":
+                value = elem.get('default', '')
+                if value == "access_token()" and auth:
+                    im_auth = auth.getAuthInfo("InfrastructureManager")
+                    if im_auth and im_auth[0].get("token"):
+                        elem['default'] = im_auth[0].get("token")
+                elif re.match(r'random\(\d+\)', value):
+                    length = int(re.findall(r'random\((\d+)\)', value)[0])
+                    elem['default'] = ''.join(choice(ascii_letters + digits) for _ in range(length))
+                    Tosca.logger.debug("Generated random value for input: %s" % name)
 
     def serialize(self):
         return yaml.safe_dump(self.yaml)
