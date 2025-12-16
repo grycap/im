@@ -22,7 +22,7 @@ import sys
 import yaml
 import json
 
-from mock import MagicMock
+from mock import MagicMock, patch
 
 sys.path.append("..")
 sys.path.append(".")
@@ -32,6 +32,7 @@ from radl.radl_parse import parse_radl
 from radl.radl import system, Feature
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.tosca.Tosca import Tosca
+from IM.auth import Authentication
 
 
 def read_file_as_string(file_name):
@@ -534,6 +535,15 @@ class TestTosca(unittest.TestCase):
         expected_error = "Error parsing TOSCA template: The TOSCA template must be imported from the TOSCA " \
                          "repository: https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/"
         self.assertEqual(expected_error, str(ex.exception))
+
+    @patch("IM.tosca.Tosca.choice", return_value="a")
+    def test_tosca_input_funcs(self, mock_choice):
+        """Test TOSCA special input functions"""
+        tosca_data = read_file_as_string('../files/tosca_input_funcs.yml')
+        auth = Authentication([{"type": "InfrastructureManager", "token": "access_token"}])
+        tosca = Tosca(tosca_data, auth=auth)
+        outputs = tosca.get_outputs(MagicMock())
+        self.assertEqual(outputs, {'some_pass': 'aaaaaaaa', 'user_token': 'access_token'})
 
 
 if __name__ == "__main__":

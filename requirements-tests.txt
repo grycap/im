@@ -1,4 +1,4 @@
-ansible >= 4.10.0, <= 8.7.0
+ansible >= 4.10.0, <= 10.7.0
 paramiko >= 1.14
 PyYAML
 cheroot
