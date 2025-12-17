@@ -429,10 +429,14 @@ value of a internally defined value.
               - output
 
 
-Random Input values
+Special Input values
 ^^^^^^^^^^^^^^^^^^^^
 
-The IM TOSCA parser supports the generation of random values for string inputs.
+The IM TOSCA parser supports the generation of some special values for string inputs.
+
+Random values
+-------------
+
 The special string ``random(N)`` generates a random string of length N with
 alphanumeric characters. It can be used to define passwords or any other random
 string input value (from version 1.19.2).
@@ -446,3 +450,22 @@ string input value (from version 1.19.2).
           type: string
           description: Password for the App
           default: 'random(12)'
+
+
+Access Token
+-------------
+
+The special string ``access_token()`` substitutes the function with the OIDC
+user access token sent in the authorization header sent in the IM call,
+in the `InfrastructureManager` type element. If user/password has sent to
+authenticate with the IM, the string will be left unchanged.
+
+.. code-block:: yaml
+
+    ...
+
+      inputs:
+        user_access_token:
+          type: string
+          description: User OIDC Access Token
+          default: 'access_token()'
