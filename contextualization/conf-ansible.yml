@@ -5,7 +5,6 @@
   gather_facts: false
   vars:
     # Ansible specific Version or "latest"
-    ANSIBLE_VERSION: 4.10.0
     VENV_PATH: /var/tmp/.ansible
   tasks:
   ############## To avoid some issues with cloud-init and unattended upgrades ###############
@@ -203,17 +202,19 @@
         virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
 
-    - name: Set Ansible newer version for python 3.8+
+    - name: Set ANSIBLE_VERSION based on Python version
       set_fact:
-        ANSIBLE_VERSION:  6.7.0
-      when:
-        - ansible_python_version is version('3.8', '>=')
-
-    - name: Set Ansible newer version for python 3.9+
-      set_fact:
-        ANSIBLE_VERSION:  8.7.0
-      when:
-        - ansible_python_version is version('3.9', '>=')
+        ANSIBLE_VERSION: >-
+          {%- if ansible_python_version is version('3.10', '>=') -%}
+            9.13.0
+          {%- elif ansible_python_version is version('3.9', '>=') -%}
+            8.7.0
+          {%- elif ansible_python_version is version('3.8', '>=') -%}
+            6.7.0
+          {%- else -%}
+            4.10.0
+          {%- endif %}
+      when: lookup('env','ANSIBLE_VERSION') == ""
 
     - name: Set Ansible version from env if defined
       set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
