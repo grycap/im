@@ -5,7 +5,7 @@
   gather_facts: false
   vars:
     # Ansible specific Version or "latest"
-    ANSIBLE_VERSION: 8.7.0
+    ANSIBLE_VERSION: 6.7.0
     VENV_PATH: /var/tmp/.ansible
   tasks:
   ############## To avoid some issues with cloud-init and unattended upgrades ###############
@@ -202,6 +202,12 @@
           - packaging
         virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
+
+    - name: Set Ansible newer version for python 3.9+
+      set_fact:
+        ANSIBLE_VERSION:  8.7.0
+      when:
+        - ansible_python_version is version('3.9', '>=')
 
     - name: Set Ansible newer version for python 3.10+
       set_fact:
