@@ -142,13 +142,15 @@ class DataBase:
         else:
             return False
 
-    def _execute_retry(self, sql, args, fetch=False):
+    def _execute_retry(self, sql, args, fetch=False, many=False):
         """ Function to execute a SQL function, retrying in case of locked DB
 
             Arguments:
             - sql: The SQL sentence
             - args: A List of arguments to substitute in the SQL sentence
             - fetch: If the function must fetch the results.
+                    (Optional, default False)
+            - many: If the funcion will call the executemany SQL function.
                     (Optional, default False)
 
             Returns: True if fetch is False and the operation is performed
@@ -167,7 +169,10 @@ class DataBase:
                             new_sql = sql.replace("%s", "?").replace("now()", "date('now')")
                         elif self.db_type == DataBase.MYSQL:
                             new_sql = sql.replace("?", "%s")
-                        cursor.execute(new_sql, args)
+                        if many:
+                            cursor.executemany(new_sql, args)
+                        else:
+                            cursor.execute(new_sql, args)
                     else:
                         cursor.execute(sql)
 
@@ -196,7 +201,8 @@ class DataBase:
 
             Arguments:
             - sql: The SQL sentence
-            - args: A List of arguments to substitute in the SQL sentence
+            - args: A List of arguments to substitute in the SQL sentence.
+                    In case of setting many a list with the elements with arguments.
                     (Optional, default None)
 
             Returns: True if the operation is performed correctly
@@ -204,6 +210,20 @@ class DataBase:
         if self.db_type == DataBase.MONGO:
             raise Exception("Operation not supported in MongoDB")
         return self._execute_retry(sql, args)
+
+    def executemany(self, sql, args_list=None):
+        """ Executes a SQL sentence with a list of args without returning results
+
+            Arguments:
+            - sql: The SQL sentence
+            - args: A List of list of arguments to substitute in the SQL sentence.
+                    (Optional, default None)
+
+            Returns: True if the operation is performed correctly
+        """
+        if self.db_type == DataBase.MONGO:
+            raise Exception("Operation not supported in MongoDB")
+        return self._execute_retry(sql, args_list, many=True)
 
     def select(self, sql, args=None):
         """ Executes a SQL sentence that returns results
