@@ -24,7 +24,7 @@ import sys
 import json
 import base64
 import yaml
-
+from datetime import datetime
 from mock import Mock, patch, MagicMock
 
 sys.path.append("..")
@@ -1619,6 +1619,30 @@ configure step2 (
                          'inf_id': '1',
                          'last_date': '2022-03-23 00:00:00'}]
         self.assertEqual(stats, expected_res)
+        db.select.assert_called_with('select data, date, id from inf_list where '
+                                     '((auth like \'%%"__OPENID__mcaballer"%%\')) order by rowid desc')
+
+        auth = Authentication([{'type': 'InfrastructureManager', 'token': 'atoken',
+                                'username': 'micafer', 'password': 'pass'}])
+        check_auth_data.return_value = auth
+        stats = IM.GetStats('2001-01-01', '2122-01-01', auth)
+        self.assertEqual(db.select.call_args_list[1][0][0],
+                         ('select data, date, id from inf_list where '
+                          '((auth like \'%%"micafer"%%\' and auth like \'%%"pass"%%\')) '
+                          'order by rowid desc'))
+
+        db.find.return_value = [{'data': json.dumps(inf_data),
+                                 'date': datetime.strptime('2022-03-23', "%Y-%m-%d"),
+                                 'id': '1'}]
+        DataBase.MONGO = "MONGO"
+        db.db_type = "MONGO"
+        stats = IM.GetStats('2001-01-01', '2122-01-01', auth)
+        db.find.assert_called_with('inf_list',
+                                   {
+                                       '$or': [{'auth': {'$elemMatch': {'username': 'micafer', 'password': 'pass'}}}],
+                                       'data.creation_date': {'$gte': 978303600.0, '$lte': 4796665200.0}
+                                   },
+                                   {'id': True, 'data': True, 'date': True}, [('id', -1)])
 
 
 if __name__ == "__main__":

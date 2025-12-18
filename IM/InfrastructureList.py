@@ -286,9 +286,14 @@ class InfrastructureList():
                 if elem.get("admin"):
                     return ""
                 if elem.get("username"):
+                    user = elem.get("username")
                     if like:
                         like += " or "
-                    like += "auth like '%%\"" + elem.get("username") + "\"%%'"
+                    if IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX in user:
+                        like += "(auth like '%%\"" + elem.get("username") + "\"%%')"
+                    else:
+                        like += ("(auth like '%%\"" + elem.get("username") + "\"%%' and "
+                                 "auth like '%%\"" + elem.get("password") + "\"%%')")
 
         return like
 
@@ -300,10 +305,20 @@ class InfrastructureList():
                 if elem.get("admin"):
                     return {}
                 if elem.get("username"):
-                    usernames.append(elem.get("username"))
+                    usernames.append((elem.get("username"), elem.get("password")))
 
         if usernames:
-            return {"auth": {"$elemMatch": {"username": {"$in": usernames}}}}
+            elems = []
+            for user, passwd in usernames:
+                elem = {
+                    "auth": {
+                        "$elemMatch": {"username": user}
+                    }
+                }
+                if IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX not in user:
+                    elem["auth"]["$elemMatch"]["password"] = passwd
+                elems.append(elem)
+            return {"$or": elems}
         else:
             return {}
 
