@@ -1640,7 +1640,7 @@ configure step2 (
         db.find.assert_called_with('inf_list',
                                    {
                                        '$or': [{'auth': {'$elemMatch': {'username': 'micafer', 'password': 'pass'}}}],
-                                       'data.creation_date': {'$gte': 978303600.0, '$lte': 4796665200.0}
+                                       'data.creation_date': {'$gte': 978307200.0, '$lte': 4796668800.0}
                                    },
                                    {'id': True, 'data': True, 'date': True}, [('id', -1)])
 
