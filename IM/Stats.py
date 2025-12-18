@@ -119,9 +119,9 @@ class Stats():
                 res = db.find("inf_list", filt, {"id": True, "data": True, "date": True}, [('id', -1)])
             else:
                 like = InfrastructureList._gen_where_from_auth(auth)
-                where = "where"
+                where = ""
                 if like:
-                    where += " (%s)" % like
+                    where += "where (%s)" % like
                 res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)  # nosec
 
             for elem in res:
