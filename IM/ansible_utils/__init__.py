@@ -20,6 +20,11 @@ import copy
 __all__ = ['ansible_launcher', 'ansible_executor_v2']
 
 
+class CallbackContext:
+    executor = None
+    config = {}
+
+
 def merge_recipes(yaml1, yaml2):
     """
     Merge two ansible recipes yaml docs

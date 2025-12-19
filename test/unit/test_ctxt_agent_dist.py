@@ -231,11 +231,13 @@ class TestCtxtAgent(unittest.TestCase):
         self.assertEqual(res, expected_res)
 
     @patch("IM.CtxtAgentBase.SSH.sftp_put")
-    def test_run(self, sftp_put):
+    @patch("IM.CtxtAgentBase.SSH.test_connectivity")
+    def test_run(self, ssh_test, sftp_put):
         ctxt_agent = CtxtAgent("/tmp/gen_data.json", "/tmp/vm_data.json")
         ctxt_agent.logger = self.logger
         ctxt_agent.contextualize_vm = MagicMock()
         ctxt_agent.contextualize_vm.return_value = {'SSH_WAIT': True, 'OK': True, 'CHANGE_CREDS': True, 'basic': True}
+        ssh_test.return_value = True
 
         with open("/tmp/gen_data.json", "w+") as f:
             json.dump(self.gen_general_conf(), f)
