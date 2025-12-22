@@ -21,6 +21,7 @@ import logging
 import threading
 import json
 
+from collections import OrderedDict
 from IM.db import DataBase
 from IM.config import Config
 import IM.InfrastructureInfo
@@ -31,7 +32,7 @@ class InfrastructureList():
     Class to manage the list of infrastructures and the serialization of the data
     """
 
-    infrastructure_list = {}
+    infrastructure_list = OrderedDict({})
     """Map from string to :py:class:`InfrastructureInfo`."""
 
     logger = logging.getLogger('InfrastructureManager')
@@ -90,7 +91,7 @@ class InfrastructureList():
         else:
             inf_ids = db_inf_ids
 
-        return list(set(db_inf_ids + mem_inf_ids))
+        return list(OrderedDict.fromkeys(db_inf_ids + mem_inf_ids))
 
     @staticmethod
     def get_infrastructure(inf_id):
