@@ -331,7 +331,7 @@ class InfrastructureList():
                 if db.db_type == DataBase.MONGO:
                     filt = InfrastructureList._gen_filter_from_auth(auth)
                     filt["deleted"] = 0
-                    res = db.find("inf_list", filt, {"id": True}, [('data.creation_date', -1)])
+                    res = db.find("inf_list", filt, {"id": True}, [('_id', -1)])
                 else:
                     like = InfrastructureList._gen_where_from_auth(auth)
                     if like:
