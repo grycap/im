@@ -31,7 +31,7 @@ RUN pip3 install pyOpenSSL \
                  xmltodict \
                  pymongo
 
-RUN pip3 install ansible==8.7.0
+RUN pip3 install ansible==12.3.0
 
 RUN apk add --no-cache git &&\
     pip3 install IM==1.19.1 &&\

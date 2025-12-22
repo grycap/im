@@ -105,8 +105,8 @@ $ANSIBLE_VAULT;1.1;AES256
 )
 
 deploy front 1 one
-deploy wn 1
-deploy windows 1
+deploy wn 2
+# deploy windows 1
 
 contextualize (
     system front configure ntp step 1
