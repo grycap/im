@@ -1344,8 +1344,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         args = {'size': instance_type,
                 'networks': nets,
                 'image': image,
-                'ex_security_groups': sgs,
-                'name': self.gen_instance_name(system)}
+                'ex_security_groups': sgs}
 
         if system.getValue('availability_zone'):
             args['ex_availability_zone'] = system.getValue('availability_zone')
@@ -1395,6 +1394,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             if cloud_init:
                 args['ex_userdata'] = cloud_init
+
+            args['name'] = self.gen_instance_name(system)
 
             node = None
             try:
