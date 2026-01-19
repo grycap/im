@@ -40,15 +40,20 @@ if not SQLITE_AVAILABLE:
 try:
     import MySQLdb as mdb
     MYSQL_AVAILABLE = True
+    MYSQLDB_AVAILABLE = True
+    PYMYSQL_AVAILABLE = False
 except Exception:
     MYSQL_AVAILABLE = False
+    MYSQLDB_AVAILABLE = False
 
 if not MYSQL_AVAILABLE:
     try:
         import pymysql as mdb
         MYSQL_AVAILABLE = True
+        PYMYSQL_AVAILABLE = True
     except Exception:
         MYSQL_AVAILABLE = False
+        PYMYSQL_AVAILABLE = False
 
 try:
     from pymongo import MongoClient
@@ -128,7 +133,14 @@ class DataBase:
             username, password, server, port = self._get_user_pass_host_port(url)
             if not port:
                 port = 3306
-            self.connection = mdb.connect(server, username, password, db, port)
+            if MYSQLDB_AVAILABLE:
+                self.connection = mdb.connect(server, username, password, db, port)
+            elif PYMYSQL_AVAILABLE:
+                self.connection = mdb.connect(host=server,
+                                              user=username,
+                                              password=password,
+                                              database=db,
+                                              port=port)
             self.db_type = DataBase.MYSQL
             return True
         else:
