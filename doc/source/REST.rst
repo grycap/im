@@ -492,6 +492,7 @@ GET ``http://imserver.com/clouds/<cloudId>/quotas``
     {
       "quotas": {
          "cores": {"used": 1, "limit": 10},
+         "gpus": {"used": 0, "limit": 1},
          "ram": {"used": 1, "limit": 10},
          "instances": {"used": 1, "limit": 10},
          "floating_ips": {"used": 1, "limit": 10},

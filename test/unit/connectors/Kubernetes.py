@@ -112,6 +112,34 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Deployment',
                                           "metadata": {"namespace": "somenamespace", "name": "name"},
                                           'spec': {'template': pod_data}}
+            elif url == "/api/v1/namespaces/somenamespace/resourcequotas":
+                resp.status_code = 200
+                resp.json.return_value = {
+                    'items': [
+                        {
+                            'spec': {
+                                'hard': {
+                                    'limits.cpu': '10',
+                                    'limits.memory': '10Gi',
+                                    'pods': '10',
+                                    'requests.nvidia.com/gpu': '1',
+                                    'requests.storage': '20Gi',
+                                    'persistentvolumeclaims': '10'
+                                }
+                            },
+                            'status': {
+                                'used': {
+                                    'limits.cpu': '1',
+                                    'limits.memory': '1Gi',
+                                    'pods': '1',
+                                    'requests.nvidia.com/gpu': '0',
+                                    'requests.storage': '1Gi',
+                                    'persistentvolumeclaims': '1'
+                                }
+                            }
+                        }
+                    ]
+                }
         elif method == "POST":
             if url.endswith("/deployments"):
                 resp.status_code = 201
@@ -486,6 +514,27 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                           'http://server.com:8080/api/v1/namespaces/somenamespace'))
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('requests.request')
+    def test_70_quotas(self, requests):
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes', 'namespace': 'somenamespace',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
+        kube_cloud = self.get_kube_cloud()
+
+        requests.side_effect = self.get_response
+
+        success, quotas = kube_cloud.get_quotas(auth)
+        self.assertTrue(success, msg="ERROR: getting quotas.")
+        expected_quotas = {
+            'cores': {'limit': 10, 'used': 1},
+            'memory': {'limit': 10, 'used': 1},
+            'instances': {'limit': 10, 'used': 1},
+            'gpus': {'limit': 1, 'used': 0},
+            'volume_storage': {'limit': 20, 'used': 1},
+            'volumes': {'limit': 10, 'used': 1}
+        }
+        self.assertEqual(quotas, expected_quotas, msg="ERROR: quotas do not match expected.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log")
 
 
 if __name__ == '__main__':
