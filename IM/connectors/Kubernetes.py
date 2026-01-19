@@ -979,7 +979,15 @@ class KubernetesCloudConnector(CloudConnector):
                             value = spec_hard[key]
                             if key in ['limits.memory', 'requests.storage']:
                                 value = self.convert_memory_unit(value, "Gi")
-                            quotas[name_map[key]] = {'limit': value, 'used': status_used.get(key, '0')}
+                                used = status_used.get(key, '0')
+                                if used == '0':
+                                    used = 0
+                                else:
+                                    used = self.convert_memory_unit(used, "Gi")
+                            else:
+                                value = int(value)
+                                used = int(status_used.get(key, '0'))
+                            quotas[name_map[key]] = {'limit': value, 'used': used}
                 return (True, quotas)
             else:
                 return (False, "Error getting quotas: " + resp.text)
