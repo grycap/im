@@ -899,3 +899,46 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception(
                 "Error connecting with Kubernetes API server")
             return (False, "ERROR: " + str(ex))
+
+    def get_quotas(self, auth_data, region=None):
+        try:
+            _, namespace, _ = self.get_auth_header(auth_data)
+            uri = "/api/v1/namespaces/%s/resourcequotas" % namespace
+            resp = self.create_request('GET', uri, auth_data)
+
+            if resp.status_code == 200:
+                quotas = {}
+                name_map = {
+                    'limits.cpu': 'cores',
+                    'limits.memory': 'memory',
+                    'pods': 'instances',
+                    'requests.nvidia.com/gpu': 'gpus',
+                    'requests.storage': 'volume_storage',
+                    'persistentvolumeclaims': 'volumes'
+                }
+
+                items = resp.json().get('items', [])
+                for item in items:
+                    spec_hard = item['spec'].get('hard', {})
+                    status_used = item['status'].get('used', {})
+                    for key in spec_hard.keys():
+                        if key in name_map:
+                            value = spec_hard[key]
+                            if key in ['limits.memory', 'requests.storage']:
+                                value = self.convert_memory_unit(value, "Gi")
+                                used = status_used.get(key, '0')
+                                if used == '0':
+                                    used = 0
+                                else:
+                                    used = self.convert_memory_unit(used, "Gi")
+                            else:
+                                value = int(value)
+                                used = int(status_used.get(key, '0'))
+                            quotas[name_map[key]] = {'limit': value, 'used': used}
+                return (True, quotas)
+            else:
+                return (False, "Error getting quotas: " + resp.text)
+
+        except Exception as ex:
+            self.log_exception("Error connecting with Kubernetes API server")
+            return (False, "Error connecting with Kubernetes API server: " + str(ex))
