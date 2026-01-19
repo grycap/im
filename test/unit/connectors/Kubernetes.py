@@ -491,5 +491,6 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         }
         self.assertEqual(quotas, expected_quotas, msg="ERROR: quotas do not match expected.")
 
+
 if __name__ == '__main__':
     unittest.main()
