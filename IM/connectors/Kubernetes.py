@@ -70,8 +70,7 @@ class KubernetesCloudConnector(CloudConnector):
         """
         Generate the auth header needed to contact with the Kubernetes API server.
         """
-        url = urlparse(self.cloud.server)
-        auths = auth_data.getAuthInfo(self.type, url[1])
+        auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
             raise NoAuthData(self.type)
         else:
