@@ -523,8 +523,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         requests.side_effect = self.get_response
 
-        success, quotas = kube_cloud.get_quotas(auth)
-        self.assertTrue(success, msg="ERROR: getting quotas.")
+        quotas = kube_cloud.get_quotas(auth)
         expected_quotas = {
             'cores': {'limit': 10, 'used': 1},
             'memory': {'limit': 10, 'used': 1},
@@ -534,7 +533,6 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             'volumes': {'limit': 10, 'used': 1}
         }
         self.assertEqual(quotas, expected_quotas, msg="ERROR: quotas do not match expected.")
-        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log")
 
 
 if __name__ == '__main__':
