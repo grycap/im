@@ -526,7 +526,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         quotas = kube_cloud.get_quotas(auth)
         expected_quotas = {
             'cores': {'limit': 10, 'used': 1},
-            'memory': {'limit': 10, 'used': 1},
+            'ram': {'limit': 10, 'used': 1},
             'instances': {'limit': 10, 'used': 1},
             'gpus': {'limit': 1, 'used': 0},
             'volume_storage': {'limit': 20, 'used': 1},
