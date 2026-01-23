@@ -962,7 +962,7 @@ class KubernetesCloudConnector(CloudConnector):
         quotas = {}
         name_map = {
             'limits.cpu': 'cores',
-            'limits.memory': 'memory',
+            'limits.memory': 'ram',
             'pods': 'instances',
             'requests.nvidia.com/gpu': 'gpus',
             'requests.storage': 'volume_storage',
