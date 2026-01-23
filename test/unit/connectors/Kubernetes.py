@@ -124,7 +124,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                                     'pods': '10',
                                     'requests.nvidia.com/gpu': '1',
                                     'requests.storage': '20Gi',
-                                    'persistentvolumeclaims': '10'
+                                    'persistentvolumeclaims': '10',
+                                    'sc1.storageclass.storage.k8s.io/requests.storage': '20Gi',
+                                    'sc1.storageclass.storage.k8s.io/persistentvolumeclaims': '10'
                                 }
                             },
                             'status': {
@@ -134,7 +136,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                                     'pods': '1',
                                     'requests.nvidia.com/gpu': '0',
                                     'requests.storage': '1Gi',
-                                    'persistentvolumeclaims': '1'
+                                    'persistentvolumeclaims': '1',
+                                    'sc1.storageclass.storage.k8s.io/requests.storage': '1Gi',
+                                    'sc1.storageclass.storage.k8s.io/persistentvolumeclaims': '1'
                                 }
                             }
                         }
@@ -526,11 +530,13 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         quotas = kube_cloud.get_quotas(auth)
         expected_quotas = {
             'cores': {'limit': 10, 'used': 1},
-            'memory': {'limit': 10, 'used': 1},
+            'ram': {'limit': 10, 'used': 1},
             'instances': {'limit': 10, 'used': 1},
             'gpus': {'limit': 1, 'used': 0},
             'volume_storage': {'limit': 20, 'used': 1},
-            'volumes': {'limit': 10, 'used': 1}
+            'volume_storage.sc1': {'limit': 20, 'used': 1},
+            'volumes': {'limit': 10, 'used': 1},
+            'volumes.sc1': {'limit': 10, 'used': 1}
         }
         self.assertEqual(quotas, expected_quotas, msg="ERROR: quotas do not match expected.")
 
