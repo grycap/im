@@ -920,17 +920,34 @@ class KubernetesCloudConnector(CloudConnector):
             spec_hard = item['spec'].get('hard', {})
             status_used = item['status'].get('used', {})
             for key in spec_hard.keys():
+                value = spec_hard.get(key)
+                used = status_used.get(key, '0')
                 if key in name_map:
-                    value = spec_hard[key]
                     if key in ['limits.memory', 'requests.storage']:
-                        value = self.convert_memory_unit(value, "Gi")
-                        used = status_used.get(key, '0')
-                        if used == '0':
-                            used = 0
-                        else:
-                            used = self.convert_memory_unit(used, "Gi")
+                        value = self._get_quota_value(value)
+                        used = self._get_quota_value(used)
                     else:
                         value = int(value)
                         used = int(status_used.get(key, '0'))
                     quotas[name_map[key]] = {'limit': value, 'used': used}
+                elif key.endswith("storageclass.storage.k8s.io/requests.storage"):
+                    value = self._get_quota_value(value)
+                    used = self._get_quota_value(used)
+                    sc = key[:-45]
+                    quotas[f"volume_storage.{sc}"] = {'limit': value, 'used': used}
+                elif key.endswith("storageclass.storage.k8s.io/persistentvolumeclaims"):
+                    value = int(value)
+                    used = int(status_used.get(key, '0'))
+                    sc = key[:-51]
+                    quotas[f"volumes.{sc}"] = {'limit': value, 'used': used}
+
         return quotas
+
+    def _get_quota_value(self, value):
+        if value is None:
+            return -1
+        if value == '0':
+            value = 0
+        else:
+            value = self.convert_memory_unit(value, "Gi")
+        return value
