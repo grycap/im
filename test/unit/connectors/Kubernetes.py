@@ -534,9 +534,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             'instances': {'limit': 10, 'used': 1},
             'gpus': {'limit': 1, 'used': 0},
             'volume_storage': {'limit': 20, 'used': 1},
-            'volume_storage.sc1': {'limit': 20, 'used': 1},
+            'volume_storage_sc1': {'limit': 20, 'used': 1},
             'volumes': {'limit': 10, 'used': 1},
-            'volumes.sc1': {'limit': 10, 'used': 1}
+            'volumes_sc1': {'limit': 10, 'used': 1}
         }
         self.assertEqual(quotas, expected_quotas, msg="ERROR: quotas do not match expected.")
 

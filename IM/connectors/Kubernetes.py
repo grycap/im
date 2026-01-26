@@ -988,12 +988,12 @@ class KubernetesCloudConnector(CloudConnector):
                     value = self._get_quota_value(value)
                     used = self._get_quota_value(used)
                     sc = key[:-45]
-                    quotas[f"volume_storage.{sc}"] = {'limit': value, 'used': used}
+                    quotas[f"volume_storage_{sc}"] = {'limit': value, 'used': used}
                 elif key.endswith("storageclass.storage.k8s.io/persistentvolumeclaims"):
                     value = int(value)
                     used = int(status_used.get(key, '0'))
                     sc = key[:-51]
-                    quotas[f"volumes.{sc}"] = {'limit': value, 'used': used}
+                    quotas[f"volumes_{sc}"] = {'limit': value, 'used': used}
 
         return quotas
 
