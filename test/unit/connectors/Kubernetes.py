@@ -566,7 +566,6 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-
     @patch('requests.request')
     def test_70_quotas(self, requests):
         auth = Authentication([{'id': 'kube', 'type': 'Kubernetes', 'namespace': 'somenamespace',

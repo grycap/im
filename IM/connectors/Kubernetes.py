@@ -771,9 +771,8 @@ class KubernetesCloudConnector(CloudConnector):
                                   'metadata': output['metadata']}
             else:
                 instance_type = "deployments"
-        
-        return instance_type, output
 
+        return instance_type, output
 
     def finalize(self, vm, last, auth_data):
         msg = ""
