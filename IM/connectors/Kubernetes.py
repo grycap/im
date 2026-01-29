@@ -731,41 +731,64 @@ class KubernetesCloudConnector(CloudConnector):
 
         vm.setIps(public_ips, private_ips)
 
-    def _get_dep(self, vm, auth_data):
+    def _get_k8s_object(self, vm, auth_data, etype):
         try:
             namespace = vm.id.split("/")[0]
-            pod_name = vm.id.split("/")[1]
+            vm_name = vm.id.split("/")[1]
         except Exception as ex:
             self.log_exception("Error invalid VM id")
             return (False, None, "Error invalid VM id: " + str(ex))
 
         try:
-            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, "deployments", pod_name)
+            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, etype, vm_name)
             resp = self.create_request('GET', uri, auth_data)
 
             if resp.status_code == 200:
                 return (True, resp.status_code, resp.json())
             else:
-                return (False, resp.status_code, resp.text)
+                return (True, resp.status_code, resp.text)
 
         except Exception as ex:
             self.log_exception("Error connecting with Kubernetes API server")
             return (False, None, "Error connecting with Kubernetes API server: " + str(ex))
 
+    def _get_instance(self, vm, auth_data):
+        instance_type = None
+        success, status, output = self._get_k8s_object(vm, auth_data, "deployments")
+        if success:
+            if status == 404:
+                self.log_warn("Trying to remove a non existing Deployment id: %s" % vm.id)
+                self.log_warn("Let's trying find a pod id: %s" % vm.id)
+
+                success, status, output = self._get_k8s_object(vm, auth_data, etype="pods")
+                if success:
+                    if status == 404:
+                        self.log_warn("There is no Pod id either: %s" % vm.id)
+                    else:
+                        instance_type = "pods"
+                        # transform pod output to deployment-like output
+                        output = {'spec': {'template': {'spec': output['spec']}},
+                                  'metadata': output['metadata']}
+            else:
+                instance_type = "deployments"
+
+        return instance_type, output
+
     def finalize(self, vm, last, auth_data):
         msg = ""
+        instance_type = None
         if vm.id:
-            success, status, output = self._get_dep(vm, auth_data)
-            if success:
-                if status == 404:
-                    self.log_warn("Trying to remove a non existing POD id: %s" % vm.id)
-                else:
-                    self._delete_volume_claims(output, auth_data)
-                    self._delete_config_maps(output, auth_data)
-                    success, msg = self._delete_dep(vm, auth_data)
-                    if not success:
-                        self.log_error("Error deleting Pod %s: %s" % (vm.id, msg))
-                        return False, "Error deleting Pod %s: %s" % (vm.id, msg)
+            instance_type, output = self._get_instance(vm, auth_data)
+
+            if instance_type:
+                self._delete_volume_claims(output, auth_data)
+                self._delete_config_maps(output, auth_data)
+                success, msg = self._delete_instance(vm, auth_data, instance_type)
+                if not success:
+                    self.log_error("Error deleting Deployment %s: %s" % (vm.id, msg))
+                    return False, "Error deleting Deployment %s: %s" % (vm.id, msg)
+            else:
+                success = False
 
             del_svc_ok, svc_msg = self._delete_service(vm, auth_data)
             success = success and del_svc_ok
@@ -851,20 +874,20 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Kubernetes API server")
             return (False, "Error connecting with Kubernetes API server")
 
-    def _delete_dep(self, vm, auth_data):
+    def _delete_instance(self, vm, auth_data, instance_type):
         try:
             namespace = vm.id.split("/")[0]
             pod_name = vm.id.split("/")[1]
 
-            self.log_debug("Deleting Deployment: %s/%s" % (namespace, pod_name))
-            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, "deployments", pod_name)
+            self.log_debug("Deleting %s: %s/%s" % (instance_type, namespace, pod_name))
+            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, instance_type, pod_name)
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
-                self.log_warn("Trying to remove a non existing Deployment id: " + pod_name)
+                self.log_warn("Trying to remove a non existing %s id: %s" % (instance_type, pod_name))
                 return (True, pod_name)
             elif resp.status_code != 200:
-                return (False, "Error deleting the Deployment: " + resp.text)
+                return (False, "Error deleting the %s: %s" % (instance_type, resp.text))
             else:
                 return (True, pod_name)
         except Exception:
