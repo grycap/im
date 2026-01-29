@@ -73,6 +73,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
     def get_response(self, method, url, verify, headers, data):
         resp = MagicMock()
+        resp.status_code = 404
         parts = urlparse(url)
         url = parts[2]
         query = parts[4]
@@ -112,6 +113,11 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Deployment',
                                           "metadata": {"namespace": "somenamespace", "name": "name"},
                                           'spec': {'template': pod_data}}
+            elif url == "/apis/apps/v1/namespaces/somenamespace/pods/2":
+                resp.status_code = 200
+                resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Pod',
+                                          "metadata": {"namespace": "somenamespace", "name": "name"},
+                                          'spec': pod_data['spec']}
             elif url == "/api/v1/namespaces/somenamespace/resourcequotas":
                 resp.status_code = 200
                 resp.json.return_value = {
@@ -518,6 +524,48 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                           'http://server.com:8080/api/v1/namespaces/somenamespace'))
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('requests.request')
+    def test_60_finalize_pod(self, requests):
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
+        kube_cloud = self.get_kube_cloud()
+
+        inf = MagicMock()
+        inf.id = "infid"
+        vm = VirtualMachine(inf, "somenamespace/2", kube_cloud.cloud, "", "", kube_cloud, 1)
+
+        requests.side_effect = self.get_response
+
+        success, _ = kube_cloud.finalize(vm, True, auth)
+
+        self.assertEqual(requests.call_args_list[2][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/persistentvolumeclaims/cname'))
+        self.assertEqual(requests.call_args_list[3][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/configmaps/configmap'))
+        self.assertEqual(requests.call_args_list[4][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/secrets/secret'))
+        self.assertEqual(requests.call_args_list[5][0],
+                         ('DELETE',
+                          'http://server.com:8080/apis/apps/v1/namespaces/somenamespace/pods/2'))
+        self.assertEqual(requests.call_args_list[6][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/services/2'))
+        self.assertEqual(requests.call_args_list[7][0],
+                         ('DELETE',
+                          'http://server.com:8080/apis/networking.k8s.io/v1/namespaces/somenamespace/ingresses/2'))
+        self.assertEqual(requests.call_args_list[8][0],
+                         ('GET',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace'))
+        self.assertEqual(requests.call_args_list[9][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace'))
+        self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
 
     @patch('requests.request')
     def test_70_quotas(self, requests):
