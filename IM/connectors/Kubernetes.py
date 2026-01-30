@@ -731,22 +731,22 @@ class KubernetesCloudConnector(CloudConnector):
 
         vm.setIps(public_ips, private_ips)
 
-    def _get_k8s_object(self, vm, auth_data, etype):
+    def _get_dep(self, vm, auth_data):
         try:
             namespace = vm.id.split("/")[0]
-            vm_name = vm.id.split("/")[1]
+            pod_name = vm.id.split("/")[1]
         except Exception as ex:
             self.log_exception("Error invalid VM id")
             return (False, None, "Error invalid VM id: " + str(ex))
 
         try:
-            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, etype, vm_name)
+            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, "deployments", pod_name)
             resp = self.create_request('GET', uri, auth_data)
 
             if resp.status_code == 200:
                 return (True, resp.status_code, resp.json())
             else:
-                return (True, resp.status_code, resp.text)
+                return (False, resp.status_code, resp.text)
 
         except Exception as ex:
             self.log_exception("Error connecting with Kubernetes API server")
@@ -754,23 +754,21 @@ class KubernetesCloudConnector(CloudConnector):
 
     def _get_instance(self, vm, auth_data):
         instance_type = None
-        success, status, output = self._get_k8s_object(vm, auth_data, "deployments")
-        if success:
-            if status == 404:
-                self.log_warn("Trying to remove a non existing Deployment id: %s" % vm.id)
-                self.log_warn("Let's trying find a pod id: %s" % vm.id)
+        _, status, output = self._get_dep(vm, auth_data)
+        if status == 200:
+            instance_type = "deployments"
+        elif status == 404:
+            self.log_warn("Trying to remove a non existing Deployment id: %s" % vm.id)
+            self.log_warn("Let's trying find a pod id: %s" % vm.id)
 
-                success, status, output = self._get_k8s_object(vm, auth_data, etype="pods")
-                if success:
-                    if status == 404:
-                        self.log_warn("There is no Pod id either: %s" % vm.id)
-                    else:
-                        instance_type = "pods"
-                        # transform pod output to deployment-like output
-                        output = {'spec': {'template': {'spec': output['spec']}},
-                                  'metadata': output['metadata']}
-            else:
-                instance_type = "deployments"
+            _, status, output = self._get_pod(vm, auth_data)
+            if status == 200:
+                instance_type = "pods"
+                # transform pod output to deployment-like output
+                output = {'spec': {'template': {'spec': output['spec']}},
+                          'metadata': output['metadata']}
+            elif status == 404:
+                self.log_warn("There is no Pod id either: %s" % vm.id)
 
         return instance_type, output
 

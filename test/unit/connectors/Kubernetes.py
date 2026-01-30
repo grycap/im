@@ -101,7 +101,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             if url == "/api/":
                 resp.status_code = 200
                 resp.text = '{"versions": "v1"}'
-            elif url.endswith("/pods") and query == "labelSelector=name=1":
+            elif url.endswith("/pods") and query in ["labelSelector=name=1", "labelSelector=name=2"]:
                 resp.status_code = 200
                 resp.json.return_value = {"items": [pod_data]}
             elif url == "/api/v1/namespaces/somenamespace":
@@ -113,11 +113,6 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Deployment',
                                           "metadata": {"namespace": "somenamespace", "name": "name"},
                                           'spec': {'template': pod_data}}
-            elif url == "/apis/apps/v1/namespaces/somenamespace/pods/2":
-                resp.status_code = 200
-                resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Pod',
-                                          "metadata": {"namespace": "somenamespace", "name": "name"},
-                                          'spec': pod_data['spec']}
             elif url == "/api/v1/namespaces/somenamespace/resourcequotas":
                 resp.status_code = 200
                 resp.json.return_value = {
