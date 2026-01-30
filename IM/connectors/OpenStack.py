@@ -2182,7 +2182,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 self.driver = None
                 identity_conn = driver.connection.get_auth_class()
                 identity_conn.authenticate()
-                tenants = identity_conn.list_projects()
+                current_user = identity_conn.get_user(identity_conn.auth_user_info['id'])
+                tenants = identity_conn.list_user_projects(current_user)
                 for t in tenants:
                     if t.name.lower() == tenant.lower() or t.id.lower() == tenant.lower():
                         return t.id
