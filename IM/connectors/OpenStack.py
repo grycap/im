@@ -2229,7 +2229,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             identity_conn.authenticate()
             tenants = identity_conn.list_projects()
             for t in tenants:
-                if t.name.lower() == tenant.lower():
+                if t.name.lower() == tenant.lower() or t.id.lower() == tenant.lower():
                     return t.id
 
         return None
