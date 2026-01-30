@@ -2174,19 +2174,23 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             tenant = auth.get('domain')
 
         if tenant:
-            # Get the tenant id from the name
-            driver = self.get_driver(auth_data)
-            # Set self.driver to None to Force to create a new driver in later calls
-            # because next calls make this driver to fail in next driver calls
-            self.driver = None
-            identity_conn = driver.connection.get_auth_class()
-            identity_conn.authenticate()
-            tenants = identity_conn.list_projects()
-            for t in tenants:
-                if t.name.lower() == tenant.lower() or t.id.lower() == tenant.lower():
-                    return t.id
+            try:
+                # Get the tenant id from the name
+                driver = self.get_driver(auth_data)
+                # Set self.driver to None to Force to create a new driver in later calls
+                # because next calls make this driver to fail in next driver calls
+                self.driver = None
+                identity_conn = driver.connection.get_auth_class()
+                identity_conn.authenticate()
+                current_user = identity_conn.get_user(identity_conn.auth_user_info['id'])
+                tenants = identity_conn.list_user_projects(current_user)
+                for t in tenants:
+                    if t.name.lower() == tenant.lower() or t.id.lower() == tenant.lower():
+                        return t.id
+            except Exception:
+                self.log_exception("Error getting tenant ID from name: %s" % tenant)
 
-        return None
+        return tenant
 
     def get_quotas(self, auth_data, region=None):
         tenant_id = self._get_tenant_id(auth_data)
