@@ -2162,27 +2162,38 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
-    @staticmethod
-    def _get_tenant_id(auth):
-        """
-        Workaround function to get tenant id from tenant name
-        """
+    def _get_tenant_id(self, auth_data):
+        """Function to get tenant id from tenant name."""
+        auth = auth_data.getAuthInfo(self.type, self.cloud.server)[0]
+
+        if 'tenant_id' in auth:
+            return auth['tenant_id']
+
+        tenant = auth.get('tenant')
         if 'auth_version' in auth and auth['auth_version'] == '3.x_oidc_access_token':
-            return auth['domain']
-        else:
-            if 'tenant_id' in auth:
-                return auth['tenant_id']
-            else:
-                return auth['tenant']
+            tenant = auth.get('domain')
+
+        if tenant:
+            # Get the tenant id from the name
+            driver = self.get_driver(auth_data)
+            # Set self.driver to None to Force to create a new driver in later calls
+            # because next calls make this driver to fail in next driver calls
+            self.driver = None
+            identity_conn = driver.connection.get_auth_class()
+            identity_conn.authenticate()
+            tenants = identity_conn.list_projects()
+            for t in tenants:
+                if t.name.lower() == tenant.lower():
+                    return t.id
 
         return None
 
     def get_quotas(self, auth_data, region=None):
-        driver = self.get_driver(auth_data)
-        tenant_id = self._get_tenant_id(auth_data.getAuthInfo(self.type, self.cloud.server)[0])
+        tenant_id = self._get_tenant_id(auth_data)
         if region:
             # In this case the region parameter refers to the tenant_id
             tenant_id = region
+        driver = self.get_driver(auth_data)
         quotas = driver.ex_get_quota_set(tenant_id)
         try:
             net_quotas = driver.ex_get_network_quotas(tenant_id)

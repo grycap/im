@@ -753,6 +753,8 @@ class KubernetesCloudConnector(CloudConnector):
             return (False, None, "Error connecting with Kubernetes API server: " + str(ex))
 
     def _get_instance(self, vm, auth_data):
+        # Function to retrieve either a Deployment or a Pod
+        # to enable deletion of old instances created as Pods
         instance_type = None
         _, status, output = self._get_dep(vm, auth_data)
         if status == 200:
