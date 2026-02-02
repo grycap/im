@@ -807,3 +807,18 @@ IM 1.19.1:
     * Improve image list in Azure conn.
     * Fix storage estimate in K8s conn with configmaps.
     * Fix issue with Almalinux SO contextualization.
+
+IM 1.19.2:
+    * Improve K8s conn using Deployments.
+    * Improve K8s conn implementing get_quota.
+    * Improve Azure conn implementing get_quota.
+    * Improve Azure conn selecting instance types.
+    * Enable to generate random input values.
+    * Fix ANSIBLE_VERSION environment variable handling in ConfManager.
+    * Remove whole infra SGs to use only two SGs per infra.
+    * Add CSV generation in stats.
+    * Update stats response with volume details.
+    * Add support access_token() special input function.
+    * Add support to ansible 2.19.
+    * Maintain order in infrastructure list.
+    * Generate unique VM name in openstack.
