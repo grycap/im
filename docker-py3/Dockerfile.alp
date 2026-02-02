@@ -5,7 +5,7 @@ LABEL version="1.19.2"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
 EXPOSE 8899 8800
 
-ENV VERSION=1.19.1
+ENV VERSION=1.19.2
 
 # Update and install all the necessary packages
 RUN apk add --no-cache \
