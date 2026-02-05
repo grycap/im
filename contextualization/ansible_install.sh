@@ -1,6 +1,18 @@
 #!/bin/sh
 
-ANSIBLE_VERSION="4.10.0"
+# Obtener versión de Python
+PYTHON_VERSION=$(python3 -c 'import sys; print(int(sys.version_info.major) * 100 + sys.version_info.minor)')
+
+# Asignar versión de Ansible según versión de Python
+if (( PYTHON_VERSION >= 310 )); then
+    ANSIBLE_VERSION="9.13.0"
+elif (( PYTHON_VERSION >= 309 )); then
+    ANSIBLE_VERSION="8.7.0"
+elif (( PYTHON_VERSION >= 308 )); then
+    ANSIBLE_VERSION="6.7.0"
+else
+    ANSIBLE_VERSION="4.10.0"
+fi
 
 distribution_id() {
     RETVAL=""
@@ -94,7 +106,7 @@ fact_caching_timeout = 86400
 interpreter_python = /usr/bin/python3
 gathering = smart
 roles_path = /etc/ansible/roles
-collections_paths = /etc/ansible
+collections_path = /etc/ansible
 [paramiko_connection]
 record_host_keys=False
 [ssh_connection]

@@ -273,7 +273,7 @@
       - { section: 'defaults', option: 'fact_caching_timeout', value: '86400' }
       - { section: 'defaults', option: 'gathering', value: 'smart' }
       - { section: 'defaults', option: 'roles_path', value: '/etc/ansible/roles' }
-      - { section: 'defaults', option: 'collections_paths', value: '/etc/ansible' }
+      - { section: 'defaults', option: 'collections_path', value: '/etc/ansible' }
       - { section: 'defaults', option: 'timeout', value: '30' }
       - { section: 'defaults', option: 'ansible_python_interpreter', value: 'auto' }
       - { section: 'defaults', option: 'transport', value: 'ssh' }
