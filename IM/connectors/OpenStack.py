@@ -1477,16 +1477,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         pools = driver.ex_list_floating_ip_pools()
 
         if pool_name:
-            self.log_debug("Looking for pool with name: %s." % pool_name)
             for pool in pools:
-                if pool.name == pool_name:
+                if pool.name == pool_name and pool.name not in exclude_pools:
+                    self.log_debug("Using pool with name: %s." % pool_name)
                     return pool
-        elif pools:
-            # Retun the first pool that is not in the exclude_pools list
-            for pool in pools:
-                if pool.name not in exclude_pools:
-                    self.log_debug("Looking for pool with name: %s." % pool.name)
-                    return pool
+
+        # If not found or no pool name specified, try to get the first pool
+        # that is not in the exclude_pools list
+        for pool in pools:
+            if pool.name not in exclude_pools:
+                self.log_debug("Using pool with name: %s." % pool.name)
+                return pool
 
         # otherwise return None
         return None
@@ -1507,30 +1508,32 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             net = vm.info.get_network_by_id(net_conn)
             if net and net.isPublic():
                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
-                pool_name = net.getValue("provider_id")
-                requested_ips.append((fixed_ip, pool_name))
+                requested_ips.append((fixed_ip, net))
             n += 1
 
         for num, elem in enumerate(sorted(requested_ips, reverse=True)):
-            ip, pool_name = elem
+            ip, net = elem
+            pool_name = net.getValue("provider_id")
             success = True
             if ip:
                 # It is a fixed IP
                 if ip not in public_ips:
                     # It has not been created yet, do it
                     self.log_info("Asking for a fixed ip: %s." % ip)
-                    success, msg = self.add_elastic_ip_from_pool(vm, node, ip, pool_name)
+                    success, res = self.add_elastic_ip_from_pool(vm, node, ip, pool_name)
             else:
                 if num >= len(public_ips):
                     self.log_info("Asking for public IP %d and there are %d" % (num + 1, len(public_ips)))
-                    success, msg = self.add_elastic_ip_from_pool(vm, node, None, pool_name)
+                    success, res = self.add_elastic_ip_from_pool(vm, node, None, pool_name)
 
-            if not success:
+            if success:
+                net.setValue("provider_id", res.pool.name)
+            else:
                 self.add_public_ip_count += 1
-                self.log_warn("Error adding a floating IP the VM: %s (%d/%d)\n" % (msg,
+                self.log_warn("Error adding a floating IP the VM: %s (%d/%d)\n" % (res,
                                                                                    self.add_public_ip_count,
                                                                                    self.MAX_ADD_IP_COUNT))
-                self.error_messages += "Error adding a floating IP: %s (%d/%d)\n" % (msg,
+                self.error_messages += "Error adding a floating IP: %s (%d/%d)\n" % (res,
                                                                                      self.add_public_ip_count,
                                                                                      self.MAX_ADD_IP_COUNT)
 
@@ -1592,17 +1595,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             found = False
             exclude_pools = []
-            if pool_name:
-                exclude_pools = [pool.name for pool in ip_pools if pool.name != pool_name]
             attached = False
 
             while not attached and len(exclude_pools) < len(ip_pools):
                 pool = self.get_ip_pool(node.driver, pool_name, exclude_pools)
                 if not pool:
-                    if pool_name:
-                        msg = "Incorrect pool name: %s." % pool_name
-                    else:
-                        msg = "No pools available."
+                    msg = "No pools available."
                     self.log_info("No Floating IP assigned: %s" % msg)
                     return False, msg
 
@@ -1629,6 +1627,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                             floating_ip.delete()
                             continue
 
+                floating_ip.pool = pool
                 self.log_debug(floating_ip)
 
                 attached = self.attach_floating_ip(node, floating_ip)
@@ -1638,11 +1637,13 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     if not found:
                         self.log_info("We have created it, so release it.")
                         floating_ip.delete()
-                    return False, "Error attaching a Floating IP to the node."
 
+            if attached:
                 if found:
                     vm.floating_ips.append(floating_ip.ip_address)
-            return True, floating_ip
+                return True, floating_ip
+            else:
+                return False, "Error attaching a Floating IP to the node."
 
         except Exception as ex:
             self.log_exception("Error adding an Elastic/Floating IP to VM ID: %s" % vm.id)
@@ -2091,7 +2092,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 num_net = vm.requested_radl.systems[0].getNumNetworkIfaces()
                 vm.requested_radl.systems[0].setValue("net_interface.%d.connection" % num_net, new_public_net.id)
                 pool_name = new_public_net.getValue("provider_id")
-                return self.add_elastic_ip_from_pool(vm, node, None, pool_name)
+                success, res = self.add_elastic_ip_from_pool(vm, node, None, pool_name)
+                if success:
+                    new_public_net.setValue("provider_id", res.pool.name)
+                return success, res
 
             if not new_has_public_ip and current_public_ip:
                 floating_ip = node.driver.ex_get_floating_ip(current_public_ip)
