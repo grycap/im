@@ -517,7 +517,7 @@ class TestOrangeConnector(TestCloudConnectorBase):
         new_radl = radl_parse.parse_radl(new_radl_data)
 
         floating_ip = MagicMock()
-        add_elastic_ip_from_pool.return_value = True, floating_ip 
+        add_elastic_ip_from_pool.return_value = True, floating_ip
 
         success, _ = ora_cloud.alterVM(vm, new_radl, auth)
         self.assertTrue(success, msg="ERROR: modifying VM info.")
