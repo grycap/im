@@ -1515,6 +1515,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             ip, net = elem
             pool_name = net.getValue("provider_id")
             success = True
+            res = None
             if ip:
                 # It is a fixed IP
                 if ip not in public_ips:
@@ -1526,7 +1527,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     self.log_info("Asking for public IP %d and there are %d" % (num + 1, len(public_ips)))
                     success, res = self.add_elastic_ip_from_pool(vm, node, None, pool_name)
 
-            if success:
+            if success and res:
                 net.setValue("provider_id", res.pool.name)
             else:
                 self.add_public_ip_count += 1
