@@ -1470,21 +1470,23 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 network.setValue('create', 'yes')
             i += 1
 
-    @staticmethod
-    def get_ip_pool(driver, pool_name=None):
+    def get_ip_pool(self, driver, pool_name=None, exclude_pools=None):
         """
         Return the most suitable IP pool
         """
         pools = driver.ex_list_floating_ip_pools()
 
         if pool_name:
+            self.log_debug("Looking for pool with name: %s." % pool_name)
             for pool in pools:
                 if pool.name == pool_name:
                     return pool
         elif pools:
-            # Currently returns the first one
-            # until I see what metric use to select one
-            return pools[0]
+            # Retun the first pool that is not in the exclude_pools list
+            for pool in pools:
+                if pool.name not in exclude_pools:
+                    self.log_debug("Looking for pool with name: %s." % pool.name)
+                    return pool
 
         # otherwise return None
         return None
@@ -1546,6 +1548,29 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return False, "No Float IP free found."
 
+    def attach_floating_ip(self, node, floating_ip):
+        # sometimes the ip cannot be attached inmediately
+        # we have to try and wait
+        cont = 0
+        retries = 5
+        delay = 5
+        attached = False
+        ports = node.driver.ex_get_node_ports(node)
+        while ports and not attached and cont < retries:
+            # Use each port to attach the IP
+            port_num = cont % len(ports)
+            port_id = ports[port_num].id
+            try:
+                node.driver.ex_attach_floating_ip_to_node(node, floating_ip, port_id)
+                attached = True
+            except Exception as atex:
+                self.log_warn("Error attaching a Floating IP to the node: %s" % get_ex_error(atex))
+                cont += 1
+                if cont < retries:
+                    time.sleep(delay)
+
+        return attached
+
     def add_elastic_ip_from_pool(self, vm, node, fixed_ip=None, pool_name=None):
         """
         Add an elastic IP to an instance
@@ -1560,17 +1585,28 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         try:
             self.log_info("Add a Floating IP")
 
-            pool = self.get_ip_pool(node.driver, pool_name)
-            if not pool:
-                if pool_name:
-                    msg = "Incorrect pool name: %s." % pool_name
-                else:
-                    msg = "No pools available."
-                self.log_info("No Floating IP assigned: %s" % msg)
-                return False, msg
+            ip_pools = node.driver.ex_list_floating_ip_pools()
+            if not ip_pools:
+                self.log_error("No pools available.")
+                return False, "No pools available."
 
             found = False
-            if node.driver.ex_list_floating_ip_pools():
+            exclude_pools = []
+            attached = False
+            # If pool_name is specified, only try once. Otherwise, try all pools.
+            max_attempts = 1 if pool_name else len(ip_pools)
+
+            while not attached and len(exclude_pools) < max_attempts:
+                pool = self.get_ip_pool(node.driver, pool_name, exclude_pools)
+                if not pool:
+                    if pool_name:
+                        msg = "Incorrect pool name: %s." % pool_name
+                    else:
+                        msg = "No pools available."
+                    self.log_info("No Floating IP assigned: %s" % msg)
+                    return False, msg
+
+                exclude_pools.append(pool.name)
                 if fixed_ip:
                     floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
                     if floating_ip:
@@ -1585,34 +1621,17 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         floating_ip = pool.create_floating_ip()
 
                         is_private = any([IPAddress(floating_ip.ip_address) in IPNetwork(mask)
-                                          for mask in Config.PRIVATE_NET_MASKS])
+                                         for mask in Config.PRIVATE_NET_MASKS])
 
                         if is_private:
                             self.log_error("Error getting a Floating IP from pool %s. The IP is private." % pool_name)
                             self.log_info("We have created it, so release it.")
                             floating_ip.delete()
-                            return False, "Error attaching a Floating IP to the node. Private IP returned."
+                            continue
 
                 self.log_debug(floating_ip)
-                # sometimes the ip cannot be attached inmediately
-                # we have to try and wait
-                cont = 0
-                retries = 5
-                delay = 5
-                attached = False
-                ports = node.driver.ex_get_node_ports(node)
-                while ports and not attached and cont < retries:
-                    # Use each port to attach the IP
-                    port_num = cont % len(ports)
-                    port_id = ports[port_num].id
-                    try:
-                        node.driver.ex_attach_floating_ip_to_node(node, floating_ip, port_id)
-                        attached = True
-                    except Exception as atex:
-                        self.log_warn("Error attaching a Floating IP to the node: %s" % get_ex_error(atex))
-                        cont += 1
-                        if cont < retries:
-                            time.sleep(delay)
+
+                attached = self.attach_floating_ip(node, floating_ip)
 
                 if not attached:
                     self.log_error("Error attaching a Floating IP to the node.")
@@ -1623,10 +1642,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
                 if found:
                     vm.floating_ips.append(floating_ip.ip_address)
-                return True, floating_ip
-            else:
-                self.log_error("No pools available.")
-                return False, "No pools available."
+            return True, floating_ip
 
         except Exception as ex:
             self.log_exception("Error adding an Elastic/Floating IP to VM ID: %s" % vm.id)
