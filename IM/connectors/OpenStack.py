@@ -1592,11 +1592,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             found = False
             exclude_pools = []
+            if pool_name:
+                exclude_pools = [pool.name for pool in ip_pools if pool.name != pool_name]
             attached = False
-            # If pool_name is specified, only try once. Otherwise, try all pools.
-            max_attempts = 1 if pool_name else len(ip_pools)
 
-            while not attached and len(exclude_pools) < max_attempts:
+            while not attached and len(exclude_pools) < len(ip_pools):
                 pool = self.get_ip_pool(node.driver, pool_name, exclude_pools)
                 if not pool:
                     if pool_name:
