@@ -1538,11 +1538,11 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                                                                                      self.add_public_ip_count,
                                                                                      self.MAX_ADD_IP_COUNT)
 
-    def get_floating_ip(self, pool, project_id=None):
+    def get_floating_ip(self, pool):
         """
         Get a floating IP
         """
-        for ip in pool.list_floating_ips(project_id):
+        for ip in pool.list_floating_ips():
             if not self.get_floating_ip_node_id(ip):
                 is_private = any([IPAddress(ip.ip_address) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
                 if is_private:
@@ -1614,7 +1614,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         return False, "Fixed IP %s not found." % fixed_ip
                 else:
                     # First try to check if there is a Float IP free to attach to the node
-                    found, floating_ip = self.get_floating_ip(pool, node.extra.get("tenantId"))
+                    found, floating_ip = self.get_floating_ip(pool)
                     if not found:
                         # Now create a Float IP
                         floating_ip = pool.create_floating_ip()
