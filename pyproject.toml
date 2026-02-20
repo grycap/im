@@ -64,7 +64,6 @@ dependencies = [
     "scar",
     "requests-cache >= 1.0.0",
     "packaging",
-    "werkzeug",
     "xmltodict",
     "lxml"
 ]
