@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
-import threading
 import json
 import base64
 import os
@@ -64,39 +63,37 @@ HTML_ERROR_TEMPLATE = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 </html>
 """
 
-REST_URL = None
 app = FastAPI(title="Infrastructure Manager API", version="2.0")
-uvicorn_server = None
 
 
-def run_in_thread(host, port):
-    """Run the FastAPI server in a thread"""
-    thread = threading.Thread(target=run, args=(host, port))
-    thread.daemon = True
-    thread.start()
+class RESTServer():
 
+    REST_URL = None
 
-def run(host, port):
-    """Run the FastAPI server"""
-    global uvicorn_server
-    config = uvicorn.Config(
-        app=app,
-        host=host,
-        port=port,
-        ssl_keyfile=Config.REST_SSL_KEYFILE if Config.REST_SSL else None,
-        ssl_certfile=Config.REST_SSL_CERTFILE if Config.REST_SSL else None,
-        ssl_ca_certs=Config.REST_SSL_CA_CERTS if Config.REST_SSL else None,
-        log_config=None  # Use existing logging configuration
-    )
-    uvicorn_server = uvicorn.Server(config)
-    uvicorn_server.run()
+    def __init__(self, host: str, port: int):
+        self.host = host
+        self.port = port
+        self.uvicorn_server = None
 
+    def run(self):
+        """Run the FastAPI server"""
+        config = uvicorn.Config(
+            app=app,
+            host=self.host,
+            port=self.port,
+            ssl_keyfile=Config.REST_SSL_KEYFILE if Config.REST_SSL else None,
+            ssl_certfile=Config.REST_SSL_CERTFILE if Config.REST_SSL else None,
+            ssl_ca_certs=Config.REST_SSL_CA_CERTS if Config.REST_SSL else None,
+            log_config=None  # Use existing logging configuration
+        )
+        self.uvicorn_server = uvicorn.Server(config)
+        self.uvicorn_server.run()
 
-def stop():
-    """Stop the FastAPI server"""
-    logger.info('Stopping REST API server...')
-    if uvicorn_server:
-        uvicorn_server.should_exit = True
+    def stop(self):
+        """Stop the FastAPI server"""
+        logger.info('Stopping REST API server...')
+        if self.uvicorn_server:
+            self.uvicorn_server.should_exit = True
 
 
 # Configure CORS
@@ -130,18 +127,22 @@ def get_media_type(request: Request, header: str) -> List[str]:
     return res
 
 
-def get_auth_header(authorization: Optional[str] = Header(None)):
+def get_auth_header(request: Request, authorization: Optional[str] = Header(None)):
     """
     Get the Authentication object from the AUTHORIZATION header
     replacing the new line chars.
     """
-    global REST_URL
-    
+
+    # Initialize REST_URL
+    if RESTServer.REST_URL is None:
+        RESTServer.REST_URL = str(request.base_url)
+
     if not authorization:
         raise HTTPException(status_code=401, detail="No authentication data provided")
-    
+
     user_pass = None
     token = None
+    im_auth = {}
     if authorization.startswith("Basic "):
         auth_data = base64.b64decode(authorization[6:]).decode('utf-8')
         user_pass = auth_data.split(":")
@@ -170,6 +171,8 @@ def get_auth_header(authorization: Optional[str] = Header(None)):
                 single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
                                     "host": Config.SINGLE_SITE_AUTH_HOST,
                                     "token": token}
+        else:
+            raise HTTPException(status_code=401, detail="No authentication data provided")
         return Authentication([im_auth, single_site_auth])
     elif Config.VAULT_URL and token:
         vault_auth = {"type": "Vault", "host": Config.VAULT_URL, "token": token}
@@ -214,7 +217,7 @@ def format_output(request: Request, res, default_type="text/plain", field_name=N
 
     content_type = None
     info = None
-    
+
     for accept_item in accept:
         if accept_item in ["application/json", "application/*"]:
             if isinstance(res, RADL):
@@ -250,12 +253,12 @@ def format_output(request: Request, res, default_type="text/plain", field_name=N
         headers = extra_headers or {}
         if content_type == "application/json":
             return JSONResponse(content=json.loads(info) if isinstance(info, str) and info else info, 
-                              headers=headers)
+                                headers=headers)
         else:
             return Response(content=info, media_type=content_type, headers=headers)
     else:
         raise HTTPException(status_code=415, 
-                          detail="Unsupported Accept Media Types: %s" % ",".join(accept))
+                            detail="Unsupported Accept Media Types: %s" % ",".join(accept))
 
 
 def return_error(request: Request, code: int, msg: str):
@@ -340,7 +343,7 @@ async def create_infrastructure(
                        "application/yaml", "text/plain", "*/*", "text/*"]
         if not any(ct in content_type for ct in valid_types):
             raise HTTPException(status_code=415, detail="Unsupported Media Type %s" % content_type)
-    
+
     try:
         body = await request.body()
         radl_data = body.decode("utf-8")
@@ -479,8 +482,8 @@ async def get_infrastructure_property(
             if "TOSCA" in sel_inf.extra_info:
                 res = sel_inf.extra_info["TOSCA"].serialize()
             else:
-                raise HTTPException(status_code=403, 
-                                  detail="'tosca' infrastructure property is not valid in this infrastructure")
+                raise HTTPException(status_code=403,
+                                    detail="'tosca' infrastructure property is not valid in this infrastructure")
         elif prop == "state":
             accept = get_media_type(request, 'Accept')
             if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
@@ -497,7 +500,7 @@ async def get_infrastructure_property(
                 res = sel_inf.extra_info["TOSCA"].get_outputs(sel_inf)
             else:
                 raise HTTPException(status_code=403,
-                                  detail="'outputs' infrastructure property is not valid in this infrastructure")
+                                    detail="'outputs' infrastructure property is not valid in this infrastructure")
             return format_output(request, res, default_type="application/json", field_name="outputs")
         elif prop == "data":
             accept = get_media_type(request, 'Accept')
@@ -577,8 +580,8 @@ async def add_resource(
             res.append(f"{str(request.base_url).rstrip('/')}/infrastructures/{infid}/vms/{vm_id}")
 
         if not vm_ids and remove_list and len(remove_list) != removed_vms:
-            return return_error(request, 404, 
-                              "Error deleting resources %s (removed %s)" % (remove_list, removed_vms))
+            return return_error(request, 404,
+                                "Error deleting resources %s (removed %s)" % (remove_list, removed_vms))
         else:
             extra_headers = {}
             # If we have to reconfigure the infra, return the ID for the HAProxy stickiness

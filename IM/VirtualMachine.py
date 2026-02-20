@@ -1111,8 +1111,8 @@ class VirtualMachine(LoggerMixin):
         return self == delete_list_cloud[-1]
 
     def get_boot_curl_commands(self):
-        from IM.REST import REST_URL
-        rest_url = REST_URL if REST_URL else ""
+        from IM.REST import RESTServer
+        rest_url = RESTServer.REST_URL if RESTServer.REST_URL else ""
         url = rest_url + '/infrastructures/' + str(self.inf.id) + '/vms/' + str(self.creation_im_id) + '/command'
         auth = self.inf.auth.getAuthInfo("InfrastructureManager")[0]
         if 'token' in auth:

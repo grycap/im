@@ -29,7 +29,7 @@ import psutil
 from IM.config import Config
 from IM.InfrastructureManager import InfrastructureManager
 from IM.InfrastructureList import InfrastructureList
-from IM import REST
+from IM.REST import RESTServer
 from IM import __version__ as version
 
 
@@ -47,6 +47,9 @@ class ExtraInfoFilter(logging.Filter):
         return True
 
 
+rest_server = RESTServer(host=Config.REST_ADDRESS, port=Config.REST_PORT)
+
+
 def launch_daemon():
     """
     Launch the IM daemon
@@ -58,7 +61,7 @@ def launch_daemon():
     InfrastructureManager.logger.info('************ Start Infrastructure Manager daemon (v.%s) ************' % version)
 
     # Launch the REST API server (FastAPI)
-    REST.run(host=Config.REST_ADDRESS, port=Config.REST_PORT)
+    rest_server.run()
 
 
 def config_logging():
@@ -129,7 +132,7 @@ def im_stop():
     """
     try:
         # Stop the REST API server
-        REST.stop()
+        rest_server.stop()
 
         # Assure that the IM data are correctly saved
         InfrastructureManager.logger.info('Stopping Infrastructure Manager daemon...')
@@ -171,11 +174,11 @@ def kill_childs():
         os.kill(int(pid_str), signal.SIGKILL)
 
 
-def signal_int_handler(signal, frame):
+def signal_int_handler(signal_num, frame):
     """
     Callback function to catch the system signals
     """
-    print("Signal %s received. Exiting..." % signal)
+    print("Signal %s received. Exiting..." % signal_num)
     im_stop()
 
 

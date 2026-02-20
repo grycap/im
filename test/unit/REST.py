@@ -230,9 +230,9 @@ class TestREST(unittest.TestCase):
         res = self.client.post('/infrastructures?dry_run=yes', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
         self.assertEqual(res.json(), {"one": {"cloudType": "OpenNebula",
-                                            "cloudEndpoint": "http://ramses.i3m.upv.es:2633",
-                                            "compute": [{"cpuCores": 1, "memoryInMegabytes": 1074, "publicIP": 1},
-                                                        {"cpuCores": 1, "memoryInMegabytes": 1074}], "storage": []}})
+                                              "cloudEndpoint": "http://ramses.i3m.upv.es:2633",
+                                              "compute": [{"cpuCores": 1, "memoryInMegabytes": 1074, "publicIP": 1},
+                                                          {"cpuCores": 1, "memoryInMegabytes": 1074}], "storage": []}})
 
         headers["Content-Type"] = "application/json"
         CreateInfrastructure.side_effect = InvaliddUserException()
