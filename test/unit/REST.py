@@ -652,23 +652,23 @@ class TestREST(unittest.TestCase):
         url = "http://testserver/infrastructures/1/vms/1/command?step=2"
         ps_command = "ps aux | grep -v grep | grep 'ssh -N -R'"
         expected_res = """
-                res="wait"
-                while [ "$res" == "wait" ]
-                do
-                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
-                  if [ "$res" != "wait" ]
-                  then
-                    echo "$res" > /var/tmp/reverse_ssh.sh
-                    chmod a+x /var/tmp/reverse_ssh.sh
-                    /var/tmp/reverse_ssh.sh
-                    if [ "$res" != "true" ]
-                    then
-                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
-                    fi
-                  else
-                    sleep 20
-                  fi
-                done""" % (auth_str, url, ps_command)
+        res="wait"
+        while [ "$res" == "wait" ]
+        do
+            res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
+            if [ "$res" != "wait" ]
+            then
+            echo "$res" > /var/tmp/reverse_ssh.sh
+            chmod a+x /var/tmp/reverse_ssh.sh
+            /var/tmp/reverse_ssh.sh
+            if [ "$res" != "true" ]
+            then
+                echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+            fi
+            else
+            sleep 20
+            fi
+        done""" % (auth_str, url, ps_command)
         self.assertEqual(res.text, expected_res)
 
         inf.auth = Authentication([{'type': 'InfrastructureManager', 'token': 'token'}])
@@ -676,23 +676,23 @@ class TestREST(unittest.TestCase):
         auth_str = "Authorization: type = InfrastructureManager; token = token"
         url = "http://testserver/infrastructures/1/vms/1/command?step=2"
         expected_res = """
-                res="wait"
-                while [ "$res" == "wait" ]
-                do
-                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
-                  if [ "$res" != "wait" ]
-                  then
-                    echo "$res" > /var/tmp/reverse_ssh.sh
-                    chmod a+x /var/tmp/reverse_ssh.sh
-                    /var/tmp/reverse_ssh.sh
-                    if [ "$res" != "true" ]
-                    then
-                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
-                    fi
-                  else
-                    sleep 20
-                  fi
-                done""" % (auth_str, url, ps_command)
+        res="wait"
+        while [ "$res" == "wait" ]
+        do
+            res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
+            if [ "$res" != "wait" ]
+            then
+            echo "$res" > /var/tmp/reverse_ssh.sh
+            chmod a+x /var/tmp/reverse_ssh.sh
+            /var/tmp/reverse_ssh.sh
+            if [ "$res" != "true" ]
+            then
+                echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+            fi
+            else
+            sleep 20
+            fi
+        done""" % (auth_str, url, ps_command)
         self.assertEqual(res.text, expected_res)
 
         radl_master = parse_radl("""

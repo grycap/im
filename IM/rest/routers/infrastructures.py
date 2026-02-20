@@ -602,6 +602,75 @@ async def alter_vm(
         return return_error(request, 400, "Error modifying resources: %s" % get_ex_error(ex))
 
 
+def get_command(step, sel_inf, infid, vmid, request):
+    """
+       Get the command to connect to the VM. Step 1 returns a command to launch a reverse ssh,
+       step 2 returns the ssh command to connect to the VM
+    """
+    if step == 1:
+        base_url = str(request.base_url).rstrip('/')
+        url = f"{base_url}/infrastructures/{infid}/vms/{vmid}/command?step=2"
+        auth_info = sel_inf.auth.getAuthInfo("InfrastructureManager")[0]
+        if 'token' in auth_info:
+            imauth = "token = %s" % auth_info['token']
+        else:
+            imauth = "username = %s; password = %s" % (auth_info['username'], auth_info['password'])
+        command = ('curl --insecure -s -H "Authorization: type = InfrastructureManager; %s" '
+                   '-H "Accept: text/plain" %s' % (imauth, url))
+
+        ps_command = "ps aux | grep -v grep | grep 'ssh -N -R'"
+        info = """
+        res="wait"
+        while [ "$res" == "wait" ]
+        do
+            res=`%s`
+            if [ "$res" != "wait" ]
+            then
+            echo "$res" > /var/tmp/reverse_ssh.sh
+            chmod a+x /var/tmp/reverse_ssh.sh
+            /var/tmp/reverse_ssh.sh
+            if [ "$res" != "true" ]
+            then
+                echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+            fi
+            else
+            sleep 20
+            fi
+        done""" % (command, ps_command)
+        logger.debug("Step 1 command: %s" % info)
+    elif step == 2:
+        sel_vm = None
+        for vm in sel_inf.get_vm_list():
+            if vm.creation_im_id == int(vmid):
+                sel_vm = vm
+                break
+        if not sel_vm:
+            logger.warning("Specified vmid in step2 is incorrect!!")
+            info = "wait"
+        else:
+            ssh = sel_vm.get_ssh_ansible_master(retry=False)
+            ssh_ok = False
+            if ssh:
+                ssh_ok = ssh.test_connectivity(time_out=2)
+
+            if ssh_ok:
+                if sel_inf.vm_master and int(vmid) == sel_inf.vm_master.creation_im_id:
+                    logger.debug("Step 2: Is the master do no make ssh command.")
+                    info = "true"
+                else:
+                    if sel_vm.isConnectedWith(sel_inf.vm_master):
+                        logger.debug("Step 2: Is connected with the master do no make ssh command.")
+                        info = "true"
+                    else:
+                        info = sel_vm.get_ssh_command()
+            else:
+                info = "wait"
+    else:
+        info = None
+
+    return info
+
+
 @router.get("/infrastructures/{infid}/vms/{vmid}/{prop}",
             tags=["VMs"],
             summary="Get VM property",
@@ -622,67 +691,7 @@ async def get_vm_property(
             auth_checked = InfrastructureManager.check_auth_data(auth)
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
 
-            if step == 1:
-                base_url = str(request.base_url).rstrip('/')
-                url = f"{base_url}/infrastructures/{infid}/vms/{vmid}/command?step=2"
-                auth_info = sel_inf.auth.getAuthInfo("InfrastructureManager")[0]
-                if 'token' in auth_info:
-                    imauth = "token = %s" % auth_info['token']
-                else:
-                    imauth = "username = %s; password = %s" % (auth_info['username'], auth_info['password'])
-                command = ('curl --insecure -s -H "Authorization: type = InfrastructureManager; %s" '
-                           '-H "Accept: text/plain" %s' % (imauth, url))
-
-                ps_command = "ps aux | grep -v grep | grep 'ssh -N -R'"
-                info = """
-                res="wait"
-                while [ "$res" == "wait" ]
-                do
-                  res=`%s`
-                  if [ "$res" != "wait" ]
-                  then
-                    echo "$res" > /var/tmp/reverse_ssh.sh
-                    chmod a+x /var/tmp/reverse_ssh.sh
-                    /var/tmp/reverse_ssh.sh
-                    if [ "$res" != "true" ]
-                    then
-                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
-                    fi
-                  else
-                    sleep 20
-                  fi
-                done""" % (command, ps_command)
-                logger.debug("Step 1 command: %s" % info)
-            elif step == 2:
-                sel_vm = None
-                for vm in sel_inf.get_vm_list():
-                    if vm.creation_im_id == int(vmid):
-                        sel_vm = vm
-                        break
-                if not sel_vm:
-                    logger.warning("Specified vmid in step2 is incorrect!!")
-                    info = "wait"
-                else:
-                    ssh = sel_vm.get_ssh_ansible_master(retry=False)
-                    ssh_ok = False
-                    if ssh:
-                        ssh_ok = ssh.test_connectivity(time_out=2)
-
-                    if ssh_ok:
-                        if sel_inf.vm_master and int(vmid) == sel_inf.vm_master.creation_im_id:
-                            logger.debug("Step 2: Is the master do no make ssh command.")
-                            info = "true"
-                        else:
-                            if sel_vm.isConnectedWith(sel_inf.vm_master):
-                                logger.debug("Step 2: Is connected with the master do no make ssh command.")
-                                info = "true"
-                            else:
-                                info = sel_vm.get_ssh_command()
-                    else:
-                        info = "wait"
-                logger.debug("Step 2 command for vm ID: %s is %s" % (vmid, info))
-            else:
-                info = None
+            info = get_command(step, sel_inf, infid, vmid, request)
         else:
             info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
 
