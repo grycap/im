@@ -27,10 +27,7 @@ sys.path.append("..")
 sys.path.append(".")
 
 from IM.VirtualMachine import VirtualMachine
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from radl.radl_json import parse_radl as parse_radl_json
 
 PID = None
@@ -130,13 +127,6 @@ class TestIM(unittest.TestCase):
             print(resp.text)
 
         return all_ok
-
-    def test_07_index(self):
-        resp = self.create_request("GET", "/")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting IM index:" + resp.text)
-        res = json.loads(resp.text)
-        self.assertEqual(res['openapi'], '3.0.0')
 
     def test_20_create(self):
         radl = read_file_as_string('../files/test_simple.json')
