@@ -23,10 +23,7 @@ import tempfile
 import shutil
 from packaging.version import Version
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 from multiprocessing import Queue
 
 from ansible import __version__ as ansible_version

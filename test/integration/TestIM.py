@@ -23,10 +23,7 @@ import os
 import requests
 import json
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 sys.path.append("..")
 sys.path.append(".")

@@ -18,10 +18,7 @@
 
 import unittest
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.tts.tts import TTSClient
 from mock import patch, MagicMock
 

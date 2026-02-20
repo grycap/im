@@ -95,22 +95,22 @@ def config_logging():
         else:
             log_level = logging.WARN
 
-        logging.RootLogger.propagate = 0
+        logging.RootLogger.propagate = False
         logging.root.setLevel(logging.ERROR)
 
         log = logging.getLogger('ConfManager')
         log.setLevel(log_level)
-        log.propagate = 0
+        log.propagate = False
         log.addHandler(fileh)
 
         log = logging.getLogger('CloudConnector')
         log.setLevel(log_level)
-        log.propagate = 0
+        log.propagate = False
         log.addHandler(fileh)
 
         log = logging.getLogger('InfrastructureManager')
         log.setLevel(log_level)
-        log.propagate = 0
+        log.propagate = False
         log.addHandler(fileh)
 
     # Add the filter to add extra fields

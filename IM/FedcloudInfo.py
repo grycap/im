@@ -16,10 +16,7 @@
 
 import requests
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from radl.radl import Feature, system
 

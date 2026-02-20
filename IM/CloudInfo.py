@@ -15,10 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 
 class CloudInfo:

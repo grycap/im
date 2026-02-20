@@ -27,10 +27,7 @@ sys.path.append("..")
 sys.path.append(".")
 
 from IM.VirtualMachine import VirtualMachine
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from radl.radl_json import parse_radl as parse_radl_json
 
 PID = None

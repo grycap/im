@@ -13,10 +13,7 @@ try:
 except NameError:
     unicode = str
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from uuid import uuid1
 from toscaparser.nodetemplate import NodeTemplate
 from toscaparser.tosca_template import ToscaTemplate
