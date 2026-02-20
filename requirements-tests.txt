@@ -37,3 +37,4 @@ coverage
 requests-cache
 packaging
 lxml
+httpx
