@@ -16,18 +16,10 @@
 
 import logging
 import json
-import base64
-import os
-import yaml
-import datetime
-import io
-import csv
-from typing import Optional, List
 
-from fastapi import FastAPI, Request, Response, Header, HTTPException, Query, Depends
-from fastapi.responses import PlainTextResponse, JSONResponse, FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+from typing import Literal, Optional
+
+from fastapi import Request, Response, HTTPException, Query, Depends, APIRouter
 
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
 from IM.InfrastructureManager import (InfrastructureManager, DeletedInfrastructureException,
@@ -36,299 +28,46 @@ from IM.InfrastructureManager import (InfrastructureManager, DeletedInfrastructu
 from IM.auth import Authentication
 from IM.config import Config
 from IM import get_ex_error
-from radl.radl_json import parse_radl as parse_radl_json, dump_radl as dump_radl_json, featuresToSimple, radlToSimple
-from radl.radl import RADL, Features, Feature
+from radl.radl_json import parse_radl as parse_radl_json
 from IM.tosca.Tosca import Tosca
-from IM.openid.JWT import JWT
-from IM.oaipmh.oai import OAI
-from IM.oaipmh.utils import Repository
+from IM.rest.models import InfrastructureState, UriList, Uri
+from IM.rest import STANDARD_RESPONSES, DELETE_RESPONSES
+from IM.rest.routers import get_auth_header, get_media_type, format_output, return_error
 
 logger = logging.getLogger('InfrastructureManager')
 
-# Combination of chars used to separate the lines in the AUTH header
-AUTH_LINE_SEPARATOR = '\\n'
-# Combination of chars used to separate the lines inside the auth data
-# (i.e. in a certificate)
-AUTH_NEW_LINE_SEPARATOR = '\\\\n'
 
-HTML_ERROR_TEMPLATE = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
-<html>
-    <head>
-        <title>Error %d.</title>
-    </head>
-    <body>
-        <h1>Code: %d.</h1>
-        <h1>Message: %s</h1>
-    </body>
-</html>
-"""
+router = APIRouter()
 
-app = FastAPI(title="Infrastructure Manager API", version="2.0")
-
-
-class RESTServer():
-
-    REST_URL = None
-
-    def __init__(self, host: str, port: int):
-        self.host = host
-        self.port = port
-        self.uvicorn_server = None
-
-    def run(self):
-        """Run the FastAPI server"""
-        config = uvicorn.Config(
-            app=app,
-            host=self.host,
-            port=self.port,
-            ssl_keyfile=Config.REST_SSL_KEYFILE if Config.REST_SSL else None,
-            ssl_certfile=Config.REST_SSL_CERTFILE if Config.REST_SSL else None,
-            ssl_ca_certs=Config.REST_SSL_CA_CERTS if Config.REST_SSL else None,
-            log_config=None  # Use existing logging configuration
-        )
-        self.uvicorn_server = uvicorn.Server(config)
-        self.uvicorn_server.run()
-
-    def stop(self):
-        """Stop the FastAPI server"""
-        logger.info('Stopping REST API server...')
-        if self.uvicorn_server:
-            self.uvicorn_server.should_exit = True
-
-
-# Configure CORS
-if Config.ENABLE_CORS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[Config.CORS_ORIGIN] if Config.CORS_ORIGIN != "*" else ["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["Origin", "Accept", "Content-Type", "Authorization"],
-    )
-
-
-def get_media_type(request: Request, header: str) -> List[str]:
-    """
-    Function to get specified the header media type.
-    Returns a List of strings.
-    """
-    res = []
-    accept = request.headers.get(header)
-    if accept:
-        media_types = accept.split(",")
-        for media_type in media_types:
-            pos = media_type.find(";")
-            if pos != -1:
-                media_type = media_type[:pos]
-            if media_type.strip() in ["text/yaml", "text/x-yaml", "application/yaml"]:
-                res.append("text/yaml")
-            else:
-                res.append(media_type.strip())
-    return res
-
-
-def get_auth_header(request: Request, authorization: Optional[str] = Header(None)):
-    """
-    Get the Authentication object from the AUTHORIZATION header
-    replacing the new line chars.
-    """
-
-    # Initialize REST_URL
-    if RESTServer.REST_URL is None:
-        RESTServer.REST_URL = str(request.base_url)
-
-    if not authorization:
-        raise HTTPException(status_code=401, detail="No authentication data provided")
-
-    user_pass = None
-    token = None
-    im_auth = {}
-    if authorization.startswith("Basic "):
-        auth_data = base64.b64decode(authorization[6:]).decode('utf-8')
-        user_pass = auth_data.split(":")
-        im_auth = {"type": "InfrastructureManager",
-                   "username": user_pass[0],
-                   "password": user_pass[1]}
-    elif authorization.startswith("Bearer "):
-        token = authorization[7:].strip()
-        im_auth = {"type": "InfrastructureManager",
-                   "token": token}
-
-    if Config.SINGLE_SITE:
-        if user_pass:
-            single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
-                                "host": Config.SINGLE_SITE_AUTH_HOST,
-                                "username": user_pass[0],
-                                "password": user_pass[1]}
-        elif token:
-            if Config.SINGLE_SITE_TYPE == "OpenStack":
-                single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
-                                    "host": Config.SINGLE_SITE_AUTH_HOST,
-                                    "username": "indigo-dc",
-                                    "tenant": "oidc",
-                                    "password": token}
-            else:
-                single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
-                                    "host": Config.SINGLE_SITE_AUTH_HOST,
-                                    "token": token}
-        else:
-            raise HTTPException(status_code=401, detail="No authentication data provided")
-        return Authentication([im_auth, single_site_auth])
-    elif Config.VAULT_URL and token:
-        vault_auth = {"type": "Vault", "host": Config.VAULT_URL, "token": token}
-        if Config.VAULT_PATH:
-            vault_auth["path"] = Config.VAULT_PATH
-        if "#USER_SUB#" in Config.VAULT_PATH:
-            decoded_token = JWT().get_info(token)
-            vault_auth["path"] = Config.VAULT_PATH.replace("#USER_SUB#", decoded_token.get("sub"))
-        if Config.VAULT_MOUNT_POINT:
-            vault_auth["mount_point"] = Config.VAULT_MOUNT_POINT
-        if Config.VAULT_ROLE:
-            vault_auth["role"] = Config.VAULT_ROLE
-        return Authentication([im_auth, vault_auth])
-
-    auth_data = authorization.replace(AUTH_NEW_LINE_SEPARATOR, "\n")
-    auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
-    return Authentication(Authentication.read_auth_data(auth_data))
-
-
-def format_output_json(res, field_name=None, list_field_name=None):
-    """Format output as JSON"""
-    res_dict = res
-    if field_name:
-        if list_field_name and isinstance(res, list):
-            res_dict = {field_name: []}
-            for elem in res:
-                res_dict[field_name].append({list_field_name: elem})
-        else:
-            res_dict = {field_name: res}
-    return res_dict
-
-
-def format_output(request: Request, res, default_type="text/plain", field_name=None, 
-                  list_field_name=None, extra_headers=None):
-    """
-    Format the output of the API responses
-    """
-    accept = get_media_type(request, 'Accept')
-
-    if not accept:
-        accept = [default_type]
-
-    content_type = None
-    info = None
-
-    for accept_item in accept:
-        if accept_item in ["application/json", "application/*"]:
-            if isinstance(res, RADL):
-                if field_name:
-                    res_dict = {field_name: radlToSimple(res)}
-                    info = json.dumps(res_dict)
-                else:
-                    info = dump_radl_json(res, enter="", indent="")
-            # This is the case of the "contains" properties
-            elif isinstance(res, dict) and all(isinstance(x, Feature) for x in res.values()):
-                features = Features()
-                features.props = res
-                res_dict = featuresToSimple(features)
-                if field_name:
-                    res_dict = {field_name: res_dict}
-                info = json.dumps(res_dict)
-            else:
-                info = json.dumps(format_output_json(res, field_name, list_field_name))
-            content_type = "application/json"
-            break
-        elif accept_item in [default_type, "*/*", "text/*"]:
-            if default_type == "application/json":
-                info = json.dumps(format_output_json(res, field_name, list_field_name))
-            else:
-                if isinstance(res, list):
-                    info = "\n".join(res)
-                else:
-                    info = "%s" % res
-            content_type = default_type
-            break
-
-    if content_type:
-        headers = extra_headers or {}
-        if content_type == "application/json":
-            return JSONResponse(content=json.loads(info) if isinstance(info, str) and info else info, 
-                                headers=headers)
-        else:
-            return Response(content=info, media_type=content_type, headers=headers)
-    else:
-        raise HTTPException(status_code=415, 
-                            detail="Unsupported Accept Media Types: %s" % ",".join(accept))
-
-
-def return_error(request: Request, code: int, msg: str):
-    """Return error response in appropriate format"""
-    content_type = get_media_type(request, 'Accept')
-
-    if "application/json" in content_type:
-        return JSONResponse(
-            status_code=code,
-            content={'message': msg, 'code': code}
-        )
-    elif "text/html" in content_type:
-        return Response(
-            content=HTML_ERROR_TEMPLATE % (code, code, msg),
-            status_code=code,
-            media_type='text/html'
-        )
-    else:
-        return PlainTextResponse(content=msg, status_code=code)
-
-
-# ============================================================================
-# API Endpoints
-# ============================================================================
-
-@app.get("/")
-async def get_api_info(request: Request):
-    """Get OpenAPI specification"""
-    try:
-        rest_path = os.path.dirname(os.path.abspath(__file__))
-        abs_file_path = os.path.join(rest_path, 'swagger_api.yaml')
-        api_docs = yaml.safe_load(open(abs_file_path, 'r'))
-        api_docs['servers'][0]['url'] = str(request.url_for("get_api_info")).rstrip("/")
-        return JSONResponse(content=api_docs)
-    except Exception as ex:
-        logger.exception("Error getting API info")
-        return return_error(request, 400, "Error getting API info: %s" % get_ex_error(ex))
-
-
-@app.get("/version")
-async def get_version(request: Request):
-    """Get IM version"""
-    try:
-        from IM import __version__ as version
-        return format_output(request, version, field_name="version")
-    except Exception as ex:
-        return return_error(request, 400, "Error getting IM version: %s" % get_ex_error(ex))
-
-
-@app.get("/infrastructures")
+@router.get("/infrastructures",
+            tags=["Infrastructures"],
+            summary="Get infrastructure List",
+            response_model=UriList,
+            responses=STANDARD_RESPONSES)
 async def get_infrastructure_list(
     request: Request,
-    filter: Optional[str] = Query(None),
     auth: Authentication = Depends(get_auth_header)
 ):
-    """Get list of infrastructures"""
+    """Get infrastructure list"""
     try:
-        inf_ids = InfrastructureManager.GetInfrastructureList(auth, filter)
+        inf_ids = InfrastructureManager.GetInfrastructureList(auth)
         res = []
         for inf_id in inf_ids:
             res.append(f"{str(request.base_url).rstrip('/')}/infrastructures/{inf_id}")
         return format_output(request, res, "text/uri-list", "uri-list", "uri")
     except InvaliddUserException as ex:
         return return_error(request, 401, "Error Getting Inf. List: %s" % get_ex_error(ex))
+    except UnauthorizedUserException as ex:
+        return return_error(request, 400, "Error Getting Inf. List: %s" % get_ex_error(ex))
     except Exception as ex:
         logger.exception("Error Getting Inf. List")
         return return_error(request, 400, "Error Getting Inf. List: %s" % get_ex_error(ex))
 
-
-@app.post("/infrastructures")
+@router.post("/infrastructures",
+             tags=["Infrastructures"],
+             summary="Create new infrastructure",
+             response_model=Uri,
+             responses=STANDARD_RESPONSES)
 async def create_infrastructure(
     request: Request,
     async_call: bool = Query(False, alias="async"),
@@ -339,7 +78,7 @@ async def create_infrastructure(
     # Check content type first, outside of try/except to preserve 415 status code
     content_type = get_media_type(request, 'Content-Type')
     if content_type:
-        valid_types = ["application/json", "text/yaml", "text/x-yaml", 
+        valid_types = ["application/json", "text/yaml", "text/x-yaml",
                        "application/yaml", "text/plain", "*/*", "text/*"]
         if not any(ct in content_type for ct in valid_types):
             raise HTTPException(status_code=415, detail="Unsupported Media Type %s" % content_type)
@@ -380,7 +119,11 @@ async def create_infrastructure(
         return return_error(request, 400, "Error Creating Inf.: %s" % get_ex_error(ex))
 
 
-@app.put("/infrastructures")
+@router.put("/infrastructures",
+            tags=["Infrastructures"],
+            summary="Import infrastructure",
+            response_model=Uri,
+            responses=STANDARD_RESPONSES)
 async def import_infrastructure(
     request: Request,
     auth: Authentication = Depends(get_auth_header)
@@ -407,7 +150,11 @@ async def import_infrastructure(
         return return_error(request, 400, "Error Importing Inf.: %s" % get_ex_error(ex))
 
 
-@app.get("/infrastructures/{infid}")
+@router.get("/infrastructures/{infid}",
+            tags=["Infrastructures"],
+            summary="Get infrastructure information",
+            response_model=UriList,
+            responses=STANDARD_RESPONSES)
 async def get_infrastructure_info(
     request: Request,
     infid: str,
@@ -431,7 +178,11 @@ async def get_infrastructure_info(
         return return_error(request, 400, "Error Getting Inf. info: %s" % get_ex_error(ex))
 
 
-@app.delete("/infrastructures/{infid}")
+@router.delete("/infrastructures/{infid}",
+               tags=["Infrastructures"],
+               summary="Destroy infrastructure",
+               response_model=Uri,
+               responses=DELETE_RESPONSES)
 async def destroy_infrastructure(
     request: Request,
     infid: str,
@@ -458,11 +209,15 @@ async def destroy_infrastructure(
         return return_error(request, 400, "Error Destroying Inf: %s" % get_ex_error(ex))
 
 
-@app.get("/infrastructures/{infid}/{prop}")
+@router.get("/infrastructures/{infid}/{prop}",
+            tags=["Infrastructures"],
+            summary="Get infrastructure property",
+            response_model=InfrastructureState,
+            responses=STANDARD_RESPONSES)
 async def get_infrastructure_property(
     request: Request,
     infid: str,
-    prop: str,
+    prop: Literal["contmsg", "radl", "tosca", "state", "outputs", "data", "authorization"],
     headeronly: bool = Query(False),
     delete: bool = Query(False),
     auth: Authentication = Depends(get_auth_header)
@@ -527,7 +282,11 @@ async def get_infrastructure_property(
         return return_error(request, 400, "Error Getting Inf. prop: %s" % get_ex_error(ex))
 
 
-@app.post("/infrastructures/{infid}")
+@router.post("/infrastructures/{infid}",
+             tags=["Infrastructures"],
+             summary="Add resources to infrastructure",
+             response_model=UriList,
+             responses=STANDARD_RESPONSES)
 async def add_resource(
     request: Request,
     infid: str,
@@ -603,7 +362,10 @@ async def add_resource(
         return return_error(request, 400, "Error Adding resources: %s" % get_ex_error(ex))
 
 
-@app.put("/infrastructures/{infid}/reconfigure")
+@router.put("/infrastructures/{infid}/reconfigure",
+            tags=["Infrastructures"],
+            summary="Reconfigure infrastructure",
+            responses=STANDARD_RESPONSES)
 async def reconfigure_infrastructure(
     request: Request,
     infid: str,
@@ -655,11 +417,14 @@ async def reconfigure_infrastructure(
         return return_error(request, 400, "Error reconfiguring infrastructure: %s" % get_ex_error(ex))
 
 
-@app.put("/infrastructures/{infid}/{op}")
+@router.put("/infrastructures/{infid}/{op}",
+            tags=["Infrastructures"],
+            summary="Start or stop infrastructure",
+            responses=STANDARD_RESPONSES)
 async def operate_infrastructure(
     request: Request,
     infid: str,
-    op: str,
+    op: Literal["start", "stop"],
     auth: Authentication = Depends(get_auth_header)
 ):
     """Start or stop infrastructure"""
@@ -686,7 +451,10 @@ async def operate_infrastructure(
         return return_error(request, 400, "Error in %s operation: %s" % (op, get_ex_error(ex)))
 
 
-@app.post("/infrastructures/{infid}/authorization")
+@router.post("/infrastructures/{infid}/authorization",
+             tags=["Infrastructures"],
+             summary="Change infrastructure authorization",
+             responses=STANDARD_RESPONSES)
 async def change_infrastructure_auth(
     request: Request,
     infid: str,
@@ -723,7 +491,10 @@ async def change_infrastructure_auth(
         return return_error(request, 400, "Error modifying infrastructure owner: %s" % get_ex_error(ex))
 
 
-@app.get("/infrastructures/{infid}/vms/{vmid}")
+@router.get("/infrastructures/{infid}/vms/{vmid}",
+            tags=["VMs"],
+            summary="Get VM information",
+            responses=STANDARD_RESPONSES)
 async def get_vm_info(
     request: Request,
     infid: str,
@@ -749,7 +520,10 @@ async def get_vm_info(
         return return_error(request, 400, "Error Getting VM info: %s" % get_ex_error(ex))
 
 
-@app.delete("/infrastructures/{infid}/vms/{vmid}")
+@router.delete("/infrastructures/{infid}/vms/{vmid}",
+               tags=["VMs"],
+               summary="Remove VM from infrastructure",
+               responses=STANDARD_RESPONSES)
 async def remove_resource(
     request: Request,
     infid: str,
@@ -778,7 +552,10 @@ async def remove_resource(
         return return_error(request, 400, "Error Removing resources: %s" % get_ex_error(ex))
 
 
-@app.put("/infrastructures/{infid}/vms/{vmid}")
+@router.put("/infrastructures/{infid}/vms/{vmid}",
+            tags=["VMs"],
+            summary="Alter VM information",
+            responses=STANDARD_RESPONSES)
 async def alter_vm(
     request: Request,
     infid: str,
@@ -823,7 +600,10 @@ async def alter_vm(
         return return_error(request, 400, "Error modifying resources: %s" % get_ex_error(ex))
 
 
-@app.get("/infrastructures/{infid}/vms/{vmid}/{prop}")
+@router.get("/infrastructures/{infid}/vms/{vmid}/{prop}",
+            tags=["VMs"],
+            summary="Get VM property",
+            responses=STANDARD_RESPONSES)
 async def get_vm_property(
     request: Request,
     infid: str,
@@ -925,12 +705,15 @@ async def get_vm_property(
         return return_error(request, 400, "Error Getting VM property: %s" % get_ex_error(ex))
 
 
-@app.put("/infrastructures/{infid}/vms/{vmid}/{op}")
+@router.put("/infrastructures/{infid}/vms/{vmid}/{op}",
+            tags=["VMs"],
+            summary="Start, stop or reboot VM",
+            responses=STANDARD_RESPONSES)
 async def operate_vm(
     request: Request,
     infid: str,
     vmid: str,
-    op: str,
+    op: Literal["start", "stop", "reboot"],
     auth: Authentication = Depends(get_auth_header)
 ):
     """Start, stop or reboot VM"""
@@ -963,7 +746,10 @@ async def operate_vm(
         return return_error(request, 400, "Error in %s op in VM: %s" % (op, get_ex_error(ex)))
 
 
-@app.put("/infrastructures/{infid}/vms/{vmid}/disks/{disknum}/snapshot")
+@router.put("/infrastructures/{infid}/vms/{vmid}/disks/{disknum}/snapshot",
+            tags=["VMs"],
+            summary="Create disk snapshot",
+            responses=STANDARD_RESPONSES)
 async def create_disk_snapshot(
     request: Request,
     infid: str,
@@ -992,172 +778,3 @@ async def create_disk_snapshot(
     except Exception as ex:
         logger.exception("Error creating snapshot")
         return return_error(request, 400, "Error creating snapshot: %s" % get_ex_error(ex))
-
-
-@app.get("/clouds/{cloudid}/{param}")
-async def get_cloud_info(
-    request: Request,
-    cloudid: str,
-    param: str,
-    filters: Optional[str] = Query(None),
-    auth: Authentication = Depends(get_auth_header)
-):
-    """Get cloud information (images or quotas)"""
-    try:
-        if param == 'images':
-            filters_dict = None
-            if filters:
-                try:
-                    filters_dict = _filters_str_to_dict(filters)
-                except Exception:
-                    raise HTTPException(status_code=400, detail="Invalid format in filters parameter.")
-            images = InfrastructureManager.GetCloudImageList(cloudid, auth, filters_dict)
-            return format_output(request, images, default_type="application/json", field_name="images")
-        elif param == 'quotas':
-            quotas = InfrastructureManager.GetCloudQuotas(cloudid, auth)
-            return format_output(request, quotas, default_type="application/json", field_name="quotas")
-        else:
-            raise HTTPException(status_code=404, detail="Incorrect cloud property")
-    except InvaliddUserException as ex:
-        return return_error(request, 401, "Error getting cloud info: %s" % get_ex_error(ex))
-    except HTTPException:
-        raise
-    except Exception as ex:
-        logger.exception("Error getting cloud info")
-        return return_error(request, 400, "Error getting cloud info: %s" % get_ex_error(ex))
-
-
-def _filters_str_to_dict(filters_str: str) -> dict:
-    """Convert filter string to dictionary"""
-    filters = {}
-    for elem in filters_str.split(","):
-        kv = elem.split("=")
-        if len(kv) != 2:
-            raise Exception("Incorrect format")
-        else:
-            filters[kv[0]] = kv[1]
-    return filters
-
-
-@app.get("/stats")
-async def get_stats(
-    request: Request,
-    init_date: Optional[str] = Query("1970-01-01"),
-    end_date: Optional[str] = Query(None),
-    auth: Authentication = Depends(get_auth_header)
-):
-    """Get statistics"""
-    try:
-        # Validate init_date
-        if init_date:
-            init_date = init_date.replace("/", "-")
-            parts = init_date.split("-")
-            try:
-                year = int(parts[0])
-                month = int(parts[1])
-                day = int(parts[2])
-                datetime.date(year, month, day)
-            except Exception:
-                raise HTTPException(status_code=400, detail="Incorrect format in init_date parameter: YYYY/MM/dd")
-
-        # Validate end_date
-        if end_date:
-            end_date = end_date.replace("/", "-")
-            parts = end_date.split("-")
-            try:
-                year = int(parts[0])
-                month = int(parts[1])
-                day = int(parts[2])
-                datetime.date(year, month, day)
-            except Exception:
-                raise HTTPException(status_code=400, detail="Incorrect format in end_date parameter: YYYY/MM/dd")
-
-        stats = InfrastructureManager.GetStats(init_date, end_date, auth)
-
-        accept_type = get_media_type(request, 'Accept')
-        if not accept_type or "application/json" in accept_type or "*/*" in accept_type or "application/*" in accept_type:
-            return format_output(request, stats, default_type="application/json", field_name="stats")
-        elif "text/csv" in accept_type or "text/*" in accept_type:
-            output = io.StringIO()
-            csv_writer = csv.writer(output)
-
-            # Write header
-            header = stats[0].keys() if stats else []
-            csv_writer.writerow(header)
-
-            # Write data rows
-            for stat in stats:
-                csv_writer.writerow(stat.values())
-
-            return Response(content=output.getvalue(), media_type="text/csv")
-    except HTTPException:
-        raise
-    except Exception as ex:
-        logger.exception("Error getting stats")
-        return return_error(request, 400, "Error getting stats: %s" % get_ex_error(ex))
-
-
-@app.get("/oai")
-@app.post("/oai")
-async def oaipmh(request: Request):
-    """OAI-PMH endpoint"""
-    if not (Config.OAIPMH_REPO_BASE_IDENTIFIER_URL and
-            Config.OAIPMH_REPO_NAME and Config.OAIPMH_REPO_DESCRIPTION):
-        return return_error(request, 400, "OAI-PMH not enabled.")
-
-    oai = OAI(Config.OAIPMH_REPO_NAME, str(request.base_url).rstrip('/') + '/oai', Config.OAIPMH_REPO_DESCRIPTION,
-              Config.OAIPMH_REPO_BASE_IDENTIFIER_URL, repo_admin_email=Config.OAIPMH_REPO_ADMIN_EMAIL)
-
-    # Get list of TOSCA templates from Config.OAIPMH_REPO_BASE_IDENTIFIER_URL
-    metadata_dict = {}
-    try:
-        repo = Repository.create(Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
-        for name, elem in repo.list().items():
-            tosca = yaml.safe_load(repo.get(elem))
-            metadata = tosca["metadata"]
-            metadata["identifier"] = Config.OAIPMH_REPO_BASE_IDENTIFIER_URL + name
-            metadata["resource_type"] = "software"
-            metadata["rights"] = "openaccess"
-            metadata_dict[name] = metadata
-    except Exception as ex:
-        logger.exception("Error getting metadata from TOSCA templates")
-        return return_error(request, 400, "Error getting metadata from TOSCA templates: %s" % get_ex_error(ex))
-
-    # Convert FastAPI request to a format compatible with OAI-PMH module
-    values_dict = dict(request.query_params)
-    if request.method == "POST":
-        try:
-            form_data = await request.form()
-            values_dict.update(form_data)
-        except Exception as ex:
-            logger.warning("Error parsing POST form data: %s" % get_ex_error(ex))
-
-    response_xml = oai.processRequest(values_dict, metadata_dict)
-    return Response(content=response_xml, media_type='text/xml')
-
-
-@app.get("/static/{filename}")
-async def static_files(filename: str):
-    """Serve static files"""
-    if Config.STATIC_FILES_DIR:
-        file_path = os.path.join(Config.STATIC_FILES_DIR, filename)
-        if os.path.exists(file_path):
-            return FileResponse(file_path)
-        else:
-            raise HTTPException(status_code=404, detail="File not found")
-    else:
-        raise HTTPException(status_code=404, detail="Static files not enabled.")
-
-
-# Exception handlers
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTP exceptions"""
-    return return_error(request, exc.status_code, exc.detail)
-
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handle general exceptions"""
-    logger.exception("Unhandled exception")
-    return return_error(request, 500, str(exc))

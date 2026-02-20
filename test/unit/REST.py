@@ -36,7 +36,7 @@ from IM.InfrastructureManager import (DeletedInfrastructureException,
                                       UnauthorizedUserException,
                                       InvaliddUserException)
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
-from IM.REST import app
+from IM.rest.REST import app
 from IM.config import Config
 import defusedxml.ElementTree as etree
 
@@ -67,19 +67,19 @@ class TestREST(unittest.TestCase):
         res = self.client.get('/infrastructures', headers=headers)
         self.assertEqual(200, res.status_code)
         self.assertEqual(res.json(), ({"uri-list": [{"uri": "http://testserver/infrastructures/1"},
-                                                  {"uri": "http://testserver/infrastructures/2"}]}))
+                                                    {"uri": "http://testserver/infrastructures/2"}]}))
 
         GetInfrastructureList.side_effect = InvaliddUserException()
         res = self.client.get('/infrastructures', headers=headers)
         self.assertEqual(401, res.status_code)
         self.assertEqual(res.json(), {"message": "Error Getting Inf. List: Invalid InfrastructureManager credentials",
-                                    "code": 401})
+                                      "code": 401})
 
         GetInfrastructureList.side_effect = UnauthorizedUserException()
         res = self.client.get('/infrastructures', headers=headers)
         self.assertEqual(400, res.status_code)
         self.assertEqual(res.json(), {"message": "Error Getting Inf. List: Access to this infrastructure not granted.",
-                                    "code": 400})
+                                      "code": 400})
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureInfo")
     def test_GetInfrastructureInfo(self, GetInfrastructureInfo):
@@ -570,11 +570,6 @@ class TestREST(unittest.TestCase):
     def test_GeVersion(self):
         res = self.client.get('/version')
         self.assertEqual(res.text, version)
-
-    def test_Index(self):
-        res = self.client.get('/')
-        self.assertEqual(res.json()['openapi'], '3.0.0')
-        self.assertEqual(res.json()['servers'][0]['url'], 'http://testserver')
 
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot")
     def test_CreateDiskSnapshot(self, CreateDiskSnapshot):

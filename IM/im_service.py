@@ -29,7 +29,7 @@ import psutil
 from IM.config import Config
 from IM.InfrastructureManager import InfrastructureManager
 from IM.InfrastructureList import InfrastructureList
-from IM.REST import RESTServer
+from IM.rest.REST import RESTServer
 from IM import __version__ as version
 
 
