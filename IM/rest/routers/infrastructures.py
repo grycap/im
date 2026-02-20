@@ -39,6 +39,7 @@ logger = logging.getLogger('InfrastructureManager')
 
 router = APIRouter()
 
+
 @router.get("/infrastructures",
             tags=["Infrastructures"],
             summary="Get infrastructure List",
@@ -62,6 +63,7 @@ async def get_infrastructure_list(
     except Exception as ex:
         logger.exception("Error Getting Inf. List")
         return return_error(request, 400, "Error Getting Inf. List: %s" % get_ex_error(ex))
+
 
 @router.post("/infrastructures",
              tags=["Infrastructures"],

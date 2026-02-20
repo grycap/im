@@ -30,6 +30,7 @@ logger = logging.getLogger('InfrastructureManager')
 
 router = APIRouter()
 
+
 @router.get("/version",
             summary="Get IM version",)
 async def get_version(request: Request):

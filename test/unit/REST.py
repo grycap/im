@@ -783,16 +783,16 @@ class TestREST(unittest.TestCase):
 
         res = self.client.get('/clouds/cloud1/images', headers=headers)
         self.assertEqual(res.json(), {"images": [{"uri": "mock0://linux.for.ev.er/image1",
-                                                "name": "Image Name1"},
-                                               {"uri": "mock0://linux.for.ev.er/image2",
-                                                "name": "Image Name2"}]})
+                                                  "name": "Image Name1"},
+                                                 {"uri": "mock0://linux.for.ev.er/image2",
+                                                  "name": "Image Name2"}]})
 
         res = self.client.get('/clouds/cloud1/quotas', headers=headers)
         self.assertEqual(res.json(), {"quotas": {"cores": {"used": 1, "limit": 10},
-                                               "ram": {"used": 1, "limit": 10},
-                                               "instances": {"used": 1, "limit": 10},
-                                               "floating_ips": {"used": 1, "limit": 10},
-                                               "security_groups": {"used": 1, "limit": 10}}})
+                                                 "ram": {"used": 1, "limit": 10},
+                                                 "instances": {"used": 1, "limit": 10},
+                                                 "floating_ips": {"used": 1, "limit": 10},
+                                                 "security_groups": {"used": 1, "limit": 10}}})
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetCloudImageList")
     def test_GetCloudInfo_filters(self, GetCloudImageList):

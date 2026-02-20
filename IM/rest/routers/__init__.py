@@ -147,7 +147,7 @@ def format_output_json(res, field_name=None, list_field_name=None):
     return res_dict
 
 
-def format_output(request: Request, res, default_type="text/plain", field_name=None, 
+def format_output(request: Request, res, default_type="text/plain", field_name=None,
                   list_field_name=None, extra_headers=None):
     """Format the output of the API responses"""
     accept = get_media_type(request, 'Accept')
@@ -192,7 +192,7 @@ def format_output(request: Request, res, default_type="text/plain", field_name=N
     if content_type:
         headers = extra_headers or {}
         if content_type == "application/json":
-            return JSONResponse(content=json.loads(info) if isinstance(info, str) and info else info, 
+            return JSONResponse(content=json.loads(info) if isinstance(info, str) and info else info,
                                 headers=headers)
         else:
             return Response(content=info, media_type=content_type, headers=headers)

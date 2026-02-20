@@ -68,10 +68,10 @@ async def get_stats(
 
         stats = InfrastructureManager.GetStats(init_date, end_date, auth)
 
-        accept_type = get_media_type(request, 'Accept')
-        if not accept_type or "application/json" in accept_type or "*/*" in accept_type or "application/*" in accept_type:
+        acc_type = get_media_type(request, 'Accept')
+        if not acc_type or "application/json" in acc_type or "*/*" in acc_type or "application/*" in acc_type:
             return format_output(request, stats, default_type="application/json", field_name="stats")
-        elif "text/csv" in accept_type or "text/*" in accept_type:
+        elif "text/csv" in acc_type or "text/*" in acc_type:
             output = io.StringIO()
             csv_writer = csv.writer(output)
 
