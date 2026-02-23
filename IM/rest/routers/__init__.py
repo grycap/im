@@ -233,12 +233,9 @@ def return_error(request: Request, code: int, msg: str):
 
 async def parse_deployment(request: Request) -> Deployment:
     """Parse the body of the request to get the RADL and TOSCA data"""
-    content_type = get_media_type(request, "Content-Type")
+    content_type = get_media_type(request, "Content-Type") or ["text/plain"]
     raw = (await request.body()).decode("utf-8")
     tosca_data = None
-
-    if not content_type:
-        content_type = "text/plain"
 
     if "application/json" in content_type:
         radl_data = parse_radl_json(raw)
@@ -251,3 +248,16 @@ async def parse_deployment(request: Request) -> Deployment:
         raise HTTPException(status_code=415, detail=f"Unsupported Media Type {content_type}")
 
     return Deployment(radl_data=radl_data, tosca_data=tosca_data)
+
+
+async def parse_auth(request: Request) -> Authentication:
+    content_type = get_media_type(request, 'Content-Type') or ["application/json"]
+
+    if "application/json" in content_type:
+        raw = (await request.body()).decode("utf-8")
+        auth_dict = json.loads(raw)
+        if "type" not in auth_dict:
+            auth_dict["type"] = "InfrastructureManager"
+        return Authentication([auth_dict])
+    else:
+        raise HTTPException(status_code=415, detail="Unsupported Media Type %s" % content_type)

@@ -30,7 +30,8 @@ from IM import get_ex_error
 from IM.tosca.Tosca import Tosca
 from IM.rest.models import InfrastructureState, UriList, Uri, Deployment
 from IM.rest import STANDARD_RESPONSES, DELETE_RESPONSES
-from IM.rest.routers import get_auth_header, get_media_type, format_output, return_error, parse_deployment
+from IM.rest.routers import (get_auth_header, get_media_type, format_output,
+                             parse_auth, return_error, parse_deployment)
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -76,14 +77,6 @@ async def create_infrastructure(
     auth: Authentication = Depends(get_auth_header)
 ):
     """Create new infrastructure"""
-    # Check content type first, outside of try/except to preserve 415 status code
-    content_type = get_media_type(request, 'Content-Type')
-    if content_type:
-        valid_types = ["application/json", "text/yaml", "text/x-yaml",
-                       "application/yaml", "text/plain", "*/*", "text/*"]
-        if not any(ct in content_type for ct in valid_types):
-            raise HTTPException(status_code=415, detail="Unsupported Media Type %s" % content_type)
-
     try:
         if dry_run:
             res = InfrastructureManager.EstimateResouces(deployment.radl_data, auth)
@@ -102,6 +95,8 @@ async def create_infrastructure(
         return return_error(request, 401, "Error Creating Inf.: %s" % get_ex_error(ex))
     except DisabledFunctionException as ex:
         return return_error(request, 403, "Error Creating Inf.: %s" % get_ex_error(ex))
+    except HTTPException:
+        raise
     except Exception as ex:
         logger.exception("Error Creating Inf.")
         return return_error(request, 400, "Error Creating Inf.: %s" % get_ex_error(ex))
@@ -231,11 +226,11 @@ async def get_infrastructure_property(
         elif prop == "authorization":
             res = InfrastructureManager.GetInfrastructureOwners(infid, auth)
             return format_output(request, res, field_name=prop)
-        else:
-            # For other properties, application/json is the only supported media type
-            accept = get_media_type(request, 'Accept')
-            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
-                raise HTTPException(status_code=415, detail="Unsupported Accept Media Types: %s" % accept)
+
+        # For other properties, application/json is the only supported media type
+        accept = get_media_type(request, 'Accept') or ["application/json"]
+        if "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+            raise HTTPException(status_code=415, detail="Unsupported Accept Media Types: %s" % accept)
 
         if prop == "state":
             res = InfrastructureManager.GetInfrastructureState(infid, auth)
@@ -280,19 +275,15 @@ async def add_resource(
 ):
     """Add resources to infrastructure"""
     try:
-        content_type = get_media_type(request, 'Content-Type')
         remove_list = []
 
-        if not content_type:
-            content_type = "text/plain"
-
-            if deployment.tosca_data:
-                auth_checked = InfrastructureManager.check_auth_data(auth)
-                sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
-                # merge the current TOSCA with the new one
-                if isinstance(sel_inf.extra_info.get('TOSCA'), Tosca):
-                    deployment.tosca_data = sel_inf.extra_info['TOSCA'].merge(deployment.tosca_data)
-                remove_list, deployment.radl_data = deployment.tosca_data.to_radl(sel_inf)
+        if deployment.tosca_data:
+            auth_checked = InfrastructureManager.check_auth_data(auth)
+            sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
+            # merge the current TOSCA with the new one
+            if isinstance(sel_inf.extra_info.get('TOSCA'), Tosca):
+                deployment.tosca_data = sel_inf.extra_info['TOSCA'].merge(deployment.tosca_data)
+            remove_list, deployment.radl_data = deployment.tosca_data.to_radl(sel_inf)
 
         if remove_list:
             removed_vms = InfrastructureManager.RemoveResource(infid, remove_list, auth, context)
@@ -419,21 +410,11 @@ async def change_infrastructure_auth(
     request: Request,
     infid: str,
     overwrite: bool = Query(False),
+    new_auth: Authentication = Depends(parse_auth),
     auth: Authentication = Depends(get_auth_header)
 ):
     """Change infrastructure authorization"""
     try:
-        content_type = get_media_type(request, 'Content-Type') or ["application/json"]
-
-        body = await request.body()
-        if "application/json" in content_type:
-            auth_dict = json.loads(body.decode("utf-8"))
-            if "type" not in auth_dict:
-                auth_dict["type"] = "InfrastructureManager"
-            new_auth = Authentication([auth_dict])
-        else:
-            raise HTTPException(status_code=415, detail="Unsupported Media Type %s" % content_type)
-
         InfrastructureManager.ChangeInfrastructureAuth(infid, new_auth, overwrite, auth)
         return Response(status_code=200, media_type='text/plain')
     except DeletedInfrastructureException as ex:
