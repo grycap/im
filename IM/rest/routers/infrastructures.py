@@ -229,8 +229,10 @@ async def get_infrastructure_property(
         accept = None
         if prop == "contmsg":
             res = InfrastructureManager.GetInfrastructureContMsg(infid, auth, headeronly)
+            return format_output(request, res, field_name=prop)
         elif prop == "radl":
             res = InfrastructureManager.GetInfrastructureRADL(infid, auth)
+            return format_output(request, res, field_name=prop)
         else:
             # For other properties, application/json is the only supported media type
             accept = get_media_type(request, 'Accept')
