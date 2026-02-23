@@ -233,13 +233,7 @@ async def get_infrastructure_property(
         elif prop == "radl":
             res = InfrastructureManager.GetInfrastructureRADL(infid, auth)
             return format_output(request, res, field_name=prop)
-        else:
-            # For other properties, application/json is the only supported media type
-            accept = get_media_type(request, 'Accept')
-            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
-                raise HTTPException(status_code=415, detail="Unsupported Accept Media Types: %s" % accept)
-
-        if prop == "tosca":
+        elif prop == "tosca":
             auth_checked = InfrastructureManager.check_auth_data(auth)
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
             if "TOSCA" in sel_inf.extra_info:
@@ -247,9 +241,15 @@ async def get_infrastructure_property(
             else:
                 raise HTTPException(status_code=403,
                                     detail="'tosca' infrastructure property is not valid in this infrastructure")
-        elif prop == "state":
+            return format_output(request, res, field_name=prop)
+        else:
+            # For other properties, application/json is the only supported media type
+            accept = get_media_type(request, 'Accept')
+            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
+                raise HTTPException(status_code=415, detail="Unsupported Accept Media Types: %s" % accept)
+
+        if prop == "state":
             res = InfrastructureManager.GetInfrastructureState(infid, auth)
-            return format_output(request, res, default_type="application/json", field_name="state")
         elif prop == "outputs":
             auth_checked = InfrastructureManager.check_auth_data(auth)
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
@@ -258,16 +258,14 @@ async def get_infrastructure_property(
             else:
                 raise HTTPException(status_code=403,
                                     detail="'outputs' infrastructure property is not valid in this infrastructure")
-            return format_output(request, res, default_type="application/json", field_name="outputs")
         elif prop == "data":
-            data = InfrastructureManager.ExportInfrastructure(infid, delete, auth)
-            return format_output(request, data, default_type="application/json", field_name="data")
+            res = InfrastructureManager.ExportInfrastructure(infid, delete, auth)
         elif prop == "authorization":
             res = InfrastructureManager.GetInfrastructureOwners(infid, auth)
         else:
             raise HTTPException(status_code=404, detail="Incorrect infrastructure property")
 
-        return format_output(request, res, field_name=prop)
+        return format_output(request, res, default_type="application/json", field_name=prop)
     except DeletedInfrastructureException as ex:
         return return_error(request, 404, "Error Getting Inf. prop: %s" % get_ex_error(ex))
     except IncorrectInfrastructureException as ex:
