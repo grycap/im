@@ -25,10 +25,7 @@ except Exception as ex:
     print("WARN: Boto3 library not correctly installed. EC2CloudConnector will not work!.")
     print(ex)
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector

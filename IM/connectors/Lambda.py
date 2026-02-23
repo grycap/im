@@ -27,10 +27,7 @@ import scar.logger
 from IM.connectors.OSCAR import OSCARCloudConnector
 from scar.providers.aws.controller import AWS
 from scar.providers.aws.lambdafunction import Lambda, ClientError
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 
 class LambdaCloudConnector(CloudConnector):

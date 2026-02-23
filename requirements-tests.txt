@@ -5,8 +5,9 @@ cheroot
 boto3
 apache-libcloud >= 3.3.1
 RADL >= 1.3.4
-flask
-werkzeug
+fastapi
+python-multipart
+uvicorn
 netaddr
 requests >= 2.19
 scp
@@ -36,3 +37,4 @@ coverage
 requests-cache
 packaging
 lxml
+httpx

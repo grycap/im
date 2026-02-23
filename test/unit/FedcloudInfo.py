@@ -1,9 +1,6 @@
 import unittest
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 import sys
 

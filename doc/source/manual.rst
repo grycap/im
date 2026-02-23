@@ -235,58 +235,11 @@ Contextualization
    Number of VMs in an infrastructure that will use the distributed version of the Ctxt Agent
    The default value is 30.
 
-.. _options-xmlrpc:
-
-XML-RPC API
-^^^^^^^^^^^
-
-.. confval:: XMLRCP_PORT
-
-   Port number where IM XML-RPC API is available.
-   The default value is 8899.
-   
-.. confval:: XMLRCP_ADDRESS
-
-   IP address where IM XML-RPC API is available.
-   The default value is 0.0.0.0 (all the IPs).
-
-.. confval:: XMLRCP_SSL 
-
-   If ``True`` the XML-RPC API is secured with SSL certificates.
-   The default value is ``False``.
-
-.. confval:: XMLRCP_SSL_KEYFILE 
-
-   Full path to the private key associated to the SSL certificate to access
-   the XML-RPC API.
-   The default value is :file:`/etc/im/pki/server-key.pem`.
-
-.. confval:: XMLRCP_SSL_CERTFILE 
-
-   Full path to the public key associated to the SSL certificate to access
-   the XML-RPC API.
-   The default value is :file:`/etc/im/pki/server-cert.pem`.
-
-.. confval:: XMLRCP_SSL_CA_CERTS 
-
-   Full path to the SSL Certification Authorities (CA) certificate.
-   The default value is :file:`/etc/im/pki/ca-chain.pem`.
-
-.. confval:: VMINFO_JSON
-
-	Return the VM information of function GetVMInfo in RADL JSON instead of plain RADL
-	(**Added in IM version 1.5.2**) 
-	The default value is ``False``.
 
 .. _options-rest:
 
 REST API
 ^^^^^^^^
-
-.. confval:: ACTIVATE_REST 
-
-   If ``True`` the REST API is activated.
-   The default value is ``False``.
 
 .. confval:: REST_PORT
 
@@ -297,6 +250,12 @@ REST API
 
    IP address where REST API is available.
    The default value is 0.0.0.0 (all the IPs).
+
+.. confval:: REST_ROOT_PATH
+
+   Root path of the REST API. It is useful if you want to use a reverse
+   proxy in front of the IM REST API.
+   The default value is ``/``.
 
 .. confval:: REST_SSL 
 

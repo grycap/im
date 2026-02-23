@@ -14,10 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-try:
-    from ConfigParser import ConfigParser
-except ImportError:
-    from configparser import ConfigParser
+from configparser import ConfigParser
 import os
 import logging
 import json
@@ -73,14 +70,11 @@ class Config:
     MAX_CONTEXTUALIZATION_TIME = 7200
     MAX_SIMULTANEOUS_LAUNCHES = 1
     DATA_DB = '/etc/im/inf.dat'
-    XMLRCP_SSL = False
-    XMLRCP_SSL_KEYFILE = "/etc/im/pki/server-key.pem"
-    XMLRCP_SSL_CERTFILE = "/etc/im/pki/server-cert.pem"
-    XMLRCP_SSL_CA_CERTS = "/etc/im/pki/ca-chain.pem"
     REST_SSL = False
     REST_SSL_KEYFILE = "/etc/im/pki/server-key.pem"
     REST_SSL_CERTFILE = "/etc/im/pki/server-cert.pem"
     REST_SSL_CA_CERTS = "/etc/im/pki/ca-chain.pem"
+    REST_ROOT_PATH = "/"
     PLAYBOOK_RETRIES = 1
     VM_INFO_UPDATE_FREQUENCY = 10
     # This value must be always higher than VM_INFO_UPDATE_FREQUENCY

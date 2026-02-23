@@ -23,10 +23,7 @@ import json
 sys.path.append(".")
 sys.path.append("..")
 from .CloudConn import TestCloudConnectorBase
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
