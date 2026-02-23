@@ -14,14 +14,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from typing import Dict, Any
 from IM.rest.models import ErrorMsg
 
-STANDARD_RESPONSES = {
+
+STANDARD_RESPONSES: Dict[int | str, Dict[str, Any]] = {
     400: {"model": ErrorMsg, "description": "Invalid status value"},
     401: {"model": ErrorMsg, "description": "Unauthorized"},
     403: {"model": ErrorMsg, "description": "Forbidden"},
     404: {"model": ErrorMsg, "description": "Not Found"}
 }
 
-DELETE_RESPONSES = STANDARD_RESPONSES.copy()
+DELETE_RESPONSES: Dict[int | str, Dict[str, Any]] = STANDARD_RESPONSES.copy()
 DELETE_RESPONSES[409] = {"model": ErrorMsg, "description": "Conflict"}
