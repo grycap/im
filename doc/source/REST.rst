@@ -213,7 +213,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
                     returned (without any VM contextualization log).
       :``radl``: a string with the original specified RADL of the infrastructure.
       :``tosca``: a string with the TOSCA representation of the infrastructure. 
-      :``data``: a string with the JSOMN serialized data of the infrastructure. In case of ``delete`` flag is set to 'yes',
+      :``data``: a string with the JSON serialized data of the infrastructure. In case of ``delete`` flag is set to 'yes',
                  'true' or '1' the data not only will be exported but also the infrastructure will be set deleted
                  (the virtual infrastructure will not be modified).
       :``authorization``: a list of strings with the current owners of the infrastructure. 
