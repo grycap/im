@@ -17,17 +17,21 @@
 import json
 import base64
 
-from typing import Optional, List
+from typing import List, Optional
 
-from fastapi import Request, Response, Header, HTTPException
+from fastapi import Request, Response, HTTPException, Security
 from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.security import APIKeyHeader
 
 from IM.rest.REST import RESTServer
 from IM.auth import Authentication
 from IM.config import Config
-from radl.radl_json import dump_radl as dump_radl_json, featuresToSimple, radlToSimple
+from IM.tosca.Tosca import Tosca
+from radl.radl_json import dump_radl as dump_radl_json, parse_radl as parse_radl_json, featuresToSimple, radlToSimple
+from radl.radl_parse import parse_radl
 from radl.radl import RADL, Features, Feature
 from IM.openid.JWT import JWT
+from IM.rest.models import Deployment
 
 
 # Combination of chars used to separate the lines in the AUTH header
@@ -47,6 +51,13 @@ HTML_ERROR_TEMPLATE = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
     </body>
 </html>
 """
+
+
+security = APIKeyHeader(
+    name="Authorization",
+    auto_error=False,
+    description="IM Authentication header"
+)
 
 
 def get_media_type(request: Request, header: str) -> List[str]:
@@ -69,7 +80,7 @@ def get_media_type(request: Request, header: str) -> List[str]:
     return res
 
 
-def get_auth_header(request: Request, authorization: Optional[str] = Header(None)):
+def get_auth_header(request: Request, credentials: Optional[str] = Security(security)) -> Authentication:
     """
     Get the Authentication object from the AUTHORIZATION header
     replacing the new line chars.
@@ -79,20 +90,20 @@ def get_auth_header(request: Request, authorization: Optional[str] = Header(None
     if not RESTServer.REST_URL:
         RESTServer.REST_URL = str(request.base_url)
 
-    if not authorization:
+    if not credentials:
         raise HTTPException(status_code=401, detail="No authentication data provided")
 
     user_pass = None
     token = None
     im_auth = {}
-    if authorization.startswith("Basic "):
-        auth_data = base64.b64decode(authorization[6:]).decode('utf-8')
+    if credentials.startswith("Basic "):
+        auth_data = base64.b64decode(credentials[6:]).decode('utf-8')
         user_pass = auth_data.split(":")
         im_auth = {"type": "InfrastructureManager",
                    "username": user_pass[0],
                    "password": user_pass[1]}
-    elif authorization.startswith("Bearer "):
-        token = authorization[7:].strip()
+    elif credentials.startswith("Bearer "):
+        token = credentials[7:].strip()
         im_auth = {"type": "InfrastructureManager",
                    "token": token}
 
@@ -129,7 +140,7 @@ def get_auth_header(request: Request, authorization: Optional[str] = Header(None
             vault_auth["role"] = Config.VAULT_ROLE
         return Authentication([im_auth, vault_auth])
 
-    auth_data = authorization.replace(AUTH_NEW_LINE_SEPARATOR, "\n")
+    auth_data = credentials.replace(AUTH_NEW_LINE_SEPARATOR, "\n")
     auth_data = auth_data.split(AUTH_LINE_SEPARATOR)
     return Authentication(Authentication.read_auth_data(auth_data))
 
@@ -218,3 +229,25 @@ def return_error(request: Request, code: int, msg: str):
         )
     else:
         return PlainTextResponse(content=msg, status_code=code)
+
+
+async def parse_deployment(request: Request) -> Deployment:
+    """Parse the body of the request to get the RADL and TOSCA data"""
+    content_type = get_media_type(request, "Content-Type")
+    raw = (await request.body()).decode("utf-8")
+    tosca_data = None
+
+    if not content_type:
+        content_type = "text/plain"
+
+    if "application/json" in content_type:
+        radl_data = parse_radl_json(raw)
+    elif any(mt in content_type for mt in ("text/yaml", "text/x-yaml", "application/yaml")):
+        tosca_data = Tosca(raw)
+        _, radl_data = tosca_data.to_radl()
+    elif any(mt in content_type for mt in ("text/plain", "*/*", "text/*")):
+        radl_data = parse_radl(raw)
+    else:
+        raise HTTPException(status_code=415, detail=f"Unsupported Media Type {content_type}")
+
+    return Deployment(radl_data=radl_data, tosca_data=tosca_data)

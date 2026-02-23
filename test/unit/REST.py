@@ -208,11 +208,11 @@ class TestREST(unittest.TestCase):
                                      "username = user; password = pass")}
         CreateInfrastructure.return_value = "1"
 
-        res = self.client.post('/infrastructures', headers=headers, data=BytesIO(b"radl"))
+        res = self.client.post('/infrastructures', headers=headers, data=BytesIO(b"system node()"))
         self.assertEqual(res.text, "http://testserver/infrastructures/1")
         self.assertEqual(res.headers['InfID'], "1")
 
-        res = self.client.post('/infrastructures?async=yes', headers=headers, data=BytesIO(b"radl"))
+        res = self.client.post('/infrastructures?async=yes', headers=headers, data=BytesIO(b"system node()"))
         self.assertEqual(res.text, "http://testserver/infrastructures/1")
 
         headers["Content-Type"] = "application/json"
@@ -255,7 +255,7 @@ class TestREST(unittest.TestCase):
 
         CreateInfrastructure.return_value = "1"
 
-        res = self.client.post('/infrastructures', headers=headers, data=BytesIO(b"radl"))
+        res = self.client.post('/infrastructures', headers=headers, data=BytesIO(b"system node()"))
         self.assertEqual(res.json()['code'], 415)
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMInfo")
@@ -342,7 +342,7 @@ class TestREST(unittest.TestCase):
 
         AddResource.return_value = "1"
 
-        res = self.client.post('/infrastructures/1?context=yes', headers=headers, data=BytesIO(b"radl"))
+        res = self.client.post('/infrastructures/1?context=yes', headers=headers, data=BytesIO(b"system node()"))
         self.assertEqual(res.text, "http://testserver/infrastructures/1/vms/1")
         self.assertEqual(res.headers['InfID'], "1")
 
@@ -413,7 +413,7 @@ class TestREST(unittest.TestCase):
 
         AlterVM.return_value = "vm_info"
 
-        res = self.client.put('/infrastructures/1/vms/1?context=yes', headers=headers, data=BytesIO(b"radl"))
+        res = self.client.put('/infrastructures/1/vms/1?context=yes', headers=headers, data=BytesIO(b"system node()"))
         self.assertEqual(res.text, "vm_info")
 
         headers["Content-Type"] = "text/yaml"
@@ -460,7 +460,8 @@ class TestREST(unittest.TestCase):
 
         Reconfigure.return_value = ""
 
-        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2', headers=headers, data=BytesIO(b"radl"))
+        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
+                              headers=headers, data=BytesIO(b"system node()"))
         self.assertEqual(res.text, "")
         self.assertEqual(res.headers['InfID'], "1")
 

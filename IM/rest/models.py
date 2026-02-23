@@ -16,6 +16,8 @@
 
 from typing import Literal
 from pydantic import BaseModel, Field, HttpUrl
+from radl.radl import RADL
+from IM.tosca.Tosca import Tosca
 
 
 State = Literal["pending", "running", "configured", "unconfigured", "stopped",
@@ -44,3 +46,11 @@ class UriList(BaseModel):
     uri_list: list[Uri] = Field(..., alias="uri-list")
 
     model_config = {"populate_by_name": True}
+
+
+class Deployment(BaseModel):
+    """Class to represent a deployment"""
+    radl_data: RADL | None = None
+    tosca_data: Tosca | None = None
+
+    model_config = {"arbitrary_types_allowed": True}

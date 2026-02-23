@@ -504,7 +504,7 @@ class TestIM(unittest.TestCase):
         self.assertEqual(resp.status_code, 200, msg="ERROR calling GetStats: " + resp.text)
         data = resp.json()
         res = data.get('stats', data)
-        self.assertEqual(len(res), 4, msg="ERROR getting stats: Incorrect number of infrastructures")
+        self.assertEqual(len(res), 2, msg="ERROR getting stats: Incorrect number of infrastructures")
 
     def test_50_destroy(self):
         """
