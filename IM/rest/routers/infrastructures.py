@@ -226,14 +226,18 @@ async def get_infrastructure_property(
 ):
     """Get infrastructure property"""
     try:
+        accept = None
         if prop == "contmsg":
             res = InfrastructureManager.GetInfrastructureContMsg(infid, auth, headeronly)
         elif prop == "radl":
             res = InfrastructureManager.GetInfrastructureRADL(infid, auth)
-        elif prop == "tosca":
+        else:
+            # For other properties, application/json is the only supported media type
             accept = get_media_type(request, 'Accept')
             if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
                 raise HTTPException(status_code=415, detail="Unsupported Accept Media Types: %s" % accept)
+
+        if prop == "tosca":
             auth_checked = InfrastructureManager.check_auth_data(auth)
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
             if "TOSCA" in sel_inf.extra_info:
@@ -242,15 +246,9 @@ async def get_infrastructure_property(
                 raise HTTPException(status_code=403,
                                     detail="'tosca' infrastructure property is not valid in this infrastructure")
         elif prop == "state":
-            accept = get_media_type(request, 'Accept')
-            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
-                raise HTTPException(status_code=415, detail="Unsupported Accept Media Types: %s" % accept)
             res = InfrastructureManager.GetInfrastructureState(infid, auth)
             return format_output(request, res, default_type="application/json", field_name="state")
         elif prop == "outputs":
-            accept = get_media_type(request, 'Accept')
-            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
-                raise HTTPException(status_code=415, detail="Unsupported Accept Media Types: %s" % accept)
             auth_checked = InfrastructureManager.check_auth_data(auth)
             sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
             if "TOSCA" in sel_inf.extra_info:
@@ -260,9 +258,6 @@ async def get_infrastructure_property(
                                     detail="'outputs' infrastructure property is not valid in this infrastructure")
             return format_output(request, res, default_type="application/json", field_name="outputs")
         elif prop == "data":
-            accept = get_media_type(request, 'Accept')
-            if accept and "application/json" not in accept and "*/*" not in accept and "application/*" not in accept:
-                raise HTTPException(status_code=415, detail="Unsupported Accept Media Types: %s" % accept)
             data = InfrastructureManager.ExportInfrastructure(infid, delete, auth)
             return format_output(request, data, default_type="application/json", field_name="data")
         elif prop == "authorization":
@@ -380,26 +375,23 @@ async def reconfigure_infrastructure(
         if vm_list:
             try:
                 vm_list_parsed = [int(vm_id) for vm_id in vm_list.split(",")]
-            except Exception:
-                raise HTTPException(status_code=400, detail="Incorrect vm_list format.")
+            except Exception as ex:
+                raise HTTPException(status_code=400, detail="Incorrect vm_list format.") from ex
 
         content_type = get_media_type(request, 'Content-Type')
         body = await request.body()
         radl_data = body.decode("utf-8") if body else ""
 
-        if radl_data:
-            if content_type:
-                if "application/json" in content_type:
-                    radl_data = parse_radl_json(radl_data)
-                elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
-                    tosca_data = Tosca(radl_data)
-                    _, radl_data = tosca_data.to_radl()
-                elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
-                    pass
-                else:
-                    raise HTTPException(status_code=415, detail="Unsupported Media Type %s" % content_type)
-        else:
-            radl_data = ""
+        if content_type:
+            if "application/json" in content_type:
+                radl_data = parse_radl_json(radl_data)
+            elif "text/yaml" in content_type or "text/x-yaml" in content_type or "application/yaml" in content_type:
+                tosca_data = Tosca(radl_data)
+                _, radl_data = tosca_data.to_radl()
+            elif "text/plain" in content_type or "*/*" in content_type or "text/*" in content_type:
+                pass
+            else:
+                raise HTTPException(status_code=415, detail="Unsupported Media Type %s" % content_type)
 
         res = InfrastructureManager.Reconfigure(infid, radl_data, auth, vm_list_parsed)
         # As we have to reconfigure the infra, return the ID for the HAProxy stickiness
