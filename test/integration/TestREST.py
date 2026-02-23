@@ -491,18 +491,18 @@ class TestIM(unittest.TestCase):
         """
         resp = self.create_request("GET", "/infrastructures/%s/data?delete=true" % self.inf_id)
         self.assertEqual(resp.status_code, 200, msg="ERROR calling ExportInfrastructure: " + resp.text)
-        inf_data = resp.text
+        inf_data = resp.json()
 
         resp = self.create_request("PUT", "/infrastructures",
                                    headers={'AUTHORIZATION': self.auth_data,
                                             'Content-Type': 'application/json'},
-                                   body=inf_data)
+                                   body=inf_data["data"])
         self.assertEqual(resp.status_code, 200, msg="ERROR calling ImportInfrastructure: " + resp.text)
 
     def test_45_stats(self):
         resp = self.create_request("GET", "/stats")
         self.assertEqual(resp.status_code, 200, msg="ERROR calling GetStats: " + resp.text)
-        data = json.loads(resp.text)
+        data = resp.json()
         res = data.get('stats', data)
         self.assertEqual(len(res), 4, msg="ERROR getting stats: Incorrect number of infrastructures")
 
