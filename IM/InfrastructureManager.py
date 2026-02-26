@@ -1365,6 +1365,7 @@ class InfrastructureManager:
         token = im_auth["token"]
         success = False
         issuer = None
+        userinfo = None
         try:
             # decode the token to get the info
             decoded_token = JWT().get_info(token)
@@ -1372,10 +1373,30 @@ class InfrastructureManager:
             InfrastructureManager.logger.exception("Error trying decode OIDC auth token: %s" % str(ex))
             raise Exception("Error trying to decode OIDC auth token: %s" % str(ex))
 
-        # First check if the issuer is in valid
-        if decoded_token['iss'] not in Config.OIDC_ISSUERS:
-            InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
-            raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
+        # Now check if the token is not expired
+        expired, msg = OpenIDClient.is_access_token_expired(token)
+        if expired:
+            InfrastructureManager.logger.error("OIDC auth %s." % msg)
+            raise InvaliddUserException("Invalid InfrastructureManager credentials. OIDC auth %s." % msg)
+
+        if Config.OIDC_CLIENT_ID and Config.OIDC_CLIENT_SECRET and len(Config.OIDC_ISSUERS) == 1:
+            success, decoded_token = OpenIDClient.get_token_introspection(token,
+                                                                          Config.OIDC_ISSUERS[0],
+                                                                          Config.OIDC_CLIENT_ID,
+                                                                          Config.OIDC_CLIENT_SECRET,
+                                                                          Config.VERIFI_SSL)
+            if not success or not decoded_token.get("active", False):
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. Invalid token or Client credentials.")
+        else:
+            # In this case check if the issuer is in the accepted ones
+            if decoded_token['iss'] not in Config.OIDC_ISSUERS:
+                InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
+            
+            # Now try to get user info
+            success, userinfo = OpenIDClient.get_user_info_request(token, Config.VERIFI_SSL)
+            if not success:
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
 
         # Now check the audience
         if Config.OIDC_AUDIENCE:
@@ -1394,65 +1415,47 @@ class InfrastructureManager:
                 InfrastructureManager.logger.error("Audience %s not found in access token." % Config.OIDC_AUDIENCE)
                 raise InvaliddUserException("Invalid InfrastructureManager credentials. Audience not accepted.")
 
-        if Config.OIDC_SCOPES and Config.OIDC_CLIENT_ID and Config.OIDC_CLIENT_SECRET:
-            OpenIDClient.INSTROSPECT_PATH = Config.OIDC_INSTROSPECT_PATH
-            success, res = OpenIDClient.get_token_introspection(token,
-                                                                Config.OIDC_CLIENT_ID,
-                                                                Config.OIDC_CLIENT_SECRET,
-                                                                Config.VERIFI_SSL)
-            if not success:
+        if Config.OIDC_SCOPES:
+            if not decoded_token.get("scope"):
                 raise InvaliddUserException("Invalid InfrastructureManager credentials. "
-                                            "Invalid token or Client credentials.")
+                                            "No scope obtained from introspection.")
             else:
-                if not res["scope"]:
-                    raise InvaliddUserException("Invalid InfrastructureManager credentials. "
-                                                "No scope obtained from introspection.")
-                else:
-                    scopes = res["scope"].split(" ")
-                    if not all([elem in scopes for elem in Config.OIDC_SCOPES]):
-                        raise InvaliddUserException("Invalid InfrastructureManager credentials. Scopes %s "
-                                                    "not in introspection scopes: %s" % (" ".join(Config.OIDC_SCOPES),
-                                                                                         res["scope"]))
+                scopes = decoded_token["scope"].split(" ")
+                if not all([elem in scopes for elem in Config.OIDC_SCOPES]):
+                    raise InvaliddUserException("Invalid InfrastructureManager credentials. Scopes %s "
+                                                "not in introspection scopes: %s" % (" ".join(Config.OIDC_SCOPES),
+                                                                                        decoded_token["scope"]))
 
-        # Now check if the token is not expired
-        expired, msg = OpenIDClient.is_access_token_expired(token)
-        if expired:
-            InfrastructureManager.logger.error("OIDC auth %s." % msg)
-            raise InvaliddUserException("Invalid InfrastructureManager credentials. OIDC auth %s." % msg)
+        if Config.OIDC_GROUPS:
+            # Get user groups from any of the possible fields
+            user_groups = decoded_token.get(Config.OIDC_GROUPS_CLAIM,
+                                            userinfo.get(Config.OIDC_GROUPS_CLAIM, []))
 
-        try:
-            # Now try to get user info
-            OpenIDClient.USER_INFO_PATH = Config.OIDC_USER_INFO_PATH
-            success, userinfo = OpenIDClient.get_user_info_request(token, Config.VERIFI_SSL)
-            if success:
-                # convert to username to use it in the rest of the IM
-                im_auth['username'] = IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX
-                if userinfo.get("preferred_username"):
-                    im_auth['username'] += str(userinfo.get("preferred_username"))
-                elif userinfo.get("name"):
-                    im_auth['username'] += str(userinfo.get("name"))
-                else:
-                    im_auth['username'] += str(userinfo.get("sub"))
-                issuer = str(decoded_token['iss'])
-                if not issuer.endswith('/'):
-                    issuer += '/'
-                im_auth['password'] = issuer + str(userinfo.get("sub"))
+            if not set(Config.OIDC_GROUPS).issubset(user_groups):
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. " +
+                                            "User not in configured groups.")
 
-                if Config.OIDC_GROUPS:
-                    # Get user groups from any of the possible fields
-                    user_groups = userinfo.get(Config.OIDC_GROUPS_CLAIM, [])
+        username = str(decoded_token.get("username", decoded_token.get("sub")))
 
-                    if not set(Config.OIDC_GROUPS).issubset(user_groups):
-                        raise InvaliddUserException("Invalid InfrastructureManager credentials. " +
-                                                    "User not in configured groups.")
+        if not userinfo:
+            try:
+                # Now try to get user info
+                success, userinfo = OpenIDClient.get_user_info_request(token, Config.VERIFI_SSL)
+            except Exception as ex:
+                InfrastructureManager.logger.warning("Error trying to get user info from OIDC auth token: %s" % str(ex))
 
-        except Exception as ex:
-            InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
-            raise Exception("Error trying to validate OIDC auth token: %s" % str(ex))
+        if userinfo:
+            # convert to username to use it in the rest of the IM
+            username = str(userinfo.get("preferred_username",
+                                                    userinfo.get("name",
+                                                                 userinfo.get("sub"))))
 
-        if not success:
-            InfrastructureManager.logger.error("Incorrect OIDC auth token: %s" % userinfo)
-            raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
+        im_auth['username'] = IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX
+        im_auth['username'] += username
+        issuer = str(decoded_token['iss'])
+        if not issuer.endswith('/'):
+            issuer += '/'
+        im_auth['password'] = issuer + str(decoded_token.get("sub"))
 
         if admin_users:
             for admin_auth in admin_users:
@@ -1462,7 +1465,8 @@ class InfrastructureManager:
                     break
 
         if Config.OIDC_ADMIN_GROUPS:
-            user_groups = userinfo.get(Config.OIDC_GROUPS_CLAIM, [])
+            user_groups = decoded_token.get(Config.OIDC_GROUPS_CLAIM,
+                                            userinfo.get(Config.OIDC_GROUPS_CLAIM, []))
             for elem in Config.OIDC_ADMIN_GROUPS:
                 if elem['issuer'] == issuer and elem['group'] in user_groups:
                     im_auth['admin'] = True

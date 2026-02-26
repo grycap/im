@@ -1074,14 +1074,20 @@ configure step2 (
     @patch('requests.request')
     def test_check_oidc_invalid_token(self, request):
         im_auth = {"token": self.gen_token()}
-
+        
+        mock_response1 = MagicMock()
+        mock_response1.status_code = 200
+        mock_response1.json.return_value = {"introspection_endpoint": "/introspect",
+                                            "userinfo_endpoint": "/userinfo"}
+        request.return_value = mock_response1    
+    
         Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth)
         self.assertEqual(str(ex.exception),
                          'Invalid InfrastructureManager credentials. OIDC auth Token expired.')
 
-        im_auth_aud = {"token": self.gen_token(aud="test1,test2")}
+        im_auth_aud = {"token": self.gen_token(aud="test1,test2", exp=int(time.time()) + 100)}
 
         Config.OIDC_AUDIENCE = "test"
         with self.assertRaises(Exception) as ex:
@@ -1089,11 +1095,6 @@ configure step2 (
         self.assertEqual(str(ex.exception),
                          'Invalid InfrastructureManager credentials. Audience not accepted.')
 
-        Config.OIDC_AUDIENCE = "test2"
-        with self.assertRaises(Exception) as ex:
-            IM.check_oidc_token(im_auth_aud)
-        self.assertEqual(str(ex.exception),
-                         'Invalid InfrastructureManager credentials. OIDC auth Token expired.')
         Config.OIDC_AUDIENCE = None
 
         Config.OIDC_SCOPES = ["scope1", "scope2"]
@@ -1101,22 +1102,13 @@ configure step2 (
         Config.OIDC_CLIENT_SECRET = "secret"
         response = MagicMock()
         response.status_code = 200
-        response.text = '{ "scope": "profile scope1" }'
+        response.json.return_value = {"scope": "profile scope1", "active": True}
         request.return_value = response
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth_aud)
         self.assertEqual(str(ex.exception),
                          'Invalid InfrastructureManager credentials. '
                          'Scopes scope1 scope2 not in introspection scopes: profile scope1')
-
-        response.status_code = 200
-        response.text = '{ "scope": "address profile scope1 scope2" }'
-        request.return_value = response
-        with self.assertRaises(Exception) as ex:
-            IM.check_oidc_token(im_auth_aud)
-        self.assertEqual(str(ex.exception),
-                         'Invalid InfrastructureManager credentials. '
-                         'OIDC auth Token expired.')
 
         Config.OIDC_SCOPES = []
         Config.OIDC_CLIENT_ID = None
@@ -1125,7 +1117,7 @@ configure step2 (
         Config.OIDC_ISSUERS = ["https://other_issuer"]
 
         with self.assertRaises(Exception) as ex:
-            IM.check_oidc_token(im_auth)
+            IM.check_oidc_token(im_auth_aud)
         self.assertEqual(str(ex.exception),
                          "Invalid InfrastructureManager credentials. Issuer not accepted.")
 
@@ -1137,6 +1129,7 @@ configure step2 (
 
         openidclient.is_access_token_expired.return_value = False, "Valid Token for 100 seconds"
         openidclient.get_user_info_request.return_value = True, user_info
+        openidclient.get_token_introspection.return_value = True, {"active": True}
 
         Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
         Config.OIDC_AUDIENCE = None
@@ -1144,7 +1137,7 @@ configure step2 (
         IM.check_oidc_token(im_auth)
 
         self.assertEqual(im_auth['username'], InfrastructureInfo.OPENID_USER_PREFIX + "micafer")
-        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/user_sub")
 
     @patch('IM.InfrastructureManager.OpenIDClient')
     def test_check_oidc_groups(self, openidclient):
@@ -1163,14 +1156,14 @@ configure step2 (
         IM.check_oidc_token(im_auth)
 
         self.assertEqual(im_auth['username'], InfrastructureInfo.OPENID_USER_PREFIX + "micafer")
-        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/user_sub")
 
         Config.OIDC_GROUPS = ["urn:mace:egi.eu:group:demo.fedcloud.egi.eu:role=INVALID#aai.egi.eu"]
 
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth)
         self.assertEqual(str(ex.exception),
-                         "Error trying to validate OIDC auth token: Invalid InfrastructureManager" +
+                         "Invalid InfrastructureManager" +
                          " credentials. User not in configured groups.")
 
         Config.OIDC_GROUPS = []

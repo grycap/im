@@ -54,24 +54,26 @@ class OpenIDClient(object):
             resp = requests.request("GET", conf["userinfo_endpoint"], verify=verify_ssl, headers=headers)
             if resp.status_code != 200:
                 return False, "Code: %d. Message: %s." % (resp.status_code, resp.text)
-            return True, json.loads(resp.text)
+            return True, resp.json()
         except Exception as ex:
             return False, str(ex)
 
     @staticmethod
-    def get_token_introspection(token, client_id, client_secret, verify_ssl=False):
+    def get_token_introspection(token, issuer, client_id, client_secret, verify_ssl=False):
         """
         Get token introspection
         """
         try:
-            decoded_token = JWT().get_info(token)
-            conf = OpenIDClient.get_openid_configuration(decoded_token['iss'], verify_ssl=False)
+            if not issuer:
+                decoded_token = JWT().get_info(token)
+                issuer = decoded_token['iss']
+            conf = OpenIDClient.get_openid_configuration(issuer, verify_ssl=verify_ssl)
             url = "%s?token=%s&token_type_hint=access_token" % (conf["introspection_endpoint"], token)
             resp = requests.request("GET", url, verify=verify_ssl,
                                     auth=requests.auth.HTTPBasicAuth(client_id, client_secret))
             if resp.status_code != 200:
                 return False, "Code: %d. Message: %s." % (resp.status_code, resp.text)
-            return True, json.loads(resp.text)
+            return True, resp.json()
         except Exception as ex:
             return False, str(ex)
 

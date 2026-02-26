@@ -58,7 +58,7 @@ class TestOpenIDClient(unittest.TestCase):
         mock_response2 = MagicMock()
         mock_response2.status_code = 200
         user_info = read_file_as_string('../files/iam_user_info.json')
-        mock_response2.text = user_info
+        mock_response2.json.return_value = json.loads(user_info)
         requests.side_effect = [mock_response1, mock_response2]
 
         success, user_info_resp = OpenIDClient.get_user_info_request(self.token)
@@ -71,13 +71,17 @@ class TestOpenIDClient(unittest.TestCase):
 
     @patch('requests.request')
     def test_20_get_token_introspection(self, requests):
+        mock_response1 = MagicMock()
+        mock_response1.status_code = 200
+        mock_response1.json.return_value = {"introspection_endpoint": "/introspect",
+                                            "userinfo_endpoint": "/userinfo"}
         mock_response2 = MagicMock()
         mock_response2.status_code = 200
         token_info = read_file_as_string('../files/iam_token_info.json')
-        mock_response2.text = token_info
-        requests.side_effect = [mock_response2]
+        mock_response2.json.return_value = json.loads(token_info)
+        requests.side_effect = [mock_response1, mock_response2]
 
-        success, token_info_resp = OpenIDClient.get_token_introspection(self.token, "cid", "csec")
+        success, token_info_resp = OpenIDClient.get_token_introspection(self.token, None, "cid", "csec")
 
         self.assertTrue(success)
         self.assertEqual(json.loads(token_info), token_info_resp)

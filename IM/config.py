@@ -104,8 +104,6 @@ class Config:
     OIDC_CLIENT_ID = None
     OIDC_CLIENT_SECRET = None
     OIDC_SCOPES = []
-    OIDC_USER_INFO_PATH = "/userinfo"
-    OIDC_INSTROSPECT_PATH = "/introspect"
     OIDC_GROUPS = []
     OIDC_GROUPS_CLAIM = "groups"
     VM_NUM_USE_CTXT_DIST = 30
