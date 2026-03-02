@@ -17,6 +17,7 @@
 Class to contact with an OpenID server
 '''
 import requests
+import requests.auth
 import time
 from .JWT import JWT
 
