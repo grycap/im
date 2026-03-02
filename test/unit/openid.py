@@ -60,6 +60,7 @@ class TestOpenIDClient(unittest.TestCase):
         user_info = read_file_as_string('../files/iam_user_info.json')
         mock_response2.json.return_value = json.loads(user_info)
         requests.side_effect = [mock_response1, mock_response2]
+        OpenIDClient.ISSUER_CONFIG_CACHE = {}
 
         success, user_info_resp = OpenIDClient.get_user_info_request(self.token)
 
@@ -80,6 +81,7 @@ class TestOpenIDClient(unittest.TestCase):
         token_info = read_file_as_string('../files/iam_token_info.json')
         mock_response2.json.return_value = json.loads(token_info)
         requests.side_effect = [mock_response1, mock_response2]
+        OpenIDClient.ISSUER_CONFIG_CACHE = {}
 
         success, token_info_resp = OpenIDClient.get_token_introspection(self.token, None, "cid", "csec")
 
