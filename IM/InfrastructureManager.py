@@ -1371,6 +1371,7 @@ class InfrastructureManager:
             decoded_token = JWT().get_info(token)
         except Exception as ex:
             InfrastructureManager.logger.exception("Error trying decode OIDC auth token: %s" % str(ex))
+            InfrastructureManager.logger.debug("Token: %s" % token)
             raise Exception("Error trying to decode OIDC auth token: %s" % str(ex))
 
         # Now check if the token is not expired
