@@ -1074,13 +1074,13 @@ configure step2 (
     @patch('requests.request')
     def test_check_oidc_invalid_token(self, request):
         im_auth = {"token": self.gen_token()}
-        
+
         mock_response1 = MagicMock()
         mock_response1.status_code = 200
         mock_response1.json.return_value = {"introspection_endpoint": "/introspect",
                                             "userinfo_endpoint": "/userinfo"}
-        request.return_value = mock_response1    
-    
+        request.return_value = mock_response1
+
         Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth)

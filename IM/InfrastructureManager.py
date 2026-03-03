@@ -1386,13 +1386,14 @@ class InfrastructureManager:
                                                                           Config.OIDC_CLIENT_SECRET,
                                                                           Config.VERIFI_SSL)
             if not success or not decoded_token.get("active", False):
-                raise InvaliddUserException("Invalid InfrastructureManager credentials. Invalid token or Client credentials.")
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. "
+                                            "Invalid token or Client credentials.")
         else:
             # In this case check if the issuer is in the accepted ones
             if decoded_token['iss'] not in Config.OIDC_ISSUERS:
                 InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
                 raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
-            
+
             # Now try to get user info
             success, userinfo = OpenIDClient.get_user_info_request(token, Config.VERIFI_SSL)
             if not success:
@@ -1424,7 +1425,7 @@ class InfrastructureManager:
                 if not all([elem in scopes for elem in Config.OIDC_SCOPES]):
                     raise InvaliddUserException("Invalid InfrastructureManager credentials. Scopes %s "
                                                 "not in introspection scopes: %s" % (" ".join(Config.OIDC_SCOPES),
-                                                                                        decoded_token["scope"]))
+                                                                                     decoded_token["scope"]))
 
         if Config.OIDC_GROUPS:
             # Get user groups from any of the possible fields
@@ -1447,8 +1448,8 @@ class InfrastructureManager:
         if userinfo:
             # convert to username to use it in the rest of the IM
             username = str(userinfo.get("preferred_username",
-                                                    userinfo.get("name",
-                                                                 userinfo.get("sub"))))
+                                        userinfo.get("name",
+                                                     userinfo.get("sub"))))
 
         im_auth['username'] = IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX
         im_auth['username'] += username
