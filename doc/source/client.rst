@@ -65,11 +65,6 @@ The :program:`im_client` is called like this::
    $ im_client [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
 
 .. program:: im_client
-
-.. option:: -u|--xmlrpc-url url
-
-   URL to the XML-RPC service.
-   This option or the ` -r` one must be specified.
    
 .. option:: -r|--rest-url url
 
