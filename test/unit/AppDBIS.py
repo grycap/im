@@ -1,10 +1,7 @@
 import unittest
 import json
 import os
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.AppDBIS import AppDBIS
 from radl.radl import system, Feature
 from mock import patch, MagicMock
