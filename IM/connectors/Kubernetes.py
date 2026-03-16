@@ -692,8 +692,11 @@ class KubernetesCloudConnector(CloudConnector):
             pod_limits = output['spec']['containers'][0].get('resources', {}).get('limits')
             if pod_limits:
                 vm.info.systems[0].setValue('cpu.count', self._get_float_cpu(pod_limits['cpu']))
-                memory = self.convert_memory_unit(pod_limits['memory'], "B")
-                vm.info.systems[0].setValue('memory.size', memory)
+                try:
+                    memory = self.convert_memory_unit(pod_limits['memory'], "B")
+                    vm.info.systems[0].setValue('memory.size', memory)
+                except ValueError:
+                    self.log_exception("Error converting memory unit")
 
             vm.info.systems[0].setValue('disk.0.image.url', output['spec']['containers'][0]['image'])
 
@@ -1026,5 +1029,9 @@ class KubernetesCloudConnector(CloudConnector):
         if value == '0':
             value = 0
         else:
-            value = self.convert_memory_unit(value, "Gi")
+            try:
+                value = self.convert_memory_unit(value, "Gi")
+            except ValueError:
+                self.log_warn(f"Unknown quota value format: {value}. Setting it to -1.")
+                value = -1
         return value
