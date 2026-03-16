@@ -949,12 +949,11 @@ class KubernetesCloudConnector(CloudConnector):
     def _get_quota_value(self, value):
         if value is None:
             return -1
-        if value == '0':
-            value = 0
-        else:
-            try:
-                value = self.convert_memory_unit(value, "Gi")
-            except ValueError:
-                self.log_warn(f"Unknown quota value format: {value}. Setting it to -1.")
-                value = -1
+        if value.isdigit():
+            value = f'{value}B'
+        try:
+            value = self.convert_memory_unit(value, "Gi")
+        except ValueError:
+            self.log_warn(f"Unknown quota value format: {value}. Setting it to -1.")
+            value = -1
         return value
