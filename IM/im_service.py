@@ -26,11 +26,10 @@ import time
 import argparse
 import psutil
 
-from IM.request import Request, AsyncXMLRPCServer, get_system_queue
 from IM.config import Config
 from IM.InfrastructureManager import InfrastructureManager
 from IM.InfrastructureList import InfrastructureList
-from IM.ServiceRequests import IMBaseRequest
+from IM.rest.REST import RESTServer
 from IM import __version__ as version
 
 
@@ -48,191 +47,7 @@ class ExtraInfoFilter(logging.Filter):
         return True
 
 
-def WaitRequest(request):
-    """
-    Wait for the specified request
-    """
-    request.wait()
-    success = (request.status() == Request.STATUS_PROCESSED)
-    return (success, request.get())
-
-# API functions.
-# They create the specified request and wait for it.
-
-
-def AddResource(inf_id, radl_data, auth_data, context=True):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.ADD_RESOURCE, (inf_id, radl_data, auth_data, context))
-    return WaitRequest(request)
-
-
-def RemoveResource(inf_id, vm_list, auth_data, context=True):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.REMOVE_RESOURCE, (inf_id, vm_list, auth_data, context))
-    return WaitRequest(request)
-
-
-def GetVMInfo(inf_id, vm_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_VM_INFO, (inf_id, vm_id, auth_data))
-    return WaitRequest(request)
-
-
-def GetVMProperty(inf_id, vm_id, property_name, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_VM_PROPERTY, (inf_id, vm_id, property_name, auth_data))
-    return WaitRequest(request)
-
-
-def AlterVM(inf_id, vm_id, radl, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.ALTER_VM, (inf_id, vm_id, radl, auth_data))
-    return WaitRequest(request)
-
-
-def GetInfrastructureInfo(inf_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_INFRASTRUCTURE_INFO, (inf_id, auth_data))
-    return WaitRequest(request)
-
-
-def StopInfrastructure(inf_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.STOP_INFRASTRUCTURE, (inf_id, auth_data))
-    return WaitRequest(request)
-
-
-def StartInfrastructure(inf_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.START_INFRASTRUCTURE, (inf_id, auth_data))
-    return WaitRequest(request)
-
-
-def DestroyInfrastructure(inf_id, auth_data, force=False, async_call=False):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.DESTROY_INFRASTRUCTURE, (inf_id, auth_data, force, async_call))
-    # This function take a lot of time in some connectors. We can make it
-    # async: return (True, "")
-    return WaitRequest(request)
-
-
-def CreateInfrastructure(radl_data, auth_data, async_call=False):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.CREATE_INFRASTRUCTURE, (radl_data, auth_data, async_call))
-    return WaitRequest(request)
-
-
-def GetInfrastructureList(auth_data, flt=None):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_INFRASTRUCTURE_LIST, (auth_data, flt))
-    return WaitRequest(request)
-
-
-def Reconfigure(inf_id, radl_data, auth_data, vm_list=None):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.RECONFIGURE, (inf_id, radl_data, auth_data, vm_list))
-    return WaitRequest(request)
-
-
-def ImportInfrastructure(str_inf, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.IMPORT_INFRASTRUCTURE, (str_inf, auth_data))
-    return WaitRequest(request)
-
-
-def ExportInfrastructure(inf_id, delete, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.EXPORT_INFRASTRUCTURE, (inf_id, delete, auth_data))
-    return WaitRequest(request)
-
-
-def GetInfrastructureRADL(inf_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_INFRASTRUCTURE_RADL, (inf_id, auth_data))
-    return WaitRequest(request)
-
-
-def GetVMContMsg(inf_id, vm_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_VM_CONT_MSG, (inf_id, vm_id, auth_data))
-    return WaitRequest(request)
-
-
-def GetInfrastructureContMsg(inf_id, auth_data, headeronly=False):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_INFRASTRUCTURE_CONT_MSG, (inf_id, auth_data, headeronly))
-    return WaitRequest(request)
-
-
-def StopVM(inf_id, vm_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.STOP_VM, (inf_id, vm_id, auth_data))
-    return WaitRequest(request)
-
-
-def StartVM(inf_id, vm_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.START_VM, (inf_id, vm_id, auth_data))
-    return WaitRequest(request)
-
-
-def RebootVM(inf_id, vm_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.REBOOT_VM, (inf_id, vm_id, auth_data))
-    return WaitRequest(request)
-
-
-def GetInfrastructureState(inf_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_INFRASTRUCTURE_STATE, (inf_id, auth_data))
-    return WaitRequest(request)
-
-
-def GetVersion():
-    request = IMBaseRequest.create_request(IMBaseRequest.GET_VERSION, None)
-    return WaitRequest(request)
-
-
-def CreateDiskSnapshot(inf_id, vm_id, disk_num, image_name, auto_delete, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.CREATE_DISK_SNAPSHOT, (inf_id, vm_id, disk_num, image_name, auto_delete, auth_data))
-    return WaitRequest(request)
-
-
-def GetCloudImageList(cloud_id, auth_data, filters=None):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_CLOUD_IMAGE_LIST, (cloud_id, auth_data, filters))
-    return WaitRequest(request)
-
-
-def GetCloudQuotas(cloud_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_CLOUD_QUOTAS, (cloud_id, auth_data))
-    return WaitRequest(request)
-
-
-def ChangeInfrastructureAuth(inf_id, new_auth_data, overwrite, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.CHANGE_INFRASTRUCTURE_AUTH, (inf_id, new_auth_data, overwrite, auth_data))
-    return WaitRequest(request)
-
-
-def GetInfrastructureOwners(inf_id, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_INFRASTRUCTURE_OWNERS, (inf_id, auth_data))
-    return WaitRequest(request)
-
-
-def EstimateResources(radl_data, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.ESTIMATE_RESOURCES, (radl_data, auth_data))
-    return WaitRequest(request)
-
-
-def GetStats(init_date, end_date, auth_data):
-    request = IMBaseRequest.create_request(
-        IMBaseRequest.GET_STATS, (init_date, end_date, auth_data))
-    return WaitRequest(request)
+rest_server = RESTServer(host=Config.REST_ADDRESS, port=Config.REST_PORT)
 
 
 def launch_daemon():
@@ -245,63 +60,8 @@ def launch_daemon():
 
     InfrastructureManager.logger.info('************ Start Infrastructure Manager daemon (v.%s) ************' % version)
 
-    if Config.ACTIVATE_REST:
-        # If specified launch the REST server
-        import IM.REST
-        if Config.ACTIVATE_XMLRPC:
-            IM.REST.run_in_thread(host=Config.REST_ADDRESS, port=Config.REST_PORT)
-        else:
-            IM.REST.run(host=Config.REST_ADDRESS, port=Config.REST_PORT)
-
-    if Config.ACTIVATE_XMLRPC:
-        if Config.XMLRCP_SSL:
-            # if specified launch the secure version
-            import ssl
-            from IM.request import AsyncSSLXMLRPCServer
-            server = AsyncSSLXMLRPCServer((Config.XMLRCP_ADDRESS, Config.XMLRCP_PORT),
-                                          keyfile=Config.XMLRCP_SSL_KEYFILE,
-                                          certfile=Config.XMLRCP_SSL_CERTFILE,
-                                          ca_certs=Config.XMLRCP_SSL_CA_CERTS,
-                                          cert_reqs=ssl.CERT_OPTIONAL)
-        else:
-            # otherwise the standard XML-RPC service
-            server = AsyncXMLRPCServer((Config.XMLRCP_ADDRESS, Config.XMLRCP_PORT))
-
-        # Register the API functions
-        server.register_function(CreateInfrastructure)
-        server.register_function(DestroyInfrastructure)
-        server.register_function(StartInfrastructure)
-        server.register_function(StopInfrastructure)
-        server.register_function(GetInfrastructureInfo)
-        server.register_function(GetVMInfo)
-        server.register_function(GetVMProperty)
-        server.register_function(AlterVM)
-        server.register_function(RemoveResource)
-        server.register_function(AddResource)
-        server.register_function(GetInfrastructureList)
-        server.register_function(Reconfigure)
-        server.register_function(ExportInfrastructure)
-        server.register_function(ImportInfrastructure)
-        server.register_function(GetInfrastructureRADL)
-        server.register_function(GetInfrastructureContMsg)
-        server.register_function(GetVMContMsg)
-        server.register_function(StartVM)
-        server.register_function(StopVM)
-        server.register_function(RebootVM)
-        server.register_function(GetInfrastructureState)
-        server.register_function(GetVersion)
-        server.register_function(CreateDiskSnapshot)
-        server.register_function(GetCloudImageList)
-        server.register_function(GetCloudQuotas)
-        server.register_function(ChangeInfrastructureAuth)
-        server.register_function(GetInfrastructureOwners)
-        server.register_function(EstimateResources)
-        server.register_function(GetStats)
-
-        # Launch the API XMLRPC thread
-        server.serve_forever_in_thread()
-        # Start the messages queue
-        get_system_queue().timed_process_loop(None, 1, exit_callback=im_stop)
+    # Launch the REST API server (FastAPI)
+    rest_server.run()
 
 
 def config_logging():
@@ -335,22 +95,22 @@ def config_logging():
         else:
             log_level = logging.WARN
 
-        logging.RootLogger.propagate = 0
+        logging.RootLogger.propagate = False
         logging.root.setLevel(logging.ERROR)
 
         log = logging.getLogger('ConfManager')
         log.setLevel(log_level)
-        log.propagate = 0
+        log.propagate = False
         log.addHandler(fileh)
 
         log = logging.getLogger('CloudConnector')
         log.setLevel(log_level)
-        log.propagate = 0
+        log.propagate = False
         log.addHandler(fileh)
 
         log = logging.getLogger('InfrastructureManager')
         log.setLevel(log_level)
-        log.propagate = 0
+        log.propagate = False
         log.addHandler(fileh)
 
     # Add the filter to add extra fields
@@ -371,10 +131,8 @@ def im_stop():
     Function to safely stop the service
     """
     try:
-        if Config.ACTIVATE_REST:
-            # we have to stop the REST server
-            import IM.REST
-            IM.REST.stop()
+        # Stop the REST API server
+        rest_server.stop()
 
         # Assure that the IM data are correctly saved
         InfrastructureManager.logger.info('Stopping Infrastructure Manager daemon...')
@@ -416,11 +174,11 @@ def kill_childs():
         os.kill(int(pid_str), signal.SIGKILL)
 
 
-def signal_int_handler(signal, frame):
+def signal_int_handler(signal_num, frame):
     """
     Callback function to catch the system signals
     """
-    print("Signal %s received. Exiting..." % signal)
+    print("Signal %s received. Exiting..." % signal_num)
     im_stop()
 
 

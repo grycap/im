@@ -40,10 +40,7 @@ except Exception as ex:
 from IM.connectors.LibCloud import LibCloudCloudConnector
 from IM.connectors.exceptions import NoCompatibleAuthData, NoAuthData, NoCorrectAuthData, CloudConnectorException
 from IM.config import Config
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from IM.FedcloudInfo import FedcloudInfo
