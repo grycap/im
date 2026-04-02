@@ -99,7 +99,7 @@
   ################### Install Ansible/pip requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
+      apt: name=python3-pip,wget,python3-setuptools,python3-venv,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
     - name: Yum install requisites RH 7/8 or Fedora
@@ -118,11 +118,11 @@
 
     - name: Set extra_args var
       set_fact:
-        extra_args: ''
+        extra_args: --prefer-binary
 
     - name: Set extra_args var in py3.11
       set_fact:
-        extra_args: --break-system-packages
+        extra_args: --prefer-binary --break-system-packages
       when: ansible_python_version is version('3.11', '>=')
 
     - name: Install virtualenv with pip
@@ -135,7 +135,7 @@
       command:
         cmd: python -m virtualenv --system-site-packages {{ VENV_PATH }}
         creates: "{{ VENV_PATH }}"
- 
+
     # Version over 21 does not work with python 3.6 or older
     - name: Upgrade pip in py3.6-
       pip:
@@ -164,16 +164,6 @@
         virtualenv: "{{ VENV_PATH }}"
       when: ansible_python_version is version('3.11', '<')
 
-    - name: Set extra_args var
-      set_fact:
-        extra_args: --prefer-binary
-
-    - name: Install psutil
-      pip:
-        name: psutil
-        virtualenv: "{{ VENV_PATH }}"
-        extra_args: "{{ extra_args }}"
-
     - name: Install cryptography & pyOpenSSL in py3.11-
       pip:
         name:
@@ -192,13 +182,16 @@
         extra_args: "{{ extra_args }}"
       when: ansible_python_version is version('3.11', '>=')
 
-    - name: Install pyyaml, wheel, paramiko and packaging
+    - name: Install common python dependencies with Pip
       pip:
         name:
+          - psutil
           - wheel
           - pyyaml
           - paramiko>=2.9.5
           - packaging
+          - jmespath
+          - scp
         virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
 
@@ -235,15 +228,7 @@
         extra_args: "{{ extra_args }}"
       when: ANSIBLE_VERSION == "latest"
 
-#################################### Now install scp, jmespath and pywinrm with pip  ##################################
-
-    - name: Install jmespath & scp with Pip
-      pip:
-        name:
-          - jmespath
-          - scp
-        virtualenv: "{{ VENV_PATH }}"
-        extra_args: "{{ extra_args }}"
+#################################### Now install pywinrm with pip  ##################################
 
     - name: Install pywinrm with Pip
       pip:
