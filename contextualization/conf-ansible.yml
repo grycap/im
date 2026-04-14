@@ -116,20 +116,18 @@
 
   ######################################### Use pip to enable to set the version #############################################
 
-    - name: Set extra_args var
-      set_fact:
-        extra_args: --prefer-binary
-
-    - name: Set extra_args var in py3.11
-      set_fact:
-        extra_args: --prefer-binary --break-system-packages
-      when: ansible_python_version is version('3.11', '>=')
-
-    - name: Install virtualenv with pip
+    - name: Install virtualenv with pip in python 3.11+
       pip:
         name: virtualenv
         executable: pip3
-        extra_args: "{{ extra_args }}"
+        extra_args: --break-system-packages
+      when: ansible_python_version is version('3.11', '>=')
+
+    - name: Install virtualenv with pip in python 3.10-
+      pip:
+        name: virtualenv
+        executable: pip3
+      when: ansible_python_version is version('3.11', '<')
 
     - name: Create Ansible virtualenv
       command:
@@ -163,6 +161,15 @@
         name: setuptools<66.0.0
         virtualenv: "{{ VENV_PATH }}"
       when: ansible_python_version is version('3.11', '<')
+
+    - name: Set extra_args var
+      set_fact:
+        extra_args: --prefer-binary
+
+    - name: Set extra_args var in py3.11
+      set_fact:
+        extra_args: --prefer-binary --break-system-packages
+      when: ansible_python_version is version('3.11', '>=')
 
     - name: Install cryptography & pyOpenSSL in py3.11-
       pip:
