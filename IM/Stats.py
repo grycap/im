@@ -48,8 +48,10 @@ class Stats():
         if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
             try:
                 tosca = yaml.safe_load(dic['extra_info']['TOSCA'])
-                icon = tosca.get("metadata", {}).get("icon", "")
-                resp['tosca_name'] = os.path.basename(icon)[:-4]
+                resp['tosca_name'] = tosca.get("metadata", {}).get("template_name", "")
+                if not resp['tosca_name']:
+                    icon = tosca.get("metadata", {}).get("icon", "")
+                    resp['tosca_name'] = os.path.basename(icon)[:-4]
             except Exception:
                 Stats.logger.exception("Error loading TOSCA.")
 
