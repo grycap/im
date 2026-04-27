@@ -17,19 +17,13 @@
 from defusedxml import xmlrpc
 xmlrpc.monkey_patch()
 
-try:
-    from xmlrpclib import ServerProxy  # nosec
-except ImportError:
-    from xmlrpc.client import ServerProxy  # nosec
+from xmlrpc.client import ServerProxy  # nosec
 
 import os.path
 import time
 from packaging.version import Version
 from IM.xmlobject import XMLObject
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException

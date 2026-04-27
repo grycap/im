@@ -518,7 +518,7 @@ class OAI():
         error_element = error_type
         root.append(error_element)
 
-    def processRequest(self, request, metadata_dict):
+    def processRequest(self, values, metadata_dict):
         root = self.baseXMLTree()
 
         attributes_dict = {
@@ -531,7 +531,7 @@ class OAI():
             'resumptionToken': 0,
         }
 
-        verb = request.values.get('verb')
+        verb = values.get('verb')
 
         if not verb:
             self.addError(root, Errors.badVerb())
@@ -539,7 +539,7 @@ class OAI():
 
         response_xml = None
 
-        for key in list(request.values.keys()):
+        for key in list(values.keys()):
             if key in attributes_dict:
                 attributes_dict[key] += 1
                 # Check for duplicate attributes
@@ -548,7 +548,7 @@ class OAI():
                     return etree.tostring(root, pretty_print=True, encoding='unicode')
 
         # Check for unknown attributes
-        unknown_attributes = [key for key in list(request.values.keys()) if key not in attributes_dict]
+        unknown_attributes = [key for key in list(values.keys()) if key not in attributes_dict]
 
         if unknown_attributes:
             self.addError(root, Errors.badArgument())
@@ -556,12 +556,12 @@ class OAI():
 
             return response_xml
 
-        metadata_prefix = request.values.get('metadataPrefix')
-        identifier = request.values.get('identifier')
-        from_date = request.values.get('from')
-        until_date = request.values.get('until')
-        set_spec = request.values.get('set')
-        resumption_token = request.values.get('resumptionToken')
+        metadata_prefix = values.get('metadataPrefix')
+        identifier = values.get('identifier')
+        from_date = values.get('from')
+        until_date = values.get('until')
+        set_spec = values.get('set')
+        resumption_token = values.get('resumptionToken')
 
         # Create a dictionary mapping verbs to functions
         verb_handlers = {

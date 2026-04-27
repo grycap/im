@@ -19,10 +19,7 @@
 import unittest
 import os
 from multiprocessing import Queue
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 from IM.ansible_utils.ansible_launcher import AnsibleThread
 
