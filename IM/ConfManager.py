@@ -1298,8 +1298,15 @@ class ConfManager(LoggerMixin, threading.Thread):
                     self.ansible_process.teminate()
                 except Exception:
                     self.log_exception('Problems terminating Ansible processes.')
+
+                msg = "Timeout waiting Ansible process to finish. "
+                try:
+                    _, return_code, output = result.get(timeout=10, block=False)
+                    msg += output.getvalue()
+                except Exception:
+                    self.log_exception('Error getting ansible results.')
                 self.ansible_process = None
-                return (False, "Timeout. Ansible process terminated.")
+                return (False, msg)
             else:
                 self.log_info('Waiting Ansible process to finish (%d/%d).' % (wait, Config.ANSIBLE_INSTALL_TIMEOUT))
                 time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
