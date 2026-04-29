@@ -38,3 +38,4 @@ requests-cache
 packaging
 lxml
 httpx
+pydantic
