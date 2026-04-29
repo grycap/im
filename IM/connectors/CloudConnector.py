@@ -809,6 +809,8 @@ class CloudConnector(LoggerMixin):
                      'G': 1000000000, 'Gi': 1073741824,
                      'T': 1000000000000, 'Ti': 1099511627776}
         regex = re.compile(r'([0-9.]+)\s*([a-zA-Z]+)')
+        if not regex.match(str(memory)):
+            raise ValueError("Invalid memory format.")
         result = regex.match(str(memory)).groups()
         value = float(result[0])
         orig_unit = result[1]

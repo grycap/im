@@ -11,7 +11,7 @@ Installation
 Prerequisites
 ^^^^^^^^^^^^^
 
-The :program:`im_client` needs at least Python 2.4 to run.
+The :program:`im_client` needs at least Python 3.7 to run.
 
 It is also required to install the RADL parser (`https://github.com/grycap/radl <https://github.com/grycap/radl>`_), 
 available in pip as the 'RADL' package. It is also required the Python Requests library (`http://docs.python-requests.org/ <http://docs.python-requests.org/>`_) 
@@ -43,14 +43,6 @@ You only have to call the install command of the pip tool with the IM-client pac
 
 	$ pip install IM-client
 
-From source
-+++++++++++
-
-Download de source code from the Github repo: `https://github.com/grycap/im-client/releases <https://github.com/grycap/im-client/releases>`_.
-Then you only need to install the tar-gziped file to any directoy::
-
-	$ tar xvzf IM-client-X.XX.tar.gz
-
 Configuration
 ^^^^^^^^^^^^^
 
@@ -59,8 +51,6 @@ in the current directory or a file ".im_client.cfg" in their home directory. In 
 user can specify the following parameters::
 
 	[im_client]
-	# only set one of the urls
-	#xmlrpc_url=http://localhost:8899
 	restapi_url=http://localhost:8800
 	auth_file=auth.dat
 	xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
@@ -72,14 +62,9 @@ Invocation
 
 The :program:`im_client` is called like this::
 
-   $ im_client.py [-u|--xmlrpc-url <url>] [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
+   $ im_client [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
 
 .. program:: im_client
-
-.. option:: -u|--xmlrpc-url url
-
-   URL to the XML-RPC service.
-   This option or the ` -r` one must be specified.
    
 .. option:: -r|--rest-url url
 
