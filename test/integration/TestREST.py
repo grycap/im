@@ -699,7 +699,7 @@ echo "Hello World" >> /tmp/data.txt
             resp = self.create_request("DELETE", "/infrastructures/%s" % inf_id)
             self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
 
-    def test_96_create(self):
+    def test_06_create(self):
         """
         Test the CreateInfrastructure IM function setting Ansible version
         """
