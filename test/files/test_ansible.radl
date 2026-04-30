@@ -13,7 +13,7 @@ configure node (
 @begin
 ---
  - tasks:
-     - fail: msg="Incorrect Ansible Version"
+     - fail: msg="Incorrect Ansible Version. Expected 2.8.19 but found {{  ansible_version.string }}"
        when: ansible_version.string != "2.8.19"
 
 @end

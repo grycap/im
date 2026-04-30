@@ -20,10 +20,7 @@ import os.path
 from IM.connectors.OpenStack import OpenStackCloudConnector
 from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from IM.VirtualMachine import VirtualMachine
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 try:
     from libcloud.compute.types import Provider

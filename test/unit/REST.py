@@ -25,6 +25,7 @@ from IM.InfrastructureInfo import InfrastructureInfo
 from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
 from radl.radl_parse import parse_radl
+from fastapi.testclient import TestClient
 
 sys.path.append("..")
 sys.path.append(".")
@@ -35,7 +36,7 @@ from IM.InfrastructureManager import (DeletedInfrastructureException,
                                       UnauthorizedUserException,
                                       InvaliddUserException)
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
-from IM.REST import app
+from IM.rest.REST import app
 from IM.config import Config
 import defusedxml.ElementTree as etree
 
@@ -53,7 +54,7 @@ class TestREST(unittest.TestCase):
         unittest.TestCase.__init__(self, *args)
 
     def setUp(self):
-        self.client = app.test_client()
+        self.client = TestClient(app)
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureList")
     def test_GetInfrastructureList(self, GetInfrastructureList):
@@ -65,20 +66,20 @@ class TestREST(unittest.TestCase):
         GetInfrastructureList.return_value = ["1", "2"]
         res = self.client.get('/infrastructures', headers=headers)
         self.assertEqual(200, res.status_code)
-        self.assertEqual(res.json, ({"uri-list": [{"uri": "http://localhost/infrastructures/1"},
-                                                  {"uri": "http://localhost/infrastructures/2"}]}))
+        self.assertEqual(res.json(), ({"uri-list": [{"uri": "http://testserver/infrastructures/1"},
+                                                    {"uri": "http://testserver/infrastructures/2"}]}))
 
         GetInfrastructureList.side_effect = InvaliddUserException()
         res = self.client.get('/infrastructures', headers=headers)
         self.assertEqual(401, res.status_code)
-        self.assertEqual(res.json, {"message": "Error Getting Inf. List: Invalid InfrastructureManager credentials",
-                                    "code": 401})
+        self.assertEqual(res.json(), {"message": "Error Getting Inf. List: Invalid InfrastructureManager credentials",
+                                      "code": 401})
 
         GetInfrastructureList.side_effect = UnauthorizedUserException()
         res = self.client.get('/infrastructures', headers=headers)
         self.assertEqual(400, res.status_code)
-        self.assertEqual(res.json, {"message": "Error Getting Inf. List: Access to this infrastructure not granted.",
-                                    "code": 400})
+        self.assertEqual(res.json(), {"message": "Error Getting Inf. List: Access to this infrastructure not granted.",
+                                      "code": 400})
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetInfrastructureInfo")
     def test_GetInfrastructureInfo(self, GetInfrastructureInfo):
@@ -89,8 +90,8 @@ class TestREST(unittest.TestCase):
         GetInfrastructureInfo.return_value = ["1", "2"]
         res = self.client.get('/infrastructures/1', headers=headers)
         self.assertEqual(200, res.status_code)
-        self.assertEqual(res.text, ("http://localhost/infrastructures/1/vms/1\n"
-                                    "http://localhost/infrastructures/1/vms/2"))
+        self.assertEqual(res.text, ("http://testserver/infrastructures/1/vms/1\n"
+                                    "http://testserver/infrastructures/1/vms/2"))
 
         GetInfrastructureInfo.side_effect = DeletedInfrastructureException()
         res = self.client.get('/infrastructures/1', headers=headers)
@@ -129,7 +130,7 @@ class TestREST(unittest.TestCase):
         tosca.serialize.return_value = "tosca"
 
         res = self.client.get('/infrastructures/1/state', headers=headers)
-        self.assertEqual(res.json["state"]["state"], "running")
+        self.assertEqual(res.json()["state"]["state"], "running")
 
         res = self.client.get('/infrastructures/1/contmsg', headers=headers)
         self.assertEqual(res.text, "contmsg")
@@ -144,7 +145,7 @@ class TestREST(unittest.TestCase):
         self.assertEqual(res.text, "radl")
 
         res = self.client.get('/infrastructures/1/outputs', headers=headers)
-        self.assertEqual(res.json, {"outputs": "outputs"})
+        self.assertEqual(res.json(), {"outputs": "outputs"})
 
         res = self.client.get('/infrastructures/1/tosca', headers=headers)
         self.assertEqual(res.text, "tosca")
@@ -207,37 +208,37 @@ class TestREST(unittest.TestCase):
                                      "username = user; password = pass")}
         CreateInfrastructure.return_value = "1"
 
-        res = self.client.post('/infrastructures', headers=headers, data=BytesIO(b"radl"))
-        self.assertEqual(res.text, "http://localhost/infrastructures/1")
+        res = self.client.post('/infrastructures', headers=headers, data=BytesIO(b"system node()"))
+        self.assertEqual(res.text, "http://testserver/infrastructures/1")
         self.assertEqual(res.headers['InfID'], "1")
 
-        res = self.client.post('/infrastructures?async=yes', headers=headers, data=BytesIO(b"radl"))
-        self.assertEqual(res.text, "http://localhost/infrastructures/1")
+        res = self.client.post('/infrastructures?async=yes', headers=headers, data=BytesIO(b"system node()"))
+        self.assertEqual(res.text, "http://testserver/infrastructures/1")
 
         headers["Content-Type"] = "application/json"
         res = self.client.post('/infrastructures', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "http://localhost/infrastructures/1")
+        self.assertEqual(res.text, "http://testserver/infrastructures/1")
 
         headers["Content-Type"] = "text/yaml"
         res = self.client.post('/infrastructures', headers=headers,
                                data=read_file_as_bytes("../files/tosca_simple.yml"))
-        self.assertEqual(res.text, "http://localhost/infrastructures/1")
+        self.assertEqual(res.text, "http://testserver/infrastructures/1")
 
         headers["Content-Type"] = "application/json"
         # Test the dry_run option to get the estimation of the resources
         res = self.client.post('/infrastructures?dry_run=yes', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.json, {"one": {"cloudType": "OpenNebula",
-                                            "cloudEndpoint": "http://ramses.i3m.upv.es:2633",
-                                            "compute": [{"cpuCores": 1, "memoryInMegabytes": 1074, "publicIP": 1},
-                                                        {"cpuCores": 1, "memoryInMegabytes": 1074}], "storage": []}})
+        self.assertEqual(res.json(), {"one": {"cloudType": "OpenNebula",
+                                              "cloudEndpoint": "http://ramses.i3m.upv.es:2633",
+                                              "compute": [{"cpuCores": 1, "memoryInMegabytes": 1074, "publicIP": 1},
+                                                          {"cpuCores": 1, "memoryInMegabytes": 1074}], "storage": []}})
 
         headers["Content-Type"] = "application/json"
         CreateInfrastructure.side_effect = InvaliddUserException()
         res = self.client.post('/infrastructures', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "Error Creating Inf. info: Invalid InfrastructureManager credentials")
+        self.assertEqual(res.text, "Error Creating Inf.: Invalid InfrastructureManager credentials")
 
         CreateInfrastructure.side_effect = UnauthorizedUserException()
         res = self.client.post('/infrastructures', headers=headers,
@@ -254,8 +255,8 @@ class TestREST(unittest.TestCase):
 
         CreateInfrastructure.return_value = "1"
 
-        res = self.client.post('/infrastructures', headers=headers, data=BytesIO(b"radl"))
-        self.assertEqual(res.json['code'], 415)
+        res = self.client.post('/infrastructures', headers=headers, data=BytesIO(b"system node()"))
+        self.assertEqual(res.json()['code'], 415)
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetVMInfo")
     def test_GetVMInfo(self, GetVMInfo):
@@ -268,7 +269,7 @@ class TestREST(unittest.TestCase):
         GetVMInfo.return_value = parse_radl("system test (cpu.count = 1)")
 
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
-        self.assertEqual(res.json, {"radl": [{"cpu.count": 1, "class": "system", "id": "test"}]})
+        self.assertEqual(res.json(), {"radl": [{"cpu.count": 1, "class": "system", "id": "test"}]})
 
         headers["Accept"] = "text/*"
         res = self.client.get('/infrastructures/1/vms/1', headers=headers)
@@ -341,19 +342,19 @@ class TestREST(unittest.TestCase):
 
         AddResource.return_value = "1"
 
-        res = self.client.post('/infrastructures/1?context=yes', headers=headers, data=BytesIO(b"radl"))
-        self.assertEqual(res.text, "http://localhost/infrastructures/1/vms/1")
+        res = self.client.post('/infrastructures/1?context=yes', headers=headers, data=BytesIO(b"system node()"))
+        self.assertEqual(res.text, "http://testserver/infrastructures/1/vms/1")
         self.assertEqual(res.headers['InfID'], "1")
 
         headers["Content-Type"] = "application/json"
         res = self.client.post('/infrastructures/1', headers=headers,
                                data=read_file_as_bytes("../files/test_simple.json"))
-        self.assertEqual(res.text, "http://localhost/infrastructures/1/vms/1")
+        self.assertEqual(res.text, "http://testserver/infrastructures/1/vms/1")
 
         headers["Content-Type"] = "text/yaml"
         res = self.client.post('/infrastructures/1', headers=headers,
                                data=read_file_as_bytes("../files/tosca_simple.yml"))
-        self.assertEqual(res.text, "http://localhost/infrastructures/1/vms/1")
+        self.assertEqual(res.text, "http://testserver/infrastructures/1/vms/1")
 
         headers["Content-Type"] = "application/json"
         AddResource.side_effect = DeletedInfrastructureException()
@@ -412,7 +413,7 @@ class TestREST(unittest.TestCase):
 
         AlterVM.return_value = "vm_info"
 
-        res = self.client.put('/infrastructures/1/vms/1?context=yes', headers=headers, data=BytesIO(b"radl"))
+        res = self.client.put('/infrastructures/1/vms/1?context=yes', headers=headers, data=BytesIO(b"system node()"))
         self.assertEqual(res.text, "vm_info")
 
         headers["Content-Type"] = "text/yaml"
@@ -459,7 +460,8 @@ class TestREST(unittest.TestCase):
 
         Reconfigure.return_value = ""
 
-        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2', headers=headers, data=BytesIO(b"radl"))
+        res = self.client.put('/infrastructures/1/reconfigure?vmlist=1,2',
+                              headers=headers, data=BytesIO(b"system node()"))
         self.assertEqual(res.text, "")
         self.assertEqual(res.headers['InfID'], "1")
 
@@ -570,11 +572,6 @@ class TestREST(unittest.TestCase):
         res = self.client.get('/version')
         self.assertEqual(res.text, version)
 
-    def test_Index(self):
-        res = self.client.get('/')
-        self.assertEqual(res.json['openapi'], '3.0.0')
-        self.assertEqual(res.json['servers'][0]['url'], 'http://localhost/')
-
     @patch("IM.InfrastructureManager.InfrastructureManager.CreateDiskSnapshot")
     def test_CreateDiskSnapshot(self, CreateDiskSnapshot):
         """Test REST StopVM."""
@@ -623,7 +620,7 @@ class TestREST(unittest.TestCase):
         ExportInfrastructure.return_value = "strinf"
 
         res = self.client.get('/infrastructures/1/data', headers=headers)
-        self.assertEqual(res.json, {"data": "strinf"})
+        self.assertEqual(res.json(), {"data": "strinf"})
 
     @patch("IM.InfrastructureManager.InfrastructureManager.ImportInfrastructure")
     def test_ImportInfrastructure(self, ImportInfrastructure):
@@ -635,7 +632,7 @@ class TestREST(unittest.TestCase):
         ImportInfrastructure.return_value = "newid"
 
         res = self.client.put('/infrastructures', headers=headers, data=BytesIO(b'{"data": "strinf"}'))
-        self.assertEqual(res.text, "http://localhost/infrastructures/newid")
+        self.assertEqual(res.text, "http://testserver/infrastructures/newid")
 
     @patch("IM.VirtualMachine.SSH")
     @patch("IM.InfrastructureManager.InfrastructureManager.get_infrastructure")
@@ -653,50 +650,50 @@ class TestREST(unittest.TestCase):
 
         res = self.client.get('/infrastructures/1/vms/1/command?step=1', headers=headers)
         auth_str = "Authorization: type = InfrastructureManager; username = user; password = pass"
-        url = "http://localhost/infrastructures/1/vms/1/command?step=2"
+        url = "http://testserver/infrastructures/1/vms/1/command?step=2"
         ps_command = "ps aux | grep -v grep | grep 'ssh -N -R'"
         expected_res = """
-                res="wait"
-                while [ "$res" == "wait" ]
-                do
-                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
-                  if [ "$res" != "wait" ]
-                  then
-                    echo "$res" > /var/tmp/reverse_ssh.sh
-                    chmod a+x /var/tmp/reverse_ssh.sh
-                    /var/tmp/reverse_ssh.sh
-                    if [ "$res" != "true" ]
-                    then
-                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
-                    fi
-                  else
-                    sleep 20
-                  fi
-                done""" % (auth_str, url, ps_command)
+        res="wait"
+        while [ "$res" == "wait" ]
+        do
+            res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
+            if [ "$res" != "wait" ]
+            then
+            echo "$res" > /var/tmp/reverse_ssh.sh
+            chmod a+x /var/tmp/reverse_ssh.sh
+            /var/tmp/reverse_ssh.sh
+            if [ "$res" != "true" ]
+            then
+                echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+            fi
+            else
+            sleep 20
+            fi
+        done""" % (auth_str, url, ps_command)
         self.assertEqual(res.text, expected_res)
 
         inf.auth = Authentication([{'type': 'InfrastructureManager', 'token': 'token'}])
         res = self.client.get('/infrastructures/1/vms/1/command?step=1', headers=headers)
         auth_str = "Authorization: type = InfrastructureManager; token = token"
-        url = "http://localhost/infrastructures/1/vms/1/command?step=2"
+        url = "http://testserver/infrastructures/1/vms/1/command?step=2"
         expected_res = """
-                res="wait"
-                while [ "$res" == "wait" ]
-                do
-                  res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
-                  if [ "$res" != "wait" ]
-                  then
-                    echo "$res" > /var/tmp/reverse_ssh.sh
-                    chmod a+x /var/tmp/reverse_ssh.sh
-                    /var/tmp/reverse_ssh.sh
-                    if [ "$res" != "true" ]
-                    then
-                      echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
-                    fi
-                  else
-                    sleep 20
-                  fi
-                done""" % (auth_str, url, ps_command)
+        res="wait"
+        while [ "$res" == "wait" ]
+        do
+            res=`curl --insecure -s -H "%s" -H "Accept: text/plain" %s`
+            if [ "$res" != "wait" ]
+            then
+            echo "$res" > /var/tmp/reverse_ssh.sh
+            chmod a+x /var/tmp/reverse_ssh.sh
+            /var/tmp/reverse_ssh.sh
+            if [ "$res" != "true" ]
+            then
+                echo "*/1 * * * * root %s || /var/tmp/reverse_ssh.sh" > /etc/cron.d/reverse_ssh
+            fi
+            else
+            sleep 20
+            fi
+        done""" % (auth_str, url, ps_command)
         self.assertEqual(res.text, expected_res)
 
         radl_master = parse_radl("""
@@ -786,17 +783,17 @@ class TestREST(unittest.TestCase):
                                      "id = cloud1; type = Dummy; host = http://dummy;")}
 
         res = self.client.get('/clouds/cloud1/images', headers=headers)
-        self.assertEqual(res.json, {"images": [{"uri": "mock0://linux.for.ev.er/image1",
-                                                "name": "Image Name1"},
-                                               {"uri": "mock0://linux.for.ev.er/image2",
-                                                "name": "Image Name2"}]})
+        self.assertEqual(res.json(), {"images": [{"uri": "mock0://linux.for.ev.er/image1",
+                                                  "name": "Image Name1"},
+                                                 {"uri": "mock0://linux.for.ev.er/image2",
+                                                  "name": "Image Name2"}]})
 
         res = self.client.get('/clouds/cloud1/quotas', headers=headers)
-        self.assertEqual(res.json, {"quotas": {"cores": {"used": 1, "limit": 10},
-                                               "ram": {"used": 1, "limit": 10},
-                                               "instances": {"used": 1, "limit": 10},
-                                               "floating_ips": {"used": 1, "limit": 10},
-                                               "security_groups": {"used": 1, "limit": 10}}})
+        self.assertEqual(res.json(), {"quotas": {"cores": {"used": 1, "limit": 10},
+                                                 "ram": {"used": 1, "limit": 10},
+                                                 "instances": {"used": 1, "limit": 10},
+                                                 "floating_ips": {"used": 1, "limit": 10},
+                                                 "security_groups": {"used": 1, "limit": 10}}})
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetCloudImageList")
     def test_GetCloudInfo_filters(self, GetCloudImageList):
@@ -805,7 +802,7 @@ class TestREST(unittest.TestCase):
 
         GetCloudImageList.return_value = []
         res = self.client.get('/clouds/cloud1/images?filters=region=region_name', headers=headers)
-        self.assertEqual(res.json, {"images": []})
+        self.assertEqual(res.json(), {"images": []})
         self.assertEqual(GetCloudImageList.call_args_list[0][0][2], {'region': 'region_name'})
 
     @patch("IM.InfrastructureManager.InfrastructureManager.ChangeInfrastructureAuth")
@@ -838,7 +835,7 @@ class TestREST(unittest.TestCase):
 
         headers["Accept"] = "application/json"
         res = self.client.get('/infrastructures/1/authorization', headers=headers)
-        self.assertEqual(res.json, {"authorization": ["user1", "user2"]})
+        self.assertEqual(res.json(), {"authorization": ["user1", "user2"]})
 
     @patch("IM.InfrastructureManager.InfrastructureManager.GetStats")
     def test_GetStats(self, GetStats):
@@ -848,7 +845,7 @@ class TestREST(unittest.TestCase):
 
         res = self.client.get('/stats?init_date=2010-01-01&end_date=2022-01-01', headers=headers)
 
-        self.assertEqual(res.json, {"stats": [{"key": 1, "okey": 2}]})
+        self.assertEqual(res.json(), {"stats": [{"key": 1, "okey": 2}]})
         self.assertEqual(GetStats.call_args_list[0][0][0], '2010-01-01')
         self.assertEqual(GetStats.call_args_list[0][0][1], '2022-01-01')
         self.assertEqual(GetStats.call_args_list[0][0][2].auth_list, [{"type": "InfrastructureManager",
@@ -899,7 +896,7 @@ class TestREST(unittest.TestCase):
         # Test OAI path
         res = self.client.get('/oai')
         self.assertEqual(200, res.status_code)
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
         self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'badVerb')
 
         # Test Identify
@@ -907,10 +904,10 @@ class TestREST(unittest.TestCase):
         res = self.client.get('/oai?verb=Identify')
         self.assertEqual(200, res.status_code)
 
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
 
         self.assertEqual(root.find(".//oaipmh:repositoryName", namespace).text, "TOSCA")
-        self.assertEqual(root.find(".//oaipmh:baseURL", namespace).text, "http://localhost/oai")
+        self.assertEqual(root.find(".//oaipmh:baseURL", namespace).text, "http://testserver/oai")
         self.assertEqual(root.find(".//oaipmh:protocolVersion", namespace).text, "2.0")
         self.assertIsNotNone(root.find(".//oaipmh:earliestDatestamp", namespace))
         self.assertEqual(root.find(".//oaipmh:deletedRecord", namespace).text, "no")
@@ -922,7 +919,7 @@ class TestREST(unittest.TestCase):
         res = self.client.post('/oai', headers={'Content-Type': 'application/x-www-form-urlencoded'},
                                data="verb=Identify")
         self.assertEqual(200, res.status_code)
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
         self.assertEqual(root.find(".//oaipmh:repositoryName", namespace).text, "TOSCA")
 
         namespaces = {'dc': 'http://purl.org/dc/elements/1.1/',
@@ -935,7 +932,7 @@ class TestREST(unittest.TestCase):
         res = self.client.get('/oai?verb=GetRecord&metadataPrefix=oai_datacite&identifier=%s' % tosca_id)
         self.assertEqual(200, res.status_code)
 
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
 
         self.assertEqual(root.find(".//datacite:title", namespaces).text, "Deploy a VM2")
         self.assertEqual(root.find(".//datacite:creatorName", namespaces).text, "Miguel Caballer")
@@ -949,14 +946,14 @@ class TestREST(unittest.TestCase):
         session.get.side_effect = [list_resp, file_resp1, file_resp2]
         res = self.client.get('/oai?verb=GetRecord&metadataPrefix=oai_dc&identifier=%s' % tosca_id)
         self.assertEqual(200, res.status_code)
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
         self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'idDoesNotExist')
 
         # Test ListIdentifiers
         session.get.side_effect = [list_resp, file_resp1, file_resp2]
         res = self.client.get('/oai?verb=ListIdentifiers&metadataPrefix=oai_dc')
         self.assertEqual(200, res.status_code)
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
         elems = root.findall(".//oaipmh:header", namespaces)
         self.assertEqual(len(elems), 2)
 
@@ -967,20 +964,20 @@ class TestREST(unittest.TestCase):
         session.get.side_effect = [list_resp, file_resp1, file_resp2]
         res = self.client.get('/oai?verb=ListIdentifiers&metadataPrefix=oai_dc&from=2020-09-10')
         self.assertEqual(200, res.status_code)
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
         self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'noRecordsMatch')
 
         session.get.side_effect = [list_resp, file_resp1, file_resp2]
         res = self.client.get('/oai?verb=ListIdentifiers&metadataPrefix=oai_dc&from=2020-09-07')
         self.assertEqual(200, res.status_code)
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
         elems = root.findall(".//oaipmh:header", namespaces)
         self.assertEqual(len(elems), 2)
 
         session.get.side_effect = [list_resp, file_resp1, file_resp2]
         res = self.client.get('/oai?verb=ListIdentifiers&metadataPrefix=oai_dc&until=2020-09-07')
         self.assertEqual(200, res.status_code)
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
         self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'noRecordsMatch')
 
         # Test ListRecords oai_dc
@@ -988,7 +985,7 @@ class TestREST(unittest.TestCase):
         res = self.client.get('/oai?verb=ListRecords&metadataPrefix=oai_dc')
         self.assertEqual(200, res.status_code)
 
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
 
         self.assertEqual(root.find(".//dc:title", namespaces).text, "Deploy a VM")
         self.assertEqual(root.find(".//dc:creator", namespaces).text, "Miguel Caballer")
@@ -1004,7 +1001,7 @@ class TestREST(unittest.TestCase):
         session.get.side_effect = [list_resp, file_resp1, file_resp2]
         res = self.client.get('/oai?verb=ListRecords&metadataPrefix=oai_openaire')
         self.assertEqual(200, res.status_code)
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
         elems = root.findall(".//oaipmh:identifier", namespaces)
         self.assertEqual(len(elems), 2)
         self.assertEqual(root.find(".//dc:creator", namespaces).text, "Miguel Caballer")
@@ -1012,7 +1009,7 @@ class TestREST(unittest.TestCase):
         session.get.side_effect = [list_resp, file_resp1, file_resp2]
         res = self.client.get('/oai?verb=ListRecords&metadataPrefix=oai_dc&until=2020-09-07')
         self.assertEqual(200, res.status_code)
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
         self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'noRecordsMatch')
 
         # Test ListMetadataFormats
@@ -1020,7 +1017,7 @@ class TestREST(unittest.TestCase):
         res = self.client.get('/oai?verb=ListMetadataFormats')
         self.assertEqual(200, res.status_code)
 
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
 
         prefixes = root.findall(".//oaipmh:metadataPrefix", namespaces)
         prefixes_text = [prefix.text for prefix in prefixes]
@@ -1034,7 +1031,7 @@ class TestREST(unittest.TestCase):
         res = self.client.get('/oai?verb=ListSets')
         self.assertEqual(200, res.status_code)
 
-        root = etree.fromstring(res.data)
+        root = etree.fromstring(res.content)
 
         self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'noSetHierarchy')
 

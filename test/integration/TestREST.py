@@ -17,25 +17,23 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-import os
-import requests
 import time
 import sys
+import os
+import requests
 import json
+
+from urllib.parse import urlparse
 
 sys.path.append("..")
 sys.path.append(".")
 
 from IM.VirtualMachine import VirtualMachine
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
 from radl import radl_parse
 from IM import __version__ as version
 
-PID = None
-RADL_ADD = "network privada\nsystem front\ndeploy front 1"
+RADL_ADD_WIN = "network publica\nnetwork privada\nsystem windows\ndeploy windows 1 one"
+RADL_ADD = "network publica\nnetwork privada\nsystem wn\ndeploy wn 1 one"
 RADL_ADD_ERROR = "system wnno deploy wnno 1"
 HOSTNAME = "localhost"
 TEST_PORT = 8800
@@ -49,47 +47,59 @@ def read_file_as_string(file_name):
 
 
 class TestIM(unittest.TestCase):
-
-    server = None
     auth_data = None
-    inf_id = 0
+    inf_id = None
 
     @classmethod
     def setUpClass(cls):
         cls.auth_data = read_file_as_string('../auth.dat').replace("\n", "\\n")
         cls.inf_id = "0"
 
+    def create_request(self, method, path, headers=None, body=None):
+        if headers is None:
+            headers = {'AUTHORIZATION': self.auth_data}
+        elif headers != {} and 'AUTHORIZATION' not in headers:
+            headers['AUTHORIZATION'] = self.auth_data
+        url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, path)
+        return requests.request(method, url, headers=headers, data=body)
+
+    @staticmethod
+    def _extract_vm_ids(uri_list_text):
+        vm_ids = []
+        for vm_uri in uri_list_text.splitlines():
+            vm_uri = vm_uri.strip()
+            if not vm_uri:
+                continue
+            vm_path = urlparse(vm_uri).path
+            vm_ids.append(vm_path.rsplit('/', 1)[-1])
+        return vm_ids
+
     @classmethod
     def tearDownClass(cls):
         # Assure that the infrastructure is destroyed
         try:
-            headers = {'AUTHORIZATION': cls.auth_data}
-            url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, "/infrastructures/" + cls.inf_id)
-            requests.request("DELETE", url, headers=headers)
+            if cls.inf_id:
+                if isinstance(cls.inf_id, list):
+                    for inf_id in cls.inf_id:
+                        headers = {'AUTHORIZATION': cls.auth_data}
+                        url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, "/infrastructures/" + inf_id)
+                        requests.request("DELETE", url, headers=headers)
+                else:
+                    headers = {'AUTHORIZATION': cls.auth_data}
+                    url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, "/infrastructures/" + cls.inf_id)
+                    requests.request("DELETE", url, headers=headers)
         except Exception:
             pass
 
-    def create_request(self, method, path, headers=None, body=None):
-        if headers is None:
-            headers = {'AUTHORIZATION': self.auth_data}
-        elif headers != {}:
-            if 'AUTHORIZATION' not in headers:
-                headers['AUTHORIZATION'] = self.auth_data
-        url = "http://%s:%d%s" % (HOSTNAME, TEST_PORT, path)
-        return requests.request(method, url, headers=headers, data=body)
-
-    def wait_inf_state(self, state, timeout, incorrect_states=None, vm_ids=None):
+    def wait_inf_state(self, inf_id, state, timeout, incorrect_states=None, vm_ids=None):
         """
         Wait for an infrastructure to have a specific state
         """
         if not vm_ids:
-            resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+            resp = self.create_request("GET", "/infrastructures/%s" % inf_id)
             self.assertEqual(resp.status_code, 200,
-                             msg="ERROR getting infrastructure info:" + resp.text)
-
-            vm_ids = resp.text.split("\n")
-        else:
-            pass
+                             msg="ERROR calling the GetInfrastructureInfo function:" + resp.text)
+            vm_ids = self._extract_vm_ids(resp.text)
 
         err_states = [VirtualMachine.FAILED, VirtualMachine.UNCONFIGURED]
         if incorrect_states:
@@ -100,21 +110,18 @@ class TestIM(unittest.TestCase):
         while not all_ok and wait < timeout:
             all_ok = True
             for vm_id in vm_ids:
-                vm_uri = urlparse(vm_id)
-                resp = self.create_request("GET", vm_uri[2] + "/state")
+                resp = self.create_request("GET", "/infrastructures/%s/vms/%s/state" % (inf_id, vm_id))
                 vm_state = resp.text
-
-                self.assertEqual(resp.status_code, 200,
-                                 msg="ERROR getting VM info:" + vm_state)
+                self.assertEqual(resp.status_code, 200, msg="ERROR getting VM info:" + str(vm_state))
 
                 if vm_state == VirtualMachine.UNCONFIGURED:
-                    resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
-                    print(resp.text)
+                    cont_msg = self.create_request("GET", "/infrastructures/%s/contmsg?headeronly=true" % inf_id).text
+                    print(cont_msg)
+                    cont_msg = self.create_request("GET", "/infrastructures/%s/vms/%s/contmsg" % (inf_id, vm_id)).text
+                    print(cont_msg)
 
-                self.assertFalse(vm_state in err_states, msg=("ERROR waiting for a state. '%s' state was expected "
-                                                              "and '%s' was obtained in the VM %s" % (state,
-                                                                                                      vm_state,
-                                                                                                      vm_uri)))
+                self.assertNotIn(vm_state, err_states, msg="ERROR waiting for a state. '" + vm_state +
+                                 "' was obtained in the VM: " + str(vm_id) + " err_states = " + str(err_states))
 
                 if vm_state in err_states:
                     return False
@@ -123,391 +130,662 @@ class TestIM(unittest.TestCase):
 
             if not all_ok:
                 wait += 5
-                time.sleep(5)
-
-        if wait >= timeout:
-            # There is a timeout, print the contmsg
-            resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
-            print(resp.text)
+                if wait >= timeout:
+                    cont_msg = self.create_request("GET", "/infrastructures/%s/contmsg" % inf_id).text
+                    print(cont_msg)
+                else:
+                    time.sleep(5)
 
         return all_ok
 
-    def test_05_version(self):
-        resp = self.create_request("GET", "/version")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting IM version:" + resp.text)
+    def test_05_getversion(self):
+        """
+        Test the GetVersion IM function
+        """
+        resp = self.create_request("GET", "/version", headers={})
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetVersion: " + resp.text)
+        res = resp.text
         self.assertEqual(
-            resp.text, version, msg="Incorrect version. Expected %s, obtained: %s" % (version, resp.text))
+            res, version, msg="Incorrect version. Expected %s, obtained: %s" % (version, res))
 
     def test_10_list(self):
+        """
+        Test the GetInfrastructureList IM function
+        """
         resp = self.create_request("GET", "/infrastructures")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR listing user infrastructures:" + resp.text)
-
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureList: " + resp.text)
         resp = self.create_request("GET", "/infrastructures?filter=.*")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR listing user infrastructures:" + resp.text)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureList: " + resp.text)
 
-    def test_12_list_with_incorrect_token(self):
-        auth_data_lines = read_file_as_string('../auth.dat').split("\n")
-        token = ("eyJraWQiOiJyc2ExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJkYzVkNWFiNy02ZGI5LTQwNzktOTg1Yy04MGFjMDUwMTcwNjYi"
-                 "LCJpc3MiOiJodHRwczpcL1wvaWFtLXRlc3QuaW5kaWdvLWRhdGFjbG91ZC5ldVwvIiwiZXhwIjoxNDYyODY5MjgxLCJpYXQiOjE"
-                 "0NjI4NjU2ODEsImp0aSI6Ijc1M2M4ZTI1LWU3MGMtNGI5MS05YWJhLTcxNDI5NTg3MzUzOSJ9.iA9nv7QdkmfgJPSQ_77_eKrvh"
-                 "P1xwZ1Z91xzrZ0Bzue0ark4qRMlHCdZvad1tunURaSsHHMsFYQ3H7oQj-ZSYWOfr1KxMaIo4pWaVHrW8qsCMLmqdNfubR54GmTh"
-                 "M4cA2ZdNZa8neVT8jUvzR1YX-5cz7sp2gWbW9LAwejoXDtk")
-        auth_data = "type = InfrastructureManager; token = %s\\n" % token
-        for line in auth_data_lines:
-            if line.find("type = InfrastructureManager") == -1:
-                auth_data += line.strip() + "\\n"
+    def test_11_create(self):
+        """
+        Test the CreateInfrastructure IM function
+        """
+        radl = read_file_as_string("../files/test.radl")
 
-        resp = self.create_request("GET", "/infrastructures", headers={'AUTHORIZATION': auth_data})
-        self.assertEqual(resp.status_code, 401,
-                         msg="ERROR using an invalid token. A 401 error is expected:" + resp.text)
-
-    def test_15_get_incorrect_info(self):
-        resp = self.create_request("GET", "/infrastructures/999999")
-        self.assertEqual(resp.status_code, 404,
-                         msg="Incorrect error code: %d" % resp.status_code)
-
-    def test_16_get_incorrect_info_json(self):
-        resp = self.create_request("GET", "/infrastructures/999999", headers={'Accept': 'application/json'})
-        self.assertEqual(resp.status_code, 404,
-                         msg="Incorrect error code: %d" % resp.status_code)
-        res = json.loads(resp.text)
-        self.assertEqual(res['code'], 404,
-                         msg="Incorrect error message: " + resp.text)
-
-    def test_18_get_info_without_auth_data(self):
-        resp = self.create_request("GET", "/infrastructures/0", headers={})
-        self.assertEqual(resp.status_code, 401,
-                         msg="Incorrect error code: %d" % resp.status_code)
-
-    def test_20_create(self):
-        radl = read_file_as_string('../files/test_simple.radl')
         resp = self.create_request("POST", "/infrastructures", body=radl)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR creating the infrastructure:" + resp.text)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling CreateInfrastructure: " + resp.text)
+        inf_id = str(os.path.basename(resp.text))
+        self.__class__.inf_id = inf_id
 
-        self.__class__.inf_id = str(os.path.basename(resp.text))
-
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
+        all_configured = self.wait_inf_state(
+            inf_id, VirtualMachine.CONFIGURED, 2700)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_22_get_forbidden_info(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id,
-                                   headers={'AUTHORIZATION': ("type = InfrastructureManager; "
-                                                              "username = some; password = other")})
-
-        self.assertEqual(resp.status_code, 403,
-                         msg="Incorrect error code: %d" % resp.status_code)
-
-    def test_30_get_vm_info(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
-
-        vm_uri = urlparse(vm_ids[0])
-        resp = self.create_request("GET", vm_uri[2])
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting VM info:" + resp.text)
-
-    def test_32_get_vm_contmsg(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200, msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
-
-        vm_uri = urlparse(vm_ids[0])
-        resp = self.create_request("GET", vm_uri[2] + "/contmsg")
-        self.assertEqual(resp.status_code, 200, msg="ERROR getting VM contmsg:" + resp.text)
-        self.assertEqual(len(resp.text), 0, msg="Incorrect VM contextualization message: " + resp.text)
-
-        resp2 = self.create_request("GET", vm_uri[2] + "/contmsg?headeronly=true")
-        self.assertEqual(resp2.status_code, 200, msg="ERROR getting VM contmsg:" + resp.text)
-
-    def test_33_get_contmsg(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/contmsg")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        self.assertGreater(
-            len(resp.text), 30, msg="Incorrect contextualization message: " + resp.text)
-
-    def test_34_get_radl(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/radl")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure RADL:" + resp.text)
+    def test_12_getradl(self):
+        """
+        Test the GetInfrastructureRADL IM function
+        """
+        resp = self.create_request("GET", "/infrastructures/%s/radl" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureRADL: " + resp.text)
+        res = resp.text
         try:
-            radl_parse.parse_radl(resp.text)
+            radl_parse.parse_radl(res)
         except Exception as ex:
-            self.assertTrue(
-                False, msg="ERROR parsing the RADL returned by GetInfrastructureRADL: " + str(ex))
+            self.fail("ERROR parsing the RADL returned by GetInfrastructureRADL: " + str(ex))
 
-    def test_35_get_vm_property(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
+    def test_13_getcontmsg(self):
+        """
+        Test the GetInfrastructureContMsg IM function
+        """
+        resp = self.create_request("GET", "/infrastructures/%s/contmsg" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureContMsg: " + resp.text)
+        cont_out = resp.text
+        self.assertGreater(len(cont_out), 100, msg="Incorrect contextualization message: " + cont_out)
+        self.assertIn("Select master VM", cont_out)
+        self.assertIn("NODENAME = front", cont_out)
+        # Check vault task
+        self.assertIn("VAULTOK", cont_out)
 
-        vm_uri = urlparse(vm_ids[0])
-        resp = self.create_request("GET", vm_uri[2] + "/state")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting VM property:" + resp.text)
+        resp = self.create_request("GET", "/infrastructures/%s/contmsg?headeronly=true" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureContMsg: " + resp.text)
+        cont_out = resp.text
+        self.assertGreater(len(cont_out), 100, msg="Incorrect contextualization message: " + cont_out)
+        self.assertIn("Select master VM", cont_out)
+        self.assertNotIn("NODENAME = front", cont_out)
 
-    def test_37_create_snapshot(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
+    def test_14_getvmcontmsg(self):
+        """
+        Test the GetVMContMsg IM function
+        """
+        resp = self.create_request("GET", "/infrastructures/%s/vms/0/contmsg" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetVMContMsg: " + resp.text)
+        res = resp.text
+        self.assertGreater(
+            len(res), 100, msg="Incorrect VM contextualization message: " + res)
 
-        vm_uri = urlparse(vm_ids[0])
-        resp = self.create_request("PUT", vm_uri[2] + "/disks/0/snapshot?"
-                                   "image_name=im-rest-test-image&auto_delete=yes")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR creating snapshot:" + resp.text)
-        self.assertTrue(resp.text.startswith("one://"))
+    def test_15_get_vm_info(self):
+        """
+        Test the GetVMInfo IM function
+        """
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo: " + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
+        resp = self.create_request("GET", "/infrastructures/%s/vms/%s" % (self.inf_id, vm_ids[0]))
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetVMInfo: " + resp.text)
+        info = resp.text
+        try:
+            radl_parse.parse_radl(info)
+        except Exception as ex:
+            self.fail("ERROR parsing the RADL returned by GetVMInfo: " + str(ex))
 
-    def test_40_addresource(self):
-        resp = self.create_request("POST", "/infrastructures/" + self.inf_id, body=RADL_ADD)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR adding resources:" + resp.text)
+    def test_16_get_vm_property(self):
+        """
+        Test the GetVMProperty IM function
+        """
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo: " + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
+        resp = self.create_request("GET", "/infrastructures/%s/vms/%s/state" % (self.inf_id, vm_ids[0]))
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetVMProperty: " + resp.text)
+        info = resp.text
+        self.assertNotEqual(
+            info, None, msg="ERROR in the value returned by GetVMProperty: " + info)
+        self.assertNotEqual(
+            info, "", msg="ERROR in the value returned by GetVMPropert: " + info)
 
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
-        self.assertEqual(len(vm_ids), 2, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 2"))
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 900)
-        self.assertTrue(
-            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+    def test_17_create_snapshot(self):
+        """
+        Test CreateDiskSnapshot function
+        """
+        path = "/infrastructures/%s/vms/0/disks/0/snapshot?image_name=im-test-image&auto_delete=yes" % self.inf_id
+        resp = self.create_request("PUT", path)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling CreateDiskSnapshot: " + resp.text)
 
-    def test_45_getstate(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/state")
-        self.assertEqual(
-            resp.status_code, 200, msg="ERROR getting the infrastructure state:" + resp.text)
+    def test_18_error_addresource(self):
+        """
+        Test to get error when adding a resource with an incorrect RADL
+        """
+        resp = self.create_request("POST", "/infrastructures/%s" % self.inf_id, body=RADL_ADD_ERROR)
+        self.assertNotEqual(resp.status_code, 200, msg="Incorrect RADL in AddResource not returned error")
+        res = resp.text
+        pos = res.find("Unknown reference in RADL")
+        self.assertGreater(
+            pos, -1, msg="Incorrect RADL in AddResource not returned the expected error: " + res)
+
+    def test_19_addresource(self):
+        """
+        Test AddResource function
+        """
+        resp = self.create_request("POST", "/infrastructures/%s" % self.inf_id, body=RADL_ADD)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling AddResource: " + resp.text)
+
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo:" + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
+        self.assertEqual(len(vm_ids), 4, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 4"))
+
+        all_configured = self.wait_inf_state(self.inf_id, VirtualMachine.CONFIGURED, 2400)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_20_getstate(self):
+        """
+        Test the GetInfrastructureState IM function
+        """
+        resp = self.create_request("GET", "/infrastructures/%s/state" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureState: " + resp.text)
         res = json.loads(resp.text)
-        state = res['state']['state']
-        vm_states = res['state']['vm_states']
+        res = res.get('state', res)
+        state = res['state']
         self.assertEqual(state, "configured", msg="Unexpected inf state: " +
                          state + ". It must be 'configured'.")
+        vm_states = res['vm_states']
+        self.assertEqual(len(vm_states), 4, msg="ERROR getting infrastructure state: Incorrect number of VMs(" +
+                         str(len(vm_states)) + "). It must be 4")
         for vm_id, vm_state in vm_states.items():
             self.assertEqual(vm_state, "configured", msg="Unexpected vm state: " +
                              vm_state + " in VM ID " + str(vm_id) + ". It must be 'configured'.")
 
-    def test_46_removeresource(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
+    def test_21_addresource_noconfig(self):
+        """
+        Test AddResource function with the contex option to False
+        """
+        resp = self.create_request("POST", "/infrastructures/%s?context=0" % self.inf_id, body=RADL_ADD)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling AddResource: " + resp.text)
 
-        vm_uri = urlparse(vm_ids[1])
-        resp = self.create_request("DELETE", vm_uri[2])
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR removing resources:" + resp.text)
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo:" + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
+        self.assertEqual(len(vm_ids), 5, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 5"))
 
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
-        self.assertEqual(len(vm_ids), 1, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 1"))
+    def test_22_removeresource(self):
+        """
+        Test RemoveResource function
+        """
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo: " + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
+        resp = self.create_request("DELETE", "/infrastructures/%s/vms/%s" % (self.inf_id, vm_ids[2]))
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling RemoveResource: " + resp.text)
+
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo:" + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
+        self.assertEqual(len(vm_ids), 4, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 4"))
+
+        resp = self.create_request("GET", "/infrastructures/%s/vms/%s/state" % (self.inf_id, vm_ids[0]))
+        self.assertEqual(resp.status_code, 200, msg="ERROR getting VM state:" + resp.text)
+        vm_state = resp.text
+        self.assertEqual(vm_state, VirtualMachine.RUNNING,
+                         msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
+
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 2400)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_47_addresource_noconfig(self):
-        resp = self.create_request("POST", "/infrastructures/" + self.inf_id + "?context=0", body=RADL_ADD)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR adding resources:" + resp.text)
+    def test_23_removeresource_noconfig(self):
+        """
+        Test RemoveResource function with the context option to False
+        """
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo: " + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
 
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
-        self.assertEqual(len(vm_ids), 2, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 2"))
+        resp = self.create_request("DELETE", "/infrastructures/%s/vms/%s?context=0" % (self.inf_id, vm_ids[2]))
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling RemoveResource: " + resp.text)
 
-    def test_50_removeresource_noconfig(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo:" + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
+        self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
+                                              str(len(vm_ids)) + "). It must be 3"))
 
-        vm_uri = urlparse(vm_ids[1])
-        resp = self.create_request("DELETE", vm_uri[2] + "?context=0")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR removing resources:" + resp.text)
+        resp = self.create_request("GET", "/infrastructures/%s/vms/%s/state" % (self.inf_id, vm_ids[0]))
+        self.assertEqual(resp.status_code, 200, msg="ERROR getting VM state:" + resp.text)
+        vm_state = resp.text
+        self.assertEqual(vm_state, VirtualMachine.CONFIGURED,
+                         msg="ERROR unexpected state. Expected 'running' and obtained " + vm_state)
 
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
-        self.assertEqual(len(vm_ids), 1, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 1"))
-
-    def test_55_reconfigure(self):
-        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/reconfigure")
-        self.assertEqual(resp.status_code, 200, msg="ERROR reconfiguring:" + resp.text)
-
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
-        self.assertTrue(
-            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
-
-    def test_57_reconfigure_list(self):
-        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/reconfigure?vm_list=0")
-        self.assertEqual(resp.status_code, 200, msg="ERROR reconfiguring:" + resp.text)
-
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 300)
-        self.assertTrue(
-            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
-
-    def test_58_stats(self):
-        resp = self.create_request("GET", "/stats")
-        self.assertEqual(resp.status_code, 200, msg="ERROR getting stats:" + resp.text)
-        stats = resp.json()["stats"]
-        self.assertEqual(len(stats), 2, msg="Incorrect number of stats: " + resp.text)
-
-    def test_60_stop(self):
-        time.sleep(10)
-        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/stop")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR stopping the infrastructure:" + resp.text)
-        time.sleep(10)
+    def test_24_reconfigure(self):
+        """
+        Test Reconfigure function
+        """
+        resp = self.create_request("PUT", "/infrastructures/%s/reconfigure" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling Reconfigure: " + resp.text)
 
         all_stopped = self.wait_inf_state(
-            VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
+            self.inf_id, VirtualMachine.CONFIGURED, 900)
+        self.assertTrue(
+            all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_25_reconfigure_vmlist(self):
+        """
+        Test Reconfigure function specifying a list of VMs
+        """
+        resp = self.create_request("PUT", "/infrastructures/%s/reconfigure?vm_list=0" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling Reconfigure: " + resp.text)
+
+        all_stopped = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 900)
+        self.assertTrue(
+            all_stopped, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_26_reconfigure_radl(self):
+        """
+        Test Reconfigure function specifying a new RADL
+        """
+        radl = """configure test (\n@begin\n---\n  - tasks:\n      - debug: msg="RECONFIGURERADL"\n@end\n)"""
+        resp = self.create_request("PUT", "/infrastructures/%s/reconfigure" % self.inf_id, body=radl)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling Reconfigure: " + resp.text)
+
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 900)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+        resp = self.create_request("GET", "/infrastructures/%s/contmsg" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureContMsg: " + resp.text)
+        cont_out = resp.text
+        self.assertIn("RECONFIGURERADL", cont_out,
+                      msg="Incorrect contextualization message: " + cont_out)
+
+    def test_30_stop(self):
+        """
+        Test StopInfrastructure function
+        """
+        time.sleep(30)
+        resp = self.create_request("PUT", "/infrastructures/%s/stop" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling StopInfrastructure: " + resp.text)
+        time.sleep(30)
+
+        all_stopped = self.wait_inf_state(
+            self.inf_id, VirtualMachine.STOPPED, 120, [VirtualMachine.RUNNING])
         self.assertTrue(
             all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
 
-    def test_70_start(self):
-        # To assure the VM is stopped
+    def test_31_start(self):
+        """
+        Test StartInfrastructure function
+        """
+        # Assure the VM to be stopped
         time.sleep(60)
-        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/start")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR starting the infrastructure:" + resp.text)
-        time.sleep(10)
+        resp = self.create_request("PUT", "/infrastructures/%s/start" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling StartInfrastructure: " + resp.text)
+        time.sleep(30)
 
         all_configured = self.wait_inf_state(
-            VirtualMachine.CONFIGURED, 120, [VirtualMachine.RUNNING])
+            self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING])
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be started (timeout).")
 
-    def test_80_stop_vm(self):
+    def test_32_stop_vm(self):
+        """
+        Test StopVM function
+        """
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo: " + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
         time.sleep(30)
-        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/vms/0/stop")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR stopping the vm:" + resp.text)
-        time.sleep(10)
+        resp = self.create_request("PUT", "/infrastructures/%s/vms/%s/stop" % (self.inf_id, vm_ids[0]))
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling StopVM: " + resp.text)
+        time.sleep(30)
 
-        all_stopped = self.wait_inf_state(VirtualMachine.STOPPED, 120, [
-                                          VirtualMachine.RUNNING], ["/infrastructures/" + self.inf_id + "/vms/0"])
+        all_stopped = self.wait_inf_state(self.inf_id, VirtualMachine.STOPPED, 120, [
+                                          VirtualMachine.RUNNING], [vm_ids[0]])
         self.assertTrue(
-            all_stopped, msg="ERROR waiting the infrastructure to be stopped (timeout).")
+            all_stopped, msg="ERROR waiting the vm to be stopped (timeout).")
 
-    def test_90_start_vm(self):
-        # To assure the VM is stopped
+    def test_33_start_vm(self):
+        """
+        Test StartVM function
+        """
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo: " + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
+        # Assure the VM to be stopped
         time.sleep(60)
-        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/vms/0/start")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR starting the vm:" + resp.text)
-        time.sleep(10)
+        resp = self.create_request("PUT", "/infrastructures/%s/vms/%s/start" % (self.inf_id, vm_ids[0]))
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling StartVM: " + resp.text)
+        time.sleep(30)
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 120, [
-                                             VirtualMachine.RUNNING], ["/infrastructures/" + self.inf_id + "/vms/0"])
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 150, [VirtualMachine.RUNNING], [vm_ids[0]])
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be started (timeout).")
 
-    def test_91_reboot_vm(self):
-        # To assure the VM is rebooted
-        time.sleep(10)
+    def test_34_reboot_vm(self):
+        """
+        Test RebootVM function
+        """
+        resp = self.create_request("GET", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetInfrastructureInfo: " + resp.text)
+        vm_ids = self._extract_vm_ids(resp.text)
 
-        resp = self.create_request("PUT", "/infrastructures/" + self.inf_id + "/vms/0/reboot")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR rebooting the vm:" + resp.text)
+        resp = self.create_request("PUT", "/infrastructures/%s/vms/%s/reboot" % (self.inf_id, vm_ids[0]))
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling RebootVM: " + resp.text)
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 60, [
-                                             VirtualMachine.RUNNING], ["/infrastructures/" + self.inf_id + "/vms/0"])
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 60, [VirtualMachine.RUNNING], [vm_ids[0]])
         self.assertTrue(
             all_configured, msg="ERROR waiting the vm to be rebooted (timeout).")
 
-    def test_92_destroy(self):
-        resp = self.create_request("DELETE", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR destroying the infrastructure:" + resp.text)
-
-    def test_93_create_tosca(self):
+    def test_40_export_import(self):
         """
-        Test the CreateInfrastructure IM function with a TOSCA document
+        Test ExportInfrastructure and ImportInfrastructure functions
         """
-        tosca = read_file_as_string('../files/tosca_create.yml')
+        resp = self.create_request("GET", "/infrastructures/%s/data?delete=true" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling ExportInfrastructure: " + resp.text)
+        inf_data = resp.json()
 
-        resp = self.create_request("POST", "/infrastructures", headers={'Content-Type': 'text/yaml'}, body=tosca)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR creating the infrastructure:" + resp.text)
+        resp = self.create_request("PUT", "/infrastructures",
+                                   headers={'AUTHORIZATION': self.auth_data,
+                                            'Content-Type': 'application/json'},
+                                   body=inf_data["data"])
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling ImportInfrastructure: " + resp.text)
 
-        self.__class__.inf_id = str(os.path.basename(resp.text))
+    def test_45_stats(self):
+        resp = self.create_request("GET", "/stats")
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetStats: " + resp.text)
+        data = resp.json()
+        res = data.get('stats', data)
+        self.assertEqual(len(res), 2, msg="ERROR getting stats: Incorrect number of infrastructures")
 
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 2400)
+    def test_50_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        resp = self.create_request("DELETE", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
+
+    def test_60_create_no_context(self):
+        """
+        Test the CreateInfrastructure IM function without context
+        """
+        radl = """
+            network net ()
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count>=1 and
+            memory.size>=512m and
+            net_interface.0.connection = 'net' and
+            disk.0.os.flavour='ubuntu' and
+            disk.0.os.version>='20.04'
+            )
+
+            deploy test 1
+
+            contextualize ()
+            """
+
+        resp = self.create_request("POST", "/infrastructures", body=radl)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling CreateInfrastructure: " + resp.text)
+        inf_id = str(os.path.basename(resp.text))
+        self.__class__.inf_id = inf_id
+
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 300)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_94_get_outputs(self):
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id + "/outputs")
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting TOSCA outputs:" + resp.text)
-        res = json.loads(resp.text)
-        server_url = str(res['outputs']['server_url'][0])
-        self.assertRegex(
-            server_url, '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', msg="Unexpected outputs: " + resp.text)
-
-    def test_95_add_tosca(self):
+    def test_65_destroy(self):
         """
-        Test the AddResource IM function with a TOSCA document
+        Test DestroyInfrastructure function
         """
-        tosca = read_file_as_string('../files/tosca_add.yml')
+        resp = self.create_request("DELETE", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
 
-        resp = self.create_request("POST", "/infrastructures/" + self.inf_id,
-                                   headers={'Content-Type': 'text/yaml'}, body=tosca)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR adding resources:" + resp.text)
+    def test_70_create_cloud_init(self):
+        """
+        Test the CreateInfrastructure IM function with cloud init ctxt
+        """
+        radl = """
+            network net ()
 
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
-        self.assertEqual(len(vm_ids), 3, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 2"))
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 1500)
+            system node (
+             cpu.arch='x86_64' and
+             cpu.count>=1 and
+             memory.size>=512m and
+             net_interface.0.connection = 'net' and
+             disk.0.os.name='linux' and
+             disk.0.image.url = 'one://ramses.i3m.upv.es/1593'
+            )
+
+            deploy node 1
+
+            configure node (
+@begin
+#!/bin/bash
+echo "Hello World" >> /tmp/data.txt
+@end
+            )
+
+            contextualize (
+              system node configure node with cloud_init
+            )
+            """
+
+        radl_parse.parse_radl(radl)
+        resp = self.create_request("POST", "/infrastructures", body=radl)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling CreateInfrastructure: " + resp.text)
+        inf_id = str(os.path.basename(resp.text))
+        self.__class__.inf_id = inf_id
+
+        all_configured = self.wait_inf_state(
+            self.inf_id, VirtualMachine.CONFIGURED, 300)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_96_remove_tosca(self):
+    def test_75_destroy(self):
         """
-        Test the RemoveResource IM function with a TOSCA document
+        Test DestroyInfrastructure function
         """
-        tosca = read_file_as_string('../files/tosca_remove.yml')
+        resp = self.create_request("DELETE", "/infrastructures/%s" % self.inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
 
-        resp = self.create_request("POST", "/infrastructures/" + self.inf_id,
-                                   headers={'Content-Type': 'text/yaml'}, body=tosca)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR removing resources:" + resp.text)
+    def test_80_create_ansible_host(self):
+        """
+        Test the CreateInfrastructure IM function using an external ansible host
+        """
+        ansible_radl = """
+            network publicnet (outbound = 'yes')
+            network net ()
 
-        resp = self.create_request("GET", "/infrastructures/" + self.inf_id)
+            system node (
+             cpu.arch='x86_64' and
+             cpu.count>=1 and
+             memory.size>=1g and
+             net_interface.0.connection = 'publicnet' and
+             net_interface.1.connection = 'net' and
+             disk.0.os.flavour='ubuntu' and
+             disk.0.os.version>='20.04'
+            )
+
+            deploy node 1
+            """
+
+        resp = self.create_request("POST", "/infrastructures", body=ansible_radl)
         self.assertEqual(resp.status_code, 200,
-                         msg="ERROR getting the infrastructure info:" + resp.text)
-        vm_ids = resp.text.split("\n")
-        self.assertEqual(len(vm_ids), 2, msg=("ERROR getting infrastructure info: Incorrect number of VMs(" +
-                                              str(len(vm_ids)) + "). It must be 2"))
-        all_configured = self.wait_inf_state(VirtualMachine.CONFIGURED, 1200)
+                         msg="ERROR calling CreateInfrastructure to create ansible master: " + resp.text)
+        inf_id = str(os.path.basename(resp.text))
+        self.__class__.inf_id = [inf_id]
+
+        all_configured = self.wait_inf_state(
+            inf_id, VirtualMachine.CONFIGURED, 1200)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the ansible master to be configured (timeout).")
+
+        resp = self.create_request("GET", "/infrastructures/%s/vms/0" % inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR getting ansible master info: " + resp.text)
+        info = resp.text
+        master_radl = radl_parse.parse_radl(info)
+
+        host = master_radl.systems[0].getValue("net_interface.0.ip")
+        username = master_radl.systems[0].getValue(
+            "disk.0.os.credentials.username")
+        private_key = master_radl.systems[0].getValue(
+            "disk.0.os.credentials.private_key")
+
+        radl = """
+            ansible ansible_master (host = '%s' and credentials.username='%s' and credentials.private_key ='%s')
+            network net ()
+
+            system node (
+             cpu.arch='x86_64' and
+             cpu.count>=1 and
+             memory.size>=1g and
+             net_interface.0.connection = 'net' and
+             disk.0.os.flavour='ubuntu' and
+             disk.0.os.version>='20.04'
+            )
+
+            deploy node 1
+            """ % (host, username, private_key)
+
+        resp = self.create_request("POST", "/infrastructures", body=radl)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling CreateInfrastructure: " + resp.text)
+        inf_id = str(os.path.basename(resp.text))
+        self.__class__.inf_id.append(inf_id)
+
+        all_configured = self.wait_inf_state(
+            inf_id, VirtualMachine.CONFIGURED, 1200)
         self.assertTrue(
             all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
-    def test_98_destroy(self):
-        resp = self.create_request("DELETE", "/infrastructures/" + self.inf_id)
-        self.assertEqual(resp.status_code, 200,
-                         msg="ERROR destroying the infrastructure:" + resp.text)
+    def test_85_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        for inf_id in self.inf_id:
+            resp = self.create_request("DELETE", "/infrastructures/%s" % inf_id)
+            self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
+
+    def test_90_create(self):
+        """
+        Test the CreateInfrastructure IM function with ctxt dist
+        """
+        radl = read_file_as_string("../files/test_cont_dist.radl")
+
+        resp = self.create_request("POST", "/infrastructures", body=radl)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling CreateInfrastructure: " + resp.text)
+        inf_id = str(os.path.basename(resp.text))
+        self.__class__.inf_id = [inf_id]
+
+        all_configured = self.wait_inf_state(
+            inf_id, VirtualMachine.CONFIGURED, 2100)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_95_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        for inf_id in self.inf_id:
+            resp = self.create_request("DELETE", "/infrastructures/%s" % inf_id)
+            self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
+
+    def test_96_create(self):
+        """
+        Test the CreateInfrastructure IM function setting Ansible version
+        """
+        radl = read_file_as_string("../files/test_ansible.radl")
+
+        resp = self.create_request("POST", "/infrastructures", body=radl)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling CreateInfrastructure: " + resp.text)
+        inf_id = str(os.path.basename(resp.text))
+        self.__class__.inf_id = [inf_id]
+
+        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 1200)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_97_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        for inf_id in self.inf_id:
+            resp = self.create_request("DELETE", "/infrastructures/%s" % inf_id)
+            self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
+
+    def test_98_proxy(self):
+        """
+        Test connecting a VM using a proxy host
+        """
+        radl = """
+            network net (outbound = 'yes')
+            network priv (provider_id = '16')
+            system test (
+            cpu.count>=1 and
+            memory.size>=1g and
+            net_interface.0.connection = 'net' and
+            net_interface.1.connection = 'priv' and
+            disk.0.os.name='linux' and
+            disk.0.image.url = 'one://ramses.i3m.upv.es/1593'
+            )
+
+            deploy test 1
+            """
+
+        resp = self.create_request("POST", "/infrastructures", body=radl)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling CreateInfrastructure: " + resp.text)
+        inf_id = str(os.path.basename(resp.text))
+        self.__class__.inf_id = [inf_id]
+
+        all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, 1200)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+        resp = self.create_request("GET", "/infrastructures/%s/vms/0" % inf_id)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling GetVMInfo: " + resp.text)
+        vminfo = resp.text
+
+        vm = radl_parse.parse_radl(vminfo)
+        proxy_ip = vm.systems[0].getValue("net_interface.0.ip")
+        proxy_user = vm.systems[0].getValue("disk.0.os.credentials.username")
+        proxy_key = vm.systems[0].getValue("disk.0.os.credentials.private_key")
+        proxy_host = "%s@%s" % (proxy_user, proxy_ip)
+
+        radl = """
+            network net (proxy_host = '%s' and provider_id = '16' and proxy_key='%s')
+            system test (
+            cpu.count>=1 and
+            memory.size>=1g and
+            net_interface.0.connection = 'net' and
+            disk.0.os.name='linux' and
+            disk.0.image.url = 'one://ramses.i3m.upv.es/1593'
+            )
+
+            deploy test 1
+            """ % (proxy_host, proxy_key)
+        resp = self.create_request("POST", "/infrastructures", body=radl)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling CreateInfrastructure: " + resp.text)
+        inf_id2 = str(os.path.basename(resp.text))
+        self.__class__.inf_id.append(inf_id2)
+
+        all_configured = self.wait_inf_state(inf_id2, VirtualMachine.CONFIGURED, 1200)
+        self.assertTrue(all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_99_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        for inf_id in self.inf_id:
+            resp = self.create_request("DELETE", "/infrastructures/%s" % inf_id)
+            self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
 
 
 if __name__ == '__main__':
