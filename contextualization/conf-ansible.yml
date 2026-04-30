@@ -202,6 +202,17 @@
         virtualenv: "{{ VENV_PATH }}"
         extra_args: "{{ extra_args }}"
 
+    - name: Set Ansible version from playbook var if defined
+      set_fact:
+        ANSIBLE_VERSION: "{{ im_ansible_version }}"
+      when: im_ansible_version is defined and im_ansible_version | length > 0
+
+    - name: Set Ansible version from env if defined
+      set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
+      when:
+        - lookup('env','ANSIBLE_VERSION') != ""
+        - ANSIBLE_VERSION is not defined or ANSIBLE_VERSION | length == 0
+
     - name: Set ANSIBLE_VERSION based on Python version
       set_fact:
         ANSIBLE_VERSION: >-
@@ -214,11 +225,7 @@
           {%- else -%}
             4.10.0
           {%- endif %}
-      when: lookup('env','ANSIBLE_VERSION') == ""
-
-    - name: Set Ansible version from env if defined
-      set_fact: ANSIBLE_VERSION={{ lookup('env','ANSIBLE_VERSION') }}
-      when: lookup('env','ANSIBLE_VERSION') != ""
+      when: ANSIBLE_VERSION is not defined or ANSIBLE_VERSION | length == 0
 
     - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
       pip:

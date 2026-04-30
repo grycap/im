@@ -1251,7 +1251,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         return change_creds
 
-    def call_ansible(self, tmp_dir, inventory, playbook, ssh):
+    def call_ansible(self, tmp_dir, inventory, playbook, ssh, ansible_version=None):
         """
         Call the AnsibleThread to execute an Ansible playbook
 
@@ -1283,6 +1283,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         self.log_info('Launching Ansible process.')
         result = Queue()
         extra_vars = {'IM_HOST': 'all'}
+        if ansible_version:
+            extra_vars['im_ansible_version'] = ansible_version
         # store the process to terminate it later is Ansible does not finish correctly
         self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, 1, gen_pk_file,
                                              ssh.password, 1, tmp_dir + "/" + inventory, ssh.username,
@@ -1493,17 +1495,8 @@ class ConfManager(LoggerMixin, threading.Thread):
             ver_msg = " (v. %s)" % ansible_version if ansible_version else ""
             self.inf.add_cont_msg("Configure Ansible%s in the master VM." % ver_msg)
             self.log_info("Call Ansible%s to (re)configure in the master node" % ver_msg)
-            ansible_version_env = None
-            if ansible_version:
-                # Set ansible verion env var
-                ansible_version_env = os.getenv('ANSIBLE_VERSION')
-                os.environ['ANSIBLE_VERSION'] = ansible_version
-            (success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
-            if ansible_version_env:
-                # restore original value
-                os.environ['ANSIBLE_VERSION'] = ansible_version_env
-            elif 'ANSIBLE_VERSION' in os.environ:
-                del os.environ['ANSIBLE_VERSION']
+            (success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML,
+                                               ssh, ansible_version)
 
             if not success:
                 self.log_error("Error configuring master node: " + msg + "\n\n")
