@@ -1,18 +1,6 @@
 #!/bin/sh
 
-# Obtener versión de Python
-PYTHON_VERSION=$(python3 -c 'import sys; print(int(sys.version_info.major) * 100 + sys.version_info.minor)')
-
-# Asignar versión de Ansible según versión de Python
-if (( PYTHON_VERSION >= 310 )); then
-    ANSIBLE_VERSION="9.13.0"
-elif (( PYTHON_VERSION >= 309 )); then
-    ANSIBLE_VERSION="8.7.0"
-elif (( PYTHON_VERSION >= 308 )); then
-    ANSIBLE_VERSION="6.7.0"
-else
-    ANSIBLE_VERSION="4.10.0"
-fi
+ANSIBLE_VERSION="9.5.1"
 
 distribution_id() {
     RETVAL=""
@@ -51,33 +39,29 @@ distribution_id() {
     echo ${RETVAL}
 }
 
-# Create a symbolic link to python3 in case of not venv created
-ls /var/tmp/.ansible/bin/ || mkdir -p /var/tmp/.ansible/bin/
-ls /var/tmp/.ansible/bin/python3 || ln -s /usr/bin/python3 /var/tmp/.ansible/bin/python3
-
-if [ $(which ansible-playbook) ]; then
+if [ -f /var/tmp/.mamba/envs/ansible/bin/ansible ]; then
     echo "Ansible installed. Do not install."
 else
     echo "Ansible not installed. Installing ..."
     DISTRO=$(distribution_id)
     case $DISTRO in
         debian)
-            apt install -y --no-install-recommends python3 python3-pip python3-psutil wget python3-setuptools sshpass openssh-client unzip
+            apt install -y --no-install-recommends python3 wget sshpass openssh-client unzip
             ;;
         ubuntu)
             apt update
-            apt install -y --no-install-recommends python3 python3-pip python3-psutil wget python3-setuptools sshpass openssh-client unzip
+            apt install -y --no-install-recommends python3 wget sshpass openssh-client unzip
             ;;
         rhel)
             yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 python3-pip python3-setuptools python3-psutil sshpass openssh-clients
+            yum install -y python3 libselinux-python3 sshpass openssh-clients
             ;;
         centos)
             yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 python3-pippython3-setuptools python3-psutil sshpass openssh-clients
+            yum install -y python3 libselinux-python3 sshpass openssh-clients
             ;;
         fedora)
-            yum install -y wget python3 libselinux-python3 python3-pip python3-psutil python3-setuptools sshpass openssh-clients
+            yum install -y wget python3 libselinux-python3 sshpass openssh-clients
 
             ;;
     	*)
@@ -85,10 +69,11 @@ else
             ;;
     esac
 
-    pip3 install "pip>=20.0"
-    pip3 install -U "setuptools<66.0"
-    pip3 install "pyOpenSSL>20.0,<22.1.0" "cryptography>37.0.0,<39.0.0" pyyaml jmespath scp "paramiko>=2.9.5" packaging --prefer-binary
-    pip3 install ansible==$ANSIBLE_VERSION --prefer-binary
+    mkdir -p /var/tmp/.mamba/bin/
+    wget https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -O /var/tmp/.mamba/bin/micromamba
+    chmod +x /var/tmp/.mamba/bin/micromamba
+    /var/tmp/.mamba/bin/micromamba create -y -n ansible python=3.12 ansible=${ANSIBLE_VERSION} paramiko psutil pyyaml jmespath scp pywinrm
+
 fi
 
 # Create the config file
