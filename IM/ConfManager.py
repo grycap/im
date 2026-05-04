@@ -394,7 +394,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                     export = f"export ANSIBLE_CONFIG={CtxtAgentBase.ANSIBLE_CFG_FILE} && "
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
-                        export = "export VAULT_PASS='%s' && " % vault_password
+                        export += "export VAULT_PASS='%s' && " % vault_password
                     (pid, _, _) = ssh.execute("nohup sh -c \"" + export + CtxtAgentBase.MAMBA_CMD +
                                               "python3 " + Config.REMOTE_CONF_DIR +
                                               "/" + str(self.inf.id) + "/" + ctxt_agent_command +

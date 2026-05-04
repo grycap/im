@@ -612,6 +612,7 @@ class CtxtAgentBase:
 
         # Set local_tmp dir different for any VM
         os.environ['DEFAULT_LOCAL_TMP'] = remote_dir + "/.ansible_tmp"
+        os.environ['ANSIBLE_CONFIG'] = self.ANSIBLE_CFG_FILE
         # it must be set before doing the import
         from IM.ansible_utils.ansible_launcher import AnsibleThread
 

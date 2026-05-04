@@ -157,7 +157,7 @@ class CtxtAgent(CtxtAgentBase):
 
         export = f"export ANSIBLE_CONFIG={CtxtAgentBase.ANSIBLE_CFG_FILE} && "
         if vault_pass:
-            export = "export VAULT_PASS='%s' && " % vault_pass
+            export += "export VAULT_PASS='%s' && " % vault_pass
         pid = None
         vm_dir = os.path.abspath(os.path.dirname(self.vm_conf_data_filename))
         remote_dir = os.path.abspath(os.path.dirname(self.conf_data_filename))
