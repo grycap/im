@@ -161,10 +161,18 @@
         ANSIBLE_VERSION: "{{ DEFAULT_ANSIBLE_VERSION }}"
       when: ANSIBLE_VERSION is not defined or ANSIBLE_VERSION | length == 0
 
-    - name: Create Ansible environment with micromamba
-      command: "{{ MICROMAMBA_PATH }}/bin/micromamba create -y -n ansible -r {{ MICROMAMBA_PATH }} python=3.12 ansible={{ ANSIBLE_VERSION }} paramiko psutil pyyaml jmespath scp pywinrm requests urllib3"
+    - name: Create base Ansible environment with micromamba
+      command: "{{ MICROMAMBA_PATH }}/bin/micromamba create -y -n ansible -r {{ MICROMAMBA_PATH }} python=3.12 paramiko psutil pyyaml jmespath scp pywinrm requests urllib3"
       args:
         creates: "{{ MICROMAMBA_PATH }}/envs/ansible"
+
+    - name: Install requested Ansible version with conda, fallback to pip
+      block:
+        - name: Install Ansible from conda channel
+          command: "{{ MICROMAMBA_PATH }}/bin/micromamba install -y -n ansible -r {{ MICROMAMBA_PATH }} ansible={{ ANSIBLE_VERSION }}"
+      rescue:
+        - name: Install Ansible from pip as fallback
+          command: "{{ MICROMAMBA_PATH }}/bin/micromamba run -n ansible -r {{ MICROMAMBA_PATH }} python -m pip install ansible=={{ ANSIBLE_VERSION }}"
 
 ################################################ Configure Ansible  ###################################################
 
