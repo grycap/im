@@ -818,7 +818,8 @@ IM 1.19.2:
     * Remove whole infra SGs to use only two SGs per infra.
     * Add CSV generation in stats.
     * Update stats response with volume details.
-    * Add support access_token() special input function.
+    * Add support access_token() special TOSCA input function.
     * Add support to ansible 2.19.
     * Maintain order in infrastructure list.
     * Generate unique VM name in openstack.
+    * REMOVE XML-RPC API.
