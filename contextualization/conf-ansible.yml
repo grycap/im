@@ -113,14 +113,14 @@
 
     - name: Create micromamba directory
       file:
-        path: {{ MICROMAMBA_PATH }}/bin
+        path: "{{ MICROMAMBA_PATH }}/bin"
         state: directory
         mode: '0755'
 
     - name: Install micromamba
       get_url:
         url: https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64
-        dest: {{ MICROMAMBA_PATH }}/bin/micromamba
+        dest: "{{ MICROMAMBA_PATH }}/bin/micromamba"
         mode: '0755'
         force: no
 
@@ -141,9 +141,9 @@
       when: ANSIBLE_VERSION is not defined or ANSIBLE_VERSION | length == 0
 
     - name: Create Ansible environment with micromamba
-      command: {{ MICROMAMBA_PATH }}/bin/micromamba create -y -n ansible python=3.12 ansible={{ ANSIBLE_VERSION }} paramiko psutil pyyaml jmespath scp pywinrm
+      command: "{{ MICROMAMBA_PATH }}/bin/micromamba create -y -n ansible -r {{ MICROMAMBA_PATH }} python=3.12 ansible={{ ANSIBLE_VERSION }} paramiko psutil pyyaml jmespath scp pywinrm"
       args:
-        creates: {{ MICROMAMBA_PATH }}/envs/ansible
+        creates: "{{ MICROMAMBA_PATH }}/envs/ansible"
 
 ################################################ Configure Ansible  ###################################################
 

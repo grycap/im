@@ -70,9 +70,9 @@ else
     esac
 
     mkdir -p /var/tmp/.mamba/bin/
-    wget https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -O /var/tmp/.mamba/bin/micromamba
+    ls /var/tmp/.mamba/bin/micromamba || wget https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -O /var/tmp/.mamba/bin/micromamba
     chmod +x /var/tmp/.mamba/bin/micromamba
-    /var/tmp/.mamba/bin/micromamba create -y -n ansible python=3.12 ansible=${ANSIBLE_VERSION} paramiko psutil pyyaml jmespath scp pywinrm
+    ls /var/tmp/.mamba/envs/ansible || /var/tmp/.mamba/bin/micromamba create -y -n ansible -r /var/tmp/.mamba python=3.12 ansible=${ANSIBLE_VERSION} paramiko psutil pyyaml jmespath scp pywinrm
 
 fi
 
