@@ -5,6 +5,7 @@
   gather_facts: false
   vars:
     MICROMAMBA_PATH: /var/tmp/.mamba
+    DEFAULT_ANSIBLE_VERSION  : 9.5.1
   tasks:
   ############## To avoid some issues with cloud-init and unattended upgrades ###############
     - name: Avoid unattended upgrades
@@ -86,7 +87,9 @@
       ignore_errors: yes
 
     - name: Ubuntu/Debian apt update
-      apt: update_cache=yes
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
       when: ansible_os_family == "Debian"
       ignore_errors: yes
       register: apt_update
@@ -98,16 +101,31 @@
   ################### Install Ansible/micromamba requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=wget,sshpass,openssh-client,unzip install_recommends=no
+      apt:
+        name:
+        - wget
+        - sshpass
+        - openssh-client
+        - unzip
+        install_recommends: no
       when: ansible_os_family == "Debian"
 
-    - name: Yum install requisites RH or Fedora
-      command: yum install -y wget sshpass openssh-clients
-      when: ansible_os_family == "RedHat"
-
-    - name: Zypper install requirements Suse
-      zypper: name=wget,sshpass,openssh-client,unzip state=present
-      when: ansible_os_family == "Suse"
+    - name: Install requisites in RedHat/Suse with yum/zypper
+      package:
+        name: "{{ requisites_pkgs[ansible_os_family] }}"
+        state: present
+      vars:
+        requisites_pkgs:
+          RedHat:
+            - wget
+            - sshpass
+            - openssh-clients
+          Suse:
+            - wget
+            - sshpass
+            - openssh
+            - unzip
+      when: ansible_os_family in requisites_pkgs
 
   ######################################### Use micromamba to install Ansible #############################################
 
@@ -140,7 +158,7 @@
 
     - name: Set default ANSIBLE_VERSION
       set_fact:
-        ANSIBLE_VERSION: 9.5.1
+        ANSIBLE_VERSION: "{{ DEFAULT_ANSIBLE_VERSION }}"
       when: ANSIBLE_VERSION is not defined or ANSIBLE_VERSION | length == 0
 
     - name: Create Ansible environment with micromamba
