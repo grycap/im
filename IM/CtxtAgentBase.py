@@ -39,6 +39,7 @@ class CtxtAgentBase:
     INTERNAL_PLAYBOOK_RETRIES = 1
     MAMBA_ENV_DIR = "/var/tmp/.mamba/envs/ansible"  # nosec
     MAMBA_CMD = "/var/tmp/.mamba/bin/micromamba run -n ansible "  # nosec
+    ANSIBLE_CFG_FILE = "/var/tmp/ansible.cfg"  # nosec
 
     def __init__(self, conf_data_filename):
         self.logger = None
@@ -518,7 +519,8 @@ class CtxtAgentBase:
                 task["retries"] = "5"
                 task["delay"] = "10"
                 # Some times ansible is installed at /usr/local/bin and it is not in root path
-                task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"}]
+                task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"},
+                                       {"ANSIBLE_CONFIG": self.ANSIBLE_CFG_FILE}]
                 yaml_data[0]['tasks'].append(task)
 
             # and then add roles
@@ -572,7 +574,8 @@ class CtxtAgentBase:
                 task["retries"] = "5"
                 task["delay"] = "10"
                 # Some times ansible is installed at /usr/local/bin and it is not in root path
-                task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"}]
+                task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"},
+                                       {"ANSIBLE_CONFIG": self.ANSIBLE_CFG_FILE}]
                 yaml_data[0]['tasks'].append(task)
 
             with open(new_playbook, 'w+') as f:

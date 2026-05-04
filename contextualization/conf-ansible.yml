@@ -147,30 +147,36 @@
 
 ################################################ Configure Ansible  ###################################################
 
-    - name: Create /etc/ansible
-      file: path=/etc/ansible state=directory
-
-    - name: Create /etc/ansible/ansible.cfg
-      file: path=/etc/ansible/ansible.cfg state=touch owner=root group=root mode=0644
-
-    - name: Set Ansible config file values
-      ini_file: dest=/etc/ansible/ansible.cfg section={{ item.section }} option={{ item.option }} value="{{ item.value }}"
-      with_items:
-      - { section: 'defaults', option: 'host_key_checking', value: 'False' }
-      - { section: 'defaults', option: 'nocolor', value: '1' }
-      - { section: 'ssh_connection', option: 'pipelining', value: 'True' }
-      - { section: 'defaults', option: 'jinja2_extensions', value: 'jinja2.ext.do' }
-      - { section: 'defaults', option: 'allow_world_readable_tmpfiles', value: 'True' }
-      - { section: 'defaults', option: 'fact_caching', value: 'jsonfile' }
-      - { section: 'defaults', option: 'fact_caching_connection', value: '/var/tmp/facts_cache' }
-      - { section: 'defaults', option: 'fact_caching_timeout', value: '86400' }
-      - { section: 'defaults', option: 'gathering', value: 'smart' }
-      - { section: 'defaults', option: 'roles_path', value: '/etc/ansible/roles' }
-      - { section: 'defaults', option: 'collections_path', value: '/etc/ansible' }
-      - { section: 'defaults', option: 'timeout', value: '30' }
-      - { section: 'defaults', option: 'ansible_python_interpreter', value: 'auto' }
-      - { section: 'defaults', option: 'transport', value: 'ssh' }
-      - { section: 'ssh_connection', option: 'ssh_args', value: '-o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null' }
-      - { section: 'galaxy', option: 'server_list', value: 'galaxy, oldgalaxy' }
-      - { section: 'galaxy_server.galaxy', option: 'url', value: 'https://galaxy.ansible.com/api/' }
-      - { section: 'galaxy_server.oldgalaxy', option: 'url', value: 'https://old-galaxy.ansible.com/api/' }
+    - name: Create Ansible config file
+      copy:
+        dest: /var/tmp/ansible.cfg
+        content: |
+          [defaults]
+          transport  = ssh
+          timeout = 30
+          host_key_checking = False
+          nocolor = 1
+          become_user = root
+          become_method = sudo
+          fact_caching = jsonfile
+          fact_caching_connection = /var/tmp/facts_cache
+          fact_caching_timeout = 86400
+          interpreter_python = /usr/bin/python3
+          gathering = smart
+          roles_path = /var/tmp/ansible/roles
+          collections_path = /var/tmp/ansible
+          jinja2_extensions = jinja2.ext.do
+          allow_world_readable_tmpfiles = True
+          ansible_python_interpreter = auto
+          [paramiko_connection]
+          record_host_keys=False
+          [ssh_connection]
+          pipelining = True
+          ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null
+          [galaxy]
+          server_list = galaxy, oldgalaxy
+          [galaxy_server.galaxy]
+          url = https://galaxy.ansible.com/api/
+          [galaxy_server.oldgalaxy]
+          url = https://old-galaxy.ansible.com/api/
+        mode: '0644'

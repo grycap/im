@@ -80,7 +80,8 @@ fi
 ls /etc/ansible || mkdir /etc/ansible
 cat > /etc/ansible/ansible.cfg <<EOL
 [defaults]
-transport  = smart
+transport  = ssh
+timeout = 30
 host_key_checking = False
 nocolor = 1
 become_user = root
@@ -90,12 +91,22 @@ fact_caching_connection = /var/tmp/facts_cache
 fact_caching_timeout = 86400
 interpreter_python = /usr/bin/python3
 gathering = smart
-roles_path = /etc/ansible/roles
-collections_path = /etc/ansible
+roles_path = /var/tmp/ansible/roles
+collections_path = /var/tmp/ansible
+jinja2_extensions = jinja2.ext.do
+allow_world_readable_tmpfiles = True
+ansible_python_interpreter = auto
 [paramiko_connection]
 record_host_keys=False
 [ssh_connection]
 pipelining = True
+ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null
+[galaxy]
+server_list = galaxy, oldgalaxy
+[galaxy_server.galaxy]
+url = https://galaxy.ansible.com/api/
+[galaxy_server.oldgalaxy]
+url = https://old-galaxy.ansible.com/api/
 EOL
 
 if [ $(which ansible-playbook) ]; then
