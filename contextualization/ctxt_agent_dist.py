@@ -155,14 +155,14 @@ class CtxtAgent(CtxtAgentBase):
             ssh_client.execute("mkdir -p %s" % os.path.dirname(self.vm_conf_data_filename))
             ssh_client.sftp_put(self.vm_conf_data_filename, self.vm_conf_data_filename)
 
-        vault_export = ""
+        export = f"export ANSIBLE_CONFIG={CtxtAgentBase.ANSIBLE_CFG_FILE} && "
         if vault_pass:
-            vault_export = "export VAULT_PASS='%s' && " % vault_pass
+            export += "export VAULT_PASS='%s' && " % vault_pass
         pid = None
         vm_dir = os.path.abspath(os.path.dirname(self.vm_conf_data_filename))
         remote_dir = os.path.abspath(os.path.dirname(self.conf_data_filename))
         try:
-            (pid, _, _) = ssh_client.execute(vault_export + "nohup " + CtxtAgentBase.VENV_DIR + "/bin/python3 " +
+            (pid, _, _) = ssh_client.execute(export + "nohup " + CtxtAgentBase.MAMBA_CMD + "python3 " +
                                              remote_dir + "/ctxt_agent_dist.py " +
                                              self.conf_data_filename + " " + self.vm_conf_data_filename +
                                              " 1 > " + vm_dir + "/stdout 2> " + vm_dir +

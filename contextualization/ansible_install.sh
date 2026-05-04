@@ -1,18 +1,6 @@
 #!/bin/sh
 
-# Obtener versión de Python
-PYTHON_VERSION=$(python3 -c 'import sys; print(int(sys.version_info.major) * 100 + sys.version_info.minor)')
-
-# Asignar versión de Ansible según versión de Python
-if (( PYTHON_VERSION >= 310 )); then
-    ANSIBLE_VERSION="9.13.0"
-elif (( PYTHON_VERSION >= 309 )); then
-    ANSIBLE_VERSION="8.7.0"
-elif (( PYTHON_VERSION >= 308 )); then
-    ANSIBLE_VERSION="6.7.0"
-else
-    ANSIBLE_VERSION="4.10.0"
-fi
+ANSIBLE_VERSION="9.5.1"
 
 distribution_id() {
     RETVAL=""
@@ -51,33 +39,29 @@ distribution_id() {
     echo ${RETVAL}
 }
 
-# Create a symbolic link to python3 in case of not venv created
-ls /var/tmp/.ansible/bin/ || mkdir -p /var/tmp/.ansible/bin/
-ls /var/tmp/.ansible/bin/python3 || ln -s /usr/bin/python3 /var/tmp/.ansible/bin/python3
-
-if [ $(which ansible-playbook) ]; then
+if [ -f /var/tmp/.mamba/envs/ansible/bin/ansible ]; then
     echo "Ansible installed. Do not install."
 else
     echo "Ansible not installed. Installing ..."
     DISTRO=$(distribution_id)
     case $DISTRO in
         debian)
-            apt install -y --no-install-recommends python3 python3-pip python3-psutil wget python3-setuptools sshpass openssh-client unzip
+            apt install -y --no-install-recommends python3 wget sshpass openssh-client unzip
             ;;
         ubuntu)
             apt update
-            apt install -y --no-install-recommends python3 python3-pip python3-psutil wget python3-setuptools sshpass openssh-client unzip
+            apt install -y --no-install-recommends python3 wget sshpass openssh-client unzip
             ;;
         rhel)
             yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 python3-pip python3-setuptools python3-psutil sshpass openssh-clients
+            yum install -y python3 libselinux-python3 sshpass openssh-clients
             ;;
         centos)
             yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 python3-pippython3-setuptools python3-psutil sshpass openssh-clients
+            yum install -y python3 libselinux-python3 sshpass openssh-clients
             ;;
         fedora)
-            yum install -y wget python3 libselinux-python3 python3-pip python3-psutil python3-setuptools sshpass openssh-clients
+            yum install -y wget python3 libselinux-python3 sshpass openssh-clients
 
             ;;
     	*)
@@ -85,17 +69,19 @@ else
             ;;
     esac
 
-    pip3 install "pip>=20.0"
-    pip3 install -U "setuptools<66.0"
-    pip3 install "pyOpenSSL>20.0,<22.1.0" "cryptography>37.0.0,<39.0.0" pyyaml jmespath scp "paramiko>=2.9.5" packaging --prefer-binary
-    pip3 install ansible==$ANSIBLE_VERSION --prefer-binary
+    mkdir -p /var/tmp/.mamba/bin/
+    ls /var/tmp/.mamba/bin/micromamba || wget https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -O /var/tmp/.mamba/bin/micromamba
+    chmod +x /var/tmp/.mamba/bin/micromamba
+    ls /var/tmp/.mamba/envs/ansible || /var/tmp/.mamba/bin/micromamba create -y -n ansible -r /var/tmp/.mamba python=3.12 ansible=${ANSIBLE_VERSION} paramiko psutil pyyaml jmespath scp pywinrm
+
 fi
 
 # Create the config file
 ls /etc/ansible || mkdir /etc/ansible
 cat > /etc/ansible/ansible.cfg <<EOL
 [defaults]
-transport  = smart
+transport  = ssh
+timeout = 30
 host_key_checking = False
 nocolor = 1
 become_user = root
@@ -105,12 +91,22 @@ fact_caching_connection = /var/tmp/facts_cache
 fact_caching_timeout = 86400
 interpreter_python = /usr/bin/python3
 gathering = smart
-roles_path = /etc/ansible/roles
-collections_path = /etc/ansible
+roles_path = /var/tmp/ansible/roles
+collections_path = /var/tmp/ansible
+jinja2_extensions = jinja2.ext.do
+allow_world_readable_tmpfiles = True
+ansible_python_interpreter = auto
 [paramiko_connection]
 record_host_keys=False
 [ssh_connection]
 pipelining = True
+ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null
+[galaxy]
+server_list = galaxy, oldgalaxy
+[galaxy_server.galaxy]
+url = https://galaxy.ansible.com/api/
+[galaxy_server.oldgalaxy]
+url = https://old-galaxy.ansible.com/api/
 EOL
 
 if [ $(which ansible-playbook) ]; then

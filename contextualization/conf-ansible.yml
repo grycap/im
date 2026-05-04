@@ -4,8 +4,8 @@
   become_method: sudo
   gather_facts: false
   vars:
-    # Ansible specific Version or "latest"
-    VENV_PATH: /var/tmp/.ansible
+    MICROMAMBA_PATH: /var/tmp/.mamba
+    DEFAULT_ANSIBLE_VERSION  : 9.5.1
   tasks:
   ############## To avoid some issues with cloud-init and unattended upgrades ###############
     - name: Avoid unattended upgrades
@@ -87,7 +87,9 @@
       ignore_errors: yes
 
     - name: Ubuntu/Debian apt update
-      apt: update_cache=yes
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
       when: ansible_os_family == "Debian"
       ignore_errors: yes
       register: apt_update
@@ -96,111 +98,52 @@
       command: apt update
       when: ansible_os_family == "Debian" and apt_update is failed
 
-  ################### Install Ansible/pip requisites #########################
+  ################### Install Ansible/micromamba requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=python3-pip,wget,python3-setuptools,sshpass,openssh-client,unzip install_recommends=no
+      apt:
+        name:
+        - wget
+        - sshpass
+        - openssh-client
+        - unzip
+        install_recommends: no
       when: ansible_os_family == "Debian"
 
-    - name: Yum install requisites RH 7/8 or Fedora
-      command: yum install -y python3-pip python3-setuptools sshpass openssh-clients
-      when: ansible_os_family == "RedHat"
+    - name: Install requisites in RedHat/Suse with yum/zypper
+      package:
+        name: "{{ requisites_pkgs[ansible_os_family] }}"
+        state: present
+      vars:
+        requisites_pkgs:
+          RedHat:
+            - wget
+            - sshpass
+            - openssh-clients
+          Suse:
+            - wget
+            - sshpass
+            - openssh
+            - unzip
+      when: ansible_os_family in requisites_pkgs
 
-    - name: Zypper install requirements Suse
-      zypper: name=python3-pip,python3-setuptools,wget,python3-cryptography state=present
-      when: ansible_os_family == "Suse"
+  ######################################### Use micromamba to install Ansible #############################################
 
-    - name: Install python-setuptools
-      package: name=python-setuptools
-      when: ansible_python_version is version('3', '<')
+    - name: Create micromamba directory
+      file:
+        path: "{{ MICROMAMBA_PATH }}/bin"
+        state: directory
+        mode: '0755'
 
-  ######################################### Use pip to enable to set the version #############################################
+    - name: Download micromamba
+      command: wget https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -O {{ MICROMAMBA_PATH }}/bin/micromamba
+      args:
+        creates: "{{ MICROMAMBA_PATH }}/bin/micromamba"
 
-    - name: Set extra_args var
-      set_fact:
-        extra_args: ''
-
-    - name: Set extra_args var in py3.11
-      set_fact:
-        extra_args: --break-system-packages
-      when: ansible_python_version is version('3.11', '>=')
-
-    - name: Install virtualenv with pip
-      pip:
-        name: virtualenv
-        executable: pip3
-        extra_args: "{{ extra_args }}"
-
-    - name: Create Ansible virtualenv
-      command:
-        cmd: python -m virtualenv --system-site-packages {{ VENV_PATH }}
-        creates: "{{ VENV_PATH }}"
- 
-    # Version over 21 does not work with python 3.6 or older
-    - name: Upgrade pip in py3.6-
-      pip:
-        name: pip>18.0,<21.0
-        virtualenv: "{{ VENV_PATH }}"
-        # in some old distros we need to trust in the pypi to avoid SSL errors
-        extra_args: --trusted-host files.pythonhosted.org --trusted-host pypi.org --trusted-host pypi.python.org
-      when: ansible_python_version is version('3.7', '<')
-
-    - name: Upgrade pip in py3.7-py3.8
-      pip:
-        name: pip>20.0
-        virtualenv: "{{ VENV_PATH }}"
-      when: ansible_python_version is version('3.7', '>=') and ansible_python_version is version('3.9', '<')
-
-    - name: Upgrade pip in py3.9-py3.10
-      pip:
-        name: pip>=22.0
-        virtualenv: "{{ VENV_PATH }}"
-      when: ansible_python_version is version('3.9', '>=') and ansible_python_version is version('3.11', '<')
-
-    # Version 66 (#2497) fails
-    - name: Upgrade setuptools with Pip in py3.11-
-      pip:
-        name: setuptools<66.0.0
-        virtualenv: "{{ VENV_PATH }}"
-      when: ansible_python_version is version('3.11', '<')
-
-    - name: Set extra_args var
-      set_fact:
-        extra_args: --prefer-binary
-
-    - name: Install psutil
-      pip:
-        name: psutil
-        virtualenv: "{{ VENV_PATH }}"
-        extra_args: "{{ extra_args }}"
-
-    - name: Install cryptography & pyOpenSSL in py3.11-
-      pip:
-        name:
-          - cryptography>36.0.0,<39.0.0
-          - pyOpenSSL>20.0,<22.1.0
-        virtualenv: "{{ VENV_PATH }}"
-        extra_args: "{{ extra_args }}"
-      when: ansible_python_version is version('3.11', '<')
-
-    - name: Install cryptography & pyOpenSSL in py3.11+
-      pip:
-        name: 
-          - cryptography>36.0.0
-          - pyOpenSSL>20.0
-        virtualenv: "{{ VENV_PATH }}"
-        extra_args: "{{ extra_args }}"
-      when: ansible_python_version is version('3.11', '>=')
-
-    - name: Install pyyaml, wheel, paramiko and packaging
-      pip:
-        name:
-          - wheel
-          - pyyaml
-          - paramiko>=2.9.5
-          - packaging
-        virtualenv: "{{ VENV_PATH }}"
-        extra_args: "{{ extra_args }}"
+    - name: Make executable
+      file:
+        path: "{{ MICROMAMBA_PATH }}/bin/micromamba"
+        mode: '0755'
 
     - name: Set Ansible version from playbook var if defined
       set_fact:
@@ -213,78 +156,56 @@
         - lookup('env','ANSIBLE_VERSION') != ""
         - ANSIBLE_VERSION is not defined or ANSIBLE_VERSION | length == 0
 
-    - name: Set ANSIBLE_VERSION based on Python version
+    - name: Set default ANSIBLE_VERSION
       set_fact:
-        ANSIBLE_VERSION: >-
-          {%- if ansible_python_version is version('3.10', '>=') -%}
-            9.13.0
-          {%- elif ansible_python_version is version('3.9', '>=') -%}
-            8.7.0
-          {%- elif ansible_python_version is version('3.8', '>=') -%}
-            6.7.0
-          {%- else -%}
-            4.10.0
-          {%- endif %}
+        ANSIBLE_VERSION: "{{ DEFAULT_ANSIBLE_VERSION }}"
       when: ANSIBLE_VERSION is not defined or ANSIBLE_VERSION | length == 0
 
-    - name: Install ansible {{ ANSIBLE_VERSION }} with Pip
-      pip:
-        name: ansible
-        version: "{{ ANSIBLE_VERSION }}"
-        virtualenv: "{{ VENV_PATH }}"
-        extra_args: "{{ extra_args }}"
-      when: ANSIBLE_VERSION != "latest"
+    - name: Create base Ansible environment with micromamba
+      command: "{{ MICROMAMBA_PATH }}/bin/micromamba create -y -n ansible -r {{ MICROMAMBA_PATH }} python=3.12 paramiko psutil pyyaml jmespath scp pywinrm requests urllib3"
+      args:
+        creates: "{{ MICROMAMBA_PATH }}/envs/ansible"
 
-    - name: Install latest ansible version with Pip
-      pip:
-        name: ansible
-        virtualenv: "{{ VENV_PATH }}"
-        extra_args: "{{ extra_args }}"
-      when: ANSIBLE_VERSION == "latest"
-
-#################################### Now install scp, jmespath and pywinrm with pip  ##################################
-
-    - name: Install jmespath & scp with Pip
-      pip:
-        name:
-          - jmespath
-          - scp
-        virtualenv: "{{ VENV_PATH }}"
-        extra_args: "{{ extra_args }}"
-
-    - name: Install pywinrm with Pip
-      pip:
-        name: pywinrm
-        virtualenv: "{{ VENV_PATH }}"
-        extra_args: "{{ extra_args }}"
-      ignore_errors: yes
+    - name: Install requested Ansible version with conda, fallback to pip
+      block:
+        - name: Install Ansible from conda channel
+          command: "{{ MICROMAMBA_PATH }}/bin/micromamba install -y -n ansible -r {{ MICROMAMBA_PATH }} ansible={{ ANSIBLE_VERSION }}"
+      rescue:
+        - name: Install Ansible from pip as fallback
+          command: "{{ MICROMAMBA_PATH }}/bin/micromamba run -n ansible -r {{ MICROMAMBA_PATH }} python -m pip install ansible=={{ ANSIBLE_VERSION }}"
 
 ################################################ Configure Ansible  ###################################################
 
-    - name: Create /etc/ansible
-      file: path=/etc/ansible state=directory
-
-    - name: Create /etc/ansible/ansible.cfg
-      file: path=/etc/ansible/ansible.cfg state=touch owner=root group=root mode=0644
-
-    - name: Set Ansible config file values
-      ini_file: dest=/etc/ansible/ansible.cfg section={{ item.section }} option={{ item.option }} value="{{ item.value }}"
-      with_items:
-      - { section: 'defaults', option: 'host_key_checking', value: 'False' }
-      - { section: 'defaults', option: 'nocolor', value: '1' }
-      - { section: 'ssh_connection', option: 'pipelining', value: 'True' }
-      - { section: 'defaults', option: 'jinja2_extensions', value: 'jinja2.ext.do' }
-      - { section: 'defaults', option: 'allow_world_readable_tmpfiles', value: 'True' }
-      - { section: 'defaults', option: 'fact_caching', value: 'jsonfile' }
-      - { section: 'defaults', option: 'fact_caching_connection', value: '/var/tmp/facts_cache' }
-      - { section: 'defaults', option: 'fact_caching_timeout', value: '86400' }
-      - { section: 'defaults', option: 'gathering', value: 'smart' }
-      - { section: 'defaults', option: 'roles_path', value: '/etc/ansible/roles' }
-      - { section: 'defaults', option: 'collections_path', value: '/etc/ansible' }
-      - { section: 'defaults', option: 'timeout', value: '30' }
-      - { section: 'defaults', option: 'ansible_python_interpreter', value: 'auto' }
-      - { section: 'defaults', option: 'transport', value: 'ssh' }
-      - { section: 'ssh_connection', option: 'ssh_args', value: '-o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null' }
-      - { section: 'galaxy', option: 'server_list', value: 'galaxy, oldgalaxy' }
-      - { section: 'galaxy_server.galaxy', option: 'url', value: 'https://galaxy.ansible.com/api/' }
-      - { section: 'galaxy_server.oldgalaxy', option: 'url', value: 'https://old-galaxy.ansible.com/api/' }
+    - name: Create Ansible config file
+      copy:
+        dest: /var/tmp/ansible.cfg
+        content: |
+          [defaults]
+          transport  = ssh
+          timeout = 30
+          host_key_checking = False
+          nocolor = 1
+          become_user = root
+          become_method = sudo
+          fact_caching = jsonfile
+          fact_caching_connection = /var/tmp/facts_cache
+          fact_caching_timeout = 86400
+          interpreter_python = /usr/bin/python3
+          gathering = smart
+          roles_path = /var/tmp/ansible/roles
+          collections_path = /var/tmp/ansible
+          jinja2_extensions = jinja2.ext.do
+          allow_world_readable_tmpfiles = True
+          ansible_python_interpreter = auto
+          [paramiko_connection]
+          record_host_keys=False
+          [ssh_connection]
+          pipelining = True
+          ssh_args = -o ControlMaster=auto -o ControlPersist=900s -o UserKnownHostsFile=/dev/null
+          [galaxy]
+          server_list = galaxy, oldgalaxy
+          [galaxy_server.galaxy]
+          url = https://galaxy.ansible.com/api/
+          [galaxy_server.oldgalaxy]
+          url = https://old-galaxy.ansible.com/api/
+        mode: '0644'
