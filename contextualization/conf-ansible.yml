@@ -98,15 +98,15 @@
   ################### Install Ansible/micromamba requisites #########################
 
     - name: Debian/Ubuntu install requisites with apt
-      apt: name=sshpass,openssh-client,unzip install_recommends=no
+      apt: name=wget,sshpass,openssh-client,unzip install_recommends=no
       when: ansible_os_family == "Debian"
 
-    - name: Yum install requisites RH 7/8 or Fedora
-      command: yum install -y sshpass openssh-clients
+    - name: Yum install requisites RH or Fedora
+      command: yum install -y wget sshpass openssh-clients
       when: ansible_os_family == "RedHat"
 
     - name: Zypper install requirements Suse
-      zypper: name=sshpass,openssh-client,unzip state=present
+      zypper: name=wget,sshpass,openssh-client,unzip state=present
       when: ansible_os_family == "Suse"
 
   ######################################### Use micromamba to install Ansible #############################################
@@ -117,12 +117,15 @@
         state: directory
         mode: '0755'
 
-    - name: Install micromamba
-      get_url:
-        url: https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64
-        dest: "{{ MICROMAMBA_PATH }}/bin/micromamba"
+    - name: Download micromamba
+      command: wget https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -O {{ MICROMAMBA_PATH }}/bin/micromamba
+      args:
+        creates: "{{ MICROMAMBA_PATH }}/bin/micromamba"
+
+    - name: Make executable
+      file:
+        path: "{{ MICROMAMBA_PATH }}/bin/micromamba"
         mode: '0755'
-        force: no
 
     - name: Set Ansible version from playbook var if defined
       set_fact:
@@ -141,7 +144,7 @@
       when: ANSIBLE_VERSION is not defined or ANSIBLE_VERSION | length == 0
 
     - name: Create Ansible environment with micromamba
-      command: "{{ MICROMAMBA_PATH }}/bin/micromamba create -y -n ansible -r {{ MICROMAMBA_PATH }} python=3.12 ansible={{ ANSIBLE_VERSION }} paramiko psutil pyyaml jmespath scp pywinrm"
+      command: "{{ MICROMAMBA_PATH }}/bin/micromamba create -y -n ansible -r {{ MICROMAMBA_PATH }} python=3.12 ansible={{ ANSIBLE_VERSION }} paramiko psutil pyyaml jmespath scp pywinrm requests urllib3"
       args:
         creates: "{{ MICROMAMBA_PATH }}/envs/ansible"
 
