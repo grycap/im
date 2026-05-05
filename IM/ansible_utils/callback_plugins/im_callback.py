@@ -46,7 +46,8 @@ class IMDisplay(Display):
                     sys.stdout.flush()
             else:
                 self.output.write("%s\n" % msg)
-                self.output.flush() if hasattr(self.output, 'flush') else None
+                if hasattr(self.output, 'flush'):
+                    self.output.flush()
         else:
             sys.stdout.write(msg)
             sys.stdout.flush()
