@@ -29,14 +29,14 @@
       changed_when: false
 
     - name: Bootstrap with python Debian/Ubuntu
-      raw: sudo apt update && sudo apt install -y python3.5; sudo apt install -y python3
+      raw: command -v apt && sudo apt update && sudo apt install -y python3.5; sudo apt install -y python3
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
       when: python3_version is failed or python3_version.stdout|int < 5
 
     - name: Bootstrap with python RedHat/CentOS
-      raw: sudo yum install -y python3
+      raw: command -v yum && sudo yum install -y python3
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
@@ -112,22 +112,18 @@
         install_recommends: no
       when: ansible_os_family == "Debian"
 
-    - name: Install requisites in RedHat/Suse with yum/zypper
-      package:
-        name: "{{ requisites_pkgs[ansible_os_family] }}"
-        state: present
-      vars:
-        requisites_pkgs:
-          RedHat:
-            - wget
-            - sshpass
-            - openssh-clients
-          Suse:
-            - wget
-            - sshpass
-            - openssh
-            - unzip
-      when: ansible_os_family in requisites_pkgs
+    - name: Yum install requisites RH 7/8 or Fedora
+      command: yum install -y wget sshpass openssh-clients unzip
+      when: ansible_os_family == "RedHat"
+
+    - name: Zypper install requirements Suse
+      zypper:
+        name:
+        - wget
+        - sshpass
+        - openssh
+        - unzip
+      when: ansible_os_family == "Suse"
 
   ######################################### Use micromamba to install Ansible #############################################
 
