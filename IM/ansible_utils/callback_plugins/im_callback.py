@@ -35,9 +35,18 @@ class IMDisplay(Display):
     def display(self, msg, **kwargs):
         if self.output:
             if isinstance(self.output, logging.Logger):
-                self.output.info(msg)
+                # Re-fetch logger by name: the Logger object may have been forked into a child
+                # process (AnsibleThread is a multiprocessing.Process) and its handlers may not
+                # be alive. logging.getLogger() always returns the correct instance for this process.
+                logger = logging.getLogger(self.output.name)
+                if logger.handlers or logging.root.handlers:
+                    logger.info(msg)
+                else:
+                    sys.stdout.write(msg + "\n")
+                    sys.stdout.flush()
             else:
                 self.output.write("%s\n" % msg)
+                self.output.flush() if hasattr(self.output, 'flush') else None
         else:
             sys.stdout.write(msg)
             sys.stdout.flush()
@@ -59,6 +68,7 @@ class CallbackModule(CallbackBase):
         if output is None:
             output = CallbackContext.config.get("output")
         self._display = IMDisplay(output=output)
+        self._display.output = output  # Always update: IMDisplay is a Singleton, __init__ only runs once
 
     def v2_runner_on_failed(self, result, ignore_errors=False):
         delegated_vars = result._result.get('_ansible_delegated_vars', None)
