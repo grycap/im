@@ -47,27 +47,26 @@ else
     case $DISTRO in
         debian|ubuntu)
             apt update
-            apt install -y --no-install-recommends python3 wget sshpass openssh-client unzip
+            DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends ca-certificates python3 wget sshpass openssh-client unzip
             ;;
-        rhel|centos|fedora)
+        rhel|centos|fedora|almalinux|rocky)
             [ "$DISTRO" != "fedora" ] && yum install -y epel-release
-            yum install -y wget python3 libselinux-python3 sshpass openssh-clients
+            yum install -y ca-certificates wget python3 libselinux-python3 sshpass openssh-clients
             ;;
         *)
             echo "Unsupported distribution: $DISTRO"
             ;;
     esac
 
-    ls /var/tmp/.mamba/bin/ || mkdir -p /var/tmp/.mamba/bin/
-    ls /var/tmp/.mamba/bin/micromamba || wget https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -O /var/tmp/.mamba/bin/micromamba
+    mkdir -p /var/tmp/.mamba/bin/
+    [ -x /var/tmp/.mamba/bin/micromamba ] || wget https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -O /var/tmp/.mamba/bin/micromamba
     chmod +x /var/tmp/.mamba/bin/micromamba
-    ls /var/tmp/.mamba/envs/ansible || /var/tmp/.mamba/bin/micromamba create -y -n ansible -r /var/tmp/.mamba python=3.12 ansible=${ANSIBLE_VERSION} paramiko psutil pyyaml jmespath scp pywinrm
+    [ -x /var/tmp/.mamba/envs/ansible ] || /var/tmp/.mamba/bin/micromamba create -y -n ansible -r /var/tmp/.mamba python=3.12 ansible=${ANSIBLE_VERSION} paramiko psutil pyyaml jmespath scp pywinrm
 
 fi
 
 # Create the config file
-ls /etc/ansible || mkdir /etc/ansible
-cat > /etc/ansible/ansible.cfg <<EOL
+cat > /var/tmp/ansible.cfg <<EOL
 [defaults]
 transport  = ssh
 timeout = 30
@@ -98,7 +97,7 @@ url = https://galaxy.ansible.com/api/
 url = https://old-galaxy.ansible.com/api/
 EOL
 
-if [ $(which ansible-playbook) ]; then
+if /var/tmp/.mamba/bin/micromamba run -n ansible ansible --version >/dev/null 2>&1; then
 	echo '{"OK" : true}' > $1
 else
 	echo '{"OK" : false}' > $1
