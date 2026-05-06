@@ -45,31 +45,20 @@ else
     echo "Ansible not installed. Installing ..."
     DISTRO=$(distribution_id)
     case $DISTRO in
-        debian)
-            apt install -y --no-install-recommends python3 wget sshpass openssh-client unzip
-            ;;
-        ubuntu)
+        debian|ubuntu)
             apt update
             apt install -y --no-install-recommends python3 wget sshpass openssh-client unzip
             ;;
-        rhel)
-            yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 sshpass openssh-clients
-            ;;
-        centos)
-            yum install -y epel-release wget
-            yum install -y python3 libselinux-python3 sshpass openssh-clients
-            ;;
-        fedora)
+        rhel|centos|fedora)
+            [ "$DISTRO" != "fedora" ] && yum install -y epel-release
             yum install -y wget python3 libselinux-python3 sshpass openssh-clients
-
             ;;
-    	*)
+        *)
             echo "Unsupported distribution: $DISTRO"
             ;;
     esac
 
-    mkdir -p /var/tmp/.mamba/bin/
+    ls /var/tmp/.mamba/bin/ || mkdir -p /var/tmp/.mamba/bin/
     ls /var/tmp/.mamba/bin/micromamba || wget https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -O /var/tmp/.mamba/bin/micromamba
     chmod +x /var/tmp/.mamba/bin/micromamba
     ls /var/tmp/.mamba/envs/ansible || /var/tmp/.mamba/bin/micromamba create -y -n ansible -r /var/tmp/.mamba python=3.12 ansible=${ANSIBLE_VERSION} paramiko psutil pyyaml jmespath scp pywinrm
