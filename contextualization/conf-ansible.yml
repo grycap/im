@@ -164,13 +164,8 @@
       args:
         creates: "{{ MICROMAMBA_PATH }}/envs/ansible"
 
-    - name: Install requested Ansible version with conda, fallback to pip
-      block:
-        - name: Install Ansible from conda channel
-          command: "{{ MICROMAMBA_PATH }}/bin/micromamba install -y -n ansible -r {{ MICROMAMBA_PATH }} ansible={{ ANSIBLE_VERSION }}"
-      rescue:
-        - name: Install Ansible from pip as fallback
-          command: "{{ MICROMAMBA_PATH }}/bin/micromamba run -n ansible -r {{ MICROMAMBA_PATH }} python -m pip install ansible=={{ ANSIBLE_VERSION }}"
+    - name: Install Ansible from conda channel
+      command: "{{ MICROMAMBA_PATH }}/bin/micromamba install -y -n ansible -r {{ MICROMAMBA_PATH }} ansible={{ ANSIBLE_VERSION }}"
 
 ################################################ Configure Ansible  ###################################################
 
