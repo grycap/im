@@ -13,14 +13,14 @@ configure node (
 @begin
 ---
  - tasks:
-     - fail: msg="Incorrect Ansible Version. Expected 2.8.6 but found {{  ansible_version.string }}"
-       when: ansible_version.string != "2.8.6"
+     - fail: msg="Incorrect Ansible Version. Expected 12.3.0 but found {{  ansible_version.string }}"
+       when: ansible_version.string != "12.3.0"
 
 @end
 )
 
 contextualize (
-  option ansible_version = '2.8.6'
+  option ansible_version = '12.3.0'
   system node configure node
 )
 
