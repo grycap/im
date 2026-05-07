@@ -274,8 +274,8 @@ class TestCtxtAgent(unittest.TestCase):
         copy_content = yaml_data[0]['tasks'][1]['copy'][pos + 9:-2]
         self.assertEqual(copy_content, "[{src: ansible_role}, {name: hadoop, src: "
                          "'git+https://github.com/micafer/ansible-role-hadoop'}]")
-        self.assertEqual(yaml_data[0]['tasks'][2]['command'][:69],
-                         ctxt_agent.VENV_DIR + "/bin/ansible-galaxy install -c -r /tmp/galaxy_roles_")
+        self.assertEqual(yaml_data[0]['tasks'][2]['command'][:93],
+                         ctxt_agent.MAMBA_CMD + "ansible-galaxy install -c -r /tmp/galaxy_roles_")
 
         os.unlink(res)
 
@@ -298,8 +298,8 @@ class TestCtxtAgent(unittest.TestCase):
         pos = yaml_data[0]['tasks'][0]['copy'].find('content="')
         copy_content = yaml_data[0]['tasks'][0]['copy'][pos + 9:-2]
         self.assertEqual(copy_content, "{collections: [{name: ns.collection, version: '1.0'}]}")
-        self.assertEqual(yaml_data[0]['tasks'][1]['command'][:86],
-                         ctxt_agent.VENV_DIR + "/bin/ansible-galaxy collection install -c -r /tmp/galaxy_collections_")
+        self.assertEqual(yaml_data[0]['tasks'][1]['command'][:110],
+                         ctxt_agent.MAMBA_CMD + "ansible-galaxy collection install -c -r /tmp/galaxy_collections_")
 
         os.unlink(res)
 

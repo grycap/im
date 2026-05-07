@@ -391,12 +391,12 @@ class ConfManager(LoggerMixin, threading.Thread):
                     else:
                         self.log_info("Using ctxt_agent")
                         ctxt_agent_command = "/ctxt_agent.py "
-                    vault_export = ""
+                    export = f"export ANSIBLE_CONFIG={CtxtAgentBase.ANSIBLE_CFG_FILE} && "
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
-                        vault_export = "export VAULT_PASS='%s' && " % vault_password
-                    (pid, _, _) = ssh.execute("nohup sh -c \"" + vault_export + CtxtAgentBase.VENV_DIR +
-                                              "/bin/python3 " + Config.REMOTE_CONF_DIR +
+                        export += "export VAULT_PASS='%s' && " % vault_password
+                    (pid, _, _) = ssh.execute("nohup sh -c \"" + export + CtxtAgentBase.MAMBA_CMD +
+                                              "python3 " + Config.REMOTE_CONF_DIR +
                                               "/" + str(self.inf.id) + "/" + ctxt_agent_command +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
@@ -820,7 +820,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             # Check that remote_dir exists
             # Also check if virtual env exists (new in version 1.18.0)
             remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
-            venv_dir = CtxtAgentBase.VENV_DIR + "/bin/"
+            venv_dir = CtxtAgentBase.MAMBA_ENV_DIR
             for rd in [remote_dir, venv_dir]:
                 try:
                     ssh = self.inf.vm_master.get_ssh(retry=True)

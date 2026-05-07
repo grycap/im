@@ -823,3 +823,4 @@ IM 1.19.2:
     * Maintain order in infrastructure list.
     * Generate unique VM name in openstack.
     * REMOVE XML-RPC API.
+    * Change ansible installation method to micromamba.
