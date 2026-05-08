@@ -237,15 +237,22 @@ async def parse_deployment(request: Request) -> Deployment:
     raw = (await request.body()).decode("utf-8")
     tosca_data = None
 
-    if "application/json" in content_type:
-        radl_data = parse_radl_json(raw)
-    elif any(mt in content_type for mt in ("text/yaml", "text/x-yaml", "application/yaml")):
-        tosca_data = Tosca(raw)
-        _, radl_data = tosca_data.to_radl()
-    elif any(mt in content_type for mt in ("text/plain", "*/*", "text/*")):
-        radl_data = parse_radl(raw)
-    else:
-        raise HTTPException(status_code=415, detail=f"Unsupported Media Type {content_type}")
+    try:
+        if not raw:
+            radl_data = RADL()
+        elif "application/json" in content_type:
+            radl_data = parse_radl_json(raw)
+        elif any(mt in content_type for mt in ("text/yaml", "text/x-yaml", "application/yaml")):
+            tosca_data = Tosca(raw)
+            _, radl_data = tosca_data.to_radl()
+        elif any(mt in content_type for mt in ("text/plain", "*/*", "text/*")):
+            radl_data = parse_radl(raw)
+        else:
+            raise HTTPException(status_code=415, detail=f"Unsupported Media Type {content_type}")
+    except HTTPException:
+        raise
+    except Exception as ex:
+        raise HTTPException(status_code=400, detail=f"Error parsing request body: {ex}") from ex
 
     return Deployment(radl_data=radl_data, tosca_data=tosca_data)
 
@@ -254,10 +261,13 @@ async def parse_auth(request: Request) -> Authentication:
     content_type = get_media_type(request, 'Content-Type') or ["application/json"]
 
     if "application/json" in content_type:
-        raw = (await request.body()).decode("utf-8")
-        auth_dict = json.loads(raw)
-        if "type" not in auth_dict:
-            auth_dict["type"] = "InfrastructureManager"
-        return Authentication([auth_dict])
+        try:
+            raw = (await request.body()).decode("utf-8")
+            auth_dict = json.loads(raw)
+            if "type" not in auth_dict:
+                auth_dict["type"] = "InfrastructureManager"
+            return Authentication([auth_dict])
+        except Exception as ex:
+            raise HTTPException(status_code=400, detail=f"Error parsing auth data: {ex}") from ex
     else:
         raise HTTPException(status_code=415, detail="Unsupported Media Type %s" % content_type)
