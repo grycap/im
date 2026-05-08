@@ -237,7 +237,9 @@ async def parse_deployment(request: Request) -> Deployment:
     raw = (await request.body()).decode("utf-8")
     tosca_data = None
 
-    if "application/json" in content_type:
+    if not raw:
+        radl_data = RADL()
+    elif "application/json" in content_type:
         radl_data = parse_radl_json(raw)
     elif any(mt in content_type for mt in ("text/yaml", "text/x-yaml", "application/yaml")):
         tosca_data = Tosca(raw)
