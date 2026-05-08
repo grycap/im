@@ -5,7 +5,8 @@
   gather_facts: false
   vars:
     MICROMAMBA_PATH: /var/tmp/.mamba
-    DEFAULT_ANSIBLE_VERSION: 9.5.1  # Latest Ansible 9.X version in the conda channels
+    DEFAULT_ANSIBLE_VERSION: "9.5.1"  # Latest Ansible 9.X version in the conda channels
+    ANSIBLE_PYTHON_VERSION: "3.12"
   tasks:
   ############## To avoid some issues with cloud-init and unattended upgrades ###############
     - name: Avoid unattended upgrades
@@ -29,7 +30,7 @@
       changed_when: false
 
     - name: Bootstrap with python Debian/Ubuntu
-      raw: command -v apt && sudo apt update && sudo apt install -y python3.5; sudo apt install -y python3
+      raw: command -v apt && sudo apt update && sudo apt install -y python3
       ignore_errors: yes
       register: python_install
       changed_when: python_install.stdout_lines|length > 1
@@ -50,8 +51,8 @@
       when: python3_version is failed
 
      # In some cases python link is not created
-    - name: Link python 3 or 2 in case is needed
-      raw: ls /usr/bin/python || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; } || { ls /usr/bin/python2 && ln -s /usr/bin/python2 /usr/bin/python; }
+    - name: Link python 3 in case is needed
+      raw: ls /usr/bin/python || { ls /usr/bin/python3 && ln -s /usr/bin/python3 /usr/bin/python; }
       ignore_errors: yes
 
     # In case of redhat systems libselinux-python3 is needed
@@ -125,7 +126,7 @@
         - unzip
       when: ansible_os_family == "Suse"
 
-  ######################################### Use micromamba to install Ansible #############################################
+  ################# Use micromamba to install Ansible ##################################
 
     - name: Create micromamba directory
       file:
@@ -160,14 +161,14 @@
       when: ANSIBLE_VERSION is not defined or ANSIBLE_VERSION | length == 0
 
     - name: Create base Ansible environment with micromamba
-      command: "{{ MICROMAMBA_PATH }}/bin/micromamba create -y -n ansible -r {{ MICROMAMBA_PATH }} python=3.12 paramiko psutil pyyaml jmespath scp pywinrm requests urllib3"
+      command: "{{ MICROMAMBA_PATH }}/bin/micromamba create -y -n ansible -r {{ MICROMAMBA_PATH }} python={{ ANSIBLE_PYTHON_VERSION }} paramiko psutil pyyaml jmespath scp pywinrm requests urllib3"
       args:
         creates: "{{ MICROMAMBA_PATH }}/envs/ansible"
 
     - name: Install Ansible from conda channel
       command: "{{ MICROMAMBA_PATH }}/bin/micromamba install -y -n ansible -r {{ MICROMAMBA_PATH }} ansible={{ ANSIBLE_VERSION }}"
 
-################################################ Configure Ansible  ###################################################
+######################### Configure Ansible  ######################################
 
     - name: Create Ansible config file
       copy:

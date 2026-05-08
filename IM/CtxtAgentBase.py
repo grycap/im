@@ -37,8 +37,11 @@ class CtxtAgentBase:
     # the ConfManager
     PLAYBOOK_RETRIES = 1
     INTERNAL_PLAYBOOK_RETRIES = 1
-    MAMBA_ENV_DIR = "/var/tmp/.mamba/envs/ansible"  # nosec
-    MAMBA_CMD = "/var/tmp/.mamba/bin/micromamba run -n ansible "  # nosec
+    MAMBA_ENV_NAME = "ansible"
+    MAMBA_DIR = "/var/tmp/.mamba"  # nosec
+    MAMBA_BIN = "/var/tmp/.mamba/bin/micromamba"  # nosec
+    MAMBA_ENV_DIR = MAMBA_DIR + "/envs/" + MAMBA_ENV_NAME  # nosec
+    MAMBA_CMD = MAMBA_BIN + " run -n " + MAMBA_ENV_NAME + " "  # nosec
     ANSIBLE_CFG_FILE = "/var/tmp/ansible.cfg"  # nosec
 
     def __init__(self, conf_data_filename):
