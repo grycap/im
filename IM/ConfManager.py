@@ -1463,8 +1463,8 @@ class ConfManager(LoggerMixin, threading.Thread):
 
                     recipe_out.write("\n    - name: Delete the %s collection\n" % galaxy_name)
                     galaxy_name = galaxy_name.replace(".", "/")
-                    recipe_out.write("      file: state=absent path=/etc/ansible/ansible_collections/%s\n" %
-                                     galaxy_name)
+                    recipe_out.write("      file: state=absent path=%s/ansible_collections/%s\n" %
+                                     (CtxtAgentBase.ANSIBLE_DIR, galaxy_name))
 
                     recipe_out.close()
 
@@ -1476,7 +1476,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                     recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
 
                     recipe_out.write("\n    - name: Delete the %s role\n" % galaxy_name)
-                    recipe_out.write("      file: state=absent path=/etc/ansible/roles/%s\n" % galaxy_name)
+                    recipe_out.write("      file: state=absent path=%s/roles/%s\n" %
+                                     (CtxtAgentBase.ANSIBLE_DIR, galaxy_name))
 
                     recipe_out.close()
 
