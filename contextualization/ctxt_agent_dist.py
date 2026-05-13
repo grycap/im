@@ -332,6 +332,7 @@ class CtxtAgent(CtxtAgentBase):
                             ssh_client.sftp_put_dir(cache_dir, cache_dir)
 
                             self.logger.info("Copy ansible roles to: %s" % ctxt_vm['ip'])
+                            ssh_client.sftp_mkdir(self.ANSIBLE_DIR)
                             ssh_client.sftp_mkdir(self.ANSIBLE_DIR + "/roles")
                             ssh_client.sftp_put_dir(self.ANSIBLE_DIR + "/roles",
                                                     self.ANSIBLE_DIR + "/roles")
