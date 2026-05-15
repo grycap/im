@@ -4,7 +4,7 @@ ARG BRANCH=devel
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
 LABEL version="1.19.2"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
-EXPOSE 8899 8800
+EXPOSE 8800
 
 # Ensure system is up to date with mandatory python packages installed
 RUN apt-get update && apt-get install --no-install-recommends -y patch wget python3 openssh-client sshpass vim libmysqlclient24 python3-mysqldb && \
