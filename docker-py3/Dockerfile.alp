@@ -26,17 +26,13 @@ RUN pip3 install --no-cache-dir --break-system-packages msrest \
                  azure-mgmt-network \
                  azure-mgmt-resource \
                  azure-mgmt-dns \
-                 azure-identity
-
-RUN pip3 install --no-cache-dir --break-system-packages pyOpenSSL \
-                 cheroot \
-                 xmltodict \
-                 pymongo
-
-RUN pip3 install --no-cache-dir --break-system-packages ansible==12.3.0
+                 azure-identity \
+                 pyOpenSSL \
+                 pymongo \
+                 ansible==12.3.0
 
 RUN apk add --no-cache git &&\
-    pip3 install --no-cache-dir --break-system-packages git+https://github.com/micafer/libcloud@im && \
+    pip3 install --no-cache-dir --break-system-packages git+https://github.com/micafer/tosca-parser@im && \
     pip3 install --no-cache-dir --break-system-packages git+https://github.com/grycap/im && \
     apk del git
 
@@ -49,5 +45,6 @@ RUN wget https://raw.githubusercontent.com/grycap/im/v${VERSION}/etc/logging.con
 # Copy a ansible.cfg with correct minimum values
 COPY ansible.cfg /etc/ansible/ansible.cfg
 
+
 # Start IM service
-CMD ["im_service.py"]
+CMD /usr/local/bin/im_service
