@@ -29,14 +29,13 @@ RUN pip3 install --no-cache-dir --break-system-packages msrest \
                  azure-identity
 
 RUN pip3 install --no-cache-dir --break-system-packages pyOpenSSL \
-                 cheroot \
                  xmltodict \
                  pymongo
 
 RUN pip3 install --no-cache-dir --break-system-packages ansible==12.3.0
 
 RUN apk add --no-cache git &&\
-    pip3 install --no-cache-dir --break-system-packages git+https://github.com/micafer/libcloud@im && \
+    pip3 install --no-cache-dir --break-system-packages git+https://github.com/micafer/tosca-parser@im && \
     pip3 install --no-cache-dir --break-system-packages git+https://github.com/grycap/im && \
     apk del git
 
