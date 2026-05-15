@@ -3,7 +3,7 @@ FROM alpine:3.23
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
 LABEL version="1.19.2"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
-EXPOSE 8899 8800
+EXPOSE 8800
 
 ENV VERSION=1.19.2
 
