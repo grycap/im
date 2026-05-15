@@ -237,7 +237,7 @@ class FedcloudInfo:
 
         Args:
 
-        - radl_system(system): system that AppDBIS will search compatible configurations.
+        - radl_system(system): system that FedcloudInfo will search compatible configurations.
 
         Return(None or list of system): available virtual machines
         """

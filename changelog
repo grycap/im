@@ -824,3 +824,4 @@ IM 1.19.2:
     * Generate unique VM name in openstack.
     * REMOVE XML-RPC API.
     * Change ansible installation method to micromamba.
+    * Remove AppDB and AppDBIS classes.

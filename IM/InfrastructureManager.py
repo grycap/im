@@ -426,12 +426,9 @@ class InfrastructureManager:
             if 'host' in vmrc_elem and 'username' in vmrc_elem and 'password' in vmrc_elem:
                 vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'], vmrc_elem['password']))
 
-        # Get AppDBIS credentials
-        egiis_list = []
-        for _ in auth.getAuthInfo('AppDBIS'):
-            egiis_list.append(FedcloudInfo)
         # Get EGIIS credentials
-        for _ in auth.getAuthInfo('EGIIS'):
+        egiis_list = []
+        if auth.getAuthInfo('AppDBIS') or auth.getAuthInfo('EGIIS'):
             egiis_list.append(FedcloudInfo)
 
         systems_with_vmrc = {}

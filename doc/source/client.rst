@@ -535,7 +535,7 @@ From IM version 1.10.2 the EGI connector is available and you can also use this 
    id = egi; type = EGI; host = CESGA; vo = vo.access.egi.eu; token = egi_aai_token_value
 
 In this case the information needed to access the OpenStack API of the EGI FedCloud site will be obtained from
-`AppDB REST API <https://appdb.egi.eu/rest/1.0>`_. This connector is recommended for non advanced users. If you
+`FedCloudInfo API <https://is.cloud.egi.eu>`_. This connector is recommended for non advanced users. If you
 can get the data to access the OpenStack API directly it is recommened to use it.
 
 There are several ways to get the EGI AAI token:
