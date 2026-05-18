@@ -16,7 +16,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y patch wget pyth
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip python3-packaging python3-typing-extensions python3-jaraco.functools git && \
      pip3 install --no-cache-dir --break-system-packages msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity && \
      pip3 install --no-cache-dir --break-system-packages pyOpenSSL pymongo ansible==12.3.0 && \
-     pip3 install --no-cache-dir --break-system-packages git+https://github.com/apache/libcloud && \
      pip3 install --no-cache-dir --break-system-packages git+https://github.com/micafer/tosca-parser@im && \
      pip3 install --no-cache-dir --break-system-packages IM==${VERSION} && \
      apt-get purge -y python3-pip python3-setuptools python3-pkg-resources git && \

@@ -38,7 +38,10 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11"
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 requires-python = ">=3.6"
 dependencies = [
@@ -46,10 +49,9 @@ dependencies = [
     "paramiko >= 1.14",
     "PyYAML",
     "suds-community",
-    "cheroot",
     "boto3",
     "apache-libcloud >= 3.2.0",
-    "RADL >= 1.3.3",
+    "RADL >= 1.3.4",
     "fastapi >= 0.109.0",
     "uvicorn[standard] >= 0.27.0",
     "python-multipart",
@@ -93,7 +95,7 @@ test = [
 im_service = "IM.im_service:main"
 
 [tool.setuptools]
-packages = ["IM", "IM.ansible_utils", "IM.ansible_utils.callback_plugins", "IM.connectors", "IM.tosca", "IM.openid", "IM.tts", "IM.oaipmh", "IM.rest", "IM.rest.routers", "contextualization"]
+packages = ["IM", "IM.ansible_utils", "IM.ansible_utils.callback_plugins", "IM.connectors", "IM.tosca", "IM.openid", "IM.oaipmh", "IM.rest", "IM.rest.routers", "contextualization"]
 
 [tool.setuptools.dynamic]
 version = {attr = "IM.__version__"}

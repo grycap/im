@@ -108,7 +108,7 @@ class FedcloudInfo:
         """
         url = urlparse(str_url)
 
-        if url.scheme in ["egi", "appdb"] and url.path:
+        if url.scheme in ["egi"] and url.path:
             site_name = url.netloc
             image_name = url.path.strip("/")
             vo_name = url.query
@@ -237,7 +237,7 @@ class FedcloudInfo:
 
         Args:
 
-        - radl_system(system): system that AppDBIS will search compatible configurations.
+        - radl_system(system): system that FedcloudInfo will search compatible configurations.
 
         Return(None or list of system): available virtual machines
         """

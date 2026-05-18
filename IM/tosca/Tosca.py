@@ -8,11 +8,6 @@ import re
 from random import choice
 from string import ascii_letters, digits
 
-try:
-    unicode("hola")
-except NameError:
-    unicode = str
-
 from urllib.parse import urlparse
 from uuid import uuid1
 from toscaparser.nodetemplate import NodeTemplate

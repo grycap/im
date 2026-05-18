@@ -126,6 +126,8 @@ class Stats():
                     where += "where (%s)" % like
                 res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)  # nosec
 
+            init = datetime.datetime.strptime(init_date, "%Y-%m-%d")
+            end = datetime.datetime.strptime(end_date, "%Y-%m-%d") if end_date else None
             for elem in res:
                 if db.db_type == DataBase.MONGO:
                     data = elem["data"]
@@ -141,8 +143,6 @@ class Stats():
                         date = datetime.datetime.strptime(date, "%Y-%m-%d")
                     inf_id = elem[2]
                 try:
-                    init = datetime.datetime.strptime(init_date, "%Y-%m-%d")
-                    end = datetime.datetime.strptime(end_date, "%Y-%m-%d") if end_date else None
                     res = Stats._get_data(data, init, end)
                     if res:
                         res['inf_id'] = inf_id

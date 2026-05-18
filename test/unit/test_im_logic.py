@@ -942,7 +942,6 @@ class TestIM(unittest.TestCase):
             disk.1.fstype='ext4' and
             disk.1.mount_path='/mnt/disk' and
             disk.0.applications contains (name = 'ansible.roles.micafer.hadoop') and
-            disk.0.applications contains (name='gmetad') and
             disk.0.applications contains (name='wget')
             )
 
@@ -1377,7 +1376,7 @@ configure step2 (
         Config.BOOT_MODE = 0
 
     @patch('IM.InfrastructureManager.FedcloudInfo')
-    def test_get_cloud_info(self, appdbis):
+    def test_get_cloud_info(self, egiis):
         auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         res = IM.GetCloudImageList("cloud1", auth)
 
@@ -1394,13 +1393,13 @@ configure step2 (
             IM.GetCloudQuotas("cloud2", auth)
 
         auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'},
-                               {'id': 'app', 'type': 'AppDBIS', 'token': 'atoken'}])
+                               {'id': 'app', 'type': 'EGIIS', 'token': 'atoken'}])
 
-        appdbis.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
+        egiis.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
 
         res = IM.GetCloudImageList("app", auth, {"distribution": "Ubuntu", "version": "20.04"})
         self.assertEqual(res, [{'uri': 'ost://site/imageid', 'name': 'Image Name'}])
-        self.assertEqual(appdbis.list_images.call_args_list[0][0][0],
+        self.assertEqual(egiis.list_images.call_args_list[0][0][0],
                          {'distribution': 'Ubuntu', 'version': '20.04'})
 
     @patch('IM.InfrastructureManager.VMRC')
@@ -1512,9 +1511,9 @@ configure step2 (
         self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri2")
 
     @patch('IM.InfrastructureManager.FedcloudInfo')
-    def test_translate_egi_to_ost(self, appdb):
-        appdb.get_site_url.return_value = 'https://ostsite.com:5000'
-        appdb.get_project_ids.return_value = {'vo_name': 'projectid'}
+    def test_translate_egi_to_ost(self, egiis):
+        egiis.get_site_url.return_value = 'https://ostsite.com:5000'
+        egiis.get_project_ids.return_value = {'vo_name': 'projectid'}
 
         auth = Authentication([{'id': 'egi', 'type': 'EGI', 'host': 'SITE_NAME', 'vo': 'vo_name', 'token': 'atoken'},
                                {'type': 'InfrastructureManager', 'token': 'atoken'}])
