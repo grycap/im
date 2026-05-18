@@ -29,7 +29,6 @@ class Authentication:
     type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
     id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
     id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
-    id = occi; type = OCCI; host = occiserver:4567; username = user; password = pass
 
     Arguments:
         - auth_data(list of dicts or :py:class:`IM.Authentication`): Data to initialize the Authentication object
@@ -179,8 +178,6 @@ class Authentication:
         type = VMRC; host = http://server:8080/vmrc; username = user; password = "pass';test"
         id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
         id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
-        id = occi; type = OCCI; host = occiserver:4567; username = user; password = file(/tmp/filename)
-        id = occi; type = OCCI; proxy = file(/tmp/proxy.pem)
 
         Arguments:
            - filename(str or list): The filename to read or list of auth lines
