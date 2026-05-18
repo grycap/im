@@ -1589,10 +1589,11 @@ class InfrastructureManager:
             else:
                 raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
-
-        # We have to check if TTS is needed for other auth item
+        # Now check if we need to get credentials from vault
         auth = InfrastructureManager.get_auth_from_vault(auth)
+        # or generate EGI auth from EGIIS
         auth = InfrastructureManager.gen_auth_from_egiis(auth)
+        # or translate EGI auth to OST auth
         auth = InfrastructureManager.translate_egi_to_ost(auth)
         return auth
 

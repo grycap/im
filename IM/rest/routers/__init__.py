@@ -107,7 +107,6 @@ def get_auth_header(request: Request, credentials: Optional[str] = Security(secu
         im_auth = {"type": "InfrastructureManager",
                    "token": token}
 
-
     if Config.VAULT_URL and token:
         vault_auth = {"type": "Vault", "host": Config.VAULT_URL, "token": token}
         if Config.VAULT_PATH:
