@@ -1391,7 +1391,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                         app_name += ",%s" % req_app.getValue("version")
                 else:
                     self.log_warn("Application " + req_app.getValue("name") +
-                                    " specified in the RADL is not supported for Ansible. ")
+                                  " specified in the RADL is not supported for Ansible. ")
         return set(roles), set(collections)
 
     def configure_ansible(self, ssh, tmp_dir, ansible_version=None):
