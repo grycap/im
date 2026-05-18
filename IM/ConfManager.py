@@ -1371,6 +1371,29 @@ class ConfManager(LoggerMixin, threading.Thread):
         conf_all_out.close()
         return all_filename
 
+    def get_ansible_roles_and_collections(self, radl):
+        """
+        Add all the ansible roles and collections specified in the RADL
+        """
+        roles = []
+        collections = []
+        for s in radl.systems:
+            for req_app in s.getApplications():
+                if req_app.getValue("name").startswith("ansible.roles."):
+                    # Get the roles specified by the user in the RADL
+                    roles.append(req_app.getValue("name")[14:])
+                    if req_app.getValue("version"):
+                        app_name += ",%s" % req_app.getValue("version")
+                elif req_app.getValue("name").startswith("ansible.collections."):
+                    # Get the collections specified by the user in the RADL
+                    collections.append(req_app.getValue("name")[20:])
+                    if req_app.getValue("version"):
+                        app_name += ",%s" % req_app.getValue("version")
+                else:
+                    self.log_warn("Application " + req_app.getValue("name") +
+                                    " specified in the RADL is not supported for Ansible. ")
+        return set(roles), set(collections)
+
     def configure_ansible(self, ssh, tmp_dir, ansible_version=None):
         """
         Install ansible in the master node
@@ -1419,23 +1442,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                         ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 
             # Add all the ansible roles and collections specified in the RADL
-            roles = []
-            collections = []
-            for s in self.inf.radl.systems:
-                for req_app in s.getApplications():
-                    if req_app.getValue("name").startswith("ansible.roles."):
-                        # Get the roles specified by the user in the RADL
-                        roles.append(req_app.getValue("name")[14:])
-                    elif req_app.getValue("name").startswith("ansible.collections."):
-                        # Get the collections specified by the user in the RADL
-                        collections.append(req_app.getValue("name")[20:])
-                    else:
-                        self.log_warn("Application " + req_app.getValue("name") +
-                                      " specified in the RADL is not supported for Ansible. ")
-
-            # avoid duplicates
-            roles = set(roles)
-            collections = set(collections)
+            roles, collections = self.get_ansible_roles_and_collections(self.inf.radl)
 
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
@@ -1504,33 +1511,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         """
         Create the configuration file needed by the contextualization agent
         """
-        # Add all the roles and collections specified in the RADL
-        roles = []
-        collections = []
-        for s in self.inf.radl.systems:
-            for req_app in s.getApplications():
-                if req_app.getValue("name").startswith("ansible.roles."):
-                    # Get the roles specified by the user in the RADL
-                    app_name = req_app.getValue("name")[14:]
-                    if req_app.getValue("version"):
-                        app_name += ",%s" % req_app.getValue("version")
-                    roles.append(app_name)
-                elif req_app.getValue("name").startswith("ansible.collections."):
-                    # Get the collections specified by the user in the RADL
-                    app_name = req_app.getValue("name")[20:]
-                    if req_app.getValue("version"):
-                        app_name += ",%s" % req_app.getValue("version")
-                    collections.append(app_name)
-                else:
-                    self.log_warn("Application " + req_app.getValue("name") +
-                                  " specified in the RADL is not supported for Ansible. ")
-
-        # avoid duplicates
-        roles = list(set(roles))
-        collections = list(set(collections))
-
+        roles, collections = self.get_ansible_roles_and_collections(self.inf.radl)
         conf_data = {}
-
         conf_data['ansible_collections'] = collections
         conf_data['ansible_roles'] = roles
         conf_data['playbook_retries'] = Config.PLAYBOOK_RETRIES
