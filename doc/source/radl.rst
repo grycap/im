@@ -413,7 +413,7 @@ machine.  The supported features are:
    is not installed.
    
    There are some **special** type of application that starts with ``ansible.roles.``
-   (``ansible.modules.`` in < IM 1.14 ) or ``ansible.collections.``.
+   or ``ansible.collections.``.
    These applications installs `ansible roles <https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_reuse_roles.html>`_ or 
    `ansible collections <https://docs.ansible.com/ansible/latest/collections_guide/index.html>`_
    that can be used in the ``configure`` sections of the RADL.
