@@ -808,7 +808,7 @@ IM 1.19.1:
     * Fix storage estimate in K8s conn with configmaps.
     * Fix issue with Almalinux SO contextualization.
 
-IM 1.19.2:
+IM 2.0.0:
     * Improve K8s conn using Deployments.
     * Improve K8s conn implementing get_quota.
     * Improve Azure conn implementing get_quota.
@@ -825,3 +825,7 @@ IM 1.19.2:
     * REMOVE XML-RPC API.
     * Change ansible installation method to micromamba.
     * Remove AppDB and AppDBIS classes.
+    * Remove OCCI Connector.
+    * Remove FogBow Connector.
+    * Remove SINGLE_SITE configuration support.
+    * Remove OpenNebula TTS support.
