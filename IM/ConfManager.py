@@ -1381,14 +1381,16 @@ class ConfManager(LoggerMixin, threading.Thread):
             for req_app in s.getApplications():
                 if req_app.getValue("name").startswith("ansible.roles."):
                     # Get the roles specified by the user in the RADL
-                    roles.append(req_app.getValue("name")[14:])
+                    app_name = req_app.getValue("name")[14:]
                     if req_app.getValue("version"):
                         app_name += ",%s" % req_app.getValue("version")
+                    roles.append(app_name)
                 elif req_app.getValue("name").startswith("ansible.collections."):
                     # Get the collections specified by the user in the RADL
-                    collections.append(req_app.getValue("name")[20:])
+                    app_name = req_app.getValue("name")[20:]
                     if req_app.getValue("version"):
                         app_name += ",%s" % req_app.getValue("version")
+                    collections.append(app_name)
                 else:
                     self.log_warn("Application " + req_app.getValue("name") +
                                   " specified in the RADL is not supported for Ansible. ")
