@@ -693,13 +693,13 @@ echo "Hello World" >> /tmp/data.txt
 #        self.assertTrue(
 #            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
 
- #   def test_89_destroy(self):
- #       """
- #       Test DestroyInfrastructure function
- #       """
- #       for inf_id in self.inf_id:
- #           resp = self.create_request("DELETE", "/infrastructures/%s" % inf_id)
- #           self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
+#    def test_89_destroy(self):
+#        """
+#        Test DestroyInfrastructure function
+#        """
+#        for inf_id in self.inf_id:
+#            resp = self.create_request("DELETE", "/infrastructures/%s" % inf_id)
+#            self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
 
     def test_90_create(self):
         """
