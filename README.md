@@ -2,8 +2,8 @@
 
 [![PyPI](https://img.shields.io/pypi/v/im.svg)](https://pypi.org/project/im)
 [![Tests](https://github.com/grycap/im/actions/workflows/main.yaml/badge.svg)](https://github.com/grycap/im/actions/workflows/main.yaml)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/582a0d6e763f44bdade11133e5191439)](https://www.codacy.com/gh/grycap/im/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=grycap/im&amp;utm_campaign=Badge_Grade)
-[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/582a0d6e763f44bdade11133e5191439)](https://www.codacy.com/gh/grycap/im/dashboard?utm_source=github.com&utm_medium=referral&utm_content=grycap/im&utm_campaign=Badge_Coverage)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/582a0d6e763f44bdade11133e5191439)](https://app.codacy.com/gh/grycap/im/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/582a0d6e763f44bdade11133e5191439)](https://app.codacy.com/gh/grycap/im/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
 [![License](https://img.shields.io/badge/license-GPL%20v3.0-brightgreen.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://imdocs.readthedocs.io/en/latest/)
 [![SQAaaS badge](https://img.shields.io/badge/sqaaas%20software-gold-yellow)](https://eu.badgr.com/public/assertions/rkXyQH9FRj-EAMPgccz5ug)
@@ -131,18 +131,10 @@ Security is disabled by default. Please notice that someone with local network
 access can "sniff" the traffic and get the messages with the IM with the
 authorisation data with the cloud providers.
 
-Security can be activated both in the XMLRPC and REST APIs. Setting this
-variables:
-
-```sh
-XMLRCP_SSL = True
-```
-
-or
+Security can be activated both in the REST API. Setting this variable:
 
 ```sh
 REST_SSL = True
 ```
 
-And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates
-paths.
+And then set the variables: REST_SSL_* to your certificates paths.

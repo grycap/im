@@ -22,7 +22,7 @@ import sys
 import yaml
 import json
 
-from mock import MagicMock
+from mock import MagicMock, patch
 
 sys.path.append("..")
 sys.path.append(".")
@@ -32,6 +32,7 @@ from radl.radl_parse import parse_radl
 from radl.radl import system, Feature
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.tosca.Tosca import Tosca
+from IM.auth import Authentication
 
 
 def read_file_as_string(file_name):
@@ -222,13 +223,12 @@ class TestTosca(unittest.TestCase):
         vm1.info.systems = [system1]
         inf_info.get_vm_list_by_system_name.return_value = {"server": [vm1]}
         _, radl = tosca.to_radl(inf_info)
-        print(radl)
         conf = None
         for elem in radl.configures:
             if elem.name == "test_server_conf":
                 conf = elem
         conf = yaml.safe_load(conf.recipes)[0]
-        print(str(radl))
+
         self.assertEqual(conf['vars']['wn_ips'], ["{{ hostvars[groups['server'][0]]['IM_NODE_PUBLIC_IP'] }}"])
 
     def test_tosca_compute_tags(self):
@@ -436,7 +436,7 @@ class TestTosca(unittest.TestCase):
         radl.check()
 
         self.assertEqual(radl.description.getValue("namespace"), "somenamespace")
-        node = radl.get_system_by_name('mysql_container')
+        node = radl.get_system_by_name('mysql-container-%s' % tosca.id[0:8])
         self.assertEqual(node.getValue("disk.0.image.url"), "docker://docker.io/mysql:8")
         self.assertEqual(node.getValue("cpu.count"), 0.5)
         self.assertEqual(node.getValue("memory.size"), 1000000000)
@@ -444,18 +444,18 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("disk.1.mount_path"), '/var/lib/mysql')
         self.assertEqual(node.getValue("environment.variables"),
                          'MYSQL_ROOT_PASSWORD=my-secret,MYSQL_DATABASE=im-db,TEST="some,value"')
-        self.assertEqual(node.getValue("net_interface.0.connection"), 'mysql_container_priv')
+        self.assertEqual(node.getValue("net_interface.0.connection"), 'mysql-container-%s_priv' % tosca.id[0:8])
         self.assertIsNone(node.getValue("net_interface.1.connection"))
-        net = radl.get_network_by_id('mysql_container_priv')
+        net = radl.get_network_by_id('mysql-container-%s_priv' % tosca.id[0:8])
         self.assertEqual(net.getValue("outports"), '3306/tcp-3306/tcp')
         self.assertEqual(net.getValue("outbound"), 'no')
-        conf = radl.get_configure_by_name('mysql_container')
+        conf = radl.get_configure_by_name('mysql-container-%s' % tosca.id[0:8])
         self.assertEqual(conf.recipes, None)
 
-        node = radl.get_system_by_name('im_container')
+        node = radl.get_system_by_name('im-container-%s' % tosca.id[0:8])
         self.assertEqual(node.getValue("disk.0.image.url"), "docker://grycap/im")
         self.assertEqual(node.getValue("command"), ["/bin/sh", "-c", "im_service.py"])
-        net = radl.get_network_by_id('im_container_pub')
+        net = radl.get_network_by_id('im-container-%s_pub' % tosca.id[0:8])
         self.assertEqual(net.getValue("outports"), '30880/tcp-8800/tcp')
         self.assertEqual(net.getValue("outbound"), 'yes')
         self.assertEqual(node.getValue("disk.1.content"), '[im]\nREST_API = True')
@@ -463,11 +463,11 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(node.getValue("disk.2.content"), 'c29tZSBlbmNvZGVkIGNvbnRlbnQ=')
         self.assertEqual(node.getValue("disk.2.mount_path"), '/etc/secret')
         self.assertEqual(node.getValue("environment.variables"),
-                         'IM_DATA_DB=mysql://root:my-secret@mysql-container:3306/im-db')
-        self.assertEqual(node.getValue("net_interface.0.connection"), 'im_container_pub')
+                         'IM_DATA_DB=mysql://root:my-secret@mysql-container-%s:3306/im-db' % tosca.id[0:8])
+        self.assertEqual(node.getValue("net_interface.0.connection"), 'im-container-%s_pub' % tosca.id[0:8])
         self.assertIsNone(node.getValue("net_interface.1.connection"))
         self.assertEqual(node.getValue("net_interface.0.dns_name"), 'https://im.domain.com/im')
-        conf = radl.get_configure_by_name('im_container')
+        conf = radl.get_configure_by_name('im-container-%s' % tosca.id[0:8])
         self.assertEqual(conf.recipes, None)
 
     def test_tosca_k8s_get_attribute(self):
@@ -476,12 +476,12 @@ class TestTosca(unittest.TestCase):
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
         radl1 = radl.clone()
-        radl1.systems = [radl.get_system_by_name('im_container')]
+        radl1.systems = [radl.get_system_by_name('im-container-%s' % tosca.id[0:8])]
         inf = InfrastructureInfo()
         radl1.systems[0].setValue("net_interface.0.ip", "8.8.8.8")
 
         radl2 = radl.clone()
-        radl2.systems = [radl.get_system_by_name('mysql_container')]
+        radl2.systems = [radl.get_system_by_name('mysql-container-%s' % tosca.id[0:8])]
 
         cloud_info = MagicMock()
         vm = VirtualMachine(inf, "1", cloud_info, radl1, radl1, None)
@@ -491,7 +491,58 @@ class TestTosca(unittest.TestCase):
         inf.vm_list = [vm, vm2]
         outputs = tosca.get_outputs(inf)
         self.assertEqual(outputs, {'im_service_endpoint': 'https://im.domain.com/im',
-                                   'mysql_service_endpoint': 'mysql-container:3306'})
+                                   'mysql_service_endpoint': 'mysql-container-%s:3306' % tosca.id[0:8]})
+
+    def test_tosca_repo(self):
+        """Test TOSCA RADL translation with Compute tags"""
+        tosca_data = read_file_as_string('../files/tosca_repo.yml')
+        tosca = Tosca(tosca_data, tosca_repo="https://raw.githubusercontent.com/grycap/tosca/main/templates/")
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        node = radl.get_system_by_name('simple_node')
+        self.assertEqual(node.getValue("cpu.count"), 16)
+        self.assertEqual(node.getValue("gpu.count"), 1)
+
+        with self.assertRaises(Exception) as ex:
+            tosca = Tosca(tosca_data)
+        expected_error = 'Error parsing TOSCA template: Relative file name "simple-node-disk.yml"' \
+                         ' cannot be used in a pre-parsed input template.'
+        self.assertEqual(expected_error, str(ex.exception))
+
+        with self.assertRaises(Exception) as ex:
+            tosca = Tosca(tosca_data, tosca_repo="https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/")
+        expected_error = "Error parsing TOSCA template: Failed to reach server " \
+                         '"https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/simple-node-disk.yml". ' \
+                         "Reason is: Not Found."
+        self.assertEqual(expected_error, str(ex.exception))
+
+        # Test with a full URL in the template_file and not in the repo
+        tosca_yaml = yaml.safe_load(tosca_data)
+        tosca_yaml["imports"][0]["template_file"] = \
+            "https://raw.githubusercontent.com/grycap/tosca/main/templates/simple-node-disk.yml"
+        tosca = Tosca(yaml.safe_dump(tosca_yaml))
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        node = radl.get_system_by_name('simple_node')
+        self.assertEqual(node.getValue("cpu.count"), 16)
+        outputs = tosca.get_outputs(None)
+        self.assertEqual(outputs.get('new_output'), 1)
+
+        with self.assertRaises(Exception) as ex:
+            tosca = Tosca(yaml.safe_dump(tosca_yaml),
+                          tosca_repo="https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/")
+        expected_error = "Error parsing TOSCA template: The TOSCA template must be imported from the TOSCA " \
+                         "repository: https://raw.githubusercontent.com/grycap/tosca/eosc_dc/templates/"
+        self.assertEqual(expected_error, str(ex.exception))
+
+    @patch("IM.tosca.Tosca.choice", return_value="a")
+    def test_tosca_input_funcs(self, mock_choice):
+        """Test TOSCA special input functions"""
+        tosca_data = read_file_as_string('../files/tosca_input_funcs.yml')
+        auth = Authentication([{"type": "InfrastructureManager", "token": "access_token"}])
+        tosca = Tosca(tosca_data, auth=auth)
+        outputs = tosca.get_outputs(MagicMock())
+        self.assertEqual(outputs, {'some_pass': 'aaaaaaaa', 'user_token': 'access_token'})
 
 
 if __name__ == "__main__":

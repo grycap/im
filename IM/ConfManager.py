@@ -23,10 +23,7 @@ import tempfile
 import shutil
 from packaging.version import Version
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 from multiprocessing import Queue
 
 from ansible import __version__ as ansible_version
@@ -394,12 +391,12 @@ class ConfManager(LoggerMixin, threading.Thread):
                     else:
                         self.log_info("Using ctxt_agent")
                         ctxt_agent_command = "/ctxt_agent.py "
-                    vault_export = ""
+                    export = f"export ANSIBLE_CONFIG={CtxtAgentBase.ANSIBLE_CFG_FILE} && "
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
-                        vault_export = "export VAULT_PASS='%s' && " % vault_password
-                    (pid, _, _) = ssh.execute("nohup sh -c \"" + vault_export + CtxtAgentBase.VENV_DIR +
-                                              "/bin/python3 " + Config.REMOTE_CONF_DIR +
+                        export += "export VAULT_PASS='%s' && " % vault_password
+                    (pid, _, _) = ssh.execute("nohup sh -c \"" + export + CtxtAgentBase.MAMBA_CMD +
+                                              "python3 " + Config.REMOTE_CONF_DIR +
                                               "/" + str(self.inf.id) + "/" + ctxt_agent_command +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
@@ -650,7 +647,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                     tmp_dir + "/basic_task_all.yml")
         f = open(tmp_dir + '/basic_task_all.yml', 'a')
         f.write("\n  vars:\n")
-        f.write("    - pk_file: " + pk_file + ".pub\n")
+        f.write("      pk_file: " + pk_file + ".pub\n")
         f.write("  hosts: '{{IM_HOST}}'\n")
         f.close()
         recipe_files.append("basic_task_all.yml")
@@ -823,7 +820,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             # Check that remote_dir exists
             # Also check if virtual env exists (new in version 1.18.0)
             remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
-            venv_dir = CtxtAgentBase.VENV_DIR + "/bin/"
+            venv_dir = CtxtAgentBase.MAMBA_ENV_DIR
             for rd in [remote_dir, venv_dir]:
                 try:
                     ssh = self.inf.vm_master.get_ssh(retry=True)
@@ -1254,7 +1251,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         return change_creds
 
-    def call_ansible(self, tmp_dir, inventory, playbook, ssh):
+    def call_ansible(self, tmp_dir, inventory, playbook, ssh, ansible_version=None):
         """
         Call the AnsibleThread to execute an Ansible playbook
 
@@ -1286,6 +1283,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         self.log_info('Launching Ansible process.')
         result = Queue()
         extra_vars = {'IM_HOST': 'all'}
+        if ansible_version:
+            extra_vars['im_ansible_version'] = ansible_version
         # store the process to terminate it later is Ansible does not finish correctly
         self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, 1, gen_pk_file,
                                              ssh.password, 1, tmp_dir + "/" + inventory, ssh.username,
@@ -1301,8 +1300,15 @@ class ConfManager(LoggerMixin, threading.Thread):
                     self.ansible_process.teminate()
                 except Exception:
                     self.log_exception('Problems terminating Ansible processes.')
+
+                msg = "Timeout waiting Ansible process to finish. "
+                try:
+                    _, return_code, output = result.get(timeout=10, block=False)
+                    msg += output.getvalue()
+                except Exception:
+                    self.log_exception('Error getting ansible results.')
                 self.ansible_process = None
-                return (False, "Timeout. Ansible process terminated.")
+                return (False, msg)
             else:
                 self.log_info('Waiting Ansible process to finish (%d/%d).' % (wait, Config.ANSIBLE_INSTALL_TIMEOUT))
                 time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
@@ -1457,8 +1463,8 @@ class ConfManager(LoggerMixin, threading.Thread):
 
                     recipe_out.write("\n    - name: Delete the %s collection\n" % galaxy_name)
                     galaxy_name = galaxy_name.replace(".", "/")
-                    recipe_out.write("      file: state=absent path=/etc/ansible/ansible_collections/%s\n" %
-                                     galaxy_name)
+                    recipe_out.write("      file: state=absent path=%s/ansible_collections/%s\n" %
+                                     (CtxtAgentBase.ANSIBLE_DIR, galaxy_name))
 
                     recipe_out.close()
 
@@ -1470,7 +1476,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                     recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
 
                     recipe_out.write("\n    - name: Delete the %s role\n" % galaxy_name)
-                    recipe_out.write("      file: state=absent path=/etc/ansible/roles/%s\n" % galaxy_name)
+                    recipe_out.write("      file: state=absent path=%s/roles/%s\n" %
+                                     (CtxtAgentBase.ANSIBLE_DIR, galaxy_name))
 
                     recipe_out.close()
 
@@ -1489,15 +1496,8 @@ class ConfManager(LoggerMixin, threading.Thread):
             ver_msg = " (v. %s)" % ansible_version if ansible_version else ""
             self.inf.add_cont_msg("Configure Ansible%s in the master VM." % ver_msg)
             self.log_info("Call Ansible%s to (re)configure in the master node" % ver_msg)
-            ansible_version_env = None
-            if ansible_version:
-                # Set ansible verion env var
-                ansible_version_env = os.getenv('ANSIBLE_VERSION')
-                os.environ['ANSIBLE_VERSION'] = ansible_version
-            (success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
-            if ansible_version_env:
-                # restore original value
-                os.environ['ANSIBLE_VERSION'] = ansible_version_env
+            (success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML,
+                                               ssh, ansible_version)
 
             if not success:
                 self.log_error("Error configuring master node: " + msg + "\n\n")

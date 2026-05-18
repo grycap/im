@@ -62,7 +62,7 @@ Cloud providers:
    * **aws://<region>/<ami-id>**, for Amazon Web Service;
    * **gce://<region>/<image-id>**, for Google Cloud;
    * **azr://<publisher>/<offer>/<sku>/<version>**, for Microsoft Azure; and
-   * **appdb://<site_name>/<apc_name>?<vo_name>**, for EGI or OpenStack connector using AppDB info.
+   * **egi://<site_name>/<apc_name>?<vo_name>**, for EGI or OpenStack connector using AppDB info.
    * **docker://<docker_image>**, for Docker images.
    * **fbw://<fns_server>/<image-id>**, for FogBow images.
    * **lin://linode/<image-id>**, for Linode images.
@@ -75,7 +75,9 @@ TOSCA basic example
 ^^^^^^^^^^^^^^^^^^^
 
 In case you want to use a TOSCA file to define a similar example to the previous RADL one, the file
-will look like this::
+will look like this.
+
+.. code-block:: yaml
 
     #toscaExample.yaml
     tosca_definitions_version: tosca_simple_yaml_1_0

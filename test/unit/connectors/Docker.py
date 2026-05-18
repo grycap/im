@@ -29,10 +29,7 @@ from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.Docker import DockerCloudConnector
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from mock import patch, MagicMock
 
 

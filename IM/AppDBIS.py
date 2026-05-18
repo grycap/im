@@ -14,10 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 import requests
 import re
 import time

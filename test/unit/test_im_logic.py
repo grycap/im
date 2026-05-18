@@ -24,7 +24,7 @@ import sys
 import json
 import base64
 import yaml
-
+from datetime import datetime
 from mock import Mock, patch, MagicMock
 
 sys.path.append("..")
@@ -78,7 +78,9 @@ class TestIM(unittest.TestCase):
         log.addHandler(ch)
 
     def tearDown(self):
-        IM.stop()
+        with patch("IM.InfrastructureList.InfrastructureList._save_data_to_db") as mock_func:
+            mock_func.return_value = True
+            IM.stop()
 
     @staticmethod
     def getAuth(im_users=[], vmrc_users=[], clouds=[]):
@@ -328,7 +330,8 @@ class TestIM(unittest.TestCase):
             wait += 1
         self.assertIn("Error launching the VMs of type s0 to cloud ID cloud0 of type Mock. Attempt 1: e1", cont_msg)
 
-    def test_inf_auth(self):
+    @patch("IM.InfrastructureManager.OpenIDClient")
+    def test_access_no_own_inf(self, oidc_client_mock):
         """Try to access not owned Infs."""
         auth0, auth1 = self.getAuth([0]), self.getAuth([1])
         infId0 = IM.CreateInfrastructure("", auth0)
@@ -350,8 +353,21 @@ class TestIM(unittest.TestCase):
 
         Config.ADMIN_USER = None
 
+        oidc_client_mock.get_user_info_request.return_value = True, {
+            "preferred_username": "username",
+            "sub": "user_sub",
+            "groups": ["admin", "other"]
+        }
+        oidc_client_mock.is_access_token_expired.return_value = False, ""
+        Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
+        Config.OIDC_ADMIN_GROUPS = [{"issuer": "https://iam-test.indigo-datacloud.eu/", "group": "admin"}]
+        token = self.gen_token()
+        autha = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'token': token}])
+        IM.GetInfrastructureInfo(infId0, autha)
+
+        Config.OIDC_ADMIN_GROUPS = []
+
         IM.DestroyInfrastructure(infId0, auth0)
-        IM.DestroyInfrastructure(infId1, auth1)
 
     def test_inf_auth_with_userdb(self):
         """Test access im with user db."""
@@ -727,7 +743,8 @@ class TestIM(unittest.TestCase):
         IM.DestroyInfrastructure(infId, auth0)
 
     @patch('IM.InfrastructureList.InfrastructureList.get_inf_ids')
-    def test_get_inf_state(self, get_inf_ids):
+    @patch('IM.InfrastructureList.InfrastructureList._save_data_to_db')
+    def test_get_inf_state(self, mock_save_data, get_inf_ids):
         """Test GetInfrastructureState."""
         auth0 = self.getAuth([0], [], [("Dummy", 0)])
 
@@ -1058,13 +1075,19 @@ configure step2 (
     def test_check_oidc_invalid_token(self, request):
         im_auth = {"token": self.gen_token()}
 
+        mock_response1 = MagicMock()
+        mock_response1.status_code = 200
+        mock_response1.json.return_value = {"introspection_endpoint": "/introspect",
+                                            "userinfo_endpoint": "/userinfo"}
+        request.return_value = mock_response1
+
         Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth)
         self.assertEqual(str(ex.exception),
                          'Invalid InfrastructureManager credentials. OIDC auth Token expired.')
 
-        im_auth_aud = {"token": self.gen_token(aud="test1,test2")}
+        im_auth_aud = {"token": self.gen_token(aud="test1,test2", exp=int(time.time()) + 100)}
 
         Config.OIDC_AUDIENCE = "test"
         with self.assertRaises(Exception) as ex:
@@ -1072,11 +1095,6 @@ configure step2 (
         self.assertEqual(str(ex.exception),
                          'Invalid InfrastructureManager credentials. Audience not accepted.')
 
-        Config.OIDC_AUDIENCE = "test2"
-        with self.assertRaises(Exception) as ex:
-            IM.check_oidc_token(im_auth_aud)
-        self.assertEqual(str(ex.exception),
-                         'Invalid InfrastructureManager credentials. OIDC auth Token expired.')
         Config.OIDC_AUDIENCE = None
 
         Config.OIDC_SCOPES = ["scope1", "scope2"]
@@ -1084,22 +1102,13 @@ configure step2 (
         Config.OIDC_CLIENT_SECRET = "secret"
         response = MagicMock()
         response.status_code = 200
-        response.text = '{ "scope": "profile scope1" }'
+        response.json.return_value = {"scope": "profile scope1", "active": True}
         request.return_value = response
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth_aud)
         self.assertEqual(str(ex.exception),
                          'Invalid InfrastructureManager credentials. '
                          'Scopes scope1 scope2 not in introspection scopes: profile scope1')
-
-        response.status_code = 200
-        response.text = '{ "scope": "address profile scope1 scope2" }'
-        request.return_value = response
-        with self.assertRaises(Exception) as ex:
-            IM.check_oidc_token(im_auth_aud)
-        self.assertEqual(str(ex.exception),
-                         'Invalid InfrastructureManager credentials. '
-                         'OIDC auth Token expired.')
 
         Config.OIDC_SCOPES = []
         Config.OIDC_CLIENT_ID = None
@@ -1108,7 +1117,7 @@ configure step2 (
         Config.OIDC_ISSUERS = ["https://other_issuer"]
 
         with self.assertRaises(Exception) as ex:
-            IM.check_oidc_token(im_auth)
+            IM.check_oidc_token(im_auth_aud)
         self.assertEqual(str(ex.exception),
                          "Invalid InfrastructureManager credentials. Issuer not accepted.")
 
@@ -1120,6 +1129,7 @@ configure step2 (
 
         openidclient.is_access_token_expired.return_value = False, "Valid Token for 100 seconds"
         openidclient.get_user_info_request.return_value = True, user_info
+        openidclient.get_token_introspection.return_value = True, {"active": True}
 
         Config.OIDC_ISSUERS = ["https://iam-test.indigo-datacloud.eu/"]
         Config.OIDC_AUDIENCE = None
@@ -1127,7 +1137,7 @@ configure step2 (
         IM.check_oidc_token(im_auth)
 
         self.assertEqual(im_auth['username'], InfrastructureInfo.OPENID_USER_PREFIX + "micafer")
-        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/user_sub")
 
     @patch('IM.InfrastructureManager.OpenIDClient')
     def test_check_oidc_groups(self, openidclient):
@@ -1146,14 +1156,14 @@ configure step2 (
         IM.check_oidc_token(im_auth)
 
         self.assertEqual(im_auth['username'], InfrastructureInfo.OPENID_USER_PREFIX + "micafer")
-        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/sub")
+        self.assertEqual(im_auth['password'], "https://iam-test.indigo-datacloud.eu/user_sub")
 
         Config.OIDC_GROUPS = ["urn:mace:egi.eu:group:demo.fedcloud.egi.eu:role=INVALID#aai.egi.eu"]
 
         with self.assertRaises(Exception) as ex:
             IM.check_oidc_token(im_auth)
         self.assertEqual(str(ex.exception),
-                         "Error trying to validate OIDC auth token: Invalid InfrastructureManager" +
+                         "Invalid InfrastructureManager" +
                          " credentials. User not in configured groups.")
 
         Config.OIDC_GROUPS = []
@@ -1316,7 +1326,8 @@ configure step2 (
 
         IM.DestroyInfrastructure(infId, auth0)
 
-    def test_inf_delete_force(self):
+    @patch('IM.InfrastructureList.InfrastructureList._save_data_to_db')
+    def test_inf_delete_force(self, mock_save_data):
         """Force a DestroyInfrastructure."""
         auth0 = self.getAuth([0])
         infId = IM.CreateInfrastructure("", auth0)
@@ -1331,7 +1342,8 @@ configure step2 (
     def sleep_5(self, _):
         time.sleep(5)
 
-    def test_inf_delete_async(self):
+    @patch('IM.InfrastructureList.InfrastructureList._save_data_to_db')
+    def test_inf_delete_async(self, mock_save_data):
         """DestroyInfrastructure async."""
         auth0 = self.getAuth([0])
         infId = IM.CreateInfrastructure("", auth0)
@@ -1364,7 +1376,7 @@ configure step2 (
 
         Config.BOOT_MODE = 0
 
-    @patch('IM.InfrastructureManager.AppDBIS')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_get_cloud_info(self, appdbis):
         auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         res = IM.GetCloudImageList("cloud1", auth)
@@ -1384,20 +1396,18 @@ configure step2 (
         auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'},
                                {'id': 'app', 'type': 'AppDBIS', 'token': 'atoken'}])
 
-        appdbis_mock = MagicMock()
-        appdbis.return_value = appdbis_mock
-        appdbis_mock.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
+        appdbis.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
 
         res = IM.GetCloudImageList("app", auth, {"distribution": "Ubuntu", "version": "20.04"})
         self.assertEqual(res, [{'uri': 'ost://site/imageid', 'name': 'Image Name'}])
-        self.assertEqual(appdbis_mock.list_images.call_args_list[0][0][0],
+        self.assertEqual(appdbis.list_images.call_args_list[0][0][0],
                          {'distribution': 'Ubuntu', 'version': '20.04'})
 
     @patch('IM.InfrastructureManager.VMRC')
-    @patch('IM.InfrastructureManager.AppDBIS')
-    def test_systems_with_iis(self, appdbis, vmrc):
+    @patch('IM.InfrastructureManager.FedcloudInfo')
+    def test_systems_with_iis(self, egiis, vmrc):
         auth = self.getAuth([0], [0])
-        auth.auth_list.append({"type": "AppDBIS", "host": "http://is.marie.hellasgrid.gr"})
+        auth.auth_list.append({"type": "EGIIS", "host": "https://is.cloud.egi.eu"})
         radl = RADL()
         radl.add(system("s0", [Feature("disk.0.os.name", "=", "linux"),
                                Feature("disk.0.os.flavour", "=", "ubuntu"),
@@ -1406,15 +1416,13 @@ configure step2 (
         inf = InfrastructureInfo()
         inf.id = "1"
 
-        sys_appdb = system("s0", [Feature("disk.0.os.name", "=", "linux"),
-                                  Feature("disk.0.os.flavour", "=", "ubuntu"),
-                                  Feature("disk.0.os.version", "=", "18.04"),
-                                  Feature("disk.0.image.url", "=", "https://fedcloud.eu"),
-                                  Feature("disk.0.image.vo", "=", "fedcloud.egi.eu")])
+        sys_egi = system("s0", [Feature("disk.0.os.name", "=", "linux"),
+                                Feature("disk.0.os.flavour", "=", "ubuntu"),
+                                Feature("disk.0.os.version", "=", "18.04"),
+                                Feature("disk.0.image.url", "=", "https://fedcloud.eu"),
+                                Feature("disk.0.image.vo", "=", "fedcloud.egi.eu")])
 
-        appdbis_mock = MagicMock()
-        appdbis.return_value = appdbis_mock
-        appdbis_mock.search_vm.return_value = [sys_appdb]
+        egiis.search_vm.return_value = [sys_egi]
 
         sys_vmrc = system("s0", [Feature("disk.0.os.name", "=", "linux"),
                                  Feature("disk.0.os.flavour", "=", "ubuntu"),
@@ -1495,16 +1503,16 @@ configure step2 (
                                          [{"name": "ubuntu-22.04-raw", "uri": "imageuri2"},
                                           {"name": "ubuntu-20.04-raw", "uri": "imageuri3"},
                                           {"name": "ubuntu-20.04-raw", "uri": "imageuri4"}]]
-        res = IM.search_vm(inf, radl_sys, auth)
+        msg, res = IM.search_vm(inf, radl_sys, auth)
+        self.assertEqual(msg, "")
         self.assertEqual(len(res), 2)
         self.assertEqual(res[0].name, "s0")
         self.assertEqual(res[0].getValue("disk.0.image.url"), "imageuri")
         self.assertEqual(res[1].name, "s0")
         self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri2")
 
-    @patch('IM.InfrastructureManager.AppDB')
+    @patch('IM.InfrastructureManager.FedcloudInfo')
     def test_translate_egi_to_ost(self, appdb):
-        appdb.get_site_id.return_value = 'site_id'
         appdb.get_site_url.return_value = 'https://ostsite.com:5000'
         appdb.get_project_ids.return_value = {'vo_name': 'projectid'}
 
@@ -1523,6 +1531,7 @@ configure step2 (
 
             system front (
             cpu.count>=2 and
+            gpu.count>=1 and
             memory.size>=4g and
             net_interface.0.connection = 'publica' and
             net_interface.1.connection = 'privada' and
@@ -1557,10 +1566,12 @@ configure step2 (
             'cloud0': {
                 'cloudType': 'Dummy',
                 'cloudEndpoint': 'http://server.com:80/path',
-                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40},
+                'compute': [{'cpuCores': 2, 'memoryInMegabytes': 4000, 'diskSizeInGigabytes': 40,
+                             'publicIP': 1, "GPU": 1},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10},
                             {'cpuCores': 1, 'memoryInMegabytes': 2000, 'diskSizeInGigabytes': 10}],
-                'storage': [{'sizeInGigabytes': 100},
+                'storage': [{'sizeInGigabytes': 20},
+                            {'sizeInGigabytes': 100},
                             {'sizeInGigabytes': 20},
                             {'sizeInGigabytes': 20}]
             }})
@@ -1585,7 +1596,7 @@ configure step2 (
             "creation_date": 1646655374,
             "extra_info": {"TOSCA": yaml.dump({"metadata": {"icon": "kubernetes.png"}})},
             "vm_list": [
-                json.dumps({"cloud": '{"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}', "info": radl}),
+                {"cloud": {"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}, "info": radl},
                 json.dumps({"cloud": '{"type": "OSCAR", "server": "sharp-elbakyan5.im.grycap.net"}', "info": radl})
             ]
         }
@@ -1606,6 +1617,30 @@ configure step2 (
                          'inf_id': '1',
                          'last_date': '2022-03-23 00:00:00'}]
         self.assertEqual(stats, expected_res)
+        db.select.assert_called_with('select data, date, id from inf_list where '
+                                     '((auth like \'%%"__OPENID__mcaballer"%%\')) order by rowid desc')
+
+        auth = Authentication([{'type': 'InfrastructureManager', 'token': 'atoken',
+                                'username': 'micafer', 'password': 'pass'}])
+        check_auth_data.return_value = auth
+        stats = IM.GetStats('2001-01-01', '2122-01-01', auth)
+        self.assertEqual(db.select.call_args_list[1][0][0],
+                         ('select data, date, id from inf_list where '
+                          '((auth like \'%%"micafer"%%\' and auth like \'%%"pass"%%\')) '
+                          'order by rowid desc'))
+
+        db.find.return_value = [{'data': json.dumps(inf_data),
+                                 'date': datetime.strptime('2022-03-23', "%Y-%m-%d"),
+                                 'id': '1'}]
+        DataBase.MONGO = "MONGO"
+        db.db_type = "MONGO"
+        stats = IM.GetStats('2001-01-01', '2122-01-01', auth)
+        db.find.assert_called_with('inf_list',
+                                   {
+                                       '$or': [{'auth': {'$elemMatch': {'username': 'micafer', 'password': 'pass'}}}],
+                                       'data.creation_date': {'$gte': 978307200.0, '$lte': 4796668800.0}
+                                   },
+                                   {'id': True, 'data': True, 'date': True}, [('id', -1)])
 
 
 if __name__ == "__main__":

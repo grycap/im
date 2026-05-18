@@ -11,7 +11,7 @@ Installation
 Prerequisites
 ^^^^^^^^^^^^^
 
-The :program:`im_client` needs at least Python 2.4 to run.
+The :program:`im_client` needs at least Python 3.7 to run.
 
 It is also required to install the RADL parser (`https://github.com/grycap/radl <https://github.com/grycap/radl>`_), 
 available in pip as the 'RADL' package. It is also required the Python Requests library (`http://docs.python-requests.org/ <http://docs.python-requests.org/>`_) 
@@ -43,14 +43,6 @@ You only have to call the install command of the pip tool with the IM-client pac
 
 	$ pip install IM-client
 
-From source
-+++++++++++
-
-Download de source code from the Github repo: `https://github.com/grycap/im-client/releases <https://github.com/grycap/im-client/releases>`_.
-Then you only need to install the tar-gziped file to any directoy::
-
-	$ tar xvzf IM-client-X.XX.tar.gz
-
 Configuration
 ^^^^^^^^^^^^^
 
@@ -59,8 +51,6 @@ in the current directory or a file ".im_client.cfg" in their home directory. In 
 user can specify the following parameters::
 
 	[im_client]
-	# only set one of the urls
-	#xmlrpc_url=http://localhost:8899
 	restapi_url=http://localhost:8800
 	auth_file=auth.dat
 	xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
@@ -72,14 +62,9 @@ Invocation
 
 The :program:`im_client` is called like this::
 
-   $ im_client.py [-u|--xmlrpc-url <url>] [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
+   $ im_client [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
 
 .. program:: im_client
-
-.. option:: -u|--xmlrpc-url url
-
-   URL to the XML-RPC service.
-   This option or the ` -r` one must be specified.
    
 .. option:: -r|--rest-url url
 
@@ -198,10 +183,43 @@ The :program:`im_client` is called like this::
       Reboot the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``.
 
-   ``sshvm infId vmId [show_only]``
+   ``sshvm infId vmId [show_only] [command]``
       Connect with SSH with the specified virtual machine ``vmId`` associated to the infrastructure with ID
+      infrastructure with ID ``infId``. In case that the specified VM does not have public IP the client will
+      try to connect using the virtual machine with ID ``0`` as SSH proxy. The ``show_only`` parameter is
+      optional and is a flag to specify if ssh command will only be shown in stdout instead of executed. The
+      command parameter is optional and enables the execution of a particular command in the VM.
+
+   ``ssh infId [show_only] [command]``
+      Connect with SSH with the specified virtual machine with ID ``0`` associated to the infrastructure with ID
       infrastructure with ID ``infId``. The ``show_only`` parameter is optional and is a flag to specify if ssh
-      command will only be shown in stdout instead of executed.
+      command will only be shown in stdout instead of executed. The command parameter is optional and enables
+      the execution of a particular command in the VM.
+
+   ``get <infId> <show_only> <src> <dst>``
+      Copy with SCP from the virtual machine with ID ``0`` associated to infrastructure with ID ``infId``.
+      The ``show_only`` parameter is a flag to specify if scp command will only be shown in stdout instead
+      of executed. The ``scr`` parameneter is the path of the file in the remote VM, ``dst`` is the path on
+      the local machine.
+
+   ``getvm <infId> <vmId> <show_only> <src> <dst>``
+      Copy with SCP from the specified virtual machine ``vmId`` associated to infrastructure with ID ``infId``.
+      In case that the specified VM does not have public IP the client will try to connect using the virtual
+      machine with ID ``0`` as SSH proxy. The ``show_only`` parameter is a flag to specify if ssh command wil
+      only be shown in stdout instead of executed. The ``scr`` parameneter is the path of the file in the remote
+      VM, ``dst`` is the path on the local machine.
+
+   ``put <infId> <show_only> <src> <dst>``
+      Copy with SCP to the virtual machine with ID ``0`` associated to infrastructure with ID ``infId``. The 
+      ``show_only`` parameter is a flag to specify if ssh command will only be shown in stdout instead of executed.
+      The ``scr`` parameneter is the path of the file in the local file, ``dst`` is the path on the remote VM.
+
+   ``putvm <infId> <vmId> <show_only> <src> <dst>``
+      Copy with SCP to the specified virtual machine ``vmId`` associated to infrastructure with ID ``infId``. In case
+      that the specified VM does not have public IP the client will try to connect using the virtual machine with ID
+      ``0`` as SSH proxy. The ``show_only`` parameter is a flag to specify if ssh command will only be shown in stdout
+      instead of executed. The ``scr`` parameneter is the path of the file in the local file, ``dst`` is the path on
+      the remote VM.
 
    ``export infId delete``
       Export the data of the infrastructure with ID ``infId``. The ``delete`` parameter is optional
@@ -292,6 +310,30 @@ appear in a value)(from version 1.6.6)::
 
    id = id_value ; type = value_of_type ; username = value_of_username ; password = 'some;"password'
    id = id_value ; type = value_of_type ; username = value_of_username ; password = "some;'password"
+
+The authorization file can be also set in JSON format (from version 1.19.1)::
+
+   [
+      {
+         "type": "InfrastructureManager",
+         "username": "user",
+         "password": "pass"
+      },
+      {
+         "id": "one",
+         "type": "OpenNebula",
+         "host": "server:2633",
+         "username": "user",
+         "password": "pass"
+      },
+      {
+         "id": "gce",
+         "type": "GCE",
+         "username": "user",
+         "password": "some\npass",
+         "project": "project"
+      }
+   ]
 
 The available keys are:
 

@@ -4,10 +4,7 @@ Created on 16 de jun. de 2016
 @author: micafer
 '''
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.tts.tts import TTSClient
 
 

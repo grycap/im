@@ -71,6 +71,9 @@ configure test (
      - yum: name=python3-setuptools,python3-pip
        when: ansible_os_family == "RedHat"
      - pip: name=jmespath
+    roles:
+     - role: 'geerlingguy.ntp'
+       ntp_servers: ['ntp.upv.es', 'ntp.uv.es']
     tasks:
       - debug: msg="NODENAME = {{NODENAME}}"
       - debug: msg="VERSION = {{ansible_version.major}}"
@@ -105,8 +108,8 @@ $ANSIBLE_VAULT;1.1;AES256
 )
 
 deploy front 1 one
-deploy wn 1
-deploy windows 1
+deploy wn 3
+# deploy windows 1
 
 contextualize (
     system front configure ntp step 1

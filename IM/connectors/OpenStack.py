@@ -17,10 +17,9 @@
 import uuid
 import time
 from netaddr import IPNetwork, IPAddress
+from ipaddress import IPv6Address
 import os.path
 import tempfile
-import requests
-import base64
 import re
 from IM.CloudInfo import CloudInfo
 from IM.SSH import SSH
@@ -41,13 +40,10 @@ except Exception as ex:
 from IM.connectors.LibCloud import LibCloudCloudConnector
 from IM.connectors.exceptions import NoCompatibleAuthData, NoAuthData, NoCorrectAuthData, CloudConnectorException
 from IM.config import Config
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
-from IM.AppDB import AppDB
+from IM.FedcloudInfo import FedcloudInfo
 from IM import get_ex_error
 
 
@@ -359,8 +355,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
-        if protocol == "appdb":
-            site_url, image_id, msg = AppDB.get_image_data(str_url, "openstack", site=self.cloud.server)
+        if protocol in ["egi", "appdb"]:
+            site_url, image_id, msg = FedcloudInfo.get_image_data(str_url, site_host=self.cloud.server)
             if not image_id or not site_url:
                 self.log_error(msg)
                 return None
@@ -590,38 +586,6 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return (True, vm)
 
-    def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Special case for EGI DyDNS
-        # format of the hostname: dydns:secret@hostname
-        if hostname.startswith("dydns:") and "@" in hostname:
-            parts = hostname[6:].split("@")
-            auth = "%s.%s:%s" % (parts[1], domain[:-1], parts[0])
-            headers = {"Authorization": "Basic %s" % base64.b64encode(auth.encode()).decode()}
-            url = "https://nsupdate.fedcloud.eu/nic/update?hostname=%s.%s&myip=%s" % (parts[1],
-                                                                                      domain[:-1],
-                                                                                      ip)
-            try:
-                resp = requests.get(url, headers=headers, timeout=10)
-                resp.raise_for_status()
-            except Exception as ex:
-                self.error_messages += "Error creating DNS entries %s.\n" % str(ex)
-                self.log_exception("Error creating DNS entries")
-                return False
-        else:
-            # TODO: https://docs.openstack.org/designate/latest/index.html
-            raise NotImplementedError("Should have implemented this")
-        return True
-
-    def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Special case for EGI DyDNS
-        # format of the hostname: dydns:secret@hostname
-        if hostname.startswith("dydns:") and "@" in hostname:
-            self.log_info("DYDNS entry. Cannot be deleted.")
-        else:
-            # TODO: https://docs.openstack.org/designate/latest/index.html
-            raise NotImplementedError("Should have implemented this")
-        return True
-
     @staticmethod
     def map_radl_ost_networks(vm, ost_nets):
         """
@@ -747,6 +711,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     ip = ipo['addr']
                     if IPAddress(ip).version == 4:
                         is_private = any([IPAddress(ip) in IPNetwork(mask) for mask in Config.PRIVATE_NET_MASKS])
+                    elif IPAddress(ip).version == 6:
+                        is_private = IPv6Address(ip).is_private
                 if is_private is None:
                     self.log_warn("Error getting network type for network %s. Asumming public." % net_name)
                     is_private = False
@@ -759,7 +725,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         ip_net_map[ip] = (None, not is_private)
                     else:
                         ip_net_map[ip] = (net_name, not is_private)
-                    if not is_private:
+                    if not is_private and IPAddress(ip).version == 4:
                         public_ips.append(ip)
 
             for float_ip in self.get_node_floating_ips(node):
@@ -878,10 +844,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     net_subnets = ost_net.extra['subnets']
                     for subnet in ost_subnets:
                         if subnet.id in net_subnets and subnet.cidr:
-                            ost_net.cidr = subnet.cidr
-                            ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
-                                                                   for mask in Config.PRIVATE_NET_MASKS]))
-                            break
+                            if IPNetwork(subnet.cidr).version == 4:
+                                ost_net.cidr = subnet.cidr
+                                ost_net.extra['is_public'] = not (any([IPNetwork(ost_net.cidr).ip in IPNetwork(mask)
+                                                                       for mask in Config.PRIVATE_NET_MASKS]))
+                            elif IPNetwork(subnet.cidr).version == 6:
+                                ost_net.cidrv6 = subnet.cidr
 
         for ost_net in ost_nets:
             # If we do not have the IP range try to use the router:external to identify a net as public
@@ -1159,6 +1127,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         nets = []
         pool_names = [pool.name for pool in driver.ex_list_floating_ip_pools()]
         get_subnets, ost_nets = self.get_ost_network_info(driver, pool_names)
+        num_nets = radl.systems[0].getNumNetworkIfaces()
 
         if get_subnets:
             net_map = self.map_networks(radl, ost_nets)
@@ -1173,12 +1142,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                     if public == network.isPublic():
                         if net_map[i]:
                             network.setValue('provider_id', net_map[i].name)
-                            if net_map[i].name not in pool_names:
+                            # Assing the net only if it is not a pool or if this is the only network
+                            if net_map[i].name not in pool_names or num_nets == 1:
                                 nets.append(net_map[i])
                     i += 1
         else:
             # TO BE DEPRECATED
-            num_nets = radl.systems[0].getNumNetworkIfaces()
             used_nets = []
 
             # First set the public ones
@@ -1325,12 +1294,12 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         volume = image = None
         image_url = system.getValue("disk.0.image.url")
-        if urlparse(image_url)[0] == "appdb":
+        if urlparse(image_url)[0] in ["egi", "appdb"]:
             vo = self.get_vo_name(auth_data)
-            _, image_id, msg = AppDB.get_image_data(image_url, "openstack", vo, site=self.cloud.server)
+            _, image_id, msg = FedcloudInfo.get_image_data(image_url, vo, site_host=self.cloud.server)
             if not image_id:
                 self.log_error(msg)
-                raise CloudConnectorException("Error in appdb image: %s" % msg)
+                raise CloudConnectorException("Error in egi image: %s" % msg)
         else:
             image_id = self.get_image_id(system.getValue("disk.0.image.url"))
 
@@ -1372,8 +1341,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         args = {'size': instance_type,
                 'networks': nets,
                 'image': image,
-                'ex_security_groups': sgs,
-                'name': self.gen_instance_name(system)}
+                'ex_security_groups': sgs}
 
         if system.getValue('availability_zone'):
             args['ex_availability_zone'] = system.getValue('availability_zone')
@@ -1423,6 +1391,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
             if cloud_init:
                 args['ex_userdata'] = cloud_init
+
+            args['name'] = self.gen_instance_name(system)
 
             node = None
             try:
@@ -1497,8 +1467,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 network.setValue('create', 'yes')
             i += 1
 
-    @staticmethod
-    def get_ip_pool(driver, pool_name=None):
+    def get_ip_pool(self, driver, pool_name=None, exclude_pools=None):
         """
         Return the most suitable IP pool
         """
@@ -1506,12 +1475,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         if pool_name:
             for pool in pools:
-                if pool.name == pool_name:
+                if pool.name == pool_name and pool.name not in exclude_pools:
+                    self.log_debug("Using pool with name: %s." % pool_name)
                     return pool
-        elif pools:
-            # Currently returns the first one
-            # until I see what metric use to select one
-            return pools[0]
+
+        # If not found or no pool name specified, try to get the first pool
+        # that is not in the exclude_pools list
+        for pool in pools:
+            if pool.name not in exclude_pools:
+                self.log_debug("Using pool with name: %s." % pool.name)
+                return pool
 
         # otherwise return None
         return None
@@ -1532,30 +1505,34 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             net = vm.info.get_network_by_id(net_conn)
             if net and net.isPublic():
                 fixed_ip = vm.getRequestedSystem().getValue("net_interface." + str(n) + ".ip")
-                pool_name = net.getValue("provider_id")
-                requested_ips.append((fixed_ip, pool_name))
+                requested_ips.append((fixed_ip, net))
             n += 1
 
         for num, elem in enumerate(sorted(requested_ips, reverse=True)):
-            ip, pool_name = elem
+            ip, net = elem
+            pool_name = net.getValue("provider_id")
             success = True
+            res = None
             if ip:
                 # It is a fixed IP
                 if ip not in public_ips:
                     # It has not been created yet, do it
                     self.log_info("Asking for a fixed ip: %s." % ip)
-                    success, msg = self.add_elastic_ip_from_pool(vm, node, ip, pool_name)
+                    success, res = self.add_elastic_ip_from_pool(vm, node, ip, pool_name)
             else:
                 if num >= len(public_ips):
                     self.log_info("Asking for public IP %d and there are %d" % (num + 1, len(public_ips)))
-                    success, msg = self.add_elastic_ip_from_pool(vm, node, None, pool_name)
+                    success, res = self.add_elastic_ip_from_pool(vm, node, None, pool_name)
 
-            if not success:
+            if success:
+                if res:
+                    net.setValue("provider_id", res.pool.name)
+            else:
                 self.add_public_ip_count += 1
-                self.log_warn("Error adding a floating IP the VM: %s (%d/%d)\n" % (msg,
+                self.log_warn("Error adding a floating IP the VM: %s (%d/%d)\n" % (res,
                                                                                    self.add_public_ip_count,
                                                                                    self.MAX_ADD_IP_COUNT))
-                self.error_messages += "Error adding a floating IP: %s (%d/%d)\n" % (msg,
+                self.error_messages += "Error adding a floating IP: %s (%d/%d)\n" % (res,
                                                                                      self.add_public_ip_count,
                                                                                      self.MAX_ADD_IP_COUNT)
 
@@ -1573,6 +1550,29 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return False, "No Float IP free found."
 
+    def attach_floating_ip(self, node, floating_ip):
+        # sometimes the ip cannot be attached inmediately
+        # we have to try and wait
+        cont = 0
+        retries = 5
+        delay = 5
+        attached = False
+        ports = node.driver.ex_get_node_ports(node)
+        while ports and not attached and cont < retries:
+            # Use each port to attach the IP
+            port_num = cont % len(ports)
+            port_id = ports[port_num].id
+            try:
+                node.driver.ex_attach_floating_ip_to_node(node, floating_ip, port_id)
+                attached = True
+            except Exception as atex:
+                self.log_warn("Error attaching a Floating IP to the node: %s" % get_ex_error(atex))
+                cont += 1
+                if cont < retries:
+                    time.sleep(delay)
+
+        return attached
+
     def add_elastic_ip_from_pool(self, vm, node, fixed_ip=None, pool_name=None):
         """
         Add an elastic IP to an instance
@@ -1587,17 +1587,23 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         try:
             self.log_info("Add a Floating IP")
 
-            pool = self.get_ip_pool(node.driver, pool_name)
-            if not pool:
-                if pool_name:
-                    msg = "Incorrect pool name: %s." % pool_name
-                else:
-                    msg = "No pools available."
-                self.log_info("No Floating IP assigned: %s" % msg)
-                return False, msg
+            ip_pools = node.driver.ex_list_floating_ip_pools()
+            if not ip_pools:
+                self.log_error("No pools available.")
+                return False, "No pools available."
 
             found = False
-            if node.driver.ex_list_floating_ip_pools():
+            exclude_pools = []
+            attached = False
+
+            while not attached and len(exclude_pools) < len(ip_pools):
+                pool = self.get_ip_pool(node.driver, pool_name, exclude_pools)
+                if not pool:
+                    msg = "No pools available."
+                    self.log_info("No Floating IP assigned: %s" % msg)
+                    return False, msg
+
+                exclude_pools.append(pool.name)
                 if fixed_ip:
                     floating_ip = node.driver.ex_get_floating_ip(fixed_ip)
                     if floating_ip:
@@ -1612,49 +1618,31 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                         floating_ip = pool.create_floating_ip()
 
                         is_private = any([IPAddress(floating_ip.ip_address) in IPNetwork(mask)
-                                          for mask in Config.PRIVATE_NET_MASKS])
+                                         for mask in Config.PRIVATE_NET_MASKS])
 
                         if is_private:
                             self.log_error("Error getting a Floating IP from pool %s. The IP is private." % pool_name)
                             self.log_info("We have created it, so release it.")
                             floating_ip.delete()
-                            return False, "Error attaching a Floating IP to the node. Private IP returned."
+                            continue
 
+                floating_ip.pool = pool
                 self.log_debug(floating_ip)
-                # sometimes the ip cannot be attached inmediately
-                # we have to try and wait
-                cont = 0
-                retries = 5
-                delay = 5
-                attached = False
-                ports = node.driver.ex_get_node_ports(node)
-                print(ports)
-                while ports and not attached and cont < retries:
-                    # Use each port to attach the IP
-                    port_num = cont % len(ports)
-                    port_id = ports[port_num].id
-                    try:
-                        node.driver.ex_attach_floating_ip_to_node(node, floating_ip, port_id)
-                        attached = True
-                    except Exception as atex:
-                        self.log_warn("Error attaching a Floating IP to the node: %s" % get_ex_error(atex))
-                        cont += 1
-                        if cont < retries:
-                            time.sleep(delay)
+
+                attached = self.attach_floating_ip(node, floating_ip)
 
                 if not attached:
                     self.log_error("Error attaching a Floating IP to the node.")
                     if not found:
                         self.log_info("We have created it, so release it.")
                         floating_ip.delete()
-                    return False, "Error attaching a Floating IP to the node."
 
+            if attached:
                 if found:
                     vm.floating_ips.append(floating_ip.ip_address)
                 return True, floating_ip
             else:
-                self.log_error("No pools available.")
-                return False, "No pools available."
+                return False, "Error attaching a Floating IP to the node."
 
         except Exception as ex:
             self.log_exception("Error adding an Elastic/Floating IP to VM ID: %s" % vm.id)
@@ -1690,19 +1678,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         if inf.radl.description and inf.radl.description.getValue('name'):
             sg_desc += " for Inf: %s" % inf.radl.description.getValue('name')
 
-        # First create a SG for the entire Infra
-        # Use the InfrastructureInfo lock to assure that only one VM create the SG
-        with inf._lock:
-            sg_name = "im-%s" % inf.id
-            sg = self._get_security_group(driver, sg_name)
-            if not sg:
-                self.log_info("Creating security group: %s" % sg_name)
-                sg = driver.ex_create_security_group(sg_name, sg_desc)
-                # open all the ports for the VMs in the security group
-                driver.ex_create_security_group_rule(sg, 'tcp', None, None, source_security_group=sg)
-                driver.ex_create_security_group_rule(sg, 'udp', None, None, source_security_group=sg)
-            res.append(sg)
-
+        # Create one SG per network
         i = 0
         while system.getValue("net_interface." + str(i) + ".connection"):
             network_name = system.getValue("net_interface." + str(i) + ".connection")
@@ -1857,7 +1833,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         """
         Get the list of SGs for this infra
         """
-        sg_names = ["im-%s" % inf.id]
+        sg_names = []
         for net in inf.radl.networks:
             sg_name = net.getValue("sg_name")
             if not sg_name:
@@ -2115,7 +2091,10 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 num_net = vm.requested_radl.systems[0].getNumNetworkIfaces()
                 vm.requested_radl.systems[0].setValue("net_interface.%d.connection" % num_net, new_public_net.id)
                 pool_name = new_public_net.getValue("provider_id")
-                return self.add_elastic_ip_from_pool(vm, node, None, pool_name)
+                success, res = self.add_elastic_ip_from_pool(vm, node, None, pool_name)
+                if success:
+                    new_public_net.setValue("provider_id", res.pool.name)
+                return success, res
 
             if not new_has_public_ip and current_public_ip:
                 floating_ip = node.driver.ex_get_floating_ip(current_public_ip)
@@ -2194,7 +2173,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             if version is not None:
                 image_version = image.extra.get('os_version', None)
                 if image_version:
-                    if version.lower() != image_version.lower():
+                    if not self.loose_version_compare(version, image_version):
                         continue
                 elif version.lower() not in image.name.lower():
                     continue
@@ -2202,32 +2181,55 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         return res
 
-    @staticmethod
-    def _get_tenant_id(auth):
-        """
-        Workaround function to get tenant id from tenant name
-        """
+    def _get_tenant_id(self, auth_data):
+        """Function to get tenant id from tenant name."""
+        auth = auth_data.getAuthInfo(self.type, self.cloud.server)[0]
+
+        if 'tenant_id' in auth:
+            return auth['tenant_id']
+
+        tenant = auth.get('tenant')
         if 'auth_version' in auth and auth['auth_version'] == '3.x_oidc_access_token':
-            return auth['domain']
-        else:
-            if 'tenant_id' in auth:
-                return auth['tenant_id']
-            else:
-                return auth['tenant']
+            tenant = auth.get('domain')
 
-        return None
+        if tenant:
+            try:
+                self.log_debug("Getting tenant ID from name: %s." % tenant)
+                # Get the tenant id from the name
+                driver = self.get_driver(auth_data)
+                # Set self.driver to None to Force to create a new driver in later calls
+                # because next calls make this driver to fail in next driver calls
+                self.driver = None
+                identity_conn = driver.connection.get_auth_class()
+                identity_conn.authenticate()
+                current_user = identity_conn.get_user(identity_conn.auth_user_info['id'])
+                tenants = identity_conn.list_user_projects(current_user)
+                for t in tenants:
+                    if t.name.lower() == tenant.lower() or t.id.lower() == tenant.lower():
+                        self.log_debug("Tenant found. Name: %s, ID: %s." % (t.name, t.id))
+                        return t.id
+            except Exception:
+                self.log_exception("Error getting tenant ID from name: %s" % tenant)
 
-    def get_quotas(self, auth_data):
+        self.log_warn("Tenant ID not found for tenant: %s. Using tenant name as tenant ID." % tenant)
+        return tenant
+
+    def get_quotas(self, auth_data, region=None):
+        tenant_id = self._get_tenant_id(auth_data)
+        if region:
+            # In this case the region parameter refers to the tenant_id
+            tenant_id = region
         driver = self.get_driver(auth_data)
-        tenant_id = self._get_tenant_id(auth_data.getAuthInfo(self.type, self.cloud.server)[0])
         quotas = driver.ex_get_quota_set(tenant_id)
         try:
             net_quotas = driver.ex_get_network_quotas(tenant_id)
-        except Exception:
+        except Exception as ex:
+            self.log_warn("Error getting network quotas: %s" % get_ex_error(ex))
             net_quotas = None
         try:
             vol_quotas = driver.ex_get_volume_quotas(tenant_id)
-        except Exception:
+        except Exception as ex:
+            self.log_warn("Error getting volume quotas: %s" % get_ex_error(ex))
             vol_quotas = None
 
         quotas_dict = {}

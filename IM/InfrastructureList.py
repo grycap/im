@@ -21,6 +21,7 @@ import logging
 import threading
 import json
 
+from collections import OrderedDict
 from IM.db import DataBase
 from IM.config import Config
 import IM.InfrastructureInfo
@@ -31,7 +32,7 @@ class InfrastructureList():
     Class to manage the list of infrastructures and the serialization of the data
     """
 
-    infrastructure_list = {}
+    infrastructure_list = OrderedDict({})
     """Map from string to :py:class:`InfrastructureInfo`."""
 
     logger = logging.getLogger('InfrastructureManager')
@@ -39,6 +40,12 @@ class InfrastructureList():
 
     _lock = threading.Lock()
     """Threading Lock to avoid concurrency problems."""
+
+    _pending_to_save = set()
+    """
+    Set of infrastructures pending to save to DB.
+    For infras that have not been saved due to some DB error.
+    """
 
     @staticmethod
     def add_infrastructure(inf):
@@ -61,19 +68,30 @@ class InfrastructureList():
     @staticmethod
     def get_inf_ids(auth=None):
         """ Get the IDs of the Infrastructures """
+        db_inf_ids = InfrastructureList._get_inf_ids_from_db(auth)
+        # In case that some DB error, also get IDs from memory
+        mem_inf_ids = [inf.id for inf in list(InfrastructureList.infrastructure_list.values())
+                       if not inf.has_expired() and (auth is None or inf.is_authorized(auth))]
         if auth:
-            # In this case only loads the auth data to improve performance
             inf_ids = []
-            for inf_id in InfrastructureList._get_inf_ids_from_db(auth):
+            for inf_id in db_inf_ids:
                 inf = None
-                res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
-                if res:
-                    inf = res[inf_id]
+                # First check if we have it in memory
+                if inf_id in InfrastructureList.infrastructure_list:
+                    inf = InfrastructureList.infrastructure_list[inf_id]
+                    if inf.has_expired():
+                        inf = None
+                if not inf:
+                    res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
+                    if res:
+                        inf = res[inf_id]
+                # Confirm that auth is authorized
                 if inf and inf.is_authorized(auth):
                     inf_ids.append(inf.id)
-            return inf_ids
         else:
-            return InfrastructureList._get_inf_ids_from_db()
+            inf_ids = db_inf_ids
+
+        return list(OrderedDict.fromkeys(db_inf_ids + mem_inf_ids))
 
     @staticmethod
     def get_infrastructure(inf_id):
@@ -128,16 +146,25 @@ class InfrastructureList():
         - inf_id(str): ID of the infrastructure to save. If None all will be saved.
         """
         with InfrastructureList._lock:
-            try:
-                res = InfrastructureList._save_data_to_db(Config.DATA_DB,
-                                                          InfrastructureList.infrastructure_list,
-                                                          inf_id)
-                if not res:
-                    InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
-                    sys.stderr.write("ERROR saving data.\nChanges not stored!!")
-            except Exception as ex:
-                InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
-                sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
+            if InfrastructureList._pending_to_save:
+                for elem in InfrastructureList._pending_to_save:
+                    InfrastructureList.logger.debug("Trying to save pending Inf ID: %s" % elem)
+            InfrastructureList._pending_to_save.add(inf_id)
+            to_save = set(InfrastructureList._pending_to_save)
+
+            for elem in to_save:
+                try:
+                    res = InfrastructureList._save_data_to_db(Config.DATA_DB,
+                                                              InfrastructureList.infrastructure_list,
+                                                              elem)
+                    if res:
+                        InfrastructureList._pending_to_save.remove(elem)
+                    else:
+                        InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
+                        sys.stderr.write("ERROR saving data.\nChanges not stored!!")
+                except Exception as ex:
+                    InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
+                    sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 
     @staticmethod
     def init_table():
@@ -225,7 +252,7 @@ class InfrastructureList():
 
     @staticmethod
     def _save_data_to_db(db_url, inf_list, inf_id=None):
-        if not inf_list:
+        if not inf_list or (inf_id and inf_id not in inf_list):
             InfrastructureList.logger.info("No data to save to the database!.")
             return True
         db = DataBase(db_url)
@@ -260,9 +287,14 @@ class InfrastructureList():
                 if elem.get("admin"):
                     return ""
                 if elem.get("username"):
+                    user = elem.get("username")
                     if like:
                         like += " or "
-                    like += "auth like '%%\"" + elem.get("username") + "\"%%'"
+                    if IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX in user:
+                        like += "(auth like '%%\"" + elem.get("username") + "\"%%')"
+                    else:
+                        like += ("(auth like '%%\"" + elem.get("username") + "\"%%' and "
+                                 "auth like '%%\"" + elem.get("password") + "\"%%')")
 
         return like
 
@@ -274,10 +306,20 @@ class InfrastructureList():
                 if elem.get("admin"):
                     return {}
                 if elem.get("username"):
-                    usernames.append(elem.get("username"))
+                    usernames.append((elem.get("username"), elem.get("password")))
 
         if usernames:
-            return {"auth": {"$elemMatch": {"username": {"$in": usernames}}}}
+            elems = []
+            for user, passwd in usernames:
+                elem = {
+                    "auth": {
+                        "$elemMatch": {"username": user}
+                    }
+                }
+                if IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX not in user:
+                    elem["auth"]["$elemMatch"]["password"] = passwd
+                elems.append(elem)
+            return {"$or": elems}
         else:
             return {}
 
@@ -290,7 +332,7 @@ class InfrastructureList():
                 if db.db_type == DataBase.MONGO:
                     filt = InfrastructureList._gen_filter_from_auth(auth)
                     filt["deleted"] = 0
-                    res = db.find("inf_list", filt, {"id": True}, [('id', -1)])
+                    res = db.find("inf_list", filt, {"id": True}, [('_id', -1)])
                 else:
                     like = InfrastructureList._gen_where_from_auth(auth)
                     if like:

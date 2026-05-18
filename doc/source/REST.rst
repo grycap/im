@@ -78,6 +78,13 @@ Next tables summaries the resources and the HTTP methods available.
 |             | | in the ``cloudId`` provider.        | | in the ``cloudId`` provider.              |
 +-------------+---------------------------------------+---------------------------------------------+
 
++-------------+----------------------------------------+
+| HTTP method | /oai                                   |
++=============+========================================+
+| **GET**     | | **OAI-PMH** REST API about available |
+|             | | TOSCA templates.                     |
++-------------+----------------------------------------+
+
 The error message returned by the service will depend on the ``Accept`` header of the request:
 
 * text/plain: (default option).
@@ -144,7 +151,9 @@ POST ``http://imserver.com/infrastructures``
                 {
                    "cpuCores": 2,
                    "memoryInMegabytes": 4096,
-                   "diskSizeInGigabytes": 20
+                   "diskSizeInGigabytes": 20,
+                   "publicIP": 1,
+                   "GPU": 1
                 },
                 {
                    "cpuCores": 1,
@@ -204,7 +213,7 @@ GET ``http://imserver.com/infrastructures/<infId>/<property_name>``
                     returned (without any VM contextualization log).
       :``radl``: a string with the original specified RADL of the infrastructure.
       :``tosca``: a string with the TOSCA representation of the infrastructure. 
-      :``data``: a string with the JSOMN serialized data of the infrastructure. In case of ``delete`` flag is set to 'yes',
+      :``data``: a string with the JSON serialized data of the infrastructure. In case of ``delete`` flag is set to 'yes',
                  'true' or '1' the data not only will be exported but also the infrastructure will be set deleted
                  (the virtual infrastructure will not be modified).
       :``authorization``: a list of strings with the current owners of the infrastructure. 
@@ -483,15 +492,18 @@ GET ``http://imserver.com/clouds/<cloudId>/quotas``
     {
       "quotas": {
          "cores": {"used": 1, "limit": 10},
+         "gpus": {"used": 0, "limit": 1},
          "ram": {"used": 1, "limit": 10},
          "instances": {"used": 1, "limit": 10},
          "floating_ips": {"used": 1, "limit": 10},
-         "security_groups": {"used": 1, "limit": 10}
+         "security_groups": {"used": 1, "limit": 10},
+         "volumes": {"used": 1, "limit": 10},
+         "volume_storage": {"used": 1, "limit": 10}
       }
     }
 
 GET ``http://imserver.com/stats``
-   :Response Content-type: application/json
+   :Response Content-type: application/json or text/csv
    :ok response: 200 OK
    :input fields: ``init_date`` (optional)
    :input fields: ``end_date`` (optional)
@@ -517,3 +529,10 @@ GET ``http://imserver.com/stats``
                   "last_date": "2022-03-23"}
       ]
     }
+
+GET ``http://imserver.com/oai``
+   :Response Content-type: text/xml
+   :ok response: 200 OK
+
+   Return the OAI-PMH REST API about available TOSCA templates in the IM service.
+   See more details in `OAI-PMH spec <https://www.openarchives.org/pmh/>`_..

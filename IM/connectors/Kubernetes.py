@@ -24,10 +24,7 @@ import socket
 from random import choice
 from string import ascii_lowercase, digits
 from netaddr import IPNetwork, IPAddress
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
@@ -70,8 +67,7 @@ class KubernetesCloudConnector(CloudConnector):
         """
         Generate the auth header needed to contact with the Kubernetes API server.
         """
-        url = urlparse(self.cloud.server)
-        auths = auth_data.getAuthInfo(self.type, url[1])
+        auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
             raise NoAuthData(self.type)
         else:
@@ -139,12 +135,12 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Kubernetes API server")
             return False
 
-    def _delete_volume_claims(self, pod_data, auth_data):
-        if 'volumes' in pod_data['spec']:
-            for volume in pod_data['spec']['volumes']:
+    def _delete_volume_claims(self, dep_data, auth_data):
+        if 'volumes' in dep_data['spec']['template']['spec']:
+            for volume in dep_data['spec']['template']['spec']['volumes']:
                 if 'persistentVolumeClaim' in volume and 'claimName' in volume['persistentVolumeClaim']:
                     vc_name = volume['persistentVolumeClaim']['claimName']
-                    success = self._delete_volume_claim(pod_data["metadata"]["namespace"], vc_name, auth_data)
+                    success = self._delete_volume_claim(dep_data["metadata"]["namespace"], vc_name, auth_data)
                     if not success:
                         self.log_error("Error deleting PersistentVolumeClaim:" + vc_name)
 
@@ -185,17 +181,17 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Kubernetes API server")
             return False
 
-    def _delete_config_maps(self, pod_data, auth_data):
-        if 'volumes' in pod_data['spec']:
-            for volume in pod_data['spec']['volumes']:
+    def _delete_config_maps(self, dep_data, auth_data):
+        if 'volumes' in dep_data['spec']['template']['spec']:
+            for volume in dep_data['spec']['template']['spec']['volumes']:
                 if 'configMap' in volume and 'name' in volume['configMap']:
                     cm_name = volume['configMap']['name']
-                    success = self._delete_config_map(pod_data["metadata"]["namespace"], cm_name, auth_data)
+                    success = self._delete_config_map(dep_data["metadata"]["namespace"], cm_name, auth_data)
                     if not success:
                         self.log_error("Error deleting ConfigMap:" + cm_name)
                 if 'secret' in volume and 'secretName' in volume['secret']:
                     cm_name = volume['secret']['secretName']
-                    success = self._delete_config_map(pod_data["metadata"]["namespace"], cm_name, auth_data, True)
+                    success = self._delete_config_map(dep_data["metadata"]["namespace"], cm_name, auth_data, True)
                     if not success:
                         self.log_error("Error deleting Secret:" + cm_name)
 
@@ -443,8 +439,9 @@ class KubernetesCloudConnector(CloudConnector):
                 env_vars.append({'name': key.strip(), 'value': value.strip(' "')})
         return env_vars
 
-    def _generate_pod_data(self, namespace, name, outports, system, volumes, configmaps, tags):
+    def _generate_dep_data(self, namespace, name, outports, system, volumes, configmaps, tags):
         cpu = str(system.getValue('cpu.count'))
+        gpu = system.getValue('gpu.count')
         memory = "%s" % system.getFeature('memory.size').getValue('B')
         image_url = urlparse(system.getValue("disk.0.image.url"))
         image_name = "".join(image_url[1:])
@@ -458,12 +455,12 @@ class KubernetesCloudConnector(CloudConnector):
                     ports.append({'containerPort': outport.get_local_port(),
                                   'protocol': outport.get_protocol().upper()})
 
-        pod_data = self._gen_basic_k8s_elem(namespace, name, 'Pod')
+        dep_data = self._gen_basic_k8s_elem(namespace, name, 'Deployment', 'apps/v1')
         # Add instance tags
         if tags:
             for k, v in tags.items():
                 # Remove special characters
-                pod_data['metadata']['labels'][k] = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~ ]', '', v).lstrip("_-")
+                dep_data['metadata']['labels'][k] = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~ ]', '', v).lstrip("_-")
 
         containers = [{
             'name': name,
@@ -473,6 +470,10 @@ class KubernetesCloudConnector(CloudConnector):
             'resources': {'limits': {'cpu': cpu, 'memory': memory},
                           'requests': {'cpu': cpu, 'memory': memory}}
         }]
+
+        if gpu:
+            containers[0]['resources']['limits']['nvidia.com/gpu'] = str(gpu)
+            containers[0]['resources']['requests']['nvidia.com/gpu'] = str(gpu)
 
         env_vars = self._get_env_variables(system)
         if env_vars:
@@ -489,38 +490,40 @@ class KubernetesCloudConnector(CloudConnector):
             if len(command) > 1:
                 containers[0]["args"] = command[1:]
 
-        pod_data['spec'] = {'restartPolicy': 'OnFailure'}
+        dep_data['spec'] = {'replicas': 1, 'selector': {'matchLabels': {'name': name}},
+                            'template': {'metadata': {'labels': {'name': name}},
+                                         'spec': {'containers': containers}}}
+
+        pod_spec = dep_data['spec']['template']['spec']
 
         if volumes:
             containers[0]['volumeMounts'] = []
-            pod_data['spec']['volumes'] = []
+            pod_spec['volumes'] = []
 
             for (v_name, _, v_mount_path) in volumes:
                 containers[0]['volumeMounts'].append(
                     {'name': v_name, 'mountPath': v_mount_path})
-                pod_data['spec']['volumes'].append(
+                pod_spec['volumes'].append(
                     {'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
 
         if configmaps:
             containers[0]['volumeMounts'] = containers[0].get('volumeMounts', [])
-            pod_data['spec']['volumes'] = pod_data['spec'].get('volumes', [])
+            pod_spec['volumes'] = pod_spec.get('volumes', [])
 
             for (cm_name, cm_mount_path, secret) in configmaps:
                 containers[0]['volumeMounts'].append(
                     {'name': cm_name, 'mountPath': cm_mount_path, "readOnly": True,
                      'subPath': os.path.basename(cm_mount_path)})
                 if secret:
-                    pod_data['spec']['volumes'].append(
+                    pod_spec['volumes'].append(
                         {'name': cm_name,
                          'secret': {'secretName': cm_name}})
                 else:
-                    pod_data['spec']['volumes'].append(
+                    pod_spec['volumes'].append(
                         {'name': cm_name,
                          'configMap': {'name': cm_name}})
 
-        pod_data['spec']['containers'] = containers
-
-        return pod_data
+        return dep_data
 
     def _get_namespace(self, inf, auth_data):
         _, namespace, _ = self.get_auth_header(auth_data)
@@ -578,7 +581,6 @@ class KubernetesCloudConnector(CloudConnector):
             vm.destroy = True
             inf.add_vm(vm)
             pod_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_ ]', '-', system.name)
-            pod_name += '-%s' % self._random_string()
 
             volumes = self._create_volumes(namespace, system, pod_name, auth_data)
 
@@ -594,21 +596,21 @@ class KubernetesCloudConnector(CloudConnector):
             elif priv_net:
                 outports = priv_net.getOutPorts()
 
-            pod_data = self._generate_pod_data(namespace, pod_name, outports, system, volumes, configmaps, tags)
+            dep_data = self._generate_dep_data(namespace, pod_name, outports, system, volumes, configmaps, tags)
 
-            self.log_debug("Creating POD: %s/%s" % (namespace, pod_name))
-            uri = "/api/v1/namespaces/%s/%s" % (namespace, "pods")
-            resp = self.create_request('POST', uri, auth_data, headers, pod_data)
+            self.log_debug("Creating Deployment: %s/%s" % (namespace, pod_name))
+            uri = "/apis/apps/v1/namespaces/%s/%s" % (namespace, "deployments")
+            resp = self.create_request('POST', uri, auth_data, headers, dep_data)
 
             if resp.status_code != 201:
                 self.log_error("Error creating the Container: " + resp.text)
                 res.append((False, "Error creating the Container: " + resp.text))
                 try:
-                    self._delete_volume_claims(pod_data, auth_data)
+                    self._delete_volume_claims(dep_data, auth_data)
                 except Exception:
                     self.log_exception("Error deleting volumes.")
                 try:
-                    self._delete_config_maps(pod_data, auth_data)
+                    self._delete_config_maps(dep_data, auth_data)
                 except Exception:
                     self.log_exception("Error deleting configmaps.")
 
@@ -656,11 +658,16 @@ class KubernetesCloudConnector(CloudConnector):
             return (False, None, "Error invalid VM id: " + str(ex))
 
         try:
-            uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "pods", pod_name)
+            uri = "/api/v1/namespaces/%s/pods?labelSelector=name=%s" % (namespace, pod_name)
             resp = self.create_request('GET', uri, auth_data)
 
             if resp.status_code == 200:
-                return (True, resp.status_code, resp.text)
+                pods = resp.json().get('items', [])
+                if not pods:
+                    return (False, 404, "Pod not found")
+                elif len(pods) > 1:
+                    self.log_warn("More than one POD found with the same name: %s. Returning the first one." % pod_name)
+                return (True, resp.status_code, pods[0])
             else:
                 return (False, resp.status_code, resp.text)
 
@@ -677,14 +684,16 @@ class KubernetesCloudConnector(CloudConnector):
     def updateVMInfo(self, vm, auth_data):
         success, status, output = self._get_pod(vm, auth_data)
         if success:
-            output = json.loads(output)
             vm.state = self.VM_STATE_MAP.get(output["status"]["phase"], VirtualMachine.UNKNOWN)
 
             pod_limits = output['spec']['containers'][0].get('resources', {}).get('limits')
             if pod_limits:
                 vm.info.systems[0].setValue('cpu.count', self._get_float_cpu(pod_limits['cpu']))
-                memory = self.convert_memory_unit(pod_limits['memory'], "B")
-                vm.info.systems[0].setValue('memory.size', memory)
+                try:
+                    memory = self.convert_memory_unit(pod_limits['memory'], "B")
+                    vm.info.systems[0].setValue('memory.size', memory)
+                except ValueError:
+                    self.log_exception("Error converting memory unit")
 
             vm.info.systems[0].setValue('disk.0.image.url', output['spec']['containers'][0]['image'])
 
@@ -722,21 +731,64 @@ class KubernetesCloudConnector(CloudConnector):
 
         vm.setIps(public_ips, private_ips)
 
+    def _get_dep(self, vm, auth_data):
+        try:
+            namespace = vm.id.split("/")[0]
+            pod_name = vm.id.split("/")[1]
+        except Exception as ex:
+            self.log_exception("Error invalid VM id")
+            return (False, None, "Error invalid VM id: " + str(ex))
+
+        try:
+            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, "deployments", pod_name)
+            resp = self.create_request('GET', uri, auth_data)
+
+            if resp.status_code == 200:
+                return (True, resp.status_code, resp.json())
+            else:
+                return (False, resp.status_code, resp.text)
+
+        except Exception as ex:
+            self.log_exception("Error connecting with Kubernetes API server")
+            return (False, None, "Error connecting with Kubernetes API server: " + str(ex))
+
+    def _get_instance(self, vm, auth_data):
+        # Function to retrieve either a Deployment or a Pod
+        # to enable deletion of old instances created as Pods
+        instance_type = None
+        _, status, output = self._get_dep(vm, auth_data)
+        if status == 200:
+            instance_type = "deployments"
+        elif status == 404:
+            self.log_warn("Trying to remove a non existing Deployment id: %s" % vm.id)
+            self.log_warn("Let's trying find a pod id: %s" % vm.id)
+
+            _, status, output = self._get_pod(vm, auth_data)
+            if status == 200:
+                instance_type = "pods"
+                # transform pod output to deployment-like output
+                output = {'spec': {'template': {'spec': output['spec']}},
+                          'metadata': output['metadata']}
+            elif status == 404:
+                self.log_warn("There is no Pod id either: %s" % vm.id)
+
+        return instance_type, output
+
     def finalize(self, vm, last, auth_data):
         msg = ""
+        instance_type = None
         if vm.id:
-            success, status, output = self._get_pod(vm, auth_data)
-            if success:
-                if status == 404:
-                    self.log_warn("Trying to remove a non existing POD id: %s" % vm.id)
-                else:
-                    pod_data = json.loads(output)
-                    self._delete_volume_claims(pod_data, auth_data)
-                    self._delete_config_maps(pod_data, auth_data)
-                    success, msg = self._delete_pod(vm, auth_data)
-                    if not success:
-                        self.log_error("Error deleting Pod %s: %s" % (vm.id, msg))
-                        return False, "Error deleting Pod %s: %s" % (vm.id, msg)
+            instance_type, output = self._get_instance(vm, auth_data)
+
+            if instance_type:
+                self._delete_volume_claims(output, auth_data)
+                self._delete_config_maps(output, auth_data)
+                success, msg = self._delete_instance(vm, auth_data, instance_type)
+                if not success:
+                    self.log_error("Error deleting Deployment %s: %s" % (vm.id, msg))
+                    return False, "Error deleting Deployment %s: %s" % (vm.id, msg)
+            else:
+                success = False
 
             del_svc_ok, svc_msg = self._delete_service(vm, auth_data)
             success = success and del_svc_ok
@@ -822,20 +874,20 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Kubernetes API server")
             return (False, "Error connecting with Kubernetes API server")
 
-    def _delete_pod(self, vm, auth_data):
+    def _delete_instance(self, vm, auth_data, instance_type):
         try:
             namespace = vm.id.split("/")[0]
             pod_name = vm.id.split("/")[1]
 
-            self.log_debug("Deleting POD: %s/%s" % (namespace, pod_name))
-            uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "pods", pod_name)
+            self.log_debug("Deleting %s: %s/%s" % (instance_type, namespace, pod_name))
+            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, instance_type, pod_name)
             resp = self.create_request('DELETE', uri, auth_data)
 
             if resp.status_code == 404:
-                self.log_warn("Trying to remove a non existing POD id: " + pod_name)
+                self.log_warn("Trying to remove a non existing %s id: %s" % (instance_type, pod_name))
                 return (True, pod_name)
             elif resp.status_code != 200:
-                return (False, "Error deleting the POD: " + resp.text)
+                return (False, "Error deleting the %s: %s" % (instance_type, resp.text))
             else:
                 return (True, pod_name)
         except Exception:
@@ -857,7 +909,7 @@ class KubernetesCloudConnector(CloudConnector):
         system = radl.systems[0]
 
         try:
-            pod_data = []
+            dep_data = []
 
             image_url = urlparse(vm.info.systems[0].getValue('disk.0.image.url'))
             image = "".join(image_url[1:])
@@ -868,8 +920,32 @@ class KubernetesCloudConnector(CloudConnector):
 
             changed = False
             if new_image and new_image != image:
-                pod_data.append(
-                    {"op": "replace", "path": "/spec/containers/0/image", "value": new_image})
+                dep_data.append(
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": new_image})
+                changed = True
+
+            cpu = vm.info.systems[0].getValue('cpu.count')
+            new_cpu = system.getValue('cpu.count')
+
+            if new_cpu != cpu:
+                dep_data.append(
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/cpu",
+                     "value": str(new_cpu)})
+                dep_data.append(
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/cpu",
+                     "value": str(new_cpu)})
+                changed = True
+
+            memory = vm.info.systems[0].getFeature('memory.size').getValue('B')
+            new_memory = system.getFeature('memory.size').getValue('B')
+
+            if new_memory != memory:
+                dep_data.append(
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory",
+                     "value": "%s" % new_memory})
+                dep_data.append(
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/memory",
+                     "value": "%s" % new_memory})
                 changed = True
 
             if not changed:
@@ -881,17 +957,77 @@ class KubernetesCloudConnector(CloudConnector):
             pod_name = vm.id.split("/")[1]
 
             headers = {'Content-Type': 'application/json-patch+json'}
-            uri = "/api/v1/namespaces/%s/%s/%s" % (namespace, "pods", pod_name)
-            resp = self.create_request('PATCH', uri, auth_data, headers, pod_data)
+            uri = "/apis/apps/v1/namespaces/%s/%s/%s" % (namespace, "deployments", pod_name)
+            resp = self.create_request('PATCH', uri, auth_data, headers, dep_data)
 
             if resp.status_code != 200:
                 return (False, "Error updating the Pod: " + resp.text)
             else:
                 if new_image:
                     vm.info.systems[0].setValue('disk.0.image.url', new_image)
+                if new_cpu:
+                    vm.info.systems[0].setValue('cpu.count', new_cpu)
+                if new_memory:
+                    vm.info.systems[0].setValue('memory.size', new_memory, 'B')
                 return (True, vm)
 
         except Exception as ex:
             self.log_exception(
                 "Error connecting with Kubernetes API server")
             return (False, "ERROR: " + str(ex))
+
+    def get_quotas(self, auth_data, region=None):
+        _, namespace, _ = self.get_auth_header(auth_data)
+        uri = "/api/v1/namespaces/%s/resourcequotas" % namespace
+        resp = self.create_request('GET', uri, auth_data)
+        resp.raise_for_status()
+
+        quotas = {}
+        name_map = {
+            'limits.cpu': 'cores',
+            'limits.memory': 'ram',
+            'pods': 'instances',
+            'requests.nvidia.com/gpu': 'gpus',
+            'requests.storage': 'volume_storage',
+            'persistentvolumeclaims': 'volumes'
+        }
+
+        items = resp.json().get('items', [])
+        for item in items:
+            spec_hard = item['spec'].get('hard', {})
+            status_used = item['status'].get('used', {})
+            for key in spec_hard.keys():
+                value = spec_hard.get(key)
+                used = status_used.get(key, '0')
+                if key in name_map:
+                    if key in ['limits.memory', 'requests.storage']:
+                        value = self._get_quota_value(value)
+                        used = self._get_quota_value(used)
+                    else:
+                        value = int(value)
+                        used = int(status_used.get(key, '0'))
+                    quotas[name_map[key]] = {'limit': value, 'used': used}
+                elif key.endswith("storageclass.storage.k8s.io/requests.storage"):
+                    value = self._get_quota_value(value)
+                    used = self._get_quota_value(used)
+                    sc = key[:-45]
+                    quotas[f"volume_storage_{sc}"] = {'limit': value, 'used': used}
+                elif key.endswith("storageclass.storage.k8s.io/persistentvolumeclaims"):
+                    value = int(value)
+                    used = int(status_used.get(key, '0'))
+                    sc = key[:-51]
+                    quotas[f"volumes_{sc}"] = {'limit': value, 'used': used}
+
+        return quotas
+
+    def _get_quota_value(self, value):
+        if value is None:
+            return -1
+        if value.isdigit():
+            value = f'{value}B'
+        try:
+            value = self.convert_memory_unit(value, "Gi")
+        except ValueError:
+            self.log_warn(f"Unknown quota value format: {value}. Setting it to -1.")
+            value = -1
+        return value

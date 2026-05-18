@@ -27,8 +27,7 @@ import IM.InfrastructureInfo
 import IM.InfrastructureList
 
 from IM.VMRC import VMRC
-from IM.AppDBIS import AppDBIS
-from IM.AppDB import AppDB
+from IM.FedcloudInfo import FedcloudInfo
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from IM.recipe import Recipe
@@ -229,13 +228,10 @@ class InfrastructureManager:
     def get_infrastructure(inf_id, auth):
         """Return infrastructure info with some id if valid authorization provided."""
 
-        if inf_id not in IM.InfrastructureList.InfrastructureList.get_inf_ids():
-            InfrastructureManager.logger.error("Error, incorrect Inf ID: %s" % inf_id)
-            raise IncorrectInfrastructureException()
         sel_inf = IM.InfrastructureList.InfrastructureList.get_infrastructure(inf_id)
         if not sel_inf:
-            InfrastructureManager.logger.error("Error loading Inf ID: %s" % inf_id)
-            raise IncorrectInfrastructureException("Error loading Inf ID data.")
+            InfrastructureManager.logger.error("Error, incorrect Inf ID: %s" % inf_id)
+            raise IncorrectInfrastructureException()
         if not sel_inf.is_authorized(auth):
             InfrastructureManager.logger.error("Access Error to Inf ID: %s" % inf_id)
             raise UnauthorizedUserException()
@@ -394,10 +390,11 @@ class InfrastructureManager:
     def search_vm(inf, radl_sys, auth):
         # If an images is already set do not search
         if radl_sys.getValue("disk.0.image.url"):
-            return []
+            return "", []
 
         dist = radl_sys.getValue('disk.0.os.flavour')
         version = radl_sys.getValue('disk.0.os.version')
+        msg = ""
         res = []
         for c in CloudInfo.get_cloud_list(auth):
             cloud_site = c.getCloudConnector(inf)
@@ -405,6 +402,7 @@ class InfrastructureManager:
                 images = cloud_site.list_images(auth, filters={"distribution": dist, "version": version})
             except Exception as ex:
                 images = []
+                msg += "Error getting images from cloud: %s (%s)\n" % (c.id, ex)
                 InfrastructureManager.logger.warning("Inf ID: %s: Error getting images " % inf.id +
                                                      "from cloud: %s (%s)" % (c.id, ex))
 
@@ -413,13 +411,13 @@ class InfrastructureManager:
                 new_sys.setValue("disk.0.image.url", images[0]["uri"])
                 res.append(new_sys)
 
-        return res
+        return msg, res
 
     @staticmethod
     def systems_with_iis(sel_inf, radl, auth):
         """
         Concrete systems using Image Information Systems.
-        Currently supported VMRC and AppDBIS
+        Currently supported VMRC and AppDBIS/EGIIS
         NOTE: consider not-fake deploys (vm_number > 0)
         """
         # Get VMRC credentials
@@ -429,12 +427,12 @@ class InfrastructureManager:
                 vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'], vmrc_elem['password']))
 
         # Get AppDBIS credentials
-        appdbis_list = []
-        for appdbis_elem in auth.getAuthInfo('AppDBIS'):
-            host = None
-            if 'host' in appdbis_elem:
-                host = appdbis_elem['host']
-            appdbis_list.append(AppDBIS(host))
+        egiis_list = []
+        for _ in auth.getAuthInfo('AppDBIS'):
+            egiis_list.append(FedcloudInfo)
+        # Get EGIIS credentials
+        for _ in auth.getAuthInfo('EGIIS'):
+            egiis_list.append(FedcloudInfo)
 
         systems_with_vmrc = {}
         for system_id in set([d.id for d in radl.deploys if d.vm_number > 0]):
@@ -460,15 +458,22 @@ class InfrastructureManager:
                     s_without_apps.addFeature(f)
 
             vmrc_res = [s0 for vmrc in vmrc_list for s0 in vmrc.search_vm(s)]
-            appdbis_res = [s0 for appdbis in appdbis_list for s0 in appdbis.search_vm(s)]
-            local_res = InfrastructureManager.search_vm(sel_inf, s, auth)
+            egiis_res = [s0 for egiis in egiis_list for s0 in egiis.search_vm(s)]
+            local_msg, local_res = InfrastructureManager.search_vm(sel_inf, s, auth)
             # Check that now the image URL is in the RADL
-            if not s.getValue("disk.0.image.url") and not vmrc_res and not appdbis_res and not local_res:
-                sel_inf.add_cont_msg("No VMI obtained from VMRC nor AppDBIS nor Sites to system: " + system_id)
-                raise Exception("No VMI obtained from VMRC nor AppDBIS not Sites to system: " + system_id)
+            if not s.getValue("disk.0.image.url") and not vmrc_res and not egiis_res and not local_res:
+                msg = "No VMI obtained from Sites"
+                if vmrc_list:
+                    msg += " nor VMRC"
+                if egiis_list:
+                    msg += " nor EGI IS"
+                msg += " to system '" + system_id + "'"
+                if local_msg:
+                    msg += ": " + local_msg
+                raise Exception(msg)
 
             n = [s_without_apps.clone().applyFeatures(s0, conflict="other", missing="other")
-                 for s0 in (vmrc_res + appdbis_res + local_res)]
+                 for s0 in (vmrc_res + egiis_res + local_res)]
             systems_with_vmrc[system_id] = n if n else [s_without_apps]
 
         return systems_with_vmrc
@@ -1356,20 +1361,44 @@ class InfrastructureManager:
             return True
 
     @staticmethod
-    def check_oidc_token(im_auth):
+    def check_oidc_token(im_auth, admin_users=None):
         token = im_auth["token"]
         success = False
+        issuer = None
+        userinfo = None
         try:
             # decode the token to get the info
             decoded_token = JWT().get_info(token)
         except Exception as ex:
             InfrastructureManager.logger.exception("Error trying decode OIDC auth token: %s" % str(ex))
+            InfrastructureManager.logger.debug("Token: %s" % token)
             raise Exception("Error trying to decode OIDC auth token: %s" % str(ex))
 
-        # First check if the issuer is in valid
-        if decoded_token['iss'] not in Config.OIDC_ISSUERS:
-            InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
-            raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
+        # Now check if the token is not expired
+        expired, msg = OpenIDClient.is_access_token_expired(token)
+        if expired:
+            InfrastructureManager.logger.error("OIDC auth %s." % msg)
+            raise InvaliddUserException("Invalid InfrastructureManager credentials. OIDC auth %s." % msg)
+
+        if Config.OIDC_CLIENT_ID and Config.OIDC_CLIENT_SECRET and len(Config.OIDC_ISSUERS) == 1:
+            success, decoded_token = OpenIDClient.get_token_introspection(token,
+                                                                          Config.OIDC_ISSUERS[0],
+                                                                          Config.OIDC_CLIENT_ID,
+                                                                          Config.OIDC_CLIENT_SECRET,
+                                                                          Config.VERIFI_SSL)
+            if not success or not decoded_token.get("active", False):
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. "
+                                            "Invalid token or Client credentials.")
+        else:
+            # In this case check if the issuer is in the accepted ones
+            if decoded_token['iss'] not in Config.OIDC_ISSUERS:
+                InfrastructureManager.logger.error("Incorrect OIDC issuer: %s" % decoded_token['iss'])
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. Issuer not accepted.")
+
+            # Now try to get user info
+            success, userinfo = OpenIDClient.get_user_info_request(token, Config.VERIFI_SSL)
+            if not success:
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
 
         # Now check the audience
         if Config.OIDC_AUDIENCE:
@@ -1388,65 +1417,62 @@ class InfrastructureManager:
                 InfrastructureManager.logger.error("Audience %s not found in access token." % Config.OIDC_AUDIENCE)
                 raise InvaliddUserException("Invalid InfrastructureManager credentials. Audience not accepted.")
 
-        if Config.OIDC_SCOPES and Config.OIDC_CLIENT_ID and Config.OIDC_CLIENT_SECRET:
-            OpenIDClient.INSTROSPECT_PATH = Config.OIDC_INSTROSPECT_PATH
-            success, res = OpenIDClient.get_token_introspection(token,
-                                                                Config.OIDC_CLIENT_ID,
-                                                                Config.OIDC_CLIENT_SECRET,
-                                                                Config.VERIFI_SSL)
-            if not success:
+        if Config.OIDC_SCOPES:
+            if not decoded_token.get("scope"):
                 raise InvaliddUserException("Invalid InfrastructureManager credentials. "
-                                            "Invalid token or Client credentials.")
+                                            "No scope obtained from introspection.")
             else:
-                if not res["scope"]:
-                    raise InvaliddUserException("Invalid InfrastructureManager credentials. "
-                                                "No scope obtained from introspection.")
-                else:
-                    scopes = res["scope"].split(" ")
-                    if not all([elem in scopes for elem in Config.OIDC_SCOPES]):
-                        raise InvaliddUserException("Invalid InfrastructureManager credentials. Scopes %s "
-                                                    "not in introspection scopes: %s" % (" ".join(Config.OIDC_SCOPES),
-                                                                                         res["scope"]))
+                scopes = decoded_token["scope"].split(" ")
+                if not all([elem in scopes for elem in Config.OIDC_SCOPES]):
+                    raise InvaliddUserException("Invalid InfrastructureManager credentials. Scopes %s "
+                                                "not in introspection scopes: %s" % (" ".join(Config.OIDC_SCOPES),
+                                                                                     decoded_token["scope"]))
 
-        # Now check if the token is not expired
-        expired, msg = OpenIDClient.is_access_token_expired(token)
-        if expired:
-            InfrastructureManager.logger.error("OIDC auth %s." % msg)
-            raise InvaliddUserException("Invalid InfrastructureManager credentials. OIDC auth %s." % msg)
+        if Config.OIDC_GROUPS:
+            # Get user groups from any of the possible fields
+            user_groups = decoded_token.get(Config.OIDC_GROUPS_CLAIM,
+                                            userinfo.get(Config.OIDC_GROUPS_CLAIM, []))
 
-        try:
-            # Now try to get user info
-            OpenIDClient.USER_INFO_PATH = Config.OIDC_USER_INFO_PATH
-            success, userinfo = OpenIDClient.get_user_info_request(token, Config.VERIFI_SSL)
-            if success:
-                # convert to username to use it in the rest of the IM
-                im_auth['username'] = IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX
-                if userinfo.get("preferred_username"):
-                    im_auth['username'] += str(userinfo.get("preferred_username"))
-                elif userinfo.get("name"):
-                    im_auth['username'] += str(userinfo.get("name"))
-                else:
-                    im_auth['username'] += str(userinfo.get("sub"))
-                issuer = str(decoded_token['iss'])
-                if not issuer.endswith('/'):
-                    issuer += '/'
-                im_auth['password'] = issuer + str(userinfo.get("sub"))
+            if not set(Config.OIDC_GROUPS).issubset(user_groups):
+                raise InvaliddUserException("Invalid InfrastructureManager credentials. " +
+                                            "User not in configured groups.")
 
-                if Config.OIDC_GROUPS:
-                    # Get user groups from any of the possible fields
-                    user_groups = userinfo.get(Config.OIDC_GROUPS_CLAIM, [])
+        username = str(decoded_token.get("username", decoded_token.get("sub")))
 
-                    if not set(Config.OIDC_GROUPS).issubset(user_groups):
-                        raise InvaliddUserException("Invalid InfrastructureManager credentials. " +
-                                                    "User not in configured groups.")
+        if not userinfo:
+            try:
+                # Now try to get user info
+                success, userinfo = OpenIDClient.get_user_info_request(token, Config.VERIFI_SSL)
+            except Exception as ex:
+                InfrastructureManager.logger.warning("Error trying to get user info from OIDC auth token: %s" % str(ex))
 
-        except Exception as ex:
-            InfrastructureManager.logger.exception("Error trying to validate OIDC auth token: %s" % str(ex))
-            raise Exception("Error trying to validate OIDC auth token: %s" % str(ex))
+        if userinfo:
+            # convert to username to use it in the rest of the IM
+            username = str(userinfo.get("preferred_username",
+                                        userinfo.get("name",
+                                                     userinfo.get("sub"))))
 
-        if not success:
-            InfrastructureManager.logger.error("Incorrect OIDC auth token: %s" % userinfo)
-            raise InvaliddUserException("Invalid InfrastructureManager credentials. %s." % userinfo)
+        im_auth['username'] = IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX
+        im_auth['username'] += username
+        issuer = str(decoded_token['iss'])
+        if not issuer.endswith('/'):
+            issuer += '/'
+        im_auth['password'] = issuer + str(decoded_token.get("sub"))
+
+        if admin_users:
+            for admin_auth in admin_users:
+                if (im_auth.get("username") == admin_auth.get("username") and
+                        im_auth.get("password") == admin_auth.get("password")):
+                    im_auth['admin'] = True
+                    break
+
+        if Config.OIDC_ADMIN_GROUPS:
+            user_groups = decoded_token.get(Config.OIDC_GROUPS_CLAIM,
+                                            userinfo.get(Config.OIDC_GROUPS_CLAIM, []))
+            for elem in Config.OIDC_ADMIN_GROUPS:
+                if elem['issuer'] == issuer and elem['group'] in user_groups:
+                    im_auth['admin'] = True
+                    break
 
     @staticmethod
     def get_auth_from_vault(auth):
@@ -1488,17 +1514,13 @@ class InfrastructureManager:
             vo = appdbis_auth[0]["vo"]
             # To avoid connecting with AppDBIS again
             del appdbis_auth[0]["vo"]
-            if "host" in appdbis_auth[0]:
-                appdbis = AppDBIS(appdbis_auth[0]["host"])
-            else:
-                appdbis = AppDBIS()
-            InfrastructureManager.logger.debug("Getting auth data from AppDBIS")
-            code, sites = appdbis.get_sites_supporting_vo(vo)
-            if code == 200:
-                for site_name, site_url, project_id in sites:
-                    auth_site = {"id": site_name, "host": site_url, "type": "OpenStack",
+            InfrastructureManager.logger.debug("Getting auth data from Fedcloud IS")
+            sites = FedcloudInfo.get_sites_supporting_vo(vo)
+            if sites:
+                for site in sites:
+                    auth_site = {"id": site["name"], "host": site["url"], "type": "OpenStack",
                                  "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
-                                 "domain": project_id, "password": appdbis_auth[0]["token"], "vo": vo}
+                                 "domain": site["project_id"], "password": appdbis_auth[0]["token"], "vo": vo}
                     auth.auth_list.append(auth_site)
             else:
                 InfrastructureManager.logger.error("Error getting auth data from AppDBIS: %s" % sites)
@@ -1514,13 +1536,13 @@ class InfrastructureManager:
                     ost_auth = {'id': auth_item['id'], 'type': 'OpenStack', 'username': 'egi.eu', 'tenant': 'openid',
                                 'password': auth_item['token'], 'auth_version': '3.x_oidc_access_token',
                                 'vo': auth_item['vo']}
-                    site_id = AppDB.get_site_id(auth_item["host"], stype="openstack")
-                    site_url = AppDB.get_site_url(site_id)
+                    site_name = auth_item["host"]
+                    site_url = FedcloudInfo.get_site_url(site_name)
                     if not site_url:
-                        InfrastructureManager.logger.error("Site name '%s' not found at AppDB." % auth_item['host'])
+                        InfrastructureManager.logger.error("Site name '%s' not found at fedcloud IS." % site_name)
                         continue
                     ost_auth['host'] = site_url
-                    projects = AppDB.get_project_ids(site_id)
+                    projects = FedcloudInfo.get_project_ids(site_name)
                     # If the VO does not appear in the project IDs
                     if auth_item['vo'] in projects:
                         ost_auth['domain'] = projects[auth_item['vo']]
@@ -1546,6 +1568,12 @@ class InfrastructureManager:
         if not im_auth:
             raise InvaliddUserException("No credentials provided for the InfrastructureManager.")
 
+        admin_users = []
+        if Config.ADMIN_USER:
+            admin_users = Config.ADMIN_USER
+            if isinstance(Config.ADMIN_USER, dict):
+                admin_users = [Config.ADMIN_USER]
+
         for im_auth_item in im_auth:
             im_auth_item['admin'] = False
             if Config.FORCE_OIDC_AUTH and "token" not in im_auth_item:
@@ -1553,7 +1581,7 @@ class InfrastructureManager:
 
             # First check if an OIDC token is included
             if "token" in im_auth_item:
-                InfrastructureManager.check_oidc_token(im_auth_item)
+                InfrastructureManager.check_oidc_token(im_auth_item, admin_users)
             elif "username" in im_auth_item:
                 if im_auth_item['username'].startswith(IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX):
                     # This is a OpenID user do not enable to get data using user/pass creds
@@ -1562,19 +1590,14 @@ class InfrastructureManager:
                 # Now check if the user is in authorized
                 if not InfrastructureManager.check_im_user(im_auth_item):
                     raise InvaliddUserException()
-            else:
-                raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
-            if Config.ADMIN_USER:
-                admin_users = Config.ADMIN_USER
-                if isinstance(Config.ADMIN_USER, dict):
-                    admin_users = [Config.ADMIN_USER]
                 for admin_auth in admin_users:
-                    if ((im_auth_item.get("token") is None or admin_auth.get("token") is not None) and
-                            im_auth_item.get("username") == admin_auth.get("username") and
+                    if (im_auth_item.get("username") == admin_auth.get("username") and
                             im_auth_item.get("password") == admin_auth.get("password")):
                         im_auth_item['admin'] = True
                         break
+            else:
+                raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
         if Config.SINGLE_SITE:
             vmrc_auth = auth.getAuthInfo("VMRC")
@@ -1721,7 +1744,7 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
-        str_inf = sel_inf.serialize()
+        str_inf = json.dumps(sel_inf.serialize())
         InfrastructureManager.logger.info("Exporting Inf ID: " + str(sel_inf.id))
         if delete:
             sel_inf.delete()
@@ -1831,11 +1854,7 @@ class InfrastructureManager:
         auth = InfrastructureManager.check_auth_data(auth)
         appdbis_auth = auth.getAuthInfo("AppDBIS")
         if appdbis_auth and "token" in appdbis_auth[0] and cloud_id == appdbis_auth[0]['id']:
-            if "host" in appdbis_auth[0]:
-                appdbis = AppDBIS(appdbis_auth[0]["host"])
-            else:
-                appdbis = AppDBIS()
-            return appdbis.list_images(filters)
+            return FedcloudInfo.list_images(filters)
         else:
             return InfrastructureManager._get_cloud_conn(cloud_id, auth).list_images(auth, filters)
 
@@ -1934,7 +1953,9 @@ class InfrastructureManager:
                             {
                             "cpuCores": 2,
                             "memoryInMegabytes": 4096,
-                            "diskSizeInGigabytes": 20
+                            "diskSizeInGigabytes": 20,
+                            "publicIP": 1,
+                            "GPU": 1
                             },
                             {
                             "cpuCores": 1,
@@ -2024,6 +2045,9 @@ class InfrastructureManager:
                     vm = {"cpuCores": concrete_system.getValue("cpu.count"),
                           "memoryInMegabytes": concrete_system.getFeature("memory.size").getValue("M")}
 
+                    if concrete_system.getValue("gpu.count"):
+                        vm['GPU'] = concrete_system.getValue("gpu.count")
+
                     disk_size = 0
                     if concrete_system.getValue("disk.0.free_size"):
                         disk_size += concrete_system.getFeature("disk.0.free_size").getValue('G')
@@ -2034,16 +2058,22 @@ class InfrastructureManager:
                     if disk_size:
                         vm['diskSizeInGigabytes'] = disk_size
 
+                    if radl.hasPublicNet(concrete_system.name):
+                        vm['publicIP'] = 1
+
                     for _ in range(0, deploy.vm_number):
                         res[cloud_id]["compute"].append(vm)
 
-                        cont = 1
-                        while (concrete_system.getValue("disk." + str(cont) + ".size")):
-                            volume_size = concrete_system.getFeature("disk." + str(cont) + ".size").getValue('G')
-                            vol_info = {"sizeInGigabytes": volume_size}
-                            if concrete_system.getValue("disk." + str(cont) + ".type"):
-                                vol_info["type"] = concrete_system.getValue("disk." + str(cont) + ".type")
-                            res[cloud_id]["storage"].append(vol_info)
+                        cont = 0
+                        while (concrete_system.getValue(f"disk.{cont}.size") or
+                                concrete_system.getValue(f"disk.{cont}.content") or
+                                cont == 0):
+                            if concrete_system.getValue(f"disk.{cont}.size"):
+                                volume_size = concrete_system.getFeature(f"disk.{cont}.size").getValue('G')
+                                vol_info = {"sizeInGigabytes": volume_size}
+                                if concrete_system.getValue(f"disk.{cont}.type"):
+                                    vol_info["type"] = concrete_system.getValue(f"disk.{cont}.type")
+                                res[cloud_id]["storage"].append(vol_info)
                             cont += 1
 
         return res

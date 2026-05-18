@@ -235,58 +235,11 @@ Contextualization
    Number of VMs in an infrastructure that will use the distributed version of the Ctxt Agent
    The default value is 30.
 
-.. _options-xmlrpc:
-
-XML-RPC API
-^^^^^^^^^^^
-
-.. confval:: XMLRCP_PORT
-
-   Port number where IM XML-RPC API is available.
-   The default value is 8899.
-   
-.. confval:: XMLRCP_ADDRESS
-
-   IP address where IM XML-RPC API is available.
-   The default value is 0.0.0.0 (all the IPs).
-
-.. confval:: XMLRCP_SSL 
-
-   If ``True`` the XML-RPC API is secured with SSL certificates.
-   The default value is ``False``.
-
-.. confval:: XMLRCP_SSL_KEYFILE 
-
-   Full path to the private key associated to the SSL certificate to access
-   the XML-RPC API.
-   The default value is :file:`/etc/im/pki/server-key.pem`.
-
-.. confval:: XMLRCP_SSL_CERTFILE 
-
-   Full path to the public key associated to the SSL certificate to access
-   the XML-RPC API.
-   The default value is :file:`/etc/im/pki/server-cert.pem`.
-
-.. confval:: XMLRCP_SSL_CA_CERTS 
-
-   Full path to the SSL Certification Authorities (CA) certificate.
-   The default value is :file:`/etc/im/pki/ca-chain.pem`.
-
-.. confval:: VMINFO_JSON
-
-	Return the VM information of function GetVMInfo in RADL JSON instead of plain RADL
-	(**Added in IM version 1.5.2**) 
-	The default value is ``False``.
 
 .. _options-rest:
 
 REST API
 ^^^^^^^^
-
-.. confval:: ACTIVATE_REST 
-
-   If ``True`` the REST API is activated.
-   The default value is ``False``.
 
 .. confval:: REST_PORT
 
@@ -297,6 +250,12 @@ REST API
 
    IP address where REST API is available.
    The default value is 0.0.0.0 (all the IPs).
+
+.. confval:: REST_ROOT_PATH
+
+   Root path of the REST API. It is useful if you want to use a reverse
+   proxy in front of the IM REST API.
+   The default value is ``/``.
 
 .. confval:: REST_SSL 
 
@@ -541,6 +500,55 @@ and IM name comment or leave empty not to set them
 .. confval:: VM_TAG_IM
 
    Name of the tag to set the IM string (``'es.grycap.upv.im'```) as tag in the IM created VMs.
+
+OAI-PMH Support and restrict templates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Variables to configure the OAI-PMH repository and restrict the templates that will be deployed
+by the IM service.
+
+.. confval:: OAIPMH_REPO_BASE_IDENTIFIER_URL
+
+   If this value is set the IM service will restrict the templates that can be deployed to the ones
+   available in the repository with the base URL set in this value. Currently it must be a Github
+   repository URL. To activate the OAI-PMH support this value must be set.
+
+.. confval:: OAIPMH_REPO_NAME
+
+   Tne name of the OAI-PMH repository. To activate the OAI-PMH support this value must be set.
+
+.. confval:: OAIPMH_REPO_DESCRIPTION
+
+   The description of the OAI-PMH repository. To activate the OAI-PMH support this value must be set.
+
+.. confval:: OAIPMH_REPO_ADMIN_EMAIL
+
+   The email of the repository administrator.
+
+Admin user support
+^^^^^^^^^^^^^^^^^^
+
+Configure IM admin users. It will be able to manage all the infrastructures in the service.
+But it should also provide correct credentials to access cloud providers, if not cloud resources
+will not be able to be managed.
+
+.. confval:: ADMIN_USER
+
+   Configure a set of admin users with user and password::
+
+      ADMIN_USER = [{"username": "user", "password": "pass"},
+                    {"username": "user2", "password": "pass2"}]
+
+   In case of OIDC users, use this format::
+
+      ADMIN_USER = [{"username": "__OPENID__username", "password": "https://some_issuer.com/user_sub", "token": ""},
+                    {"username": "__OPENID__username2", "password": "https://some_issuer.com/user_sub2", "token": ""}]]
+
+.. confval:: OIDC_ADMIN_GROUPS
+
+   To set as admin all the users of an OIDC group::
+
+      OIDC_ADMIN_GROUPS = [{"issuer": "https://some_issuer.com/", "group": "group_name"}]
 
 .. _options-ha:
 

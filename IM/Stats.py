@@ -48,8 +48,10 @@ class Stats():
         if 'extra_info' in dic and dic['extra_info'] and "TOSCA" in dic['extra_info']:
             try:
                 tosca = yaml.safe_load(dic['extra_info']['TOSCA'])
-                icon = tosca.get("metadata", {}).get("icon", "")
-                resp['tosca_name'] = os.path.basename(icon)[:-4]
+                resp['tosca_name'] = tosca.get("metadata", {}).get("template_name", "")
+                if not resp['tosca_name']:
+                    icon = tosca.get("metadata", {}).get("icon", "")
+                    resp['tosca_name'] = os.path.basename(icon)[:-4]
             except Exception:
                 Stats.logger.exception("Error loading TOSCA.")
 
@@ -61,8 +63,8 @@ class Stats():
         resp['hybrid'] = False
         resp['deleted'] = True if 'deleted' in dic and dic['deleted'] else False
         for str_vm_data in dic['vm_list']:
-            vm_data = json.loads(str_vm_data)
-            cloud_data = json.loads(vm_data["cloud"])
+            vm_data = str_vm_data if isinstance(str_vm_data, dict) else json.loads(str_vm_data)
+            cloud_data = vm_data["cloud"] if isinstance(vm_data["cloud"], dict) else json.loads(vm_data["cloud"])
 
             # only get the cloud of the first VM
             if not resp['cloud_type']:
@@ -119,9 +121,9 @@ class Stats():
                 res = db.find("inf_list", filt, {"id": True, "data": True, "date": True}, [('id', -1)])
             else:
                 like = InfrastructureList._gen_where_from_auth(auth)
-                where = "where"
+                where = ""
                 if like:
-                    where += " (%s)" % like
+                    where += "where (%s)" % like
                 res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)  # nosec
 
             for elem in res:

@@ -15,7 +15,9 @@ Basic example
 This TOSCA file describes a cloud topology with 2 VM with at least 2 CPUs and
 2 GB of RAM and 40 GB of root disk, connected with a public IP, using an Ubuntu
 20.04 image. As outputs, the TOSCA file will return the public IP of the VM and
-the SSH credentials to access it::
+the SSH credentials to access it.
+
+.. code-block:: yaml
 
     tosca_definitions_version: tosca_simple_yaml_1_0
 
@@ -59,7 +61,9 @@ As in RADL, you can set a specific URI identifying the VMI to use in the VM.
 The URI format is the same used in RADL (:ref:`radl_system`). In this case
 the type must be changed to ``tosca.nodes.indigo.Compute`` (the Compute normative
 type does not support the ``os image`` property), and the image property must
-be added in the ``os`` capability::
+be added in the ``os`` capability.
+
+.. code-block:: yaml
 
     ...
 
@@ -85,7 +89,9 @@ Advanced Compute host properties
 The ``tosca.nodes.indigo.Compute`` custom type adds a new set of advanced features to the
 host properties, enabling the request of GPUs and
 `Intel SGX <https://www.intel.com/content/www/us/en/architecture-and-technology/software-guard-extensions.html>`_ CPU support
-in the compute node::
+in the compute node.
+
+.. code-block:: yaml
 
     ...
 
@@ -110,7 +116,9 @@ Basic properties
 -----------------
 
 The easiest way to specify network requirements of the Compute node is using the endpoint capability properties.
-For example, the following example the compute node requests for a public IP::
+For example, the following example the compute node requests for a public IP.
+
+.. code-block:: yaml
 
     ...
         simple_node:
@@ -131,8 +139,9 @@ Possible values of the ``network_name`` endpoint property:
     (see :ref:`radl_network`):
 
 Furthermore, the endpoint capability has a set of additional properties
-to set the DNS name of the node or the set of ports to be externally accessible::
+to set the DNS name of the node or the set of ports to be externally accessible.
 
+.. code-block:: yaml
     ...
 
       capabilities:
@@ -154,7 +163,9 @@ Advanced properties
 In case you need a more detailed definition of the networks, you can use the 
 ``tosca.nodes.network.Network`` and ``tosca.nodes.network.Port`` TOSCA normative types.
 In this way you can define the set of networks needed in your topology using the ports to 
-link the networks with the Compute nodes::
+link the networks with the Compute nodes.
+
+.. code-block:: yaml
 
     ...
 
@@ -200,8 +211,9 @@ Software Components
 
 IM enable the use of Ansible playbooks as implementation scripts. Furthermore, it enables to specify
 Ansible roles (``tosca.artifacts.AnsibleGalaxy.role``) and collections (``tosca.artifacts.AnsibleGalaxy.collections``)
-to be installed and used in the playbooks::
+to be installed and used in the playbooks.
 
+.. code-block:: yaml
     ...
 
     software:
@@ -227,7 +239,9 @@ Storage
 IM enables the definition of BlockStorage volumes to be attached to the compute nodes.
 In this example we can see how to define a volume of 10GB to be attached to the compute node
 and mounted in the path /mnt/disk. The device parameter is optional and it is only needed in
-some cloud providers, in general is better not to add it::
+some cloud providers, in general is better not to add it.
+
+.. code-block:: yaml
 
     ...
 
@@ -259,7 +273,9 @@ IM enables the definition of the specific cloud provider where the Compute nodes
 For example, in the following code we assume that we have defined three compute nodes (compute_one, compute_two and compute_three).
 We can create a placement group with two of them (compute_one and compute_two) and then set a placement policy with a cloud_id
 (that must be defined in the :ref:`auth-file`), and create a second placement policy where we can set a different cloud provider
-and, optionally, an availability zone::
+and, optionally, an availability zone.
+
+.. code-block:: yaml
 
     ...
 
@@ -270,14 +286,14 @@ and, optionally, an availability zone::
 
     policies:
       - deploy_group_on_cloudid:
-        type: tosca.policies.Placement
-        properties: { cloud_id: cloudid1 }
-        targets: [ my_placement_group ]
+          type: tosca.policies.indigo.Placement
+          properties: { cloud_id: cloudid1 }
+          targets: [ my_placement_group ]
 
       - deploy_on_cloudid:
-        type: tosca.policies.Placement
-        properties: { cloud_id: cloudid2, availability_zone: some_zone }
-        targets: [ compute_three ]
+          type: tosca.policies.indigo.Placement
+          properties: { cloud_id: cloudid2, availability_zone: some_zone }
+          targets: [ compute_three ]
 
     ...
 
@@ -288,8 +304,12 @@ IM also enables the definition of container applications to be deployed in a Kub
 In the following example, we can see how to define a container application (IM) that uses a
 ConfigMap for a configuration file. The IM application is connected with a MySQL backend
 using the ``IM_DATA_DB`` environment variable. The MySQL container is defined with a Persistent
-Volume Claim (PVC) of 10GB. Furthermore, the IM application specifies an endpoint to be published
-that will result in the creation of a Kubernetes Ingress.
+Volume Claim (PVC) of 10GB. The IM assumes the Kuberentes cluster ha some `Dynamic volume 
+provisioning <https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/>`_ enabled.
+Furthermore, the IM application specifies an endpoint to be published that will result in the
+creation of a Kubernetes Ingress.
+
+.. code-block:: yaml
 
     ...
 
@@ -391,10 +411,61 @@ In most of the cases the task is a ``debug`` ansible task that shows anything yo
 want to return.
 
 In the following example, the specified task was a debug ansible task that shows the
-value of a internally defined value::
+value of a internally defined value.
+
+.. code-block:: yaml
 
     ...
 
       outputs:
         node_ip:
-          value: { get_attribute: [ front, ansible_output, lrms_front_end_front_conf_front, tasks, 'grycap.nomad : nomad_secret_id', output ] }
+          value:
+            get_attribute: 
+              - front
+              - ansible_output
+              - lrms_front_end_front_conf_front
+              - tasks
+              - 'grycap.nomad : nomad_secret_id'
+              - output
+
+
+Special Input values
+^^^^^^^^^^^^^^^^^^^^
+
+The IM TOSCA parser supports the generation of some special values for string inputs.
+
+Random values
+-------------
+
+The special string ``random(N)`` generates a random string of length N with
+alphanumeric characters. It can be used to define passwords or any other random
+string input value (from version 1.19.2).
+
+.. code-block:: yaml
+
+    ...
+
+      inputs:
+        app_password:
+          type: string
+          description: Password for the App
+          default: 'random(12)'
+
+
+Access Token
+-------------
+
+The special string ``access_token()`` substitutes the function with the OIDC
+user access token sent in the authorization header sent in the IM call,
+in the `InfrastructureManager` type element. If user/password has sent to
+authenticate with the IM, the string will be left unchanged.
+
+.. code-block:: yaml
+
+    ...
+
+      inputs:
+        user_access_token:
+          type: string
+          description: User OIDC Access Token
+          default: 'access_token()'

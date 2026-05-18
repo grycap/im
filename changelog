@@ -790,3 +790,37 @@ IM 1.18.0:
     * Fix error with OIDC admin user.
     * Add support for a list of admin users.
     * Update container image using Ubuntu 24.04 base.
+
+IM 1.19.0:
+    * Enable to restrict the set of TOSCA files to be processed.
+    * Add OAIPMH support, showing the list of TOSCA files enabled.
+    * Migrate from AppDB to new cloud-info-api (thanks to @enolfc)
+    * Integration of the new DyDNS API to add and remove hosts.
+    * Fix error deleting IM security groups in OpenStack.
+    * Return public IPs and GPUs in EstimateResouces
+
+IM 1.19.1:
+    * Enable auth data in JSON format
+    * Enable to filter ips by project in OST conn
+    * Fix error caused by the Removal of DSS key algorithm support in Paramiko package
+    * Enable to specify admin users using OIDC groups
+    * Improve image list in Azure conn.
+    * Fix storage estimate in K8s conn with configmaps.
+    * Fix issue with Almalinux SO contextualization.
+
+IM 1.19.2:
+    * Improve K8s conn using Deployments.
+    * Improve K8s conn implementing get_quota.
+    * Improve Azure conn implementing get_quota.
+    * Improve Azure conn selecting instance types.
+    * Enable to generate random input values.
+    * Fix ANSIBLE_VERSION environment variable handling in ConfManager.
+    * Remove whole infra SGs to use only two SGs per infra.
+    * Add CSV generation in stats.
+    * Update stats response with volume details.
+    * Add support access_token() special TOSCA input function.
+    * Add support to ansible 2.19.
+    * Maintain order in infrastructure list.
+    * Generate unique VM name in openstack.
+    * REMOVE XML-RPC API.
+    * Change ansible installation method to micromamba.

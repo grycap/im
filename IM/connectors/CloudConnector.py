@@ -361,12 +361,13 @@ class CloudConnector(LoggerMixin):
                 res.append(image)
         return res
 
-    def get_quotas(self, auth_data):
+    def get_quotas(self, auth_data, region=None):
         """
         Get the number of used and available resources in the cloud provider
 
         Arguments:
           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - region(str): Region to get the quotas. If None, the default region is used.
 
         Returns: dict with the following structure (if there are no limit in some metric, value is set to 1):
                     {
@@ -477,9 +478,9 @@ class CloudConnector(LoggerMixin):
             tags[Config.VM_TAG_USERNAME] = im_username
         if Config.VM_TAG_INF_ID and Config.VM_TAG_INF_ID not in tags and inf:
             tags[Config.VM_TAG_INF_ID] = inf.id
-        from IM.REST import REST_URL
-        if Config.VM_TAG_IM_URL and Config.VM_TAG_IM_URL not in tags and REST_URL:
-            tags[Config.VM_TAG_IM_URL] = REST_URL
+        from IM.rest.REST import RESTServer
+        if Config.VM_TAG_IM_URL and Config.VM_TAG_IM_URL not in tags and RESTServer.REST_URL:
+            tags[Config.VM_TAG_IM_URL] = RESTServer.REST_URL
         if Config.VM_TAG_IM and Config.VM_TAG_IM not in tags:
             tags[Config.VM_TAG_IM] = "es.upv.grycap.im"
         return tags
@@ -635,13 +636,19 @@ class CloudConnector(LoggerMixin):
             additional_dns_names = system.getValue('net_interface.%d.additional_dns_names' % num_conn)
             if additional_dns_names:
                 for dns_name in additional_dns_names:
-                    dns_parts = dns_name.split("@")
-                    if len(dns_parts) != 2:
-                        self.log_error("Invalid format for additional name: %s." % dns_name)
-                        self.error_messages = "Invalid format for additional name: %s." % dns_name
-                        break
-                    hostname = dns_parts[0]
-                    domain = dns_parts[1]
+                    if "@" in dns_name:
+                        dns_parts = dns_name.split("@")
+                        if len(dns_parts) != 2:
+                            self.log_error("Invalid format for additional name: %s." % dns_name)
+                            self.error_messages = "Invalid format for additional name: %s." % dns_name
+                            break
+                        hostname = dns_parts[0]
+                        domain = dns_parts[1]
+                    else:
+                        dns_parts = dns_name.split(".")
+                        hostname = dns_parts[0]
+                        domain = ".".join(dns_parts[1:])
+
                     if not domain.endswith("."):
                         domain += "."
                     if domain != "localdomain." and ip and hostname:
@@ -738,44 +745,62 @@ class CloudConnector(LoggerMixin):
                 vm.dns_entries = []
             if op == "add":
                 dns_entries = [entry for entry in self.get_dns_entries(vm) if entry not in vm.dns_entries]
-            else:
+            elif op == "del":
                 dns_entries = list(vm.dns_entries)
+            else:
+                raise Exception("Invalid DNS operation.")
             if dns_entries:
                 for entry in dns_entries:
                     hostname, domain, ip = entry
                     try:
-                        if op == "add":
+                        if op == "add" and entry not in vm.dns_entries:
                             success = self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if success and entry not in vm.dns_entries:
+                            if success:
                                 vm.dns_entries.append(entry)
                         elif op == "del":
-                            self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if entry in vm.dns_entries:
+                            success = self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
+                            if success and entry in vm.dns_entries:
                                 vm.dns_entries.remove(entry)
-                        else:
-                            raise Exception("Invalid DNS operation.")
                     except NotImplementedError as niex:
-                        # Use EC2 as back up for all providers if EC2 credentials are available
-                        # TODO: Change it to DyDNS when the full API is available
-                        if auth_data.getAuthInfo("EC2"):
-                            from IM.connectors.EC2 import EC2CloudConnector
-                            if op == "add":
-                                success = EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
-                                if success and entry not in vm.dns_entries:
-                                    vm.dns_entries.append(entry)
-                            elif op == "del":
-                                EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
-                                if entry in vm.dns_entries:
-                                    vm.dns_entries.remove(entry)
-                            else:
-                                raise Exception("Invalid DNS operation.")
-                        else:
+                        # Use DyDNS as back up for all providers if IM credentials uses token auth
+                        success = self.back_up_dns_entries(op, vm, auth_data, hostname, domain, ip, entry)
+                        if not success:
                             raise niex
             return True
         except Exception as ex:
             self.error_messages += "Error in %s DNS entries %s.\n" % (op, str(ex))
             self.log_exception("Error in %s DNS entries" % op)
             return False
+
+    def back_up_dns_entries(self, op, vm, auth_data, hostname, domain, ip, entry):
+        im_auth = auth_data.getAuthInfo("InfrastructureManager")
+        success = False
+
+        # Use DyDNS as back up for all providers if IM credentials uses token auth
+        if im_auth and im_auth[0].get("token") or (hostname.startswith("dydns:") and "@" in hostname):
+            from IM.connectors.EGI import EGICloudConnector
+            if op == "add" and entry not in vm.dns_entries:
+                success = EGICloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
+                if success:
+                    vm.dns_entries.append(entry)
+            elif op == "del":
+                success = EGICloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+                if success and entry in vm.dns_entries:
+                    vm.dns_entries.remove(entry)
+
+        # In other cases check if EC2 credetials anre set and try to use Route53
+        if not success and auth_data.getAuthInfo("EC2"):
+            from IM.connectors.EC2 import EC2CloudConnector
+            # Maintain to enable addition of OSCAR clusters
+            if op == "add" and entry not in vm.dns_entries:
+                success = EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
+                if success:
+                    vm.dns_entries.append(entry)
+            elif op == "del":
+                # Maintain to enable deletion of OSCAR clusters
+                success = EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+
+        return success
 
     @staticmethod
     def convert_memory_unit(memory, unit="M"):
@@ -784,6 +809,8 @@ class CloudConnector(LoggerMixin):
                      'G': 1000000000, 'Gi': 1073741824,
                      'T': 1000000000000, 'Ti': 1099511627776}
         regex = re.compile(r'([0-9.]+)\s*([a-zA-Z]+)')
+        if not regex.match(str(memory)):
+            raise ValueError("Invalid memory format.")
         result = regex.match(str(memory)).groups()
         value = float(result[0])
         orig_unit = result[1]
@@ -794,3 +821,13 @@ class CloudConnector(LoggerMixin):
         if converted - int(converted) < 0.0000000000001:
             converted = int(converted)
         return converted
+
+    @staticmethod
+    def loose_version_compare(user_version, system_version):
+        pattern = r'^\d+(?:\.\d+){0,2}$'
+        if re.match(pattern, user_version) and re.match(pattern, system_version):
+            u = [int(x) for x in user_version.split(".")]
+            s = [int(x) for x in system_version.split(".")]
+            return s[:len(u)] == u
+        else:
+            return user_version == system_version

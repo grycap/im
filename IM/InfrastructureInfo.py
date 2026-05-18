@@ -26,10 +26,7 @@ from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
 from radl.radl_json import radlToSimple
 from IM.config import Config
-try:
-    from Queue import PriorityQueue
-except ImportError:
-    from queue import PriorityQueue
+from queue import PriorityQueue
 from IM.VirtualMachine import VirtualMachine
 from IM.auth import Authentication
 from IM.tosca.Tosca import Tosca
@@ -700,10 +697,7 @@ class InfrastructureInfo:
             for self_im_auth in self.auth.getAuthInfo("InfrastructureManager"):
                 if self._is_authorized(self_im_auth, auth):
                     return True
-
-            return False
-        else:
-            return False
+        return False
 
     def touch(self):
         """

@@ -26,10 +26,7 @@ from .CloudConn import TestCloudConnectorBase
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OCCI import OCCICloudConnector

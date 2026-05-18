@@ -19,10 +19,8 @@ import random
 import string
 import base64
 import re
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+import requests
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
@@ -70,10 +68,13 @@ class AzureInstanceTypeInfo:
             - gpu(int, optional): the number of gpus of this instance
             - gpu_model(str, optional): the model of the gpus of this instance
             - gpu_vendor(str, optional): the model of the gpus of this instance
+            - sgx(bool, optional): True if the instance has SGX support
+            - family(str, optional): family of the instance
+            - arch(str, optional): architecture type of the instance x86_64 or arm64
     """
 
     def __init__(self, name="", cpu=1, mem=0, os_disk_space=0, res_disk_space=0,
-                 gpu=0, gpu_model=None, gpu_vendor=None, sgx=False):
+                 gpu=0, gpu_model=None, gpu_vendor=None, sgx=False, family=None, arch='x86_64'):
         self.name = name
         self.cpu = cpu
         self.mem = mem
@@ -83,6 +84,9 @@ class AzureInstanceTypeInfo:
         self.gpu_model = gpu_model
         self.gpu_vendor = gpu_vendor
         self.sgx = sgx
+        self.family = family
+        self.price = None
+        self.arch = arch
 
     def set_sgx(self):
         """Guess SGX from instance name"""
@@ -126,9 +130,10 @@ class AzureInstanceTypeInfo:
                 self.gpu_model = "Tesla M60"
 
     @staticmethod
-    def fromSKU(sku):
+    def fromSKU(sku, prices=None):
         """Get an instance type object from SKU Json data"""
         gpu = os_disk_space = res_disk_space = mem = cpu = 0
+        arch = "x86_64"
         for elem in sku.capabilities:
             if elem.name == "vCPUs":
                 cpu = int(elem.value)
@@ -140,10 +145,44 @@ class AzureInstanceTypeInfo:
                 os_disk_space = int(elem.value)
             elif elem.name == "GPUs":
                 gpu = int(elem.value)
-        instance_type = AzureInstanceTypeInfo(sku.name, cpu, mem, os_disk_space, res_disk_space, gpu)
+            elif elem.name == "CpuArchitectureType":
+                if "arm" in elem.value.lower():
+                    arch = "arm64"
+        instance_type = AzureInstanceTypeInfo(sku.name, cpu, mem, os_disk_space,
+                                              res_disk_space, gpu, family=sku.family, arch=arch)
         instance_type.set_gpu_models()
         instance_type.set_sgx()
+        if prices and sku.name in prices:
+            instance_type.price = prices[sku.name]
         return instance_type
+
+    @staticmethod
+    def get_price_list(region='westeurope'):
+        """Get the price list from Azure"""
+        url = "https://prices.azure.com/api/retail/prices"
+        url += "?$filter=serviceName eq 'Virtual Machines'"
+        url += " and armRegionName eq '%s'" % region
+        vm_prices = []
+
+        try:
+            # Iterate over paginated results
+            while url:
+                response = requests.get(url, timeout=5)
+                data = response.json()
+                items = data.get("Items", [])
+                vm_prices.extend(items)
+                url = data.get("NextPageLink")
+        except Exception:
+            pass
+
+        # Process and print the results
+        res = {}
+        for item in vm_prices:
+            sku = item.get("armSkuName")
+            price = item.get("unitPrice")
+            if sku and region and price:
+                res[sku] = price
+        return res
 
 
 class AzureCloudConnector(CloudConnector):
@@ -156,12 +195,14 @@ class AzureCloudConnector(CloudConnector):
 
     type = "Azure"
     """str with the name of the provider."""
-    INSTANCE_TYPE = 'ExtraSmall'
+    INSTANCE_TYPE = 'Standard_A0'
     """Default instance type."""
     DEFAULT_LOCATION = "westeurope"
     """Default location to use"""
     DEFAULT_USER = 'azureuser'
     """ default user to SSH access the VM """
+    instance_type_list = {}
+    """ Information about the instance types """
 
     PROVISION_STATE_MAP = {
         'Accepted': VirtualMachine.PENDING,
@@ -244,10 +285,16 @@ class AzureCloudConnector(CloudConnector):
     def get_instance_type_list(self, credentials, subscription_id, location):
         compute_client = ComputeManagementClient(credentials, subscription_id)
 
+        if AzureCloudConnector.instance_type_list and location in AzureCloudConnector.instance_type_list:
+            return AzureCloudConnector.instance_type_list[location]
+
         try:
             skus = list(compute_client.resource_skus.list(filter="location eq '%s'" % location))
-            inst_types = [AzureInstanceTypeInfo.fromSKU(sku) for sku in skus if sku.resource_type == "virtualMachines"]
-            inst_types.sort(key=lambda x: (x.cpu, x.mem, x.gpu, x.res_disk_space))
+            prices = AzureInstanceTypeInfo.get_price_list(location)
+            inst_types = [AzureInstanceTypeInfo.fromSKU(sku, prices)
+                          for sku in skus if sku.resource_type == "virtualMachines"]
+            inst_types.sort(key=lambda x: (x.price if x.price else 9999999, x.cpu, x.mem, x.gpu, x.res_disk_space))
+            AzureCloudConnector.instance_type_list[location] = inst_types
             return inst_types
         except Exception:
             self.log_exception("Error getting instance type list.")
@@ -272,6 +319,7 @@ class AzureCloudConnector(CloudConnector):
         gpu_model = system.getValue('gpu.model')
         gpu_vendor = system.getValue('gpu.vendor')
         sgx = system.getValue('cpu.sgx')
+        arch = system.getValue('cpu.arch', 'x86_64')
 
         instace_types = self.get_instance_type_list(credentials, subscription_id, location)
 
@@ -280,7 +328,8 @@ class AzureCloudConnector(CloudConnector):
             if instace_type.name == self.INSTANCE_TYPE:
                 default = instace_type
 
-            comparison = cpu_op(instace_type.cpu, cpu)
+            comparison = arch == instace_type.arch
+            comparison = comparison and cpu_op(instace_type.cpu, cpu)
             comparison = comparison and memory_op(instace_type.mem, memory)
             comparison = comparison and disk_free_op(instace_type.res_disk_space, disk_free)
 
@@ -317,6 +366,9 @@ class AzureCloudConnector(CloudConnector):
                           conflict="other", missing="other")
         system.addFeature(Feature("instance_type", "=", instance_type.name),
                           conflict="other", missing="other")
+        if instance_type.price:
+            system.addFeature(Feature("price", "=", instance_type.price),
+                              conflict="me", missing="other")
         if instance_type.gpu:
             system.addFeature(Feature("gpu.count", "=", instance_type.gpu),
                               conflict="other", missing="other")
@@ -549,20 +601,23 @@ class AzureCloudConnector(CloudConnector):
 
         return res
 
-    def get_azure_vm_create_json(self, group_name, vm_name, nics, radl,
+    def get_azure_vm_create_json(self, group_name, vm_name, nics, system,
                                  instance_type, custom_data, compute_client, tags):
         """ Create the VM parameters structure. """
-        system = radl.systems[0]
         url = urlparse(system.getValue("disk.0.image.url"))
         # the url has to have the format: azr://publisher/offer/sku/version
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
         image_values = (url[1] + url[2]).split("/")
-        if len(image_values) not in [3, 4]:
+        if len(image_values) not in [3, 4, 5]:
             raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version"
+                            " or azr://region/publisher/offer/sku/version"
                             " or azr://[snapshots|disk]/rgname/diskname")
 
         location = self.DEFAULT_LOCATION
+        if len(image_values) == 5:
+            location = image_values[0]
+            image_values = image_values[1:]
         if system.getValue('availability_zone'):
             location = system.getValue('availability_zone')
 
@@ -683,6 +738,8 @@ class AzureCloudConnector(CloudConnector):
                 })
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                device_letter = chr(ord('c') + cont - 1)
+                system.setValue(f"disk.{cont}.device", f"/dev/sd{device_letter}")
                 self.log_info("Adding a %s GB disk." % disk_size)
                 data_disks.append({
                     'name': '%s_disk_%d' % (vm_name, cont),
@@ -807,7 +864,7 @@ class AzureCloudConnector(CloudConnector):
                 custom_data = self.get_cloud_init_data(radl, vm)
                 instance_type = self.get_instance_type(radl.systems[0], credentials, subscription_id)
                 vm_parameters = self.get_azure_vm_create_json(rg_name, vm_name,
-                                                              nics, radl, instance_type, custom_data,
+                                                              nics, vm.info.systems[0], instance_type, custom_data,
                                                               compute_client, tags)
 
                 async_vm_creation = compute_client.virtual_machines.begin_create_or_update(rg_name,
@@ -837,12 +894,6 @@ class AzureCloudConnector(CloudConnector):
         return vms
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
-        location = self.DEFAULT_LOCATION
-        if radl.systems[0].getValue('availability_zone'):
-            location = radl.systems[0].getValue('availability_zone')
-        else:
-            radl.systems[0].setValue('availability_zone', location)
-
         credentials, subscription_id = self.get_credentials(auth_data)
         compute_client = ComputeManagementClient(credentials, subscription_id)
 
@@ -852,11 +903,21 @@ class AzureCloudConnector(CloudConnector):
         # azr://Canonical/UbuntuServer/16.04.0-LTS/latest
         # azr://MicrosoftWindowsServerEssentials/WindowsServerEssentials/WindowsServerEssentials/latest
         image_values = (url[1] + url[2]).split("/")
-        if len(image_values) not in [3, 4]:
+        if len(image_values) not in [3, 4, 5]:
             raise Exception("The Azure image has to have the format: azr://publisher/offer/sku/version"
+                            " or azr://region/publisher/offer/sku/version"
                             " or azr://[snapshots|disk|image]/rgname/diskname")
         if len(image_values) == 3 and image_values[0] not in ["snapshot", "disk"]:
             raise Exception("Incorrect image url: it must be snapshot or disk.")
+
+        location = self.DEFAULT_LOCATION
+        if len(image_values) == 5:
+            location = image_values[0]
+            image_values = image_values[1:]
+        if radl.systems[0].getValue('availability_zone'):
+            location = radl.systems[0].getValue('availability_zone')
+        else:
+            radl.systems[0].setValue('availability_zone', location)
 
         if len(image_values) == 4:
             offers = compute_client.virtual_machine_images.list(location,
@@ -1123,6 +1184,8 @@ class AzureCloudConnector(CloudConnector):
                 return (True, "")
 
             instance_type = self.get_instance_type(new_system, credentials, subscription_id)
+            if not instance_type:
+                raise Exception("Instance type not found for the new flavor.")
             vm_parameters = " { 'hardware_profile': { 'vm_size': %s } } " % instance_type.name
 
             async_vm_update = compute_client.virtual_machines.begin_create_or_update(group_name,
@@ -1210,15 +1273,36 @@ class AzureCloudConnector(CloudConnector):
 
     def list_images(self, auth_data, filters=None):
         location = self.DEFAULT_LOCATION
-        offers = ["*"]
-        publisher = ['Canonical', 'MicrosoftSQLServer', 'MicrosoftWindowsDesktop',
-                     'MicrosoftWindowsServer', 'nvidia', 'Oracle', 'RedHat', 'SUSE']
+        offers_filter = ["*"]
+        publisher = ['Canonical', 'RedHat', 'almalinux', 'resf' 'MicrosoftSQLServer',
+                     'MicrosoftWindowsDesktop', 'MicrosoftWindowsServer', 'nvidia', 'Oracle', 'SUSE']
+
+        # Filter publisher by distribution name
+        dist = None
+        if filters:
+            dist = filters.get('distribution', None)
+
+        if dist:
+            dist = dist.lower()
+            if dist == 'ubuntu':
+                publisher = ['Canonical']
+            elif dist == 'rhel':
+                publisher = ['RedHat']
+            elif dist in ['almalinux', 'alma']:
+                publisher = ['almalinux']
+            elif dist in ['rocky', 'rockylinux', 'rocky-linux']:
+                publisher = ['resf']
+            elif dist in ['sles', 'suse']:
+                publisher = ['SUSE']
+            elif dist == 'windows':
+                publisher = ['MicrosoftWindowsServer', 'MicrosoftWindowsDesktop']
+
         if filters and 'location' in filters and filters['location']:
             location = filters['location']
         if filters and 'publisher' in filters and filters['publisher']:
             publisher = filters['publisher'].split(",")
         if filters and 'offer' in filters and filters['offer']:
-            offers = filters['offer'].split(",")
+            offers_filter = filters['offer'].split(",")
 
         credentials, subscription_id = self.get_credentials(auth_data)
         compute_client = ComputeManagementClient(credentials, subscription_id)
@@ -1230,16 +1314,68 @@ class AzureCloudConnector(CloudConnector):
 
         images = []
         for pub in publisher:
-            if offers == ["*"]:
-                offers = compute_client.virtual_machine_images.list_offers(location, pub)
-                offers = [offer.name for offer in offers]
-            for offer in offers:
-                skus = compute_client.virtual_machine_images.list_skus(location, pub, offer)
-                for sku in skus:
-                    images.append((pub, offer, sku.name))
+            try:
+                if offers_filter == ["*"]:
+                    offers = compute_client.virtual_machine_images.list_offers(location, pub)
+                    offers_names = [offer.name for offer in offers]
+                else:
+                    offers_names = offers_filter
+                for offer in offers_names:
+                    skus = compute_client.virtual_machine_images.list_skus(location, pub, offer)
+                    for sku in skus:
+                        images.append((pub, offer, sku.name))
+            except Exception:
+                self.log_exception("Error getting images for publisher %s" % pub)
 
         res = []
         for pub, offer, sku in images:
+            name = "%s %s %s" % (pub, offer, sku)
+            if "-pro" in name.lower():
+                # Skip pro versions
+                continue
+            name = name.replace("_", ".")  # In most cases version number has _ instead of .
             res.append({"uri": "azr://%s/%s/%s/latest" % (pub, offer, sku),
-                               "name": "%s %s %s" % (pub, offer, sku)})
+                               "name": name})
         return self._filter_images(res, filters)
+
+    def get_quotas(self, auth_data, region=None):
+        credentials, subscription_id = self.get_credentials(auth_data)
+        location = self.DEFAULT_LOCATION
+        try:
+            # Get the region from the auth data
+            location = auth_data.getAuthInfo(self.type)[0].get('region', location)
+        except Exception:
+            pass
+        if region:
+            location = region
+        return self._get_quotas(credentials, subscription_id, location)
+
+    def _get_quotas(self, credentials, subscription_id, location):
+        compute_client = ComputeManagementClient(credentials, subscription_id)
+        quotas = {}
+
+        try:
+            usage_list = compute_client.usage.list(location)
+            for usage in usage_list:
+                name = usage.name.localized_value.lower()
+                if name == "total regional vcpus":
+                    quotas["cores"] = {}
+                    quotas["cores"]["used"] = usage.current_value
+                    quotas["cores"]["limit"] = usage.limit
+                elif name == "virtual machines":
+                    quotas["instances"] = {}
+                    quotas["instances"]["used"] = usage.current_value
+                    quotas["instances"]["limit"] = usage.limit
+                elif "storage" in name and "disks" in name:
+                    quotas["volumes"] = {}
+                    quotas["volumes"]["used"] = usage.current_value
+                    quotas["volumes"]["limit"] = usage.limit
+                elif "family vcpus" in name:
+                    fam = usage.name.value
+                    quotas[fam] = {"cores": {}}
+                    quotas[fam]["cores"]["used"] = usage.current_value
+                    quotas[fam]["cores"]["limit"] = usage.limit
+            return quotas
+        except Exception:
+            self.log_exception("Error retrieving Azure quotas")
+            return {}
