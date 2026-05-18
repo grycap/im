@@ -107,27 +107,8 @@ def get_auth_header(request: Request, credentials: Optional[str] = Security(secu
         im_auth = {"type": "InfrastructureManager",
                    "token": token}
 
-    if Config.SINGLE_SITE:
-        if user_pass:
-            single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
-                                "host": Config.SINGLE_SITE_AUTH_HOST,
-                                "username": user_pass[0],
-                                "password": user_pass[1]}
-        elif token:
-            if Config.SINGLE_SITE_TYPE == "OpenStack":
-                single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
-                                    "host": Config.SINGLE_SITE_AUTH_HOST,
-                                    "username": "indigo-dc",
-                                    "tenant": "oidc",
-                                    "password": token}
-            else:
-                single_site_auth = {"type": Config.SINGLE_SITE_TYPE,
-                                    "host": Config.SINGLE_SITE_AUTH_HOST,
-                                    "token": token}
-        else:
-            raise HTTPException(status_code=401, detail="No authentication data provided")
-        return Authentication([im_auth, single_site_auth])
-    elif Config.VAULT_URL and token:
+
+    if Config.VAULT_URL and token:
         vault_auth = {"type": "Vault", "host": Config.VAULT_URL, "token": token}
         if Config.VAULT_PATH:
             vault_auth["path"] = Config.VAULT_PATH

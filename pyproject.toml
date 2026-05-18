@@ -93,7 +93,7 @@ test = [
 im_service = "IM.im_service:main"
 
 [tool.setuptools]
-packages = ["IM", "IM.ansible_utils", "IM.ansible_utils.callback_plugins", "IM.connectors", "IM.tosca", "IM.openid", "IM.tts", "IM.oaipmh", "IM.rest", "IM.rest.routers", "contextualization"]
+packages = ["IM", "IM.ansible_utils", "IM.ansible_utils.callback_plugins", "IM.connectors", "IM.tosca", "IM.openid", "IM.oaipmh", "IM.rest", "IM.rest.routers", "contextualization"]
 
 [tool.setuptools.dynamic]
 version = {attr = "IM.__version__"}

@@ -31,7 +31,6 @@ from radl.radl import Feature
 from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
-from IM.tts.onetts import ONETTSClient
 from IM.SSH import SSH
 
 # Set of classes to parse the XML results of the ONE API
@@ -284,15 +283,6 @@ class OpenNebulaCloudConnector(CloudConnector):
         if 'username' in auth and 'password' in auth:
             passwd = auth['password']
             return auth['username'] + ":" + passwd
-        elif 'token' in auth:
-            username, passwd = ONETTSClient.get_auth_from_tts(ConfigOpenNebula.TTS_URL,
-                                                              self.cloud.server, auth['token'],
-                                                              Config.VERIFI_SSL)
-            if not username or not passwd:
-                raise CloudConnectorException("Error getting ONE credentials using TTS.")
-            auth["username"] = username
-            auth["password"] = passwd
-            return username + ":" + passwd
         else:
             raise NoCorrectAuthData(self.type, "username and password")
 

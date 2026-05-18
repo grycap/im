@@ -650,7 +650,7 @@ The following example shows how to use the IMClient to create and destroy an inf
       memory.size>=4g and
       net_interface.0.connection = 'public' and
       disk.0.os.name='linux' and
-      disk.0.image.url = 'appdb://SCAI/egi.ubuntu.20.04?vo.access.egi.eu'
+      disk.0.image.url = 'egi://SCAI/egi.ubuntu.20.04?vo.access.egi.eu'
       )
 
       configure wn (
