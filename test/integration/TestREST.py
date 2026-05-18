@@ -675,6 +675,30 @@ echo "Hello World" >> /tmp/data.txt
             resp = self.create_request("DELETE", "/infrastructures/%s" % inf_id)
             self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
 
+    def test_87_create(self):
+        """
+        Test the CreateInfrastructure IM function using SSH reverse connection to configure
+        """
+        radl = read_file_as_string("../files/reverse.radl")
+
+        resp = self.create_request("POST", "/infrastructures", body=radl)
+        self.assertEqual(resp.status_code, 200, msg="ERROR calling CreateInfrastructure: " + resp.text)
+        inf_id = str(os.path.basename(resp.text))
+        self.__class__.inf_id = [inf_id]
+
+        all_configured = self.wait_inf_state(
+            inf_id, VirtualMachine.CONFIGURED, 900)
+        self.assertTrue(
+            all_configured, msg="ERROR waiting the infrastructure to be configured (timeout).")
+
+    def test_89_destroy(self):
+        """
+        Test DestroyInfrastructure function
+        """
+        for inf_id in self.inf_id:
+            resp = self.create_request("DELETE", "/infrastructures/%s" % inf_id)
+            self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
+
     def test_90_create(self):
         """
         Test the CreateInfrastructure IM function with ctxt dist

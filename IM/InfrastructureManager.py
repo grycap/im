@@ -30,7 +30,6 @@ from IM.VMRC import VMRC
 from IM.FedcloudInfo import FedcloudInfo
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
-from IM.recipe import Recipe
 from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
 
@@ -520,26 +519,6 @@ class InfrastructureManager:
         return deploys_group_cloud
 
     @staticmethod
-    def add_app_reqs(radl, inf_id=None):
-        """ Add apps requirements to the RADL. """
-        for radl_system in radl.systems:
-            apps_to_install = radl_system.getApplications()
-            for app_to_install in apps_to_install:
-                for app_avail, _, _, _, requirements in Recipe.getInstallableApps():
-                    if requirements and app_avail.isNewerThan(app_to_install):
-                        # This app must be installed and it has special
-                        # requirements
-                        try:
-                            requirements_radl = radl_parse.parse_radl(requirements).systems[0]
-                            radl_system.applyFeatures(requirements_radl, conflict="other", missing="other")
-                        except Exception:
-                            InfrastructureManager.logger.exception(
-                                "Inf ID: " + inf_id + ": Error in the requirements of the app: " +
-                                app_to_install.getValue("name") + ". Ignore them.")
-                            InfrastructureManager.logger.debug("Inf ID: " + inf_id + ": " + str(requirements))
-                        break
-
-    @staticmethod
     def get_deploy_groups(cloud_list, radl, systems_with_iis, sel_inf, auth):
         # Concrete systems with cloud providers and select systems with the greatest score
         # in every cloud
@@ -618,8 +597,6 @@ class InfrastructureManager:
             sel_inf.add_cont_msg("Error parsing RADL: %s" % str(ex))
             InfrastructureManager.logger.exception("Inf ID: " + sel_inf.id + " error parsing RADL")
             raise ex
-
-        InfrastructureManager.add_app_reqs(radl, sel_inf.id)
 
         # Concrete systems using VMRC
         try:
@@ -1975,8 +1952,6 @@ class InfrastructureManager:
         except Exception as ex:
             InfrastructureManager.logger.exception("Error getting cost of an infrastructure when parsing RADL")
             raise ex
-
-        InfrastructureManager.add_app_reqs(radl, inf.id)
 
         # Concrete systems using VMRC
         try:

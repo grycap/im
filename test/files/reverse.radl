@@ -8,7 +8,7 @@ memory.size>=1024m and
 net_interface.0.connection = 'public' and
 net_interface.1.connection = 'privada' and
 disk.0.os.name='linux' and
-disk.0.image.url = 'ost://horsemen.i3m.upv.es/609f8280-fbb6-46bd-84e2-5315b22414f1'
+disk.0.image.url = 'ost://horsemen.i3m.upv.es/4886c8c1-f8be-4cd4-9367-2d24d8cdd715'
 
 )
 
@@ -17,7 +17,7 @@ cpu.count>=1 and
 memory.size>=1024m and
 net_interface.0.connection = 'privada' and
 disk.0.os.name='linux' and
-disk.0.image.url = 'ost://horsemen.i3m.upv.es/609f8280-fbb6-46bd-84e2-5315b22414f1' 
+disk.0.image.url = 'ost://horsemen.i3m.upv.es/4886c8c1-f8be-4cd4-9367-2d24d8cdd715' 
 )
 
 

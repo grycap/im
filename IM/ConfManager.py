@@ -50,7 +50,6 @@ from IM.LoggerMixin import LoggerMixin
 from IM.VirtualMachine import VirtualMachine
 from IM.SSH import AuthenticationException
 from IM.SSHRetry import SSHRetry
-from IM.recipe import Recipe
 from IM.config import Config
 from radl.radl import system, contextualize_item
 from IM.CtxtAgentBase import CtxtAgentBase
@@ -702,8 +701,6 @@ class ConfManager(LoggerMixin, threading.Thread):
         (as apps not in the configure section)
         """
         recipe_files = []
-        # Get the info about the apps from the recipes DB
-        _, recipes = Recipe.getInfoApps(vm.getAppsToInstall())
 
         conf_out = open(tmp_dir + "/main_" + group + "_task.yml", 'w')
         conf_content = self.add_ansible_header(vm.getOS().lower(), gather_facts=True)
@@ -718,29 +715,24 @@ class ConfManager(LoggerMixin, threading.Thread):
         # Generate a set of tasks to format and mount the specified disks
         conf_content += self.generate_mount_disks_tasks(vm.info.systems[0])
 
-        for app_name, recipe in recipes:
+        for app_name in vm.getAppsToInstall():
             self.inf.add_cont_msg("App: " + app_name + " set to be installed.")
 
-            # If there are a recipe, use it
-            if recipe:
-                conf_content = merge_recipes(conf_content, recipe)
-                conf_content += "\n\n"
-            else:
-                # use the app name as the package to install
-                parts = app_name.split(".")
-                short_app_name = parts[len(parts) - 1]
-                install_app = "- tasks: \n"
-                # TODO set other packagers: pacman, zypper ...
-                install_app += "  - name: Apt install " + short_app_name + "\n"
-                install_app += "    action: apt pkg=" + short_app_name + \
-                    " state=installed update_cache=yes cache_valid_time=604800\n"
-                install_app += "    when: \"ansible_os_family == 'Debian'\"\n"
-                install_app += "    ignore_errors: yes\n"
-                install_app += "  - name: Yum install " + short_app_name + "\n"
-                install_app += "    action: yum pkg=" + short_app_name + " state=installed\n"
-                install_app += "    when: \"ansible_os_family == 'RedHat'\"\n"
-                install_app += "    ignore_errors: yes\n"
-                conf_content = merge_recipes(conf_content, install_app)
+            # use the app name as the package to install
+            parts = app_name.split(".")
+            short_app_name = parts[len(parts) - 1]
+            install_app = "- tasks: \n"
+            # TODO set other packagers: pacman, zypper ...
+            install_app += "  - name: Apt install " + short_app_name + "\n"
+            install_app += "    action: apt pkg=" + short_app_name + \
+                " state=installed update_cache=yes cache_valid_time=604800\n"
+            install_app += "    when: \"ansible_os_family == 'Debian'\"\n"
+            install_app += "    ignore_errors: yes\n"
+            install_app += "  - name: Yum install " + short_app_name + "\n"
+            install_app += "    action: yum pkg=" + short_app_name + " state=installed\n"
+            install_app += "    when: \"ansible_os_family == 'RedHat'\"\n"
+            install_app += "    ignore_errors: yes\n"
+            conf_content = merge_recipes(conf_content, install_app)
 
         conf_out.write(conf_content)
         conf_out.close()
@@ -1430,20 +1422,15 @@ class ConfManager(LoggerMixin, threading.Thread):
             collections = []
             for s in self.inf.radl.systems:
                 for req_app in s.getApplications():
-                    if req_app.getValue("name").startswith("ansible.modules."):
-                        # Mantain it for compatibility
-                        # Get the modules specified by the user in the RADL
-                        roles.append(req_app.getValue("name")[16:])
-                    elif req_app.getValue("name").startswith("ansible.roles."):
+                    if req_app.getValue("name").startswith("ansible.roles."):
                         # Get the roles specified by the user in the RADL
                         roles.append(req_app.getValue("name")[14:])
                     elif req_app.getValue("name").startswith("ansible.collections."):
                         # Get the collections specified by the user in the RADL
                         collections.append(req_app.getValue("name")[20:])
                     else:
-                        # Get the info about the apps from the recipes DB
-                        vm_roles, _ = Recipe.getInfoApps([req_app])
-                        roles.extend(vm_roles)
+                        self.log_warn("Application " + req_app.getValue("name") +
+                                      " specified in the RADL is not supported for Ansible. ")
 
             # avoid duplicates
             roles = set(roles)
@@ -1521,14 +1508,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         collections = []
         for s in self.inf.radl.systems:
             for req_app in s.getApplications():
-                if req_app.getValue("name").startswith("ansible.modules."):
-                    # Mantain it for compatibility
-                    # Get the modules specified by the user in the RADL
-                    app_name = req_app.getValue("name")[16:]
-                    if req_app.getValue("version"):
-                        app_name += ",%s" % req_app.getValue("version")
-                    roles.append(app_name)
-                elif req_app.getValue("name").startswith("ansible.roles."):
+                if req_app.getValue("name").startswith("ansible.roles."):
                     # Get the roles specified by the user in the RADL
                     app_name = req_app.getValue("name")[14:]
                     if req_app.getValue("version"):
@@ -1541,9 +1521,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                         app_name += ",%s" % req_app.getValue("version")
                     collections.append(app_name)
                 else:
-                    # Get the info about the apps from the recipes DB
-                    vm_roles, _ = Recipe.getInfoApps([req_app])
-                    roles.extend(vm_roles)
+                    self.log_warn("Application " + req_app.getValue("name") +
+                                  " specified in the RADL is not supported for Ansible. ")
 
         # avoid duplicates
         roles = list(set(roles))

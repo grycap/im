@@ -20,7 +20,6 @@ Contents:
    xmlrpc
    REST
    client
-   web
    dashboard
    endpoints
 

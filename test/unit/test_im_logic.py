@@ -942,7 +942,6 @@ class TestIM(unittest.TestCase):
             disk.1.fstype='ext4' and
             disk.1.mount_path='/mnt/disk' and
             disk.0.applications contains (name = 'ansible.roles.micafer.hadoop') and
-            disk.0.applications contains (name='gmetad') and
             disk.0.applications contains (name='wget')
             )
 
