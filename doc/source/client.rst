@@ -338,8 +338,8 @@ The authorization file can be also set in JSON format (from version 1.19.1)::
 The available keys are:
 
 * ``type`` indicates the service that refers the credential. The services
-  supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
-  ``OpenStack``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``,
+  supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,
+  ``OpenStack``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``CloudStack``,
   ``Kubernetes``, ``vSphere``, ``Linode``, ``Orange``, ``EGI``, ``Vault`` and ``Lambda``.
 
 * ``username`` indicates the user name associated to the credential. In EC2 and Lambda
@@ -605,8 +605,6 @@ An example of the auth file::
    id = azure_sc; type = Azure; subscription_id = subscription-id; client_id=clientid; secret=client_secret; tenant=tenant_id
    # Kubernetes site auth data
    id = kub; type = Kubernetes; host = http://server:8080; token = auth_token
-   # FogBow auth data
-   id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
    # vSphere site auth data
    id = vsphere; type = vSphere; host = http://server; username = user; password = pass
    # CloudStack site auth data

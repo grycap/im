@@ -64,7 +64,6 @@ Cloud providers:
    * **azr://<publisher>/<offer>/<sku>/<version>**, for Microsoft Azure; and
    * **egi://<site_name>/<apc_name>?<vo_name>**, for EGI or OpenStack connector using FedCloud info.
    * **docker://<docker_image>**, for Docker images.
-   * **fbw://<fns_server>/<image-id>**, for FogBow images.
    * **lin://linode/<image-id>**, for Linode images.
    * **ora://<region>/<image-id>**, for Orange Flexible Engine images.
 
