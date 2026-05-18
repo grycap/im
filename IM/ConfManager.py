@@ -715,7 +715,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         # Generate a set of tasks to format and mount the specified disks
         conf_content += self.generate_mount_disks_tasks(vm.info.systems[0])
 
-        for app_name in vm.getAppsToInstall():
+        for req_app in vm.getAppsToInstall():
+            app_name = req_app.getValue("name")
             self.inf.add_cont_msg("App: " + app_name + " set to be installed.")
 
             # use the app name as the package to install
