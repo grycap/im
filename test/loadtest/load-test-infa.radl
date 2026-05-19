@@ -2,8 +2,8 @@ network publica (outbound = 'yes')
 network privada ()
 
 system im (
-cpu.count>=2 and
-memory.size>=2G and
+cpu.count>=4 and
+memory.size>=8G and
 net_interface.0.connection = 'publica' and
 net_interface.1.connection = 'privada' and
 net_interface.1.dns_name = 'imservice' and
@@ -26,8 +26,8 @@ disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
 system infra (
-cpu.count>=2 and
-memory.size>=2G and
+cpu.count>=4 and
+memory.size>=8G and
 net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'infra' and
 disk.0.os.name='linux' and
@@ -41,7 +41,7 @@ system infrawn (
 cpu.count>=4 and
 memory.size>=8G and
 net_interface.0.connection = 'privada' and
-net_interface.0.dns_name = 'infrawn' and
+net_interface.0.dns_name = 'infrawn-#N#' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
 disk.0.os.version >= '24.04' and
@@ -60,11 +60,17 @@ configure im (
     - role: 'grycap.docker'
 
     tasks:
+    - name: Create IM directory
+      file:
+        path: /opt/im
+        state: directory
+        mode: '755'
+
     - copy:
-        dest: /
+        dest: /opt/im/docker-compose.yaml
+        mode: '755'
         content: |
             version: "3.8"
-
             services:
               mongodb:
                 image: mongo:7
@@ -78,9 +84,8 @@ configure im (
                   - mongodb_data:/data/db
                 ports:
                   - "27017:27017"
-
               im:
-                image: ghcr.io/grycap/im:latest
+                image: ghcr.io/grycap/im:{{ IMVERSION }}
                 container_name: im-service
                 depends_on:
                   - mongodb
@@ -90,11 +95,15 @@ configure im (
                 environment:
                   IM_DATA_DB: "mongodb://im:im_password@mongodb:27017/im?authSource=admin"
                 volumes:
-                  - im_data:/opt/im/var
-
+                  - im_data:/var/log/im
             volumes:
               mongodb_data:
               im_data:
+
+    - name: Launch IM
+      community.docker.docker_compose_v2:
+        project_src: /opt/im/
+        state: present
 
     - name: Install Reqs Deb
       apt: name=sysstat update_cache=yes cache_valid_time=3600
@@ -126,12 +135,12 @@ configure imclient (
 @begin
 ---
   - vars:
-     INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
-     DURATION: 300
-     THREADS_READ: 10
-     THREADS_WRITE: 5
-     RAND_DELAY: 10
-     CONST_DELAY: 10
+      INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
+      DURATION: 300
+      THREADS_READ: 10
+      THREADS_WRITE: 5
+      RAND_DELAY: 10
+      CONST_DELAY: 10
     tasks:
     - name: Install Reqs
       apt: name=openjdk-8-jdk update_cache=yes cache_valid_time=3600
@@ -198,7 +207,7 @@ configure infra (
       kube_version: 1.33.2
       kube_install_local_path: true
 
-  tasks:
+    tasks:
     - name: Install KubeVirt
       command: kubectl apply -f {{ item }}
       environment:
@@ -241,7 +250,7 @@ configure infra (
         mode: '644'
       register: storage_profile
 
-    - name: Create StorageProfile for NFS
+    - name: Create StorageProfile for Local path
       command: kubectl apply -f /var/tmp/storage_profile.yaml
       environment:
         KUBECONFIG: "/etc/kubernetes/admin.conf"
