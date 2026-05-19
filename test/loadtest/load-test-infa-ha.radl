@@ -2,27 +2,25 @@ network publica (outbound = 'yes')
 network privada ()
 
 system im (
-cpu.count>=2 and
-memory.size>=2G and
+cpu.count>=4 and
+memory.size>=8G and
 net_interface.0.connection = 'publica' and
 net_interface.1.connection = 'privada' and
 net_interface.1.dns_name = 'imservice' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.os.version>='16.04' and
-disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.os.version >= '24.04' and
 disk.0.applications contains (name='ansible.roles.grycap.docker')
 )
 
-system immysql (
+system imdb (
 cpu.count>=2 and
 memory.size>=4G and
 net_interface.0.connection = 'privada' and
-net_interface.0.dns_name = 'immysql' and
+net_interface.0.dns_name = 'imdb' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.os.version>='16.04' and
-disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.os.version>='24.04' and
 disk.0.applications contains (name='ansible.roles.grycap.docker')
 )
 
@@ -33,19 +31,20 @@ net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'imclient' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.os.version>='16.04' and
+disk.0.os.version >= '24.04' and
 disk.0.os.credentials.new.password = 'Tututu+01'
 )
 
 system infra (
-cpu.count>=2 and
-memory.size>=2G and
+cpu.count>=4 and
+memory.size>=8G and
 net_interface.0.connection = 'privada' and
 net_interface.0.dns_name = 'infra' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.os.version >= '16.04' and
-disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.os.version >= '24.04' and
+disk.0.size >= 50g and
+disk.0.applications contains (name='ansible.roles.grycap.nfs') and
 disk.0.applications contains (name='ansible.roles.grycap.kubernetes')
 )
 
@@ -53,156 +52,39 @@ system infrawn (
 cpu.count>=4 and
 memory.size>=8G and
 net_interface.0.connection = 'privada' and
-net_interface.0.dns_name = 'infrawn' and
+net_interface.0.dns_name = 'infrawn-#N#' and
 disk.0.os.name='linux' and
 disk.0.os.flavour='ubuntu' and
-disk.0.os.version >= '16.04' and
-disk.0.os.credentials.new.password = 'Tututu+01' and
+disk.0.os.version >= '24.04' and
 disk.0.applications contains (name='ansible.roles.grycap.kubernetes')
 )
 
-
-configure im (
-@begin
----
-  - vars:
-     IMVERSION: 1.8.7-dev2
-     IM_MYSQL_IP: "{{ hostvars[groups['immysql'][0]]['IM_NODE_PRIVATE_IP'] }}"
-     IM_SERVICE_IP: "{{ hostvars[groups['im'][0]]['IM_NODE_PRIVATE_IP'] }}"
-     IM_PORTS: 
-#         - {xmlrpc: 7799, rest: 8801}
-#         - {xmlrpc: 6699, rest: 8802}
-         - {xmlrpc: 8899, rest: 8800}
-    roles:
-     - { role: 'grycap.docker' }
-    tasks:
-    - name: Waits for MySQL to start
-      wait_for:
-        host: "{{ IM_MYSQL_IP }}"
-        port: 3306
-
-    - name: im container
-      docker_container:
-        name: im-{{item.xmlrpc}}
-        image: "grycap/im:{{ IMVERSION }}"
-        state: started
-        ports:
-        - "{{item.rest}}:8800"
-        - "{{item.xmlrpc}}:8899"
-        expose:
-        - 8899
-        - 8800
-        env:
-            IM_DATA_DB: "mysql://root:impass@{{ IM_MYSQL_IP }}/imdb"
-      with_items: "{{IM_PORTS}}"
-
-    - block:
-      
-      - name: Create HAProxy template
-        copy:
-          dest: /etc/haproxy_tomcat.cfg.j2
-          content: |
-              defaults
-                  timeout connect      5000
-                  timeout client       50000
-                  timeout server       50000
-                  mode http
-
-              listen statistics
-                  bind *:9000
-                  mode http
-                  stats enable
-                  stats realm Haproxy\ Statistics
-                  stats uri /haproxy_stats
-                  stats auth micafer:grycap01
-
-              frontend http-frontend
-                  bind *:8800
-                  default_backend imbackend
-
-              backend imbackend
-                  balance roundrobin
-                  stick-table type string len 32 size 30k expire 120m
-                  stick store-response hdr(InfID)
-                  #stick on hdr(InfID)
-                  acl inf_id path -m beg /infrastructures/
-                  #acl inf_id path_len gt 40
-                  stick on path,field(3,/) if inf_id
-
-
-              {% raw %}
-              {% for port in IM_PORTS %}
-                  server im-{{port.rest}} {{IM_SERVICE_IP}}:{{port.rest}} check
-              {% endfor %}{% endraw %}
-
-      - name: Configure HAProxy
-        template: src=/etc/haproxy_tomcat.cfg.j2 dest=/etc/haproxy.cfg mode=0644
-
-      - name: start haproxy container
-        docker_container:
-          name: haproxy
-          image: "haproxy:latest"
-          state: started
-          ports:
-          - "8800:8800"
-          - "9000:9000"
-          expose:
-          - 8800
-          - 9000
-          volumes:
-          - "/etc/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
-
-      when: IM_PORTS|length>1
-
-    - name: Install Reqs
-      apt: name=sysstat update_cache=yes cache_valid_time=3600
-      when: ansible_os_family == "Debian"
-      
-    - name: Install Reqs
-      yum: name=sysstat
-      when: ansible_os_family == "RedHat"
-
-    - name: Configure sysstat
-      lineinfile: dest=/etc/default/sysstat regexp="^ENABLED=" line='ENABLED="true"'
-      when: ansible_os_family == "Debian"
-
-    - name: Configure cron sysstat
-      #copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root date >> /tmp/dates && /usr/lib/sysstat/debian-sa1 1 1\n"
-      copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root command -v /usr/lib/sysstat/debian-sa1 > /dev/null && /usr/lib/sysstat/debian-sa1 1 1\n"
-      when: ansible_os_family == "Debian"
-
-    - name: Restart sysstat
-      service: name=sysstat state=restarted
-      
-    - name: Start sysstat
-      shell: /usr/lib/sysstat/debian-sa1 1 1
-      when: ansible_os_family == "Debian"
-@end
-)
-
-configure immysql (
+configure imdb (
 @begin
 ---
   - roles:
     - role: 'grycap.docker'
 
     tasks:
-    - name: mysql container
+    - name: Create IM directory
+      file:
+        path: /opt/im
+        state: directory
+        mode: '755'
+
+    - name: mongodb container
       docker_container:
-        name: immysql
-        image: "mysql:5.7"
+        name: im-mongo
+        image: "mongo:7"
         state: started
         published_ports:
-          - "3306:3306"
+          - "27017:27017"
         env:
-            MYSQL_ROOT_PASSWORD: impass
-            MYSQL_DATABASE: imdb 
-
-    - name: Download test inf.dat
-      get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/data.sql dest=/var/tmp/data.sql
-
-    - name: Initialize IM data
-      shell: docker exec -i immysql mysql -uroot -pimpass imdb < /var/tmp/data.sql
+          MONGO_INITDB_ROOT_USERNAME: im
+          MONGO_INITDB_ROOT_PASSWORD: im_password
+          MONGO_INITDB_DATABASE: im
+        volumes:
+          - /opt/im/mongodb_data:/data/db
 
     - name: Install Reqs Deb
       apt: name=sysstat update_cache=yes cache_valid_time=3600
@@ -221,6 +103,158 @@ configure immysql (
       copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root command -v /usr/lib/sysstat/debian-sa1 > /dev/null && /usr/lib/sysstat/debian-sa1 1 1\n"
       when: ansible_os_family == "Debian"
 
+    - name: Configure sysstat
+      ini_file:
+        path: /lib/systemd/system/sysstat-collect.timer
+        section: Timer
+        option: OnCalendar
+        value: "*:00/1"
+
+    - name: Reload systemd
+      systemd_service:
+        daemon_reload: true
+
+    - name: Restart sysstat
+      service: name=sysstat state=restarted
+      
+    - name: Start sysstat
+      shell: /usr/lib/sysstat/debian-sa1 1 1
+      when: ansible_os_family == "Debian"
+@end
+)
+
+configure im (
+@begin
+---
+  - vars:
+      IMVERSION: devel
+      IM_DB_IP: "{{ hostvars[groups['imdb'][0]]['IM_NODE_PRIVATE_IP'] }}"
+      IM_SERVICE_IP: "{{ hostvars[groups['im'][0]]['IM_NODE_PRIVATE_IP'] }}"
+      IM_PORTS:
+        - 8801
+        - 8802
+
+    roles:
+    - role: 'grycap.docker'
+
+    tasks:
+    - name: Create IM directory
+      file:
+        path: /opt/im
+        state: directory
+        mode: '755'
+
+    - name: Create docker-compose template
+      copy:
+        dest: /opt/im/docker-compose.yaml.j2
+        mode: '644'
+        content: |
+            version: "3.8"
+            services:
+              haproxy:
+                image: "haproxy:latest"
+                container_name: im-haproxy
+                restart: always
+                ports:
+                  - "8800:8800"
+                  - "9000:9000"
+                volumes:
+                  - "./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+            {% raw %}{% for port in IM_PORTS %}
+              im-{{ port }}:
+                image: ghcr.io/grycap/im:{{ IMVERSION }}
+                container_name: im-{{ port }}
+                restart: always
+                ports:
+                  - "{{ port }}:8800"
+                environment:
+                  IM_DATA_DB: "mongodb://im:im_password@{{ IM_DB_IP }}:27017/im?authSource=admin"
+                volumes:
+                  - ./im_log_{{ port }}:/var/log/im
+            {% endfor %}{% endraw %}
+
+    - name: Create HAProxy template
+      copy:
+        dest: /opt/im/haproxy_tomcat.cfg.j2
+        content: |
+            defaults
+                timeout connect      5000
+                timeout client       50000
+                timeout server       50000
+                mode http
+            listen statistics
+                bind *:9000
+                mode http
+                stats enable
+                stats realm Haproxy\ Statistics
+                stats uri /haproxy_stats
+                stats auth micafer:grycap01
+            frontend http-frontend
+                bind *:8800
+                default_backend imbackend
+            backend imbackend
+                balance roundrobin
+                stick-table type string len 32 size 30k expire 120m
+                stick store-response hdr(InfID)
+                #stick on hdr(InfID)
+                acl inf_id path -m beg /infrastructures/
+                #acl inf_id path_len gt 40
+                stick on path,field(3,/) if inf_id
+            {% raw %}
+            {% for port in IM_PORTS %}
+                server im-{{port}} {{IM_SERVICE_IP}}:{{port}} check
+            {% endfor %}{% endraw %}
+
+    - name: Configure HAProxy
+      template:
+        src: /opt/im/haproxy_tomcat.cfg.j2
+        dest: /opt/im/haproxy.cfg
+        mode: 0644
+
+    - name: Render docker-compose
+      template:
+        src: /opt/im/docker-compose.yaml.j2
+        dest: /opt/im/docker-compose.yaml
+        mode: '755'
+
+    - name: Waits for MongoDB to start
+      wait_for:
+        host: "{{ IM_DB_IP }}"
+        port: 27017
+
+    - name: Launch IM
+      community.docker.docker_compose_v2:
+        project_src: /opt/im/
+        state: present
+
+    - name: Install Reqs Deb
+      apt: name=sysstat update_cache=yes cache_valid_time=3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Install Reqs RH
+      yum: name=sysstat
+      when: ansible_os_family == "RedHat"
+
+    - name: Configure sysstat
+      lineinfile: dest=/etc/default/sysstat regexp="^ENABLED=" line='ENABLED="true"'
+      when: ansible_os_family == "Debian"
+
+    - name: Configure cron sysstat
+      #copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root date >> /tmp/dates && /usr/lib/sysstat/debian-sa1 1 1\n"
+      copy: dest=/etc/cron.d/sysstat content="*/1 * * * * root command -v /usr/lib/sysstat/debian-sa1 > /dev/null && /usr/lib/sysstat/debian-sa1 1 1\n"
+      when: ansible_os_family == "Debian"
+
+    - name: Configure sysstat
+      ini_file:
+        path: /lib/systemd/system/sysstat-collect.timer
+        section: Timer
+        option: OnCalendar
+        value: "*:00/1"
+
+    - name: Reload systemd
+      systemd_service:
+        daemon_reload: true
+
     - name: Restart sysstat
       service: name=sysstat state=restarted
       
@@ -234,12 +268,12 @@ configure imclient (
 @begin
 ---
   - vars:
-     INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
-     DURATION: 300
-     THREADS_READ: 10
-     THREADS_WRITE: 5
-     RAND_DELAY: 10
-     CONST_DELAY: 10
+      INFRA_NODE_IP: "{{ hostvars[groups['infra'][0]]['IM_NODE_NET_0_IP'] }}"
+      DURATION: 300
+      THREADS_READ: 10
+      THREADS_WRITE: 5
+      RAND_DELAY: 10
+      CONST_DELAY: 10
     tasks:
     - name: Install Reqs
       apt: name=openjdk-8-jdk update_cache=yes cache_valid_time=3600
@@ -263,9 +297,9 @@ configure imclient (
         mode: 0755
 
     - name: Download LoadTest files
-      get_url: url=https://raw.githubusercontent.com/grycap/im/devel/test/loadtest/{{item}} dest=/var/tmp/{{item}}
-      with_items:
-       - im_load_tests.jmx
+      get_url:
+        url: "https://github.com/grycap/im/raw/refs/heads/master/test/loadtest/im_load_tests.jmx"
+        dest: /var/tmp/im_load_tests.jmx
 
 @end
 )
@@ -273,35 +307,104 @@ configure imclient (
 configure infrawn (
 @begin
   - roles:
+    - role: 'grycap.nfs'
+      nfs_mode: 'wn'
+
     - role: 'grycap.kubernetes'
       kube_type_of_node: 'wn'
       kube_server: 'infra'
+      kube_version: 1.33.2
 @end
 )
 
 configure infra (
 @begin
-  - pre_tasks:
+  - vars:
+      KUBEVIRT_VERSION: 'v1.8.2'
+      CDI_VERSION: 'v1.65.0'
+    pre_tasks:
     - firewalld: port=6443/tcp permanent=true state=enabled immediate=yes
       when: ansible_os_family == "RedHat"
       ignore_errors: yes
 
+    - name: Create dir for the NFS PV
+      file: path=/pv state=directory mode=755
     - name: Create auth file dir
       file: path=/etc/kubernetes/pki state=directory mode=755 recurse=yes
     - name: Create auth data file with an admin user
       copy: content='sometoken,kubeuser,100,"users,system:masters"' dest=/etc/kubernetes/pki/auth mode=600
 
     roles:
+    - role: 'grycap.nfs'
+      nfs_mode: 'front'
+      nfs_exports: [{path: "/pv", export: "*.localdomain(fsid=0,rw,async,no_root_squash,no_subtree_check,insecure)"}]
+
     - role: 'grycap.kubernetes'
       kube_server: 'infra'
-      kube_apiserver_options: [{option: "--insecure-port", value: "8080"}, {option: "--token-auth-file", value: "/etc/kubernetes/pki/auth"}]
+      kube_apiserver_options:
+        - option: "--token-auth-file"
+          value: "/etc/kubernetes/pki/auth"
       kube_deploy_dashboard: false
       kube_install_helm: false
+      kube_version: 1.33.2
+      kube_install_nfs_client: true
+      kube_nfs_server: 'infra.localdomain'
+
+    tasks:
+    - name: Install KubeVirt
+      command: kubectl apply -f {{ item }}
+      environment:
+        KUBECONFIG: "/etc/kubernetes/admin.conf"
+      with_items:
+        - https://github.com/kubevirt/kubevirt/releases/download/{{ KUBEVIRT_VERSION }}/kubevirt-operator.yaml
+        - https://github.com/kubevirt/kubevirt/releases/download/{{ KUBEVIRT_VERSION }}/kubevirt-cr.yaml
+
+    - name: Wait for KubeVirt to be available
+      command: kubectl -n kubevirt wait kv kubevirt --for condition=Available  --timeout=600s
+      environment:
+        KUBECONFIG: "/etc/kubernetes/admin.conf"
+
+    - name: Install CDI
+      command: kubectl apply -f {{ item }}
+      environment:
+        KUBECONFIG: "/etc/kubernetes/admin.conf"
+      with_items:
+        - https://github.com/kubevirt/containerized-data-importer/releases/download/{{ CDI_VERSION }}/cdi-operator.yaml
+        - https://github.com/kubevirt/containerized-data-importer/releases/download/{{ CDI_VERSION }}/cdi-cr.yaml
+
+    - name: Wait for CDI to be available
+      command: kubectl wait cdi cdi --for=condition=Available --timeout=600s
+      environment:
+        KUBECONFIG: "/etc/kubernetes/admin.conf"
+
+    - name: Create StorageProfile file
+      copy:
+        content: |
+          apiVersion: cdi.kubevirt.io/v1beta1
+          kind: StorageProfile
+          metadata:
+            name: local-path
+          spec:
+            claimPropertySets:
+              - accessModes:
+                  - ReadWriteMany
+                volumeMode: Filesystem
+        dest: "/var/tmp/storage_profile.yaml"
+        mode: '644'
+      register: storage_profile
+
+    - name: Create StorageProfile for Local path
+      command: kubectl apply -f /var/tmp/storage_profile.yaml
+      environment:
+        KUBECONFIG: "/etc/kubernetes/admin.conf"
+      when: storage_profile is changed
 @end
 )
 
+
+
 deploy im 1
+deploy imdb 1
 deploy imclient 1
 deploy infra 1
-deploy infrawn 1
-deploy immysql 1
+deploy infrawn 2
