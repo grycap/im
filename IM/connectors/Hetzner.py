@@ -679,3 +679,48 @@ class HetznerCloudConnector(CloudConnector):
         Returns: tuple (success, message)
         """
         return (False, "Altering VM is not fully supported in Hetzner Cloud connector")
+
+    def list_images(self, auth_data, filters=None):
+        """
+        List available images in Hetzner Cloud, optionally filtered by distribution/version.
+        Returns a list of dicts with 'uri' and 'name' keys, matching the format of other connectors.
+        """
+        try:
+            resp = self._make_request('GET', '/images', auth_data)
+            resp.raise_for_status()
+            images = resp.json().get('images', [])
+        except Exception as ex:
+            self.log_error(f"Error getting images: {str(ex)}")
+            return []
+
+        def match(img):
+            if not filters:
+                return True
+            # Distribution
+            if 'distribution' in filters and filters['distribution']:
+                dist = filters['distribution'].lower()
+                if dist not in img.get('name','').lower() and dist not in img.get('description','').lower():
+                    return False
+            # Version
+            if 'version' in filters and filters['version']:
+                ver = filters['version'].lower()
+                if ver not in img.get('name','').lower() and ver not in img.get('description','').lower():
+                    return False
+            # Name
+            if 'name' in filters and filters['name']:
+                if filters['name'].lower() not in img.get('name','').lower():
+                    return False
+            # Type
+            if 'type' in filters and filters['type']:
+                if img.get('type') != filters['type']:
+                    return False
+            return True
+
+        result = []
+        for img in images:
+            if match(img):
+                # Compose a URI similar to other connectors: htz://<name>
+                uri = f"htz://{img.get('name')}"
+                name = img.get('description') or img.get('name')
+                result.append({'uri': uri, 'name': name})
+        return result

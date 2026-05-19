@@ -17,4 +17,4 @@
 
 __all__ = ['CloudConnector', 'EC2', 'OpenNebula', 'OpenStack', 'Docker', 'GCE', 'Azure',
            'DeployedNode', 'Kubernetes', 'Dummy', 'vSphere', 'CloudStack', 'Linode', 'Orange',
-           'OSCAR', 'Lambda', 'KubeVirt']
+           'OSCAR', 'Lambda', 'KubeVirt', 'Hetzner']

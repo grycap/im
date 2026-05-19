@@ -32,10 +32,30 @@ from IM.connectors.Hetzner import HetznerCloudConnector
 from mock import patch, MagicMock
 
 
+
 class TestHetznerConnector(TestCloudConnectorBase):
-    """
-    Class to test the Hetzner Cloud connector
-    """
+    @patch('IM.connectors.Hetzner.HetznerCloudConnector._make_request')
+    def test_list_images(self, make_request_mock):
+        """
+        Test list_images returns filtered images in standard format
+        """
+        auth = Authentication([{'id': 'hetzner', 'type': 'Hetzner', 'token': 'api_token'}])
+        hetzner_cloud = self.get_hetzner_cloud()
+
+        # Mock /images endpoint
+        make_request_mock.side_effect = lambda method, endpoint, auth_data, data=None: self.get_response_mock(method, endpoint, None, data)
+
+        # No filters
+        images = hetzner_cloud.list_images(auth)
+        self.assertIsInstance(images, list)
+        self.assertGreaterEqual(len(images), 2)
+        self.assertIn({'uri': 'htz://ubuntu-22.04', 'name': 'Ubuntu 22.04'}, images)
+
+        # Filter by distribution
+        images_ubuntu = hetzner_cloud.list_images(auth, filters={"distribution": "ubuntu"})
+        self.assertTrue(any('ubuntu' in img['uri'] for img in images_ubuntu))
+        images_debian = hetzner_cloud.list_images(auth, filters={"distribution": "debian"})
+        self.assertTrue(any('debian' in img['uri'] for img in images_debian))
 
     @staticmethod
     def get_hetzner_cloud():
