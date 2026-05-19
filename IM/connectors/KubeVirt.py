@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import base64
+import math
 import json
 import requests
 from urllib.parse import urlparse
@@ -130,6 +131,8 @@ class KubeVirtCloudConnector(CloudConnector):
             res_system = radl_system.clone()
 
             res_system.getFeature("cpu.count").operator = "="
+            # KubeVirt only allow to use integer as cpu count
+            res_system.getFeature("cpu.count").value = math.ceil(res_system.getFeature("cpu.count").value)
             res_system.getFeature("memory.size").operator = "="
 
             username = res_system.getValue('disk.0.os.credentials.username')
