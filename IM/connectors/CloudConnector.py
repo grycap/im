@@ -809,6 +809,8 @@ class CloudConnector(LoggerMixin):
                             try:
                                 success = self.back_up_create_tls_certificate(vm, auth_data, hostname,
                                                                               domain, ip, auth_data)
+                                if not success:
+                                    raise niex
                             except Exception as ex:
                                 self.log_exception("Error creating TLS certificate for %s.%s." % (hostname, domain))
                                 self.error_messages += "Error creating TLS certificate for %s.%s: %s.\n" % (hostname,

@@ -227,7 +227,7 @@ class EGICloudConnector(CloudConnector):
 
         return True
 
-    def create_tls_certificate(self, vm, hostname, domain, ip, auth_data):
+    def create_tls_certificate(self, vm, hostname, domain, ip, auth_data, extra_args=None):
         """
         Create a TLS certificate for the given hostname and domain
         """
