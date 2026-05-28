@@ -802,7 +802,7 @@ class CloudConnector(LoggerMixin):
                         if not success:
                             raise niex
 
-                    if tls:
+                    if tls and op == "add":
                         self.log_debug("TLS certificate required for %s.%s." % (hostname, domain))
                         try:
                             success = self.create_tls_certificate(vm, hostname, domain, ip, auth_data)

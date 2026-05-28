@@ -247,23 +247,20 @@ class EGICloudConnector(CloudConnector):
                     self.log_debug(f"DNS entry {hostname}.{domain} does not exist. Do not add TLS certificate.")
                     return False
 
-                url = f'{EGICloudConnector.DYDNS_URL}/hosts/{hostname}.{domain}/certificate'
                 csr_pem, private_key_pem = EGICloudConnector._generate_csr(f"{hostname}.{domain}")
                 body = {"csr": csr_pem}
-                resp = requests.post(url, headers={'Authorization': f'Bearer {token}'}, json=body,
-                                     timeout=EGICloudConnector.DEFAULT_TIMEOUT)
-                if resp.status_code != 200:
-                    self.log_error(f"Error creating TLS certificate for {hostname}.{domain}: {resp.text}")
-                    return False
 
-                vm.set_tls_certificate(hostname, domain, private_key_pem, resp.text)
+#                url = f'{EGICloudConnector.DYDNS_URL}/hosts/{hostname}.{domain}/certificate'
+#                resp = requests.post(url, headers={'Authorization': f'Bearer {token}'}, json=body,
+#                                     timeout=EGICloudConnector.DEFAULT_TIMEOUT)
+#                if resp.status_code != 200:
+#                    self.log_error(f"Error creating TLS certificate for {hostname}.{domain}: {resp.text}")
+#                    return False
 
-                url = f'{EGICloudConnector.DYDNS_URL}/hosts/{hostname}.{domain}/certificate'
-                resp = requests.get(url, headers={'Authorization': f'Bearer {token}'},
-                                    timeout=EGICloudConnector.DEFAULT_TIMEOUT)
-                if resp.status_code != 200:
-                    self.log_error(f"Error deleting DNS entry {hostname}.{domain}: {resp.text}")
-                    return False
+#                vm.set_tls_certificate(hostname, domain, private_key_pem, resp.text)
+
+                vm.set_tls_certificate(hostname, domain, private_key_pem, "issued-cert")
+
                 return True
 
         except Exception as e:
