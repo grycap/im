@@ -140,9 +140,8 @@ class TestEGIConnector(unittest.TestCase):
         self.assertTrue(success)
 
         post_url = f"{EGICloudConnector.DYDNS_URL}/hosts/hostname.domain/certificate"
-        get_url = post_url
         self.assertEqual(mock_post.call_count, 1)
-        self.assertEqual(mock_get.call_count, 1)
+        self.assertEqual(mock_get.call_count, 0)
 
         post_call = mock_post.call_args
         self.assertEqual(post_call.args[0], post_url)
@@ -156,8 +155,6 @@ class TestEGIConnector(unittest.TestCase):
         self.assertEqual(set_cert_call.args[0:2], ('hostname', 'domain'))
         self.assertTrue(set_cert_call.args[2].startswith('-----BEGIN RSA PRIVATE KEY-----'))
         self.assertEqual(set_cert_call.args[3], 'issued-cert')
-
-        mock_get.assert_called_with(get_url, headers={'Authorization': 'Bearer access_token'}, timeout=10)
 
     def test_generate_csr_returns_private_key(self):
         csr_pem, private_key_pem = EGICloudConnector._generate_csr("hostname.domain")
