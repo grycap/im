@@ -635,6 +635,7 @@ class Tosca:
 
         if dns_name:
             system.setValue('net_interface.0.dns_name', dns_name)
+            system.setValue('net_interface.0.dns.0.name', dns_name)
         if additional_ip:
             system.setValue('net_interface.0.additional_ip', additional_ip)
 
@@ -655,11 +656,12 @@ class Tosca:
                     system.setValue('net_interface.%d.ip' % num, ip)
                 # These are not normative properties
                 if dns_name:
-                    system.setValue('net_interface.%d.dns_name' % num, dns_name)
+                    system.setValue('net_interface.%d.dns.0.name' % num, dns_name)
                 if additional_ip:
                     system.setValue('net_interface.%d.additional_ip' % num, additional_ip)
                 if additional_dns_names:
-                    system.setValue('net_interface.%d.additional_dns_names' % num, additional_dns_names)
+                    for num_dns, elem in enumerate(additional_dns_names):
+                        system.setValue('net_interface.%d.dns.%d.name' % (num, num_dns + 1), elem)
 
                 if net.isPublic():
                     port_net = net
@@ -730,7 +732,8 @@ class Tosca:
                 system.setValue('net_interface.%d.connection' % num_net, public_net.id)
                 # allways add the additional_dns_names in the public interface
                 if additional_dns_names:
-                    system.setValue('net_interface.%d.additional_dns_names' % num_net, additional_dns_names)
+                    for num_dns, elem in enumerate(additional_dns_names):
+                        system.setValue('net_interface.%d.dns.%d.name' % (num_net, num_dns + 1), elem)
 
             if net_provider_id:
                 if private_net:
@@ -1453,6 +1456,8 @@ class Tosca:
                 if node.type == "tosca.nodes.Container.Application.Docker":
                     res = []
                     dmsname = vm.info.systems[0].getValue("net_interface.0.dns_name")
+                    if not dmsname:
+                        dmsname = vm.info.systems[0].getValue("net_interface.0.dns.0.name")
                     pub_net = vm.getConnectedNet(public=True)
                     priv_net = vm.getConnectedNet(public=False)
                     if pub_net:
@@ -1551,6 +1556,8 @@ class Tosca:
                     res = []
                     if net.isPublic():
                         dmsname = k8s_sys.getValue("net_interface.0.dns_name")
+                        if not dmsname:
+                            dmsname = vm.info.systems[0].getValue("net_interface.0.dns.0.name")
                         if net.getOutPorts():
                             for outport in net.getOutPorts():
                                 # if DNS name is set, the endpoint of the first public port is the DNS name
@@ -2338,6 +2345,7 @@ class Tosca:
                         res.setValue("net_interface.0.connection", "%s_pub" % res.name)
                         if value and value[0] and 'endpoint' in value[0]:
                             res.setValue("net_interface.0.dns_name", value[0]['endpoint'])
+                            res.setValue("net_interface.0.dns.0.name", value[0]['endpoint'])
                     elif prop.name == 'expose_ports':
                         # Asume that publish_ports must be published as ClusterIP
                         priv = network("%s_priv" % res.name)

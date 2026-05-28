@@ -598,13 +598,16 @@ class VirtualMachine(LoggerMixin):
         """Replace the #N# in dns_names."""
         cont = 0
         while vm_system.getValue('net_interface.%d.connection' % cont):
-            vm_dns_name = vm_system.getValue('net_interface.%d.dns_name' % cont)
+            vm_dns_name = vm_system.getValue('net_interface.%d.dns.0.name' % cont)
+            if not vm_dns_name:
+                vm_dns_name = vm_system.getValue('net_interface.%d.dns_name' % cont)
             # if dns_name is not set in iface 0 set the default one
             if cont == 0 and vm_dns_name is None:
                 vm_dns_name = Config.DEFAULT_VM_NAME
             if vm_dns_name and "#N#" in vm_dns_name:
                 vm_dns_name = vm_dns_name.replace("#N#", str(self.im_id))
                 vm_system.setValue('net_interface.%d.dns_name' % cont, vm_dns_name)
+                vm_system.setValue('net_interface.%d.dns.0.name' % cont, vm_dns_name)
             cont += 1
 
     @staticmethod
@@ -1171,6 +1174,7 @@ class VirtualMachine(LoggerMixin):
                 if next_net:
                     system.setValue('net_interface.%d.connection' % i, next_net)
                     system.setValue('net_interface.%d.dns_name' % i, next_dns)
+                    system.setValue('net_interface.%d.dns.0.name' % i, next_dns)
                 else:
                     system.delValue('net_interface.%d.connection' % i)
                     system.delValue('net_interface.%d.dns_name' % i)

@@ -361,7 +361,7 @@ class TestAzureConnector(TestCloudConnectorBase):
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test.domain.com' and
-            net_interface.0.additional_dns_names = ['some.test@domain.com'] and
+            net_interface.0.dns.1.name = 'some.test@domain.com' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'azr://Canonical/UbuntuServer/16.04.0-LTS/latest' and
             disk.0.os.credentials.username = 'user' and

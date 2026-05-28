@@ -633,10 +633,23 @@ class CloudConnector(LoggerMixin):
             if domain != "localdomain." and ip and hostname:
                 res.append((hostname, domain, ip))
 
-            # Also add additional names
-            additional_dns_names = system.getValue('net_interface.%d.additional_dns_names' % num_conn)
-            if additional_dns_names:
-                for dns_name in additional_dns_names:
+            # Also add additional names from net_interface.<n>.dns.<i>.name
+            dns_names = []
+            dns_name = system.getValue('net_interface.%d.dns_name' % (num_conn))
+            if dns_name:
+                if not system.getValue('net_interface.%d.dns.0.name' % (num_conn)):
+                    system.setValue('net_interface.%d.dns.0.name' % (num_conn), dns_name)
+                dns_names.append(dns_name)
+            num_dns = 0
+            while True:
+                dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
+                if not dns_name:
+                    break
+                dns_names.append(dns_name)
+                num_dns += 1
+
+            if dns_names:
+                for dns_name in dns_names:
                     if "@" in dns_name:
                         dns_parts = dns_name.split("@")
                         if len(dns_parts) != 2:
@@ -653,7 +666,9 @@ class CloudConnector(LoggerMixin):
                     if not domain.endswith("."):
                         domain += "."
                     if domain != "localdomain." and ip and hostname:
-                        res.append((hostname, domain, ip))
+                        entry = (hostname, domain, ip)
+                        if entry not in res:
+                            res.append(entry)
 
         return res
 
