@@ -635,12 +635,7 @@ class CloudConnector(LoggerMixin):
 
             # Also add additional names from net_interface.<n>.dns.<i>.name
             dns_names = []
-            dns_name = system.getValue('net_interface.%d.dns_name' % (num_conn))
-            if dns_name:
-                if not system.getValue('net_interface.%d.dns.0.name' % (num_conn)):
-                    system.setValue('net_interface.%d.dns.0.name' % (num_conn), dns_name)
-                dns_names.append(dns_name)
-            num_dns = 0
+            num_dns = 1
             while True:
                 dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
                 if not dns_name:
