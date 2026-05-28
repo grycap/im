@@ -547,7 +547,6 @@ class ConfManager(LoggerMixin, threading.Thread):
                 node_vars['IM_NODE_CLOUD_TYPE'] = vm.cloud.type
                 if vm.cloud.server:
                     node_vars['IM_NODE_CLOUD_SERVER'] = vm.cloud.server
-                
                 if vm.get_tls_certificates():
                     node_vars['IM_NODE_TLS_CERTIFICATES'] = vm.get_tls_certificates()
 
