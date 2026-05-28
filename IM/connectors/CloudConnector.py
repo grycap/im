@@ -753,7 +753,6 @@ class CloudConnector(LoggerMixin):
         Create a TLS certificate for the given hostname and domain
 
         Arguments:
-        
            - hostname(str): hostname part of the fqdn
            - domain(str): domain name part of the fqdn
            - ip(str): ip to assing to the dns entry
@@ -799,7 +798,7 @@ class CloudConnector(LoggerMixin):
                         success = self.back_up_dns_entries(op, vm, auth_data, hostname, domain, ip, entry)
                         if not success:
                             raise niex
-                    
+
                     if tls:
                         self.log_debug("TLS certificate required for %s.%s." % (hostname, domain))
                         try:
@@ -828,10 +827,8 @@ class CloudConnector(LoggerMixin):
             from IM.connectors.EGI import EGICloudConnector
             return EGICloudConnector.create_tls_certificate(self, vm, hostname, domain, ip, auth_data)
         else:
-            self.log_debug("TLS certificate creation not implmented for %s connector. No backup method available." % self.type)
+            self.log_debug("TLS certificate creation not implmented for %s connector." % self.type)
             return False
-        
-        
 
     def back_up_dns_entries(self, op, vm, auth_data, hostname, domain, ip, entry):
         im_auth = auth_data.getAuthInfo("InfrastructureManager")
