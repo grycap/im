@@ -21,6 +21,7 @@ import sys
 import os
 import getpass
 import json
+import yaml
 import threading
 from multiprocessing import Queue
 from multiprocessing.pool import ThreadPool
@@ -176,15 +177,22 @@ class CtxtAgent(CtxtAgentBase):
         filename = general_conf_data['conf_dir'] + "/hosts"
         vm_id = vm['ip'] + "_" + str(vm['id'])
         with open(filename) as f:
-            inventoy_data = ""
-            for line in f:
-                if "ansible_connection=local" in line:
-                    line = line.replace("ansible_connection=local", "")
-                if vm_id in line:
-                    line = line[:-1] + " ansible_connection=local\n"
-                inventoy_data += line
+            inventory_data = yaml.safe_load(f) or {}
+
+        children = inventory_data.get('all', {}).get('children', {})
+        for group in children.values():
+            hosts = group.get('hosts', {})
+            for host_vars in hosts.values():
+                if isinstance(host_vars, dict) and 'ansible_connection' in host_vars:
+                    del host_vars['ansible_connection']
+
+        for group in children.values():
+            hosts = group.get('hosts', {})
+            if vm_id in hosts and isinstance(hosts[vm_id], dict):
+                hosts[vm_id]['ansible_connection'] = 'local'
+
         with open(filename, 'w+') as f:
-            f.write(inventoy_data)
+            yaml.dump(inventory_data, f, default_flow_style=False, sort_keys=False)
 
     def get_master_ssh(self, general_conf_data):
         ctxt_vm = None

@@ -1198,3 +1198,43 @@ class VirtualMachine(LoggerMixin):
                     system.setValue('net_interface.%d.dns.%d.tls.private_key' % (num_conn, num_dns), private_key_pem)
                     system.setValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns), cert_pem)
                 num_dns += 1
+
+    def get_tls_certificates(self):
+        """
+        Get the TLS certificates from the VM info
+        """
+        system = self.info.systems[0]
+        tls_certificates = {}
+        for net_name in system.getNetworkIDs():
+            num_conn = system.getNumNetworkWithConnection(net_name)
+            num_dns = 0
+            while True:
+                dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
+                if not dns_name:
+                    break
+                tls_cert = system.getValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns))
+                if tls_cert:
+                    if dns_name in tls_certificates:
+                        self.log_warn("There are more than one TLS certificate for the same DNS name: %s. "
+                                      "Only the last one will be returned." % dns_name)
+                    tls_certificates[dns_name] = tls_cert
+                num_dns += 1
+        return tls_certificates
+
+    def requires_tls_certificate(self):
+        """
+        Check if this VM requires a TLS certificate
+        """
+        system = self.info.systems[0]
+        for net_name in system.getNetworkIDs():
+            num_conn = system.getNumNetworkWithConnection(net_name)
+            num_dns = 0
+            while True:
+                dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
+                if not dns_name:
+                    break
+                tls_cert = system.getValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns))
+                if tls_cert is None:
+                    return True
+                num_dns += 1
+        return False

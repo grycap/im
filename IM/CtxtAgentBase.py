@@ -20,7 +20,6 @@ import socket
 import logging
 import json
 import os
-import re
 import yaml
 from multiprocessing import Queue
 
@@ -291,6 +290,7 @@ class CtxtAgentBase:
         filename = general_conf_data['conf_dir'] + "/hosts"
 
         proxy = vm_data['proxy_host']
+        ssh_options = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
         if proxy['private_key']:
             # we must create it in the localhost to use it later with ansible
             priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (proxy['user'],
@@ -299,8 +299,6 @@ class CtxtAgentBase:
             with open(priv_key_filename, 'w') as f:
                 f.write(proxy['private_key'])
             os.chmod(priv_key_filename, 0o600)
-
-            ssh_options = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
 
             cmd = "ssh -W %%h:%%p -i %s -p %d %s %s@%s" % (priv_key_filename,
                                                            proxy['port'],
@@ -313,19 +311,23 @@ class CtxtAgentBase:
                                                                    ssh_options,
                                                                    proxy['user'],
                                                                    proxy['host'])
-        proxy_command = "ansible_ssh_extra_args=\"%s -oProxyCommand='%s'\"" % (ssh_options, cmd)
 
         with open(filename) as f:
-            inventoy_data = ""
-            for line in f:
-                if line.startswith("%s_%s " % (vm_data['ip'], vm_data['id'])) and "ProxyCommand" not in line:
-                    line = re.sub(" ansible_host=%s " % vm_data['ip'],
-                                  " ansible_host=%s %s " % (vm_data['ip'], proxy_command), line)
+            inventory_data = yaml.safe_load(f) or {}
 
-                inventoy_data += line
+        vm_id = str(vm_data['id'])
+        vm_host = "%s_%s" % (vm_data['ip'], vm_data['id'])
+        children = inventory_data.get('all', {}).get('children', {})
+        for group in children.values():
+            hosts = group.get('hosts', {})
+            for host_name, host_vars in hosts.items():
+                if not isinstance(host_vars, dict):
+                    continue
+                if host_name == vm_host or host_vars.get('IM_NODE_VMID') == vm_id:
+                    host_vars['ansible_ssh_extra_args'] = "%s -oProxyCommand='%s'" % (ssh_options, cmd)
 
         with open(filename, 'w+') as f:
-            f.write(inventoy_data)
+            yaml.dump(inventory_data, f, default_flow_style=False, sort_keys=False)
 
     def replace_vm_ip(self, vm_data, rep=False):
         """
@@ -349,21 +351,24 @@ class CtxtAgentBase:
         # Now in the ansible inventory
         filename = general_conf_data['conf_dir'] + "/hosts"
         with open(filename) as f:
-            inventoy_data = ""
-            for line in f:
-                if line.startswith("%s_%s " % (vm_data['ip'], vm_data['id'])):
-                    line = re.sub(" ansible_host=%s " % vm_data['ip'],
-                                  " ansible_host=%s " % vm_data['ctxt_ip'], line)
-                    line = re.sub(" ansible_ssh_host=%s " % vm_data['ip'],
-                                  " ansible_ssh_host=%s " % vm_data['ctxt_ip'], line)
-                    line = re.sub(" ansible_port=%s " % vm_data['remote_port'],
-                                  " ansible_port=%s " % vm_data['ctxt_port'], line)
-                    line = re.sub(" ansible_ssh_port=%s " % vm_data['remote_port'],
-                                  " ansible_ssh_port=%s " % vm_data['ctxt_port'], line)
-                inventoy_data += line
+            inventory_data = yaml.safe_load(f) or {}
+
+        vm_id = str(vm_data['id'])
+        vm_host = "%s_%s" % (vm_data['ip'], vm_data['id'])
+        children = inventory_data.get('all', {}).get('children', {})
+        for group in children.values():
+            hosts = group.get('hosts', {})
+            for host_name, host_vars in hosts.items():
+                if not isinstance(host_vars, dict):
+                    continue
+                if host_name == vm_host or host_vars.get('IM_NODE_VMID') == vm_id:
+                    host_vars['ansible_host'] = vm_data['ctxt_ip']
+                    host_vars['ansible_ssh_host'] = vm_data['ctxt_ip']
+                    host_vars['ansible_port'] = vm_data['ctxt_port']
+                    host_vars['ansible_ssh_port'] = vm_data['ctxt_port']
 
         with open(filename, 'w+') as f:
-            f.write(inventoy_data)
+            yaml.dump(inventory_data, f, default_flow_style=False, sort_keys=False)
 
     def changeVMCredentials(self, vm, pk_file, use_proxy=False):
         """

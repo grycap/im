@@ -830,3 +830,4 @@ IM 2.0.0:
     * Remove SINGLE_SITE configuration support.
     * Remove OpenNebula TTS support.
     * Move from additional_dns_names to dns.*.name
+    * Move Ansible inventory to YAML

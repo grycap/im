@@ -233,10 +233,25 @@ class TestCtxtAgent(unittest.TestCase):
         ctxt_agent = CtxtAgent("/tmp/gen_data.json")
         with open("/tmp/gen_data.json", "w+") as f:
             json.dump(self.gen_general_conf(), f)
+        inventory_data = {
+            'all': {
+                'children': {
+                    'group1': {
+                        'hosts': {
+                            "%s_%s" % (vm_data['ip'], vm_data['id']): {
+                                'ansible_host': vm_data['ip'],
+                                'ansible_ssh_host': vm_data['ip'],
+                                'ansible_port': vm_data['remote_port'],
+                                'ansible_ssh_port': vm_data['remote_port'],
+                                'IM_NODE_VMID': str(vm_data['id'])
+                            }
+                        }
+                    }
+                }
+            }
+        }
         with open("/tmp/hosts", "w+") as f:
-            f.write("%s_%s " % (vm_data['ip'], vm_data['id']))
-            f.write(" ansible_host=%s" % vm_data['ip'])
-            f.write(" ansible_ssh_host=%s \n" % vm_data['ip'])
+            yaml.dump(inventory_data, f, default_flow_style=False, sort_keys=False)
 
         vm_data['ctxt_ip'] = "10.0.0.2"
         vm_data['ctxt_port'] = 22
@@ -249,8 +264,10 @@ class TestCtxtAgent(unittest.TestCase):
                 self.assertEqual(vm['ctxt_ip'], vm_data['ctxt_ip'])
 
         with open("/tmp/hosts", "r") as f:
-            data = f.read()
-        self.assertIn(" ansible_host=%s ansible_ssh_host=%s \n" % (vm_data['ctxt_ip'], vm_data['ctxt_ip']), data)
+            inventory_data = yaml.safe_load(f)
+        host = inventory_data['all']['children']['group1']['hosts']["%s_%s" % (vm_data['ip'], vm_data['id'])]
+        self.assertEqual(host['ansible_host'], vm_data['ctxt_ip'])
+        self.assertEqual(host['ansible_ssh_host'], vm_data['ctxt_ip'])
 
     def test_95_install_ansible_roles(self):
         ctxt_agent = CtxtAgent("")

@@ -1333,6 +1333,12 @@ class Tosca:
                     Tosca.logger.warning("Attribute ctxt_log only supported"
                                          " in tosca.nodes.indigo.Compute nodes.")
                     return None
+            elif attribute_name == "tls_certificates":
+                if node.type == "tosca.nodes.indigo.Compute":
+                    return vm.get_tls_certificates()
+                else:
+                    Tosca.logger.warning("Attribute tls_certificates only supported"
+                                         " in tosca.nodes.indigo.Compute nodes.")
             elif attribute_name == "ansible_output":
                 if node.type == "tosca.nodes.indigo.Compute":
                     return self._get_ansible_output(vm.cont_out, attribute_params)
@@ -1492,6 +1498,17 @@ class Tosca:
                     return "{{ hostvars[groups['%s'][0]]['IM_NODE_VMID'] }}" % host_node.name
             elif attribute_name == "tosca_name":
                 return node.name
+            elif attribute_name == "tls_certificates":
+                if node.type == "tosca.nodes.indigo.Compute":
+                    if index is not None:
+                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_TLS_CERTIFICATES'] }}" % (host_node.name, index)
+                    else:
+                        return ("{{ groups['%s']|map('extract', hostvars,'IM_NODE_TLS_CERTIFICATES')|list"
+                                " if '%s' in groups else []}}" % (host_node.name, host_node.name))
+                else:
+                    Tosca.logger.warning("Attribute tls_certificates only supported"
+                                         " in tosca.nodes.indigo.Compute nodes.")
+                    return None
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     if index is not None:
