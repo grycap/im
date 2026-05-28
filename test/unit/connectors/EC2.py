@@ -498,7 +498,7 @@ class TestEC2Connector(TestCloudConnectorBase):
         inf = MagicMock()
         inf.id = "1"
         vm = VirtualMachine(inf, "us-east-1;id-1", ec2_cloud.cloud, radl, radl, ec2_cloud, 1)
-        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1')]
+        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1', False)]
 
         mock_conn = MagicMock()
         mock_res = MagicMock()

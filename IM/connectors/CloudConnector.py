@@ -630,8 +630,12 @@ class CloudConnector(LoggerMixin):
                                                           default_domain=Config.DEFAULT_DOMAIN)
             if not domain.endswith("."):
                 domain += "."
+            tls = False
+            tls_cert = system.getValue('net_interface.0.dns.0.tls')
+            if tls_cert and tls_cert in ["true", "yes"]:
+                tls = True
             if domain != "localdomain." and ip and hostname:
-                res.append((hostname, domain, ip))
+                res.append((hostname, domain, ip, tls))
 
             # Also add additional names from net_interface.<n>.dns.<i>.name
             dns_names = []
@@ -640,11 +644,14 @@ class CloudConnector(LoggerMixin):
                 dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
                 if not dns_name:
                     break
-                dns_names.append(dns_name)
+                tls_cert = system.getValue('net_interface.%d.dns.%d.tls' % (num_conn, num_dns))
+                if tls_cert and tls_cert in ["true", "yes"]:
+                    tls = True
+                dns_names.append((dns_name, tls))
                 num_dns += 1
 
             if dns_names:
-                for dns_name in dns_names:
+                for dns_name, tls in dns_names:
                     if "@" in dns_name:
                         dns_parts = dns_name.split("@")
                         if len(dns_parts) != 2:
@@ -661,7 +668,7 @@ class CloudConnector(LoggerMixin):
                     if not domain.endswith("."):
                         domain += "."
                     if domain != "localdomain." and ip and hostname:
-                        entry = (hostname, domain, ip)
+                        entry = (hostname, domain, ip, tls)
                         if entry not in res:
                             res.append(entry)
 
@@ -741,6 +748,20 @@ class CloudConnector(LoggerMixin):
         """
         raise NotImplementedError("Should have implemented this")
 
+    def create_tls_certificate(self, vm, hostname, domain, ip, auth_data, extra_args=None):
+        """
+        Create a TLS certificate for the given hostname and domain
+
+        Arguments:
+        
+           - hostname(str): hostname part of the fqdn
+           - domain(str): domain name part of the fqdn
+           - ip(str): ip to assing to the dns entry
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+           - extra_args(dict): dict with some extra fields needed in some particular Providers
+        """
+        raise NotImplementedError("Should have implemented this")
+
     def manage_dns_entries(self, op, vm, auth_data, extra_args=None):
         """
         Add/Delete the required entries in a DNS service
@@ -760,9 +781,10 @@ class CloudConnector(LoggerMixin):
                 dns_entries = list(vm.dns_entries)
             else:
                 raise Exception("Invalid DNS operation.")
+
             if dns_entries:
                 for entry in dns_entries:
-                    hostname, domain, ip = entry
+                    hostname, domain, ip, tls = entry
                     try:
                         if op == "add" and entry not in vm.dns_entries:
                             success = self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
@@ -777,11 +799,39 @@ class CloudConnector(LoggerMixin):
                         success = self.back_up_dns_entries(op, vm, auth_data, hostname, domain, ip, entry)
                         if not success:
                             raise niex
+                    
+                    if tls:
+                        self.log_debug("TLS certificate required for %s.%s." % (hostname, domain))
+                        try:
+                            success = self.create_tls_certificate(vm, hostname, domain, ip, auth_data)
+                        except NotImplementedError as niex:
+                            self.log_debug("TLS certificate creation not implmented for %s connector. "
+                                           "Using backup method." % self.type)
+                            try:
+                                success = self.back_up_create_tls_certificate(vm, auth_data, hostname,
+                                                                              domain, ip, auth_data)
+                            except Exception as ex:
+                                self.log_exception("Error creating TLS certificate for %s.%s." % (hostname, domain))
+                                self.error_messages += "Error creating TLS certificate for %s.%s: %s.\n" % (hostname,
+                                                                                                            domain,
+                                                                                                            str(ex))
             return True
         except Exception as ex:
             self.error_messages += "Error in %s DNS entries %s.\n" % (op, str(ex))
             self.log_exception("Error in %s DNS entries" % op)
             return False
+
+    def back_up_create_tls_certificate(self, vm, auth_data, hostname, domain, ip, extra_args=None):
+        # Use DyDNS as back up for all providers if IM credentials uses token auth
+        im_auth = auth_data.getAuthInfo("InfrastructureManager")
+        if im_auth and im_auth[0].get("token") or (hostname.startswith("dydns:") and "@" in hostname):
+            from IM.connectors.EGI import EGICloudConnector
+            return EGICloudConnector.create_tls_certificate(self, vm, hostname, domain, ip, auth_data)
+        else:
+            self.log_debug("TLS certificate creation not implmented for %s connector. No backup method available." % self.type)
+            return False
+        
+        
 
     def back_up_dns_entries(self, op, vm, auth_data, hostname, domain, ip, entry):
         im_auth = auth_data.getAuthInfo("InfrastructureManager")

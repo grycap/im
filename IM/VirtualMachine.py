@@ -1181,3 +1181,20 @@ class VirtualMachine(LoggerMixin):
                 if system.getValue('net_interface.%d.ip' % i):
                     system.delValue('net_interface.%d.ip' % i)
             i += 1
+
+    def set_tls_certificate(self, hostname, domain, private_key_pem, cert_pem):
+        """
+        Set the TLS certificate in the VM info
+        """
+        system = self.info.systems[0]
+        for net_name in system.getNetworkIDs():
+            num_conn = system.getNumNetworkWithConnection(net_name)
+            num_dns = 0
+            while True:
+                dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
+                if not dns_name:
+                    break
+                if dns_name == "%s.%s" % (hostname, domain if not domain.endswith(".") else domain[:-1]):
+                    system.setValue('net_interface.%d.dns.%d.tls.private_key' % (num_conn, num_dns), private_key_pem)
+                    system.setValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns), cert_pem)
+                num_dns += 1

@@ -17,6 +17,11 @@
 
 import base64
 import requests
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 from .CloudConnector import CloudConnector
 
 
@@ -88,6 +93,27 @@ class EGICloudConnector(CloudConnector):
             hostname = parts[0]
             wildcard = True
         return hostname, domain, wildcard
+
+    @staticmethod
+    def _generate_csr(fqdn):
+        """
+        Generate a PEM-encoded CSR and private key for the provided FQDN.
+        """
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048,
+                                               backend=default_backend())
+        csr = (x509.CertificateSigningRequestBuilder()
+               .subject_name(x509.Name([
+                   x509.NameAttribute(NameOID.COMMON_NAME, fqdn),
+               ]))
+               .add_extension(x509.SubjectAlternativeName([x509.DNSName(fqdn)]), critical=False)
+               .sign(private_key, hashes.SHA256(), default_backend()))
+        csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+        private_key_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        ).decode("utf-8")
+        return csr_pem, private_key_pem
 
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         """
@@ -200,3 +226,46 @@ class EGICloudConnector(CloudConnector):
             return False
 
         return True
+
+    def create_tls_certificate(self, vm, hostname, domain, ip, auth_data):
+        """
+        Create a TLS certificate for the given hostname and domain
+        """
+        self.log_debug(f"Creating TLS certificate for {hostname}.{domain} with EGI connector")
+
+        domain = domain[:-1] if domain.endswith(".") else domain
+        im_auth = auth_data.getAuthInfo("InfrastructureManager")
+        try:
+            if im_auth and im_auth[0].get("token"):
+                token = im_auth[0].get("token")
+                hostname, domain, _ = EGICloudConnector._get_wildcard_host_domain(hostname, domain)
+
+                host, error = EGICloudConnector._get_host(hostname, domain, token)
+                if error:
+                    self.log_error(f"Error getting host {hostname}.{domain}: {error}")
+                if not host:
+                    self.log_debug(f"DNS entry {hostname}.{domain} does not exist. Do not add TLS certificate.")
+                    return False
+
+                url = f'{EGICloudConnector.DYDNS_URL}/hosts/{hostname}.{domain}/certificate'
+                csr_pem, private_key_pem = EGICloudConnector._generate_csr(f"{hostname}.{domain}")
+                body = {"csr": csr_pem}
+                resp = requests.post(url, headers={'Authorization': f'Bearer {token}'}, json=body,
+                                    timeout=EGICloudConnector.DEFAULT_TIMEOUT)
+                if resp.status_code != 200:
+                    self.log_error(f"Error creating TLS certificate for {hostname}.{domain}: {resp.text}")
+                    return False
+
+                vm.set_tls_certificate(hostname, domain, private_key_pem, resp.text)
+
+                url = f'{EGICloudConnector.DYDNS_URL}/hosts/{hostname}.{domain}/certificate'
+                resp = requests.get(url, headers={'Authorization': f'Bearer {token}'},
+                                    timeout=EGICloudConnector.DEFAULT_TIMEOUT)
+                if resp.status_code != 200:
+                    self.log_error(f"Error deleting DNS entry {hostname}.{domain}: {resp.text}")
+                    return False
+                return True
+
+        except Exception as e:
+            self.log_error(f"Error creating TLS certificate for {hostname}.{domain}: {str(e)}")
+            return False
