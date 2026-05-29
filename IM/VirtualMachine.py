@@ -1234,7 +1234,7 @@ class VirtualMachine(LoggerMixin):
                 if not dns_name:
                     break
                 tls_cert = system.getValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns))
-                if tls_cert is None:
+                if tls_cert in ['true', 'yes']:
                     return True
                 num_dns += 1
         return False
