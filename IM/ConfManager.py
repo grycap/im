@@ -21,6 +21,7 @@ import threading
 import time
 import tempfile
 import shutil
+import yaml
 from packaging.version import Version
 
 from io import StringIO
@@ -149,12 +150,18 @@ class ConfManager(LoggerMixin, threading.Thread):
                     if not vm.getPublicIP():
                         self.log_debug("And it does not have it assigned yet.")
                         success = False
-                        vm.update_status(self.auth)
+
+                if vm.requires_tls_certificate():
+                    self.log_debug("VM %s requests a TLS certificate." % vm.id)
+                    if not vm.get_tls_certificates():
+                        self.log_debug("And it does not have it assigned yet.")
+                        success = False
 
             if not success:
                 self.log_warn("Still waiting all the VMs to have all the requested IPs")
                 wait += Config.CONFMAMAGER_CHECK_STATE_INTERVAL
                 time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
+                vm.update_status(self.auth)
 
         if not success:
             self.inf.set_configured(False)
@@ -433,7 +440,6 @@ class ConfManager(LoggerMixin, threading.Thread):
         self.log_info("Create the ansible configuration file")
         res_filename = "hosts"
         ansible_file = tmp_dir + "/" + res_filename
-        out = open(ansible_file, 'w')
 
         # get the master node name
         if self.inf.radl.ansible_hosts:
@@ -443,23 +449,23 @@ class ConfManager(LoggerMixin, threading.Thread):
             (master_name, masterdom) = self.inf.vm_master.getRequestedName(
                 default_hostname=Config.DEFAULT_VM_NAME, default_domain=Config.DEFAULT_DOMAIN)
 
-        no_windows = ""
-        windows = ""
-        all_vars = ""
+        all_vars = {}
+        children = {}
+        windows_hosts = {}
+        no_windows_hosts = {}
         vm_group = self.inf.get_vm_list_by_system_name()
         for group in vm_group:
             vm = vm_group[group][0]
-            out.write('[' + group + ':vars]\n')
+
+            group_vars = {}
+            group_hosts = {}
 
             if vm.getOS().lower() == "windows":
-                out.write('ansible_connection=winrm\n')
-                out.write('ansible_winrm_server_cert_validation=ignore\n')
-
-            out.write('[' + group + ']\n')
+                group_vars['ansible_connection'] = 'winrm'
+                group_vars['ansible_winrm_server_cert_validation'] = 'ignore'
 
             # Set the vars with the number of nodes of each type
-            all_vars += 'IM_' + group.upper() + '_NUM_VMS=' + \
-                str(len(vm_group[group])) + '\n'
+            all_vars['IM_' + group.upper() + '_NUM_VMS'] = str(len(vm_group[group]))
 
             for vm in vm_group[group]:
                 if not vm.contextualize():
@@ -479,26 +485,24 @@ class ConfManager(LoggerMixin, threading.Thread):
                                   " is not running. It will not be included in the inventory file.")
                     continue
 
-                if vm.getOS().lower() == "windows":
-                    windows += "%s_%d\n" % (ip, vm.im_id)
-                else:
-                    no_windows += "%s_%d\n" % (ip, vm.im_id)
+                node_name = "%s_%d" % (ip, vm.im_id)
 
-                ifaces_im_vars = ''
+                if vm.getOS().lower() == "windows":
+                    windows_hosts[node_name] = {}
+                else:
+                    no_windows_hosts[node_name] = {}
+
+                node_vars = {}
                 for i in range(vm.getNumNetworkIfaces()):
                     iface_ip = vm.getIfaceIP(i)
                     if iface_ip:
-                        ifaces_im_vars += ' IM_NODE_NET_' + \
-                            str(i) + '_IP=' + iface_ip
+                        node_vars['IM_NODE_NET_' + str(i) + '_IP'] = iface_ip
                         if vm.getRequestedNameIface(i):
                             (nodename, nodedom) = vm.getRequestedNameIface(
                                 i, default_domain=Config.DEFAULT_DOMAIN)
-                            ifaces_im_vars += ' IM_NODE_NET_' + \
-                                str(i) + '_HOSTNAME=' + nodename
-                            ifaces_im_vars += ' IM_NODE_NET_' + \
-                                str(i) + '_DOMAIN=' + nodedom
-                            ifaces_im_vars += ' IM_NODE_NET_' + \
-                                str(i) + '_FQDN=' + nodename + "." + nodedom
+                            node_vars['IM_NODE_NET_' + str(i) + '_HOSTNAME'] = nodename
+                            node_vars['IM_NODE_NET_' + str(i) + '_DOMAIN'] = nodedom
+                            node_vars['IM_NODE_NET_' + str(i) + '_FQDN'] = nodename + "." + nodedom
 
                 # the master node
                 # TODO: Known issue: the master VM must set the public network
@@ -509,76 +513,73 @@ class ConfManager(LoggerMixin, threading.Thread):
                     (nodename, nodedom) = vm.getRequestedName(
                         default_domain=Config.DEFAULT_DOMAIN)
 
-                node_line = "%s_%d" % (ip, vm.im_id)
-                node_line += ' ansible_host=%s' % ip
+                node_vars['ansible_host'] = ip
                 # For compatibility with Ansible 1.X versions
-                node_line += ' ansible_ssh_host=%s' % ip
+                node_vars['ansible_ssh_host'] = ip
 
-                node_line += ' ansible_port=%d' % vm.getRemoteAccessPort()
+                node_vars['ansible_port'] = vm.getRemoteAccessPort()
                 # For compatibility with Ansible 1.X versions
-                node_line += ' ansible_ssh_port=%d' % vm.getRemoteAccessPort()
+                node_vars['ansible_ssh_port'] = vm.getRemoteAccessPort()
 
                 user = vm.getCredentialValues()[0]
                 if user:
-                    node_line += ' ansible_user=%s' % user
+                    node_vars['ansible_user'] = user
                     # For compatibility with Ansible 1.X versions
-                    node_line += ' ansible_ssh_user=%s' % user
+                    node_vars['ansible_ssh_user'] = user
                 else:
                     self.log_warn("The VM ID: " + str(vm.id) + " does not have username!!")
 
                 if self.inf.vm_master and vm.id == self.inf.vm_master.id:
-                    node_line += ' ansible_connection=local'
+                    node_vars['ansible_connection'] = 'local'
 
                 if vm.getPublicIP():
-                    node_line += ' IM_NODE_PUBLIC_IP=' + vm.getPublicIP()
+                    node_vars['IM_NODE_PUBLIC_IP'] = vm.getPublicIP()
                     if not vm.getPrivateIP():
                         # If the node only has a public IP set this variable to the public one
-                        node_line += ' IM_NODE_PRIVATE_IP=' + vm.getPublicIP()
+                        node_vars['IM_NODE_PRIVATE_IP'] = vm.getPublicIP()
                 if vm.getPrivateIP():
-                    node_line += ' IM_NODE_PRIVATE_IP=' + vm.getPrivateIP()
-                node_line += ' IM_NODE_HOSTNAME=' + nodename
-                node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
-                node_line += ' IM_NODE_DOMAIN=' + nodedom
-                node_line += ' IM_NODE_NUM=' + str(vm.im_id)
-                node_line += ' IM_NODE_VMID=' + str(vm.id)
-                node_line += ' IM_NODE_CLOUD_TYPE=' + vm.cloud.type
+                    node_vars['IM_NODE_PRIVATE_IP'] = vm.getPrivateIP()
+                node_vars['IM_NODE_HOSTNAME'] = nodename
+                node_vars['IM_NODE_FQDN'] = nodename + "." + nodedom
+                node_vars['IM_NODE_DOMAIN'] = nodedom
+                node_vars['IM_NODE_NUM'] = str(vm.im_id)
+                node_vars['IM_NODE_VMID'] = str(vm.id)
+                node_vars['IM_NODE_CLOUD_TYPE'] = vm.cloud.type
                 if vm.cloud.server:
-                    node_line += ' IM_NODE_CLOUD_SERVER=' + vm.cloud.server
-                node_line += ifaces_im_vars
+                    node_vars['IM_NODE_CLOUD_SERVER'] = vm.cloud.server
+                if vm.get_tls_certificates():
+                    node_vars['IM_NODE_TLS_CERTIFICATES'] = vm.get_tls_certificates()
 
                 for app in vm.getInstalledApplications():
                     if app.getValue("path"):
-                        node_line += ' IM_APP_' + \
-                            app.getValue("name").upper() + \
-                            '_PATH=' + app.getValue("path")
+                        node_vars['IM_APP_' + app.getValue("name").upper() + '_PATH'] = app.getValue("path")
                     if app.getValue("version"):
-                        node_line += ' IM_APP_' + \
-                            app.getValue("name").upper() + \
-                            '_VERSION=' + app.getValue("version")
+                        node_vars['IM_APP_' + app.getValue("name").upper() + '_VERSION'] = app.getValue("version")
 
-                node_line += "\n"
-                out.write(node_line)
+                group_hosts[node_name] = node_vars
 
-            out.write("\n")
+            children[group] = {'hosts': group_hosts}
+            if group_vars:
+                children[group]['vars'] = group_vars
 
         # set the IM global variables
-        out.write('[all:vars]\n')
-        out.write(all_vars)
-        out.write('IM_MASTER_HOSTNAME=' + master_name + '\n')
-        out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
-        out.write('IM_MASTER_DOMAIN=' + masterdom + '\n')
-        out.write('IM_INFRASTRUCTURE_ID=' + self.inf.id + '\n')
-        out.write('IM_INFRASTRUCTURE_RADL=' + self.inf.get_json_radl() + '\n')
-        out.write('IM_INFRASTRUCTURE_AUTH=' + self.inf.get_auth() + '\n\n')
+        all_vars['IM_MASTER_HOSTNAME'] = master_name
+        all_vars['IM_MASTER_FQDN'] = master_name + "." + masterdom
+        all_vars['IM_MASTER_DOMAIN'] = masterdom
+        all_vars['IM_INFRASTRUCTURE_ID'] = self.inf.id
+        all_vars['IM_INFRASTRUCTURE_RADL'] = self.inf.get_json_radl()
+        all_vars['IM_INFRASTRUCTURE_AUTH'] = self.inf.get_auth()
 
-        if windows:
-            out.write('[windows]\n' + windows + "\n")
+        if windows_hosts:
+            children['windows'] = {'hosts': windows_hosts}
 
         # create the allnowindows group to launch the "all" tasks
-        if no_windows:
-            out.write('[allnowindows]\n' + no_windows + "\n")
+        if no_windows_hosts:
+            children['allnowindows'] = {'hosts': no_windows_hosts}
 
-        out.close()
+        inventory_data = {'all': {'vars': all_vars, 'children': children}}
+        with open(ansible_file, 'w') as out:
+            yaml.dump(inventory_data, out, default_flow_style=False, sort_keys=False)
 
         return res_filename
 

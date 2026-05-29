@@ -353,8 +353,23 @@ class VirtualMachine(LoggerMixin):
         """
         Get the requested name for the specified interface of this VM
         """
-        return self.requested_radl.systems[0].getRequestedNameIface(iface_num, self.im_id,
-                                                                    default_hostname, default_domain)
+        system = self.requested_radl.systems[0]
+        full_name = system.getValue("net_interface.%d.dns.0.name" % iface_num)
+        if not full_name:
+            full_name = system.getValue("net_interface.%d.dns_name" % iface_num)
+
+        if full_name:
+            replaced_full_name = system.replaceTemplateName(full_name, self.im_id)
+            (hostname, domain) = replaced_full_name
+            if not domain:
+                domain = default_domain
+            return (hostname, domain)
+        else:
+            if default_hostname:
+                (hostname, _) = system.replaceTemplateName(default_hostname, self.im_id)
+                return (hostname, default_domain)
+            else:
+                return None
 
     def isConnectedWith(self, vm):
         """
@@ -598,13 +613,16 @@ class VirtualMachine(LoggerMixin):
         """Replace the #N# in dns_names."""
         cont = 0
         while vm_system.getValue('net_interface.%d.connection' % cont):
-            vm_dns_name = vm_system.getValue('net_interface.%d.dns_name' % cont)
+            vm_dns_name = vm_system.getValue('net_interface.%d.dns.0.name' % cont)
+            if not vm_dns_name:
+                vm_dns_name = vm_system.getValue('net_interface.%d.dns_name' % cont)
             # if dns_name is not set in iface 0 set the default one
             if cont == 0 and vm_dns_name is None:
                 vm_dns_name = Config.DEFAULT_VM_NAME
             if vm_dns_name and "#N#" in vm_dns_name:
                 vm_dns_name = vm_dns_name.replace("#N#", str(self.im_id))
                 vm_system.setValue('net_interface.%d.dns_name' % cont, vm_dns_name)
+                vm_system.setValue('net_interface.%d.dns.0.name' % cont, vm_dns_name)
             cont += 1
 
     @staticmethod
@@ -1171,9 +1189,67 @@ class VirtualMachine(LoggerMixin):
                 if next_net:
                     system.setValue('net_interface.%d.connection' % i, next_net)
                     system.setValue('net_interface.%d.dns_name' % i, next_dns)
+                    system.setValue('net_interface.%d.dns.0.name' % i, next_dns)
                 else:
                     system.delValue('net_interface.%d.connection' % i)
                     system.delValue('net_interface.%d.dns_name' % i)
                 if system.getValue('net_interface.%d.ip' % i):
                     system.delValue('net_interface.%d.ip' % i)
             i += 1
+
+    def set_tls_certificate(self, hostname, domain, private_key_pem, cert_pem):
+        """
+        Set the TLS certificate in the VM info
+        """
+        system = self.info.systems[0]
+        for net_name in system.getNetworkIDs():
+            num_conn = system.getNumNetworkWithConnection(net_name)
+            num_dns = 0
+            while True:
+                dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
+                if not dns_name:
+                    break
+                if dns_name == "%s.%s" % (hostname, domain if not domain.endswith(".") else domain[:-1]):
+                    system.setValue('net_interface.%d.dns.%d.tls.private_key' % (num_conn, num_dns), private_key_pem)
+                    system.setValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns), cert_pem)
+                num_dns += 1
+
+    def get_tls_certificates(self):
+        """
+        Get the TLS certificates from the VM info
+        """
+        system = self.info.systems[0]
+        tls_certificates = {}
+        for net_name in system.getNetworkIDs():
+            num_conn = system.getNumNetworkWithConnection(net_name)
+            num_dns = 0
+            while True:
+                dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
+                if not dns_name:
+                    break
+                tls_cert = system.getValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns))
+                if tls_cert:
+                    if dns_name in tls_certificates:
+                        self.log_warn("There are more than one TLS certificate for the same DNS name: %s. "
+                                      "Only the last one will be returned." % dns_name)
+                    tls_certificates[dns_name] = tls_cert
+                num_dns += 1
+        return tls_certificates
+
+    def requires_tls_certificate(self):
+        """
+        Check if this VM requires a TLS certificate
+        """
+        system = self.info.systems[0]
+        for net_name in system.getNetworkIDs():
+            num_conn = system.getNumNetworkWithConnection(net_name)
+            num_dns = 0
+            while True:
+                dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
+                if not dns_name:
+                    break
+                gen_tls_cert = system.getValue('net_interface.%d.dns.%d.tls' % (num_conn, num_dns))
+                if gen_tls_cert in ['true', 'yes']:
+                    return True
+                num_dns += 1
+        return False

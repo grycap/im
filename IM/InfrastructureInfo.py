@@ -437,7 +437,7 @@ class InfrastructureInfo:
             for key in elem.keys():
                 new_data[key.replace(".", "_")] = elem[key]
             json_data.append(new_data)
-        return json.dumps(json_data)
+        return json_data
 
     def get_radl(self):
         """
