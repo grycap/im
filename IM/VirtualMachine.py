@@ -352,7 +352,7 @@ class VirtualMachine(LoggerMixin):
     def getRequestedNameIface(self, iface_num, default_hostname=None, default_domain=None):
         """
         Get the requested name for the specified interface of this VM
-        """    
+        """
         system = self.requested_radl.systems[0]
         full_name = system.getValue("net_interface.%d.dns.0.name" % iface_num)
         if not full_name:
