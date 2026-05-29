@@ -631,8 +631,8 @@ class CloudConnector(LoggerMixin):
             if not domain.endswith("."):
                 domain += "."
             tls = False
-            gen_tls_cert = system.getValue('net_interface.0.dns.0.tls')
-            tls_cert = system.getValue('net_interface.0.dns.0.tls.certificate')
+            gen_tls_cert = system.getValue('net_interface.%s.dns.0.tls' % num_conn)
+            tls_cert = system.getValue('net_interface.%s.dns.0.tls.certificate' % num_conn)
             if not tls_cert and gen_tls_cert and gen_tls_cert in ["true", "yes"]:
                 tls = True
             if domain != "localdomain." and ip and hostname:
