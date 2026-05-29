@@ -16,6 +16,8 @@
 
 
 import base64
+import ipaddress
+from typing import List
 import requests
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -95,17 +97,25 @@ class EGICloudConnector(CloudConnector):
         return hostname, domain, wildcard
 
     @staticmethod
-    def _generate_csr(fqdn):
+    def _generate_csr(fqdn, ip=None):
         """
         Generate a PEM-encoded CSR and private key for the provided FQDN.
+        Optionally include the IP address in the SAN extension.
         """
+        san_names: List[x509.GeneralName] = [x509.DNSName(fqdn)]
+        if ip:
+            try:
+                san_names.append(x509.IPAddress(ipaddress.ip_address(ip)))
+            except ValueError:
+                pass
+
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048,
                                                backend=default_backend())
         csr = (x509.CertificateSigningRequestBuilder()
                .subject_name(x509.Name([
                    x509.NameAttribute(NameOID.COMMON_NAME, fqdn),
                ]))
-               .add_extension(x509.SubjectAlternativeName([x509.DNSName(fqdn)]), critical=False)
+               .add_extension(x509.SubjectAlternativeName(san_names), critical=False)
                .sign(private_key, hashes.SHA256(), default_backend()))
         csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode("utf-8")
         private_key_pem = private_key.private_bytes(
@@ -247,10 +257,10 @@ class EGICloudConnector(CloudConnector):
                     self.log_debug(f"DNS entry {hostname}.{domain} does not exist. Do not add TLS certificate.")
                     return False
 
-                csr_pem, private_key_pem = EGICloudConnector._generate_csr(f"{hostname}.{domain}")
+                csr_pem, private_key_pem = EGICloudConnector._generate_csr(f"{hostname}.{domain}", ip)
                 body = {"csr": csr_pem}
 
-                url = f'{EGICloudConnector.DYDNS_URL}/hosts/{hostname}.{domain}/certificate'
+                url = f'{EGICloudConnector.DYDNS_URL}/api/hosts/{hostname}.{domain}/certificate'
                 resp = requests.post(url, headers={'Authorization': f'Bearer {token}'}, json=body,
                                      timeout=EGICloudConnector.DEFAULT_TIMEOUT)
                 if resp.status_code != 200:

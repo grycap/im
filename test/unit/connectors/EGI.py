@@ -136,10 +136,10 @@ class TestEGIConnector(unittest.TestCase):
         cloud = EGICloudConnector(None, None)
         vm = MagicMock()
 
-        success = cloud.create_tls_certificate(vm, "hostname", "domain", "ip", auth_data)
+        success = cloud.create_tls_certificate(vm, "hostname", "domain", "8.8.8.8", auth_data)
         self.assertTrue(success)
 
-        post_url = f"{EGICloudConnector.DYDNS_URL}/hosts/hostname.domain/certificate"
+        post_url = f"{EGICloudConnector.DYDNS_URL}/api/hosts/hostname.domain/certificate"
         self.assertEqual(mock_post.call_count, 1)
         self.assertEqual(mock_get.call_count, 0)
 
