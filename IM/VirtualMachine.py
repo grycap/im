@@ -352,9 +352,24 @@ class VirtualMachine(LoggerMixin):
     def getRequestedNameIface(self, iface_num, default_hostname=None, default_domain=None):
         """
         Get the requested name for the specified interface of this VM
-        """
-        return self.requested_radl.systems[0].getRequestedNameIface(iface_num, self.im_id,
-                                                                    default_hostname, default_domain)
+        """    
+        system = self.requested_radl.systems[0]
+        full_name = system.getValue("net_interface.%d.dns.0.name" % iface_num)
+        if not full_name:
+            full_name = system.getValue("net_interface.%d.dns_name" % iface_num)
+
+        if full_name:
+            replaced_full_name = system.replaceTemplateName(full_name, self.im_id)
+            (hostname, domain) = replaced_full_name
+            if not domain:
+                domain = default_domain
+            return (hostname, domain)
+        else:
+            if default_hostname:
+                (hostname, _) = system.replaceTemplateName(default_hostname, self.im_id)
+                return (hostname, default_domain)
+            else:
+                return None
 
     def isConnectedWith(self, vm):
         """
@@ -1233,8 +1248,8 @@ class VirtualMachine(LoggerMixin):
                 dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
                 if not dns_name:
                     break
-                tls_cert = system.getValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns))
-                if tls_cert in ['true', 'yes']:
+                gen_tls_cert = system.getValue('net_interface.%d.dns.%d.tls' % (num_conn, num_dns))
+                if gen_tls_cert in ['true', 'yes']:
                     return True
                 num_dns += 1
         return False
