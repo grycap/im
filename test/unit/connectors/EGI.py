@@ -22,6 +22,8 @@ sys.path.append(".")
 sys.path.append("..")
 from IM.auth import Authentication
 from IM.connectors.EGI import EGICloudConnector
+from IM.VirtualMachine import VirtualMachine
+from radl import radl_parse
 from mock import patch, MagicMock, call
 
 
@@ -160,6 +162,41 @@ class TestEGIConnector(unittest.TestCase):
         csr_pem, private_key_pem = EGICloudConnector._generate_csr("hostname.domain")
         self.assertTrue(csr_pem.startswith('-----BEGIN CERTIFICATE REQUEST-----'))
         self.assertTrue(private_key_pem.startswith('-----BEGIN RSA PRIVATE KEY-----'))
+
+    @patch('IM.connectors.EGI.EGICloudConnector.create_tls_certificate')
+    @patch('IM.connectors.EGI.EGICloudConnector.add_dns_entry')
+    def test_manage_dns_entries_with_tls(self, mock_add_dns, mock_create_tls):
+        mock_add_dns.return_value = True
+        mock_create_tls.return_value = True
+
+        radl_data = """
+            network net (outbound = 'yes')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.ip = '158.42.1.1' and
+            net_interface.0.dns.0.name = 'hostname.domain.com' and
+            net_interface.0.dns.0.tls = 'true' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'ost://server.com/1' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
+        cloud = EGICloudConnector(None, None)
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "vmid", cloud.cloud, radl, radl, cloud, 1)
+
+        success = cloud.manage_dns_entries("add", vm, auth_data)
+        self.assertTrue(success)
+
+        mock_add_dns.assert_called_once_with('hostname', 'domain.com.', '158.42.1.1', auth_data, None)
+        mock_create_tls.assert_called_once_with(vm, 'hostname', 'domain.com.', '158.42.1.1', auth_data)
 
 
 if __name__ == '__main__':
