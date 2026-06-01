@@ -54,8 +54,6 @@ class Config:
     WAIT_RUNNING_VM_TIMEOUT = 1800
     WAIT_SSH_ACCCESS_TIMEOUT = 300
     WAIT_PUBLIC_IP_TIMEOUT = 90
-    XMLRCP_PORT = 8899
-    XMLRCP_ADDRESS = "0.0.0.0"  # nosec
     ACTIVATE_REST = True
     REST_PORT = 8800
     REST_ADDRESS = "0.0.0.0"  # nosec
@@ -100,7 +98,6 @@ class Config:
     DELAY_BETWEEN_VM_RETRIES = 5
     VERIFI_SSL = False
     SSH_REVERSE_TUNNELS = True
-    ACTIVATE_XMLRPC = True
     FORCE_OIDC_AUTH = False
     BOOT_MODE = 0  # It can be 0-Normal, 1-ReadOnly, 2-ReadDelete
     ENABLE_CORS = False
