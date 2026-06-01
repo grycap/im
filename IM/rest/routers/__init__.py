@@ -16,9 +16,12 @@
 
 import json
 import base64
+import asyncio
+from functools import partial
 
 from typing import List, Optional
 
+import anyio
 from fastapi import Request, Response, HTTPException, Security
 from fastapi.responses import PlainTextResponse, JSONResponse
 from fastapi.security import APIKeyHeader
@@ -58,6 +61,21 @@ security = APIKeyHeader(
     auto_error=False,
     description="IM Authentication header"
 )
+
+_MAX_BLOCKING_CALLS = max(1, Config.REST_MAX_BLOCKING_CALLS)
+_BLOCKING_LIMITER = anyio.CapacityLimiter(_MAX_BLOCKING_CALLS)
+
+
+async def run_blocking(func, *args, **kwargs):
+    """Run blocking/synchronous code in FastAPI threadpool with guardrails."""
+    timeout = Config.REST_BLOCKING_CALL_TIMEOUT
+    timeout = timeout if timeout and timeout > 0 else None
+    async with _BLOCKING_LIMITER:
+        try:
+            call = partial(func, *args, **kwargs)
+            return await asyncio.wait_for(anyio.to_thread.run_sync(call), timeout=timeout)
+        except asyncio.TimeoutError as ex:
+            raise HTTPException(status_code=504, detail="Operation timed out") from ex
 
 
 def get_media_type(request: Request, header: str) -> List[str]:
