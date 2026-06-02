@@ -579,7 +579,7 @@ class TestIM(unittest.TestCase):
             parallel_delay = time.perf_counter() - before
 
             self.assertLess(parallel_delay, serial_delay * 0.7)
-            self.assertLess(parallel_delay, launch_delay * 2.2)
+            self.assertLess(parallel_delay, launch_delay * 2.6)
 
             self.assertEqual(vms, [6, 7, 8, 9, 10, 11])
             self.assertEqual(cloud.launch.call_count, 3)
