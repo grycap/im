@@ -1647,10 +1647,10 @@ configure step2 (
         check_auth_data.return_value = auth
         stats = IM.GetStats('2001-01-01', '2122-01-01', auth)
         self.assertEqual(db.select.call_args_list[1][0],
-                 ('select data, date, id from inf_list where '
-                  '((auth like %s and auth like %s)) '
-                  'order by rowid desc',
-                  ('%%"micafer"%%', '%%"pass"%%')))
+                         ('select data, date, id from inf_list where '
+                          '((auth like %s and auth like %s)) '
+                          'order by rowid desc',
+                          ('%%"micafer"%%', '%%"pass"%%')))
 
         db.find.return_value = [{'data': json.dumps(inf_data),
                                  'date': datetime.strptime('2022-03-23', "%Y-%m-%d"),
