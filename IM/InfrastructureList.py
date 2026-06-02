@@ -91,7 +91,7 @@ class InfrastructureList():
         else:
             inf_ids = db_inf_ids
 
-        return list(OrderedDict.fromkeys(db_inf_ids + mem_inf_ids))
+        return list(OrderedDict.fromkeys(inf_ids + mem_inf_ids))
 
     @staticmethod
     def get_infrastructure(inf_id):
