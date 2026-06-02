@@ -223,7 +223,8 @@ class InfrastructureList():
                                             (inf_id,))
                     else:
                         if db.db_type == DataBase.MONGO:
-                            res = db.find("inf_list", {"deleted": 0}, {data_field: True, "deleted": True}, [('_id', -1)])
+                            res = db.find("inf_list", {"deleted": 0},
+                                          {data_field: True, "deleted": True}, [('_id', -1)])
                         else:
                             res = db.select("select " + data_field + ",deleted from inf_list where deleted = 0"  # nosec
                                             " order by rowid desc")
@@ -237,7 +238,9 @@ class InfrastructureList():
                                 deleted = elem[1]
                             try:
                                 if auth:
-                                    inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(inf_id, deleted, data)
+                                    inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(inf_id,
+                                                                                                    deleted,
+                                                                                                    data)
                                 else:
                                     inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(data)
                                 inf_list[inf.id] = inf
