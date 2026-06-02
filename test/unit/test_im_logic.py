@@ -1640,7 +1640,7 @@ configure step2 (
         self.assertEqual(stats, expected_res)
         db.select.assert_called_with('select data, date, id from inf_list where '
                                      '((auth like %s)) order by rowid desc',
-                                     ('%%"__OPENID__mcaballer"%%',))
+                                     ('%"__OPENID__mcaballer"%',))
 
         auth = Authentication([{'type': 'InfrastructureManager', 'token': 'atoken',
                                 'username': 'micafer', 'password': 'pass'}])
@@ -1650,7 +1650,7 @@ configure step2 (
                          ('select data, date, id from inf_list where '
                           '((auth like %s and auth like %s)) '
                           'order by rowid desc',
-                          ('%%"micafer"%%', '%%"pass"%%')))
+                          ('%"micafer"%', '%"pass"%')))
 
         db.find.return_value = [{'data': json.dumps(inf_data),
                                  'date': datetime.strptime('2022-03-23', "%Y-%m-%d"),
