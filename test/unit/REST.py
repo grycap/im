@@ -1040,7 +1040,6 @@ class TestREST(unittest.TestCase):
 
         self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'noSetHierarchy')
 
-
     @patch("IM.InfrastructureManager.InfrastructureManager.GetStats")
     def test_run_blocking_returns_result(self, GetStats):
         headers = {
@@ -1114,6 +1113,7 @@ class TestREST(unittest.TestCase):
         finally:
             routers._BLOCKING_LIMITER = original_limiter
             Config.REST_BLOCKING_CALL_TIMEOUT = original_timeout
+
 
 if __name__ == "__main__":
     unittest.main()
