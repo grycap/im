@@ -57,9 +57,7 @@ class Config:
     ACTIVATE_REST = True
     REST_PORT = 8800
     REST_ADDRESS = "0.0.0.0"  # nosec
-    # Max number of simultaneous blocking calls executed from async REST handlers
     REST_MAX_BLOCKING_CALLS = 32
-    # Timeout in seconds for each blocking call dispatched to threadpool (0 to disable)
     REST_BLOCKING_CALL_TIMEOUT = 0
     USER_DB = ""
     IM_PATH = os.path.dirname(os.path.realpath(__file__))

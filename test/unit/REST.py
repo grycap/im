@@ -16,7 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import anyio
+import asyncio
 import os
+import time
 import unittest
 import sys
 from io import BytesIO
@@ -26,6 +29,7 @@ from IM.auth import Authentication
 from IM.VirtualMachine import VirtualMachine
 from radl.radl_parse import parse_radl
 from fastapi.testclient import TestClient
+from time import perf_counter
 
 sys.path.append("..")
 sys.path.append(".")
@@ -37,6 +41,7 @@ from IM.InfrastructureManager import (DeletedInfrastructureException,
                                       InvaliddUserException)
 from IM.InfrastructureInfo import IncorrectVMException, DeletedVMException, IncorrectStateException
 from IM.rest.REST import app
+import IM.rest.routers as routers
 from IM.config import Config
 import defusedxml.ElementTree as etree
 
@@ -1035,6 +1040,80 @@ class TestREST(unittest.TestCase):
 
         self.assertEqual(root.find(".//oaipmh:error", namespace).attrib['code'], 'noSetHierarchy')
 
+
+    @patch("IM.InfrastructureManager.InfrastructureManager.GetStats")
+    def test_run_blocking_returns_result(self, GetStats):
+        headers = {
+            "Authorization": "Basic dXNlcjpwYXNz",
+            "Accept": "application/json"
+        }
+
+        original_timeout = Config.REST_BLOCKING_CALL_TIMEOUT
+        try:
+            Config.REST_BLOCKING_CALL_TIMEOUT = 1
+            GetStats.return_value = [{"id": "inf1", "cloud": "openstack"}]
+
+            res = self.client.get('/stats', headers=headers)
+            self.assertEqual(res.status_code, 200)
+            self.assertEqual(res.json(), {"stats": [{"id": "inf1", "cloud": "openstack"}]})
+        finally:
+            Config.REST_BLOCKING_CALL_TIMEOUT = original_timeout
+
+    @patch("IM.InfrastructureManager.InfrastructureManager.GetStats")
+    def test_run_blocking_timeout_raises_http_504(self, GetStats):
+        headers = {
+            "Authorization": "Basic dXNlcjpwYXNz",
+            "Accept": "application/json"
+        }
+
+        original_timeout = Config.REST_BLOCKING_CALL_TIMEOUT
+        try:
+            Config.REST_BLOCKING_CALL_TIMEOUT = 0.05
+
+            def slow_call(*args, **kwargs):
+                time.sleep(0.2)
+                return []
+
+            GetStats.side_effect = slow_call
+            res = self.client.get('/stats', headers=headers)
+
+            self.assertEqual(res.status_code, 504)
+            self.assertEqual(res.json(), {"message": "Operation timed out", "code": 504})
+        finally:
+            Config.REST_BLOCKING_CALL_TIMEOUT = original_timeout
+
+    def test_run_blocking_capacity_limiter_one_vs_two(self):
+        original_limiter = routers._BLOCKING_LIMITER
+        original_timeout = Config.REST_BLOCKING_CALL_TIMEOUT
+
+        def slow_call(delay):
+            time.sleep(delay)
+            return "ok"
+
+        async def run_two_calls(delay):
+            start = perf_counter()
+            await asyncio.gather(
+                routers.run_blocking(slow_call, delay),
+                routers.run_blocking(slow_call, delay),
+            )
+            return perf_counter() - start
+
+        try:
+            Config.REST_BLOCKING_CALL_TIMEOUT = 0
+            delay = 0.12
+
+            routers._BLOCKING_LIMITER = anyio.CapacityLimiter(1)
+            elapsed_one = asyncio.run(run_two_calls(delay))
+
+            routers._BLOCKING_LIMITER = anyio.CapacityLimiter(2)
+            elapsed_two = asyncio.run(run_two_calls(delay))
+
+            self.assertGreater(elapsed_one, elapsed_two)
+            self.assertGreaterEqual(elapsed_one, delay * 1.7)
+            self.assertLess(elapsed_two, delay * 1.7)
+        finally:
+            routers._BLOCKING_LIMITER = original_limiter
+            Config.REST_BLOCKING_CALL_TIMEOUT = original_timeout
 
 if __name__ == "__main__":
     unittest.main()

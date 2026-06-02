@@ -499,6 +499,7 @@ class TestIM(unittest.TestCase):
 
     def test_inf_addresources_parallel(self):
         """Deploy parallel virtual machines."""
+        original_max_simultaneous = Config.MAX_SIMULTANEOUS_LAUNCHES
         radl = """"
             network publica (outbound = 'yes')
             network privada ()
@@ -530,49 +531,70 @@ class TestIM(unittest.TestCase):
             deploy wn 3
             deploy wn 2
         """
+
+        # Use a short fixed delay to keep the test fast and deterministic.
+        launch_delay = 0.25
+
+        def launch_with_delay(start_times):
+            def _launch(inf, radl, requested_radl, num_vm, auth_data):
+                start_times.append(time.perf_counter())
+                time.sleep(launch_delay)
+                return self.gen_launch_res(inf, radl, requested_radl, num_vm, auth_data)
+            return _launch
+
+        serial_start_times = []
         cloud = type("MyMock0", (CloudConnector, object), {})
-        cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
+        cloud.launch = Mock(side_effect=launch_with_delay(serial_start_times))
         self.register_cloudconnector("Mock", cloud)
         auth0 = self.getAuth([0], [], [("Mock", 0)])
-        infId = IM.CreateInfrastructure("", auth0)
+        infId = None
+        try:
+            infId = IM.CreateInfrastructure("", auth0)
 
-        # in this case it will take aprox 15 secs
-        before = int(time.time())
-        Config.MAX_SIMULTANEOUS_LAUNCHES = 1
-        vms = IM.AddResource(infId, str(radl), auth0)
-        delay = int(time.time()) - before
-        self.assertLess(delay, 21)
-        self.assertGreater(delay, 14)
+            before = time.perf_counter()
+            Config.MAX_SIMULTANEOUS_LAUNCHES = 1
+            vms = IM.AddResource(infId, str(radl), auth0)
+            serial_delay = time.perf_counter() - before
 
-        self.assertEqual(vms, [0, 1, 2, 3, 4, 5])
-        self.assertEqual(cloud.launch.call_count, 3)
-        self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
-        self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
-        self.assertEqual(cloud.launch.call_args_list[2][0][3], 2)
+            self.assertGreater(serial_delay, launch_delay * 2.5)
 
-        cloud = type("MyMock0", (CloudConnector, object), {})
-        cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
-        self.register_cloudconnector("Mock", cloud)
+            self.assertEqual(vms, [0, 1, 2, 3, 4, 5])
+            self.assertEqual(cloud.launch.call_count, 3)
+            self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
+            self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
+            self.assertEqual(cloud.launch.call_args_list[2][0][3], 2)
 
-        # in this case it will take aprox 5 secs
-        before = int(time.time())
-        Config.MAX_SIMULTANEOUS_LAUNCHES = 3  # Test the pool
-        vms = IM.AddResource(infId, str(radl), auth0)
-        delay = int(time.time()) - before
-        # self.assertLess(delay, 17)
-        # self.assertGreater(delay, 14)
-        self.assertLess(delay, 12)
-        self.assertGreater(delay, 4)
-        Config.MAX_SIMULTANEOUS_LAUNCHES = 1
+            self.assertEqual(len(serial_start_times), 3)
+            serial_min_gap = min(serial_start_times[i + 1] - serial_start_times[i] for i in range(2))
+            self.assertGreater(serial_min_gap, launch_delay * 0.8)
 
-        self.assertEqual(vms, [6, 7, 8, 9, 10, 11])
-        self.assertEqual(cloud.launch.call_count, 3)
-        total = cloud.launch.call_args_list[0][0][3]
-        total += cloud.launch.call_args_list[1][0][3]
-        total += cloud.launch.call_args_list[2][0][3]
-        self.assertEqual(total, 6)
+            parallel_start_times = []
+            cloud = type("MyMock0", (CloudConnector, object), {})
+            cloud.launch = Mock(side_effect=launch_with_delay(parallel_start_times))
+            self.register_cloudconnector("Mock", cloud)
 
-        IM.DestroyInfrastructure(infId, auth0)
+            before = time.perf_counter()
+            Config.MAX_SIMULTANEOUS_LAUNCHES = 3  # Test the pool
+            vms = IM.AddResource(infId, str(radl), auth0)
+            parallel_delay = time.perf_counter() - before
+
+            self.assertLess(parallel_delay, serial_delay * 0.7)
+            self.assertLess(parallel_delay, launch_delay * 2.2)
+
+            self.assertEqual(vms, [6, 7, 8, 9, 10, 11])
+            self.assertEqual(cloud.launch.call_count, 3)
+            total = cloud.launch.call_args_list[0][0][3]
+            total += cloud.launch.call_args_list[1][0][3]
+            total += cloud.launch.call_args_list[2][0][3]
+            self.assertEqual(total, 6)
+
+            self.assertEqual(len(parallel_start_times), 3)
+            parallel_span = max(parallel_start_times) - min(parallel_start_times)
+            self.assertLess(parallel_span, launch_delay * 0.8)
+        finally:
+            Config.MAX_SIMULTANEOUS_LAUNCHES = original_max_simultaneous
+            if infId is not None:
+                IM.DestroyInfrastructure(infId, auth0)
 
     @patch('IM.VMRC.Client')
     def test_inf_cloud_order(self, suds_cli):
