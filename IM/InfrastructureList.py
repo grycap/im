@@ -69,7 +69,8 @@ class InfrastructureList():
     def get_inf_ids(auth=None):
         """ Get the IDs of the Infrastructures """
         db_inf_ids = InfrastructureList._get_inf_ids_from_db(auth)
-        mem_infs = {inf.id: inf for inf in InfrastructureList.infrastructure_list.values() if not inf.has_expired()}
+        with InfrastructureList._lock:
+            mem_infs = {inf.id: inf for inf in InfrastructureList.infrastructure_list.values() if not inf.has_expired()}
         # In case that some DB error, also get IDs from memory
         mem_inf_ids = [inf.id for inf in mem_infs.values() if auth is None or inf.is_authorized(auth)]
         if auth:
@@ -79,8 +80,7 @@ class InfrastructureList():
                 inf = mem_infs.get(inf_id)
                 if not inf:
                     res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
-                    if res:
-                        inf = res.get(inf_id)
+                    inf = res.get(inf_id) if res else None
                 # Confirm that auth is authorized
                 if inf and inf.is_authorized(auth):
                     inf_ids.append(inf.id)
@@ -181,7 +181,7 @@ class InfrastructureList():
                     db.connection["inf_list"].create_index([("id", 1)], unique=True)
                     db.connection["inf_list"].create_index([("deleted", 1)])
                     db.connection["inf_list"].create_index([("auth", 1)])
-                db.close()
+            db.close()
             return True
         else:
             InfrastructureList.logger.error("ERROR connecting with the database!.")
@@ -257,6 +257,7 @@ class InfrastructureList():
             if inf_id:
                 infs_to_save = {inf_id: inf_list[inf_id]}
 
+            all_saved = True
             for inf in infs_to_save.values():
                 data = inf.serialize()
                 if db.db_type == DataBase.MONGO:
@@ -268,31 +269,33 @@ class InfrastructureList():
                                      " values (%s, %s, %s, now(), %s)",
                                      (inf.id, int(inf.deleted), json.dumps(data),
                                       json.dumps(inf.auth.serialize())))
+                all_saved = all_saved and bool(res)
 
             db.close()
-            return res
+            return all_saved
         else:
             InfrastructureList.logger.error("ERROR connecting with the database!.")
             return None
 
     @staticmethod
     def _gen_where_from_auth(auth):
-        like = ""
+        clauses = []
+        params = []
         if auth:
             for elem in auth.getAuthInfo('InfrastructureManager'):
                 if elem.get("admin"):
-                    return ""
+                    return "", []
                 if elem.get("username"):
                     user = elem.get("username")
-                    if like:
-                        like += " or "
                     if IM.InfrastructureInfo.InfrastructureInfo.OPENID_USER_PREFIX in user:
-                        like += "(auth like '%%\"" + elem.get("username") + "\"%%')"
+                        clauses.append("(auth like %s)")
+                        params.append('%%"%s"%%' % elem.get("username"))
                     else:
-                        like += ("(auth like '%%\"" + elem.get("username") + "\"%%' and "
-                                 "auth like '%%\"" + elem.get("password") + "\"%%')")
+                        clauses.append("(auth like %s and auth like %s)")
+                        params.append('%%"%s"%%' % elem.get("username"))
+                        params.append('%%"%s"%%' % elem.get("password"))
 
-        return like
+        return " or ".join(clauses), params
 
     @staticmethod
     def _gen_filter_from_auth(auth):
@@ -330,12 +333,16 @@ class InfrastructureList():
                     filt["deleted"] = 0
                     res = db.find("inf_list", filt, {"id": True}, [('_id', -1)])
                 else:
-                    like = InfrastructureList._gen_where_from_auth(auth)
+                    like, like_params = InfrastructureList._gen_where_from_auth(auth)
                     if like:
                         where = "where deleted = 0 and (%s)" % like
                     else:
                         where = "where deleted = 0"
-                    res = db.select("select id from inf_list %s order by rowid desc" % where)  # nosec
+                    query = "select id from inf_list %s order by rowid desc" % where  # nosec
+                    if like_params:
+                        res = db.select(query, tuple(like_params))
+                    else:
+                        res = db.select(query)
                 for elem in res:
                     if db.db_type == DataBase.MONGO:
                         inf_list.append(elem['id'])
@@ -354,7 +361,7 @@ class InfrastructureList():
     @staticmethod
     def _reinit():
         """Restart the class attributes to initial values."""
-        InfrastructureList.infrastructure_list = {}
+        InfrastructureList.infrastructure_list = OrderedDict({})
         InfrastructureList._lock = threading.Lock()
         db = DataBase(Config.DATA_DB)
         if db.connect():
