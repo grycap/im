@@ -120,11 +120,15 @@ class Stats():
                     filt["data.creation_date"]["$lte"] = datetime.datetime.strptime(end_date, "%Y-%m-%d").timestamp()
                 res = db.find("inf_list", filt, {"id": True, "data": True, "date": True}, [('id', -1)])
             else:
-                like = InfrastructureList._gen_where_from_auth(auth)
+                like, like_params = InfrastructureList._gen_where_from_auth(auth)
                 where = ""
                 if like:
                     where += "where (%s)" % like
-                res = db.select("select data, date, id from inf_list %s order by rowid desc" % where)  # nosec
+                query = "select data, date, id from inf_list %s order by rowid desc" % where  # nosec
+                if like_params:
+                    res = db.select(query, tuple(like_params))
+                else:
+                    res = db.select(query)
 
             init = datetime.datetime.strptime(init_date, "%Y-%m-%d")
             end = datetime.datetime.strptime(end_date, "%Y-%m-%d") if end_date else None
