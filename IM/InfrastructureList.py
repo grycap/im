@@ -69,22 +69,18 @@ class InfrastructureList():
     def get_inf_ids(auth=None):
         """ Get the IDs of the Infrastructures """
         db_inf_ids = InfrastructureList._get_inf_ids_from_db(auth)
+        mem_infs = {inf.id: inf for inf in InfrastructureList.infrastructure_list.values() if not inf.has_expired()}
         # In case that some DB error, also get IDs from memory
-        mem_inf_ids = [inf.id for inf in list(InfrastructureList.infrastructure_list.values())
-                       if not inf.has_expired() and (auth is None or inf.is_authorized(auth))]
+        mem_inf_ids = [inf.id for inf in mem_infs.values() if auth is None or inf.is_authorized(auth)]
         if auth:
             inf_ids = []
             for inf_id in db_inf_ids:
-                inf = None
                 # First check if we have it in memory
-                if inf_id in InfrastructureList.infrastructure_list:
-                    inf = InfrastructureList.infrastructure_list[inf_id]
-                    if inf.has_expired():
-                        inf = None
+                inf = mem_infs.get(inf_id)
                 if not inf:
                     res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id, auth)
                     if res:
-                        inf = res[inf_id]
+                        inf = res.get(inf_id)
                 # Confirm that auth is authorized
                 if inf and inf.is_authorized(auth):
                     inf_ids.append(inf.id)
