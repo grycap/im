@@ -92,9 +92,9 @@ class InfrastructureList():
     @staticmethod
     def get_infrastructure(inf_id):
         """ Get the infrastructure object """
-        if inf_id in InfrastructureList.infrastructure_list:
-            inf = InfrastructureList.infrastructure_list[inf_id]
-            if not inf.has_expired():
+        with InfrastructureList._lock:
+            inf = InfrastructureList.infrastructure_list.get(inf_id)
+            if inf and not inf.has_expired():
                 inf.touch()
                 return inf
 
@@ -102,9 +102,12 @@ class InfrastructureList():
             # Load the data from DB:
             res = InfrastructureList._get_data_from_db(Config.DATA_DB, inf_id)
             if res:
-                inf = res[inf_id]
-                InfrastructureList.infrastructure_list[inf_id] = inf
-                return inf
+                inf = res.get(inf_id)
+                if inf:
+                    with InfrastructureList._lock:
+                        InfrastructureList.infrastructure_list[inf_id] = inf
+                    return inf
+                return None
             else:
                 return None
         else:
@@ -123,14 +126,14 @@ class InfrastructureList():
     @staticmethod
     def load_data():
         """ Load Data from DB """
-        with InfrastructureList._lock:
-            try:
-                inf_list = InfrastructureList._get_data_from_db(Config.DATA_DB)
+        try:
+            inf_list = InfrastructureList._get_data_from_db(Config.DATA_DB)
+            with InfrastructureList._lock:
                 InfrastructureList.infrastructure_list = inf_list
-            except Exception as ex:
-                InfrastructureList.logger.exception("ERROR loading data. Correct or delete it!!")
-                sys.stderr.write("ERROR loading data: " + str(ex) + ".\nCorrect or delete it!! ")
-                sys.exit(-1)
+        except Exception as ex:
+            InfrastructureList.logger.exception("ERROR loading data. Correct or delete it!!")
+            sys.stderr.write("ERROR loading data: " + str(ex) + ".\nCorrect or delete it!! ")
+            sys.exit(-1)
 
     @staticmethod
     def save_data(inf_id=None):
@@ -142,25 +145,34 @@ class InfrastructureList():
         - inf_id(str): ID of the infrastructure to save. If None all will be saved.
         """
         with InfrastructureList._lock:
-            if InfrastructureList._pending_to_save:
-                for elem in InfrastructureList._pending_to_save:
+            pending_to_save = list(InfrastructureList._pending_to_save)
+            if pending_to_save:
+                for elem in pending_to_save:
                     InfrastructureList.logger.debug("Trying to save pending Inf ID: %s" % elem)
             InfrastructureList._pending_to_save.add(inf_id)
             to_save = set(InfrastructureList._pending_to_save)
 
-            for elem in to_save:
-                try:
-                    res = InfrastructureList._save_data_to_db(Config.DATA_DB,
-                                                              InfrastructureList.infrastructure_list,
-                                                              elem)
-                    if res:
-                        InfrastructureList._pending_to_save.remove(elem)
+        for elem in to_save:
+            try:
+                with InfrastructureList._lock:
+                    if elem is None:
+                        inf_list = OrderedDict(InfrastructureList.infrastructure_list)
+                    elif elem in InfrastructureList.infrastructure_list:
+                        inf_list = {elem: InfrastructureList.infrastructure_list[elem]}
                     else:
-                        InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
-                        sys.stderr.write("ERROR saving data.\nChanges not stored!!")
-                except Exception as ex:
-                    InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
-                    sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
+                        inf_list = {}
+
+                res = InfrastructureList._save_data_to_db(Config.DATA_DB, inf_list, elem)
+
+                with InfrastructureList._lock:
+                    if res and elem in InfrastructureList._pending_to_save:
+                        InfrastructureList._pending_to_save.remove(elem)
+                if not res:
+                    InfrastructureList.logger.error("ERROR saving data.\nChanges not stored!!")
+                    sys.stderr.write("ERROR saving data.\nChanges not stored!!")
+            except Exception as ex:
+                InfrastructureList.logger.exception("ERROR saving data. Changes not stored!!")
+                sys.stderr.write("ERROR saving data: " + str(ex) + ".\nChanges not stored!!")
 
     @staticmethod
     def init_table():
@@ -198,47 +210,49 @@ class InfrastructureList():
         if InfrastructureList.init_table():
             db = DataBase(db_url)
             if db.connect():
-                inf_list = {}
-                data_field = "data"
-                if auth:
-                    data_field = "auth"
-                if inf_id:
-                    if db.db_type == DataBase.MONGO:
-                        res = db.find("inf_list", {"id": inf_id}, {data_field: True, "deleted": True})
-                    else:
-                        res = db.select("select " + data_field + ",deleted from inf_list where id = %s",  # nosec
-                                        (inf_id,))
-                else:
-                    if db.db_type == DataBase.MONGO:
-                        res = db.find("inf_list", {"deleted": 0}, {data_field: True, "deleted": True}, [('_id', -1)])
-                    else:
-                        res = db.select("select " + data_field + ",deleted from inf_list where deleted = 0"  # nosec
-                                        " order by rowid desc")
-                if len(res) > 0:
-                    for elem in res:
-                        if db.db_type == DataBase.MONGO:
-                            data = elem[data_field]
-                            deleted = elem["deleted"]
-                        else:
-                            data = elem[0]
-                            deleted = elem[1]
-                        try:
-                            if auth:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(inf_id, deleted, data)
-                            else:
-                                inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(data)
-                            inf_list[inf.id] = inf
-                        except Exception:
-                            InfrastructureList.logger.exception(
-                                "ERROR reading infrastructure from database, ignoring it!.")
-                else:
-                    msg = ""
+                try:
+                    inf_list = {}
+                    data_field = "data"
+                    if auth:
+                        data_field = "auth"
                     if inf_id:
-                        msg = " for inf ID: %s" % inf_id
-                    InfrastructureList.logger.warning("No data in database%s!." % msg)
+                        if db.db_type == DataBase.MONGO:
+                            res = db.find("inf_list", {"id": inf_id}, {data_field: True, "deleted": True})
+                        else:
+                            res = db.select("select " + data_field + ",deleted from inf_list where id = %s",  # nosec
+                                            (inf_id,))
+                    else:
+                        if db.db_type == DataBase.MONGO:
+                            res = db.find("inf_list", {"deleted": 0}, {data_field: True, "deleted": True}, [('_id', -1)])
+                        else:
+                            res = db.select("select " + data_field + ",deleted from inf_list where deleted = 0"  # nosec
+                                            " order by rowid desc")
+                    if len(res) > 0:
+                        for elem in res:
+                            if db.db_type == DataBase.MONGO:
+                                data = elem[data_field]
+                                deleted = elem["deleted"]
+                            else:
+                                data = elem[0]
+                                deleted = elem[1]
+                            try:
+                                if auth:
+                                    inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize_auth(inf_id, deleted, data)
+                                else:
+                                    inf = IM.InfrastructureInfo.InfrastructureInfo.deserialize(data)
+                                inf_list[inf.id] = inf
+                            except Exception:
+                                InfrastructureList.logger.exception(
+                                    "ERROR reading infrastructure from database, ignoring it!.")
+                    else:
+                        msg = ""
+                        if inf_id:
+                            msg = " for inf ID: %s" % inf_id
+                        InfrastructureList.logger.warning("No data in database%s!." % msg)
 
-                db.close()
-                return inf_list
+                    return inf_list
+                finally:
+                    db.close()
             else:
                 InfrastructureList.logger.error("ERROR connecting with the database!.")
                 return {}
@@ -253,26 +267,28 @@ class InfrastructureList():
             return True
         db = DataBase(db_url)
         if db.connect():
-            infs_to_save = inf_list
-            if inf_id:
-                infs_to_save = {inf_id: inf_list[inf_id]}
+            try:
+                infs_to_save = inf_list
+                if inf_id:
+                    infs_to_save = {inf_id: inf_list[inf_id]}
 
-            all_saved = True
-            for inf in infs_to_save.values():
-                data = inf.serialize()
-                if db.db_type == DataBase.MONGO:
-                    res = db.replace("inf_list", {"id": inf.id}, {"id": inf.id, "deleted": int(inf.deleted),
-                                                                  "data": data, "date": time.time(),
-                                                                  "auth": inf.auth.serialize()})
-                else:
-                    res = db.execute("replace into inf_list (id, deleted, data, date, auth)"
-                                     " values (%s, %s, %s, now(), %s)",
-                                     (inf.id, int(inf.deleted), json.dumps(data),
-                                      json.dumps(inf.auth.serialize())))
-                all_saved = all_saved and bool(res)
+                all_saved = True
+                for inf in infs_to_save.values():
+                    data = inf.serialize()
+                    if db.db_type == DataBase.MONGO:
+                        res = db.replace("inf_list", {"id": inf.id}, {"id": inf.id, "deleted": int(inf.deleted),
+                                                                      "data": data, "date": time.time(),
+                                                                      "auth": inf.auth.serialize()})
+                    else:
+                        res = db.execute("replace into inf_list (id, deleted, data, date, auth)"
+                                         " values (%s, %s, %s, now(), %s)",
+                                         (inf.id, int(inf.deleted), json.dumps(data),
+                                          json.dumps(inf.auth.serialize())))
+                    all_saved = all_saved and bool(res)
 
-            db.close()
-            return all_saved
+                return all_saved
+            finally:
+                db.close()
         else:
             InfrastructureList.logger.error("ERROR connecting with the database!.")
             return None
@@ -327,30 +343,32 @@ class InfrastructureList():
         try:
             db = DataBase(Config.DATA_DB)
             if db.connect():
-                inf_list = []
-                if db.db_type == DataBase.MONGO:
-                    filt = InfrastructureList._gen_filter_from_auth(auth)
-                    filt["deleted"] = 0
-                    res = db.find("inf_list", filt, {"id": True}, [('_id', -1)])
-                else:
-                    like, like_params = InfrastructureList._gen_where_from_auth(auth)
-                    if like:
-                        where = "where deleted = 0 and (%s)" % like
-                    else:
-                        where = "where deleted = 0"
-                    query = "select id from inf_list %s order by rowid desc" % where  # nosec
-                    if like_params:
-                        res = db.select(query, tuple(like_params))
-                    else:
-                        res = db.select(query)
-                for elem in res:
+                try:
+                    inf_list = []
                     if db.db_type == DataBase.MONGO:
-                        inf_list.append(elem['id'])
+                        filt = InfrastructureList._gen_filter_from_auth(auth)
+                        filt["deleted"] = 0
+                        res = db.find("inf_list", filt, {"id": True}, [('_id', -1)])
                     else:
-                        inf_list.append(elem[0])
+                        like, like_params = InfrastructureList._gen_where_from_auth(auth)
+                        if like:
+                            where = "where deleted = 0 and (%s)" % like
+                        else:
+                            where = "where deleted = 0"
+                        query = "select id from inf_list %s order by rowid desc" % where  # nosec
+                        if like_params:
+                            res = db.select(query, tuple(like_params))
+                        else:
+                            res = db.select(query)
+                    for elem in res:
+                        if db.db_type == DataBase.MONGO:
+                            inf_list.append(elem['id'])
+                        else:
+                            inf_list.append(elem[0])
 
-                db.close()
-                return inf_list
+                    return inf_list
+                finally:
+                    db.close()
             else:
                 InfrastructureList.logger.error("ERROR connecting with the database!.")
                 return []
