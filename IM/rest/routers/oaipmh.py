@@ -23,12 +23,26 @@ from IM import get_ex_error
 from IM.config import Config
 from IM.oaipmh.oai import OAI
 from IM.oaipmh.utils import Repository
-from IM.rest.routers import return_error
+from IM.rest.routers import return_error, run_blocking
 
 logger = logging.getLogger('InfrastructureManager')
 
 
 router = APIRouter()
+
+
+def _load_metadata(base_identifier_url):
+    """Load metadata from repository using blocking I/O operations."""
+    metadata_dict = {}
+    repo = Repository.create(base_identifier_url)
+    for name, elem in repo.list().items():
+        tosca = yaml.safe_load(repo.get(elem))
+        metadata = tosca["metadata"]
+        metadata["identifier"] = base_identifier_url + name
+        metadata["resource_type"] = "software"
+        metadata["rights"] = "openaccess"
+        metadata_dict[name] = metadata
+    return metadata_dict
 
 
 @router.get("/oai", summary="OAI-PMH endpoint")
@@ -43,16 +57,8 @@ async def oaipmh(request: Request):
               Config.OAIPMH_REPO_BASE_IDENTIFIER_URL, repo_admin_email=Config.OAIPMH_REPO_ADMIN_EMAIL)
 
     # Get list of TOSCA templates from Config.OAIPMH_REPO_BASE_IDENTIFIER_URL
-    metadata_dict = {}
     try:
-        repo = Repository.create(Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
-        for name, elem in repo.list().items():
-            tosca = yaml.safe_load(repo.get(elem))
-            metadata = tosca["metadata"]
-            metadata["identifier"] = Config.OAIPMH_REPO_BASE_IDENTIFIER_URL + name
-            metadata["resource_type"] = "software"
-            metadata["rights"] = "openaccess"
-            metadata_dict[name] = metadata
+        metadata_dict = await run_blocking(_load_metadata, Config.OAIPMH_REPO_BASE_IDENTIFIER_URL)
     except Exception as ex:
         logger.exception("Error getting metadata from TOSCA templates")
         return return_error(request, 400, "Error getting metadata from TOSCA templates: %s" % get_ex_error(ex))
@@ -66,5 +72,5 @@ async def oaipmh(request: Request):
         except Exception as ex:
             logger.warning("Error parsing POST form data: %s" % get_ex_error(ex))
 
-    response_xml = oai.processRequest(values_dict, metadata_dict)
+    response_xml = await run_blocking(oai.processRequest, values_dict, metadata_dict)
     return Response(content=response_xml, media_type='text/xml')

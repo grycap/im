@@ -24,7 +24,7 @@ from IM.InfrastructureManager import InfrastructureManager, InvaliddUserExceptio
 from IM.auth import Authentication
 from IM import get_ex_error
 from IM.rest import STANDARD_RESPONSES
-from IM.rest.routers import get_auth_header, format_output, return_error
+from IM.rest.routers import get_auth_header, format_output, return_error, run_blocking
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -63,10 +63,10 @@ async def get_cloud_info(
                     filters_dict = _filters_str_to_dict(filters)
                 except Exception:
                     raise HTTPException(status_code=400, detail="Invalid format in filters parameter.")
-            images = InfrastructureManager.GetCloudImageList(cloudid, auth, filters_dict)
+            images = await run_blocking(InfrastructureManager.GetCloudImageList, cloudid, auth, filters_dict)
             return format_output(request, images, default_type="application/json", field_name="images")
         elif param == 'quotas':
-            quotas = InfrastructureManager.GetCloudQuotas(cloudid, auth)
+            quotas = await run_blocking(InfrastructureManager.GetCloudQuotas, cloudid, auth)
             return format_output(request, quotas, default_type="application/json", field_name="quotas")
         else:
             raise HTTPException(status_code=404, detail="Incorrect cloud property")

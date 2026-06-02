@@ -25,7 +25,7 @@ from fastapi import Request, Response, HTTPException, Query, Depends, APIRouter
 from IM.auth import Authentication
 from IM import get_ex_error
 from IM.InfrastructureManager import InfrastructureManager
-from IM.rest.routers import format_output, return_error, get_auth_header, get_media_type
+from IM.rest.routers import format_output, return_error, get_auth_header, get_media_type, run_blocking
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -66,7 +66,7 @@ async def get_stats(
             except Exception:
                 raise HTTPException(status_code=400, detail="Incorrect format in end_date parameter: YYYY/MM/dd")
 
-        stats = InfrastructureManager.GetStats(init_date, end_date, auth)
+        stats = await run_blocking(InfrastructureManager.GetStats, init_date, end_date, auth)
 
         acc_type = get_media_type(request, 'Accept')
         if not acc_type or "application/json" in acc_type or "*/*" in acc_type or "application/*" in acc_type:

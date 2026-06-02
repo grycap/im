@@ -30,7 +30,7 @@ from IM.tosca.Tosca import Tosca
 from IM.rest.models import InfrastructureState, UriList, Uri, Deployment
 from IM.rest import STANDARD_RESPONSES, DELETE_RESPONSES
 from IM.rest.routers import (get_auth_header, get_media_type, format_output,
-                             parse_auth, return_error, parse_deployment)
+                             parse_auth, return_error, parse_deployment, run_blocking)
 
 logger = logging.getLogger('InfrastructureManager')
 
@@ -49,7 +49,7 @@ async def get_infrastructure_list(
 ):
     """Get infrastructure list"""
     try:
-        inf_ids = InfrastructureManager.GetInfrastructureList(auth)
+        inf_ids = await run_blocking(InfrastructureManager.GetInfrastructureList, auth)
         res = []
         for inf_id in inf_ids:
             res.append(f"{str(request.base_url).rstrip('/')}/infrastructures/{inf_id}")
@@ -78,14 +78,15 @@ async def create_infrastructure(
     """Create new infrastructure"""
     try:
         if dry_run:
-            res = InfrastructureManager.EstimateResouces(deployment.radl_data, auth)
+            res = await run_blocking(InfrastructureManager.EstimateResouces, deployment.radl_data, auth)
             return format_output(request, res, "application/json")
         else:
-            inf_id = InfrastructureManager.CreateInfrastructure(deployment.radl_data, auth, async_call)
+            inf_id = await run_blocking(InfrastructureManager.CreateInfrastructure,
+                                        deployment.radl_data, auth, async_call)
 
             # Store the TOSCA document
             if deployment.tosca_data:
-                sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
+                sel_inf = await run_blocking(InfrastructureManager.get_infrastructure, inf_id, auth)
                 sel_inf.extra_info['TOSCA'] = deployment.tosca_data
 
             res = f"{str(request.base_url).rstrip('/')}/infrastructures/{inf_id}"
@@ -120,7 +121,7 @@ async def import_infrastructure(
             if "application/json" not in content_type:
                 raise HTTPException(status_code=415, detail="Unsupported Media Type %s" % content_type)
 
-        new_id = InfrastructureManager.ImportInfrastructure(data, auth)
+        new_id = await run_blocking(InfrastructureManager.ImportInfrastructure, data, auth)
         res = f"{str(request.base_url).rstrip('/')}/infrastructures/{new_id}"
         return format_output(request, res, "text/uri-list", "uri")
     except InvaliddUserException as ex:
@@ -144,7 +145,7 @@ async def get_infrastructure_info(
 ):
     """Get infrastructure information"""
     try:
-        vm_ids = InfrastructureManager.GetInfrastructureInfo(infid, auth)
+        vm_ids = await run_blocking(InfrastructureManager.GetInfrastructureInfo, infid, auth)
         res = []
         for vm_id in vm_ids:
             res.append(f"{str(request.base_url).rstrip('/')}/infrastructures/{infid}/vms/{vm_id}")
@@ -174,7 +175,7 @@ async def destroy_infrastructure(
 ):
     """Destroy infrastructure"""
     try:
-        InfrastructureManager.DestroyInfrastructure(infid, auth, force, async_call)
+        await run_blocking(InfrastructureManager.DestroyInfrastructure, infid, auth, force, async_call)
         return Response(status_code=200, media_type='text/plain')
     except DeletedInfrastructureException as ex:
         return return_error(request, 404, "Error Destroying Inf: %s" % get_ex_error(ex))
@@ -208,14 +209,14 @@ async def get_infrastructure_property(
     try:
         accept = None
         if prop == "contmsg":
-            res = InfrastructureManager.GetInfrastructureContMsg(infid, auth, headeronly)
+            res = await run_blocking(InfrastructureManager.GetInfrastructureContMsg, infid, auth, headeronly)
             return format_output(request, res, field_name=prop)
         elif prop == "radl":
-            res = InfrastructureManager.GetInfrastructureRADL(infid, auth)
+            res = await run_blocking(InfrastructureManager.GetInfrastructureRADL, infid, auth)
             return format_output(request, res, field_name=prop)
         elif prop == "tosca":
-            auth_checked = InfrastructureManager.check_auth_data(auth)
-            sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
+            auth_checked = await run_blocking(InfrastructureManager.check_auth_data, auth)
+            sel_inf = await run_blocking(InfrastructureManager.get_infrastructure, infid, auth_checked)
             if "TOSCA" in sel_inf.extra_info:
                 res = sel_inf.extra_info["TOSCA"].serialize()
             else:
@@ -223,7 +224,7 @@ async def get_infrastructure_property(
                                     detail="'tosca' infrastructure property is not valid in this infrastructure")
             return format_output(request, res, field_name=prop)
         elif prop == "authorization":
-            res = InfrastructureManager.GetInfrastructureOwners(infid, auth)
+            res = await run_blocking(InfrastructureManager.GetInfrastructureOwners, infid, auth)
             return format_output(request, res, field_name=prop)
 
         # For other properties, application/json is the only supported media type
@@ -232,17 +233,17 @@ async def get_infrastructure_property(
             raise HTTPException(status_code=415, detail="Unsupported Accept Media Types: %s" % accept)
 
         if prop == "state":
-            res = InfrastructureManager.GetInfrastructureState(infid, auth)
+            res = await run_blocking(InfrastructureManager.GetInfrastructureState, infid, auth)
         elif prop == "outputs":
-            auth_checked = InfrastructureManager.check_auth_data(auth)
-            sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
+            auth_checked = await run_blocking(InfrastructureManager.check_auth_data, auth)
+            sel_inf = await run_blocking(InfrastructureManager.get_infrastructure, infid, auth_checked)
             if "TOSCA" in sel_inf.extra_info:
                 res = sel_inf.extra_info["TOSCA"].get_outputs(sel_inf)
             else:
                 raise HTTPException(status_code=403,
                                     detail="'outputs' infrastructure property is not valid in this infrastructure")
         elif prop == "data":
-            res = InfrastructureManager.ExportInfrastructure(infid, delete, auth)
+            res = await run_blocking(InfrastructureManager.ExportInfrastructure, infid, delete, auth)
         else:
             raise HTTPException(status_code=404, detail="Incorrect infrastructure property")
 
@@ -277,28 +278,28 @@ async def add_resource(
         remove_list = []
 
         if deployment.tosca_data:
-            auth_checked = InfrastructureManager.check_auth_data(auth)
-            sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
+            auth_checked = await run_blocking(InfrastructureManager.check_auth_data, auth)
+            sel_inf = await run_blocking(InfrastructureManager.get_infrastructure, infid, auth_checked)
             # merge the current TOSCA with the new one
             if isinstance(sel_inf.extra_info.get('TOSCA'), Tosca):
                 deployment.tosca_data = sel_inf.extra_info['TOSCA'].merge(deployment.tosca_data)
             remove_list, deployment.radl_data = deployment.tosca_data.to_radl(sel_inf)
 
         if remove_list:
-            removed_vms = InfrastructureManager.RemoveResource(infid, remove_list, auth, context)
+            removed_vms = await run_blocking(InfrastructureManager.RemoveResource, infid, remove_list, auth, context)
             if len(remove_list) != removed_vms:
                 logger.error("Error deleting resources %s (removed %s)" % (remove_list, removed_vms))
 
-        vm_ids = InfrastructureManager.AddResource(infid, deployment.radl_data, auth, context)
+        vm_ids = await run_blocking(InfrastructureManager.AddResource, infid, deployment.radl_data, auth, context)
 
         # If there are no changes in the infra, launch a reconfigure
         if not remove_list and not vm_ids and context:
-            InfrastructureManager.Reconfigure(infid, "", auth)
+            await run_blocking(InfrastructureManager.Reconfigure, infid, "", auth)
 
         # Replace the TOSCA document
         if deployment.tosca_data:
-            auth_checked = InfrastructureManager.check_auth_data(auth)
-            sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
+            auth_checked = await run_blocking(InfrastructureManager.check_auth_data, auth)
+            sel_inf = await run_blocking(InfrastructureManager.get_infrastructure, infid, auth_checked)
             sel_inf.extra_info['TOSCA'] = deployment.tosca_data
 
         res = []
@@ -349,7 +350,7 @@ async def reconfigure_infrastructure(
             except Exception as ex:
                 raise HTTPException(status_code=400, detail="Incorrect vm_list format.") from ex
 
-        res = InfrastructureManager.Reconfigure(infid, deployment.radl_data, auth, vm_list_parsed)
+        res = await run_blocking(InfrastructureManager.Reconfigure, infid, deployment.radl_data, auth, vm_list_parsed)
         # As we have to reconfigure the infra, return the ID for the HAProxy stickiness
         return Response(content=res, media_type='text/plain', headers={'InfID': infid})
     except DeletedInfrastructureException as ex:
@@ -380,9 +381,9 @@ async def operate_infrastructure(
     """Start or stop infrastructure"""
     try:
         if op == "start":
-            res = InfrastructureManager.StartInfrastructure(infid, auth)
+            res = await run_blocking(InfrastructureManager.StartInfrastructure, infid, auth)
         elif op == "stop":
-            res = InfrastructureManager.StopInfrastructure(infid, auth)
+            res = await run_blocking(InfrastructureManager.StopInfrastructure, infid, auth)
         else:
             raise HTTPException(status_code=404, detail="Operation not found")
         return Response(content=res, media_type='text/plain')
@@ -414,7 +415,7 @@ async def change_infrastructure_auth(
 ):
     """Change infrastructure authorization"""
     try:
-        InfrastructureManager.ChangeInfrastructureAuth(infid, new_auth, overwrite, auth)
+        await run_blocking(InfrastructureManager.ChangeInfrastructureAuth, infid, new_auth, overwrite, auth)
         return Response(status_code=200, media_type='text/plain')
     except DeletedInfrastructureException as ex:
         return return_error(request, 404, "Error modifying infrastructure owner: %s" % get_ex_error(ex))
@@ -443,7 +444,7 @@ async def get_vm_info(
 ):
     """Get VM information"""
     try:
-        radl = InfrastructureManager.GetVMInfo(infid, vmid, auth)
+        radl = await run_blocking(InfrastructureManager.GetVMInfo, infid, vmid, auth)
         return format_output(request, radl, field_name="radl")
     except DeletedInfrastructureException as ex:
         return return_error(request, 404, "Error Getting VM. info: %s" % get_ex_error(ex))
@@ -473,7 +474,7 @@ async def remove_resource(
 ):
     """Remove VM from infrastructure"""
     try:
-        InfrastructureManager.RemoveResource(infid, vmid, auth, context)
+        await run_blocking(InfrastructureManager.RemoveResource, infid, vmid, auth, context)
         return Response(status_code=200, media_type='text/plain')
     except DeletedInfrastructureException as ex:
         return return_error(request, 404, "Error Removing resources: %s" % get_ex_error(ex))
@@ -505,7 +506,7 @@ async def alter_vm(
 ):
     """Alter VM"""
     try:
-        vm_info = InfrastructureManager.AlterVM(infid, vmid, deployment.radl_data, auth)
+        vm_info = await run_blocking(InfrastructureManager.AlterVM, infid, vmid, deployment.radl_data, auth)
         return format_output(request, vm_info, field_name="radl")
     except DeletedInfrastructureException as ex:
         return return_error(request, 404, "Error modifying resources: %s" % get_ex_error(ex))
@@ -610,14 +611,14 @@ async def get_vm_property(
     """Get VM property"""
     try:
         if prop == 'contmsg':
-            info = InfrastructureManager.GetVMContMsg(infid, vmid, auth)
+            info = await run_blocking(InfrastructureManager.GetVMContMsg, infid, vmid, auth)
         elif prop == 'command':
-            auth_checked = InfrastructureManager.check_auth_data(auth)
-            sel_inf = InfrastructureManager.get_infrastructure(infid, auth_checked)
+            auth_checked = await run_blocking(InfrastructureManager.check_auth_data, auth)
+            sel_inf = await run_blocking(InfrastructureManager.get_infrastructure, infid, auth_checked)
 
             info = get_command(step, sel_inf, infid, vmid, request)
         else:
-            info = InfrastructureManager.GetVMProperty(infid, vmid, prop, auth)
+            info = await run_blocking(InfrastructureManager.GetVMProperty, infid, vmid, prop, auth)
 
         if info is None:
             raise HTTPException(status_code=404, detail="Incorrect property %s for VM ID %s" % (prop, vmid))
@@ -654,11 +655,11 @@ async def operate_vm(
     """Start, stop or reboot VM"""
     try:
         if op == "start":
-            res = InfrastructureManager.StartVM(infid, vmid, auth)
+            res = await run_blocking(InfrastructureManager.StartVM, infid, vmid, auth)
         elif op == "stop":
-            res = InfrastructureManager.StopVM(infid, vmid, auth)
+            res = await run_blocking(InfrastructureManager.StopVM, infid, vmid, auth)
         elif op == "reboot":
-            res = InfrastructureManager.RebootVM(infid, vmid, auth)
+            res = await run_blocking(InfrastructureManager.RebootVM, infid, vmid, auth)
         else:
             raise HTTPException(status_code=404, detail="Operation not found")
         return Response(content=res, media_type='text/plain')
@@ -696,7 +697,8 @@ async def create_disk_snapshot(
 ):
     """Create disk snapshot"""
     try:
-        res = InfrastructureManager.CreateDiskSnapshot(infid, vmid, disknum, image_name, auto_delete, auth)
+        res = await run_blocking(InfrastructureManager.CreateDiskSnapshot,
+                                 infid, vmid, disknum, image_name, auto_delete, auth)
         return Response(content=res, media_type='text/plain')
     except DeletedInfrastructureException as ex:
         return return_error(request, 404, "Error creating snapshot: %s" % get_ex_error(ex))
