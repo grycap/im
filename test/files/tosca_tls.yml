@@ -1,0 +1,45 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+description: TOSCA test for the IM
+
+imports:
+  - grycap_custom_types: https://raw.githubusercontent.com/grycap/tosca/main/custom_types.yaml
+
+topology_template:
+
+  node_templates:
+
+    application:
+      type: tosca.nodes.SoftwareComponent
+      interfaces:
+        Standard:
+          configure:
+            implementation: https://raw.githubusercontent.com/grycap/tosca/main/artifacts/dummy.yml
+            inputs:
+              tls_certs: { get_attribute: [ HOST, endpoint, tls_certificates ] }
+              tls_certs_2: { get_attribute: [ server, endpoint, tls_certificates ] }
+      requirements:
+        - host: server
+
+    server:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        endpoint:
+          properties:
+            tls: true
+            dns_name: slurmserver
+            additional_dns_names: [test.some.com]
+            network_name: PUBLIC
+        host:
+          properties:
+            num_cpus: 1
+            mem_size: 1 GB
+        os:
+          properties:
+            type: linux 
+
+  outputs:
+    server:
+      value: { get_attribute: [ server, public_address ] }
+    tls_certs:
+      value: { get_attribute: [ server, endpoint, tls_certificates ] }

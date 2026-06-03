@@ -577,6 +577,7 @@ class Tosca:
             public_ip = self._final_function_result(node_props["public_ip"].value, node)
 
         # This is the solution using endpoints
+        gen_tls = False
         net_provider_id = None
         dns_name = None
         additional_dns_names = []
@@ -649,7 +650,7 @@ class Tosca:
             # If there are network nodes, use it to define system network
             # properties
             port_net = None
-            for net_name, ip, dns_name, additional_dns_names, num, additional_ip, tls in nets:
+            for net_name, ip, dns_name, additional_dns_names, num, additional_ip, gen_tls in nets:
                 net = radl.get_network_by_id(net_name)
                 if not net:
                     raise Exception("Node %s with a port binded to a non existing network: %s." % (node.name,
@@ -661,15 +662,15 @@ class Tosca:
                 # These are not normative properties
                 if dns_name:
                     system.setValue('net_interface.%d.dns.0.name' % num, dns_name)
-                    if tls:
+                    if gen_tls:
                         system.setValue('net_interface.%d.dns.0.tls' % num, 'true')
                 if additional_ip:
                     system.setValue('net_interface.%d.additional_ip' % num, additional_ip)
                 if additional_dns_names:
                     for num_dns, elem in enumerate(additional_dns_names):
-                        system.setValue('net_interface.%d.dns.%d.name' % (num, num_dns + 1), elem)
-                        if tls:
-                            system.setValue('net_interface.%d.dns.%d.tls' % (num, num_dns + 1), 'true')
+                        system.setValue('net_interface.%d.dns.%d.name' % (num, num_dns), elem)
+                        if gen_tls:
+                            system.setValue('net_interface.%d.dns.%d.tls' % (num, num_dns), 'true')
 
                 if net.isPublic():
                     port_net = net
@@ -741,7 +742,9 @@ class Tosca:
                 # allways add the additional_dns_names in the public interface
                 if additional_dns_names:
                     for num_dns, elem in enumerate(additional_dns_names):
-                        system.setValue('net_interface.%d.dns.%d.name' % (num_net, num_dns + 1), elem)
+                        system.setValue('net_interface.%d.dns.%d.name' % (num_net, num_dns), elem)
+                        if gen_tls:
+                            system.setValue('net_interface.%d.dns.%d.tls' % (num_net, num_dns), 'true')
 
             if net_provider_id:
                 if private_net:
@@ -1508,16 +1511,11 @@ class Tosca:
             elif attribute_name == "tosca_name":
                 return node.name
             elif attribute_name == "tls_certificates" and capability_name == "endpoint":
-                if node.type == "tosca.nodes.indigo.Compute":
-                    if index is not None:
-                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_TLS_CERTIFICATES'] }}" % (host_node.name, index)
-                    else:
-                        return ("{{ groups['%s']|map('extract', hostvars,'IM_NODE_TLS_CERTIFICATES')|list"
-                                " if '%s' in groups else []}}" % (host_node.name, host_node.name))
+                if node_name in ["HOST", "SELF"]:
+                    return "{{ IM_NODE_TLS_CERTIFICATES }}"
                 else:
-                    Tosca.logger.warning("Attribute tls_certificates only supported"
-                                         " in tosca.nodes.indigo.Compute nodes.")
-                    return None
+                    # Assume that there is only one VM per group
+                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_TLS_CERTIFICATES'] }}" % host_node.name
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     if index is not None:
