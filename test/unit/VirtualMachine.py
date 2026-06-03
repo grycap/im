@@ -176,8 +176,10 @@ class TestVirtualMachine(unittest.TestCase):
             net_interface.0.connection = 'net1' and
             net_interface.0.dns.0.name = 'api.example.org' and
             net_interface.0.dns.0.tls.certificate = 'cert-1' and
+            net_interface.0.dns.0.tls.private_key = 'key-1' and
             net_interface.0.dns.1.name = 'alt.example.org' and
-            net_interface.0.dns.1.tls.certificate = 'cert-2'
+            net_interface.0.dns.1.tls.certificate = 'cert-2' and
+            net_interface.0.dns.1.tls.private_key = 'key-2'
             )"""
         radl = radl_parse.parse_radl(radl_data)
         vm = VirtualMachine(None, "1", None, radl, radl)
@@ -185,8 +187,8 @@ class TestVirtualMachine(unittest.TestCase):
         tls_certs = vm.get_tls_certificates()
 
         self.assertEqual(tls_certs, {
-            'api.example.org': 'cert-1',
-            'alt.example.org': 'cert-2'
+            'api.example.org': {'certificate': 'cert-1', 'private_key': 'key-1'},
+            'alt.example.org': {'certificate': 'cert-2', 'private_key': 'key-2'}
         })
 
 
