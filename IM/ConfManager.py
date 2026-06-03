@@ -165,6 +165,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         if not success:
             self.inf.set_configured(False)
+            self.inf.add_cont_msg("Error waiting all the VMs to have all the requested IPs")
             self.log_warn("Error waiting all the VMs to have all the requested IPs")
         else:
             self.inf.set_configured(True)

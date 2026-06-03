@@ -786,7 +786,10 @@ class CloudConnector(LoggerMixin):
 
             if dns_entries:
                 for entry in dns_entries:
-                    hostname, domain, ip, tls = entry
+                    hostname = entry[0]
+                    domain = entry[1]
+                    ip = entry[2]
+                    tls = entry[3] if len(entry) > 3 else False
                     try:
                         if op == "add" and entry not in vm.dns_entries:
                             success = self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
