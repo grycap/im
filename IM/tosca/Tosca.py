@@ -1214,6 +1214,15 @@ class Tosca:
                 return None
         return res
 
+    @staticmethod
+    def _jinja_map_access(base_expr, params):
+        """Append map-key accessors to a Jinja expression body."""
+        expr = base_expr
+        for param in params:
+            escaped_param = str(param).replace("'", "\\'")
+            expr += "['%s']" % escaped_param
+        return "{{ %s }}" % expr
+
     def _get_attribute_result(self, func, node, inf_info):
         """Get an attribute value of an entity defined in the service template
 
@@ -1246,6 +1255,7 @@ class Tosca:
         if len(func.args) < 2:
             Tosca.logger.error("Calling get_attribute function. Min 2 parameters.")
             return None
+
         node_name = func.args[0]
 
         # Get node
@@ -1346,7 +1356,10 @@ class Tosca:
                     return None
             elif attribute_name == "tls_certificates" and capability_name == "endpoint":
                 if node.type == "tosca.nodes.indigo.Compute":
-                    return vm.get_tls_certificates()
+                    tls_certs = vm.get_tls_certificates()
+                    if attribute_params:
+                        return self._get_object_values(tls_certs, attribute_params)
+                    return tls_certs
                 else:
                     Tosca.logger.warning("Attribute tls_certificates only supported"
                                          " in tosca.nodes.indigo.Compute nodes.")
@@ -1512,10 +1525,12 @@ class Tosca:
                 return node.name
             elif attribute_name == "tls_certificates" and capability_name == "endpoint":
                 if node_name in ["HOST", "SELF"]:
-                    return "{{ IM_NODE_TLS_CERTIFICATES }}"
+                    base_expr = "IM_NODE_TLS_CERTIFICATES"
                 else:
                     # Assume that there is only one VM per group
-                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_TLS_CERTIFICATES'] }}" % host_node.name
+                    base_expr = "hostvars[groups['%s'][0]]['IM_NODE_TLS_CERTIFICATES']" % host_node.name
+
+                return Tosca._jinja_map_access(base_expr, attribute_params)
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     if index is not None:

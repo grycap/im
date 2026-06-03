@@ -568,6 +568,7 @@ class TestTosca(unittest.TestCase):
 
         outputs = tosca.get_outputs(inf_info)
         self.assertEqual(outputs['tls_certs'], {"cert1": "cert1_content", "cert2": "cert2_content"})
+        self.assertEqual(outputs['tls_cert_1'], "cert1_content")
 
         _, radl = tosca.to_radl()
         conf = None
@@ -580,6 +581,10 @@ class TestTosca(unittest.TestCase):
                          "{{ IM_NODE_TLS_CERTIFICATES }}")
         self.assertEqual(conf['vars']['tls_certs_2'],
                          "{{ hostvars[groups['server'][0]]['IM_NODE_TLS_CERTIFICATES'] }}")
+        self.assertEqual(conf['vars']['tls_cert_1'],
+                         "{{ IM_NODE_TLS_CERTIFICATES['cert1'] }}")
+        self.assertEqual(conf['vars']['tls_cert_1_2'],
+                         "{{ hostvars[groups['server'][0]]['IM_NODE_TLS_CERTIFICATES']['cert1'] }}")
 
 
 if __name__ == "__main__":

@@ -18,6 +18,8 @@ topology_template:
             inputs:
               tls_certs: { get_attribute: [ HOST, endpoint, tls_certificates ] }
               tls_certs_2: { get_attribute: [ server, endpoint, tls_certificates ] }
+              tls_cert_1: { get_attribute: [ HOST, endpoint, tls_certificates, cert1 ] }
+              tls_cert_1_2: { get_attribute: [ server, endpoint, tls_certificates, cert1 ] }
       requirements:
         - host: server
 
@@ -43,3 +45,5 @@ topology_template:
       value: { get_attribute: [ server, public_address ] }
     tls_certs:
       value: { get_attribute: [ server, endpoint, tls_certificates ] }
+    tls_cert_1:
+      value: { get_attribute: [ server, endpoint, tls_certificates, cert1 ] }
