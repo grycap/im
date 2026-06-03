@@ -1233,7 +1233,7 @@ class VirtualMachine(LoggerMixin):
                     if dns_name in tls_certificates:
                         self.log_warn("There are more than one TLS certificate for the same DNS name: %s. "
                                       "Only the last one will be returned." % dns_name)
-                    tls_certificates[dns_name] = {'certificate': tls_cert, 'private_key': tls_key}
+                    tls_certificates[dns_name] = {'cert': tls_cert, 'key': tls_key}
                 num_dns += 1
         return tls_certificates
 

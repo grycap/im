@@ -187,8 +187,8 @@ class TestVirtualMachine(unittest.TestCase):
         tls_certs = vm.get_tls_certificates()
 
         self.assertEqual(tls_certs, {
-            'api.example.org': {'certificate': 'cert-1', 'private_key': 'key-1'},
-            'alt.example.org': {'certificate': 'cert-2', 'private_key': 'key-2'}
+            'api.example.org': {'cert': 'cert-1', 'key': 'key-1'},
+            'alt.example.org': {'cert': 'cert-2', 'key': 'key-2'}
         })
 
 
