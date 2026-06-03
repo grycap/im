@@ -1228,11 +1228,12 @@ class VirtualMachine(LoggerMixin):
                 if not dns_name:
                     break
                 tls_cert = system.getValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns))
+                tls_key = system.getValue('net_interface.%d.dns.%d.tls.private_key' % (num_conn, num_dns))
                 if tls_cert:
                     if dns_name in tls_certificates:
                         self.log_warn("There are more than one TLS certificate for the same DNS name: %s. "
                                       "Only the last one will be returned." % dns_name)
-                    tls_certificates[dns_name] = tls_cert
+                    tls_certificates[dns_name] = {'certificate': tls_cert, 'private_key': tls_key}
                 num_dns += 1
         return tls_certificates
 
