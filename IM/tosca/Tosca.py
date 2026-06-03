@@ -577,6 +577,7 @@ class Tosca:
             public_ip = self._final_function_result(node_props["public_ip"].value, node)
 
         # This is the solution using endpoints
+        gen_tls = False
         net_provider_id = None
         dns_name = None
         additional_dns_names = []
@@ -632,10 +633,14 @@ class Tosca:
                         ports["im-%s-%s" % (protocol, port)]['remote_cidr'] = remote_cidr
             if cap_props and "additional_ip" in cap_props:
                 additional_ip = self._final_function_result(cap_props["additional_ip"].value, node)
+            if cap_props and "tls" in cap_props:
+                gen_tls = self._final_function_result(cap_props["tls"].value, node)
 
         if dns_name:
             system.setValue('net_interface.0.dns_name', dns_name)
             system.setValue('net_interface.0.dns.0.name', dns_name)
+            if gen_tls:
+                system.setValue('net_interface.0.dns.0.tls', 'true')
         if additional_ip:
             system.setValue('net_interface.0.additional_ip', additional_ip)
 
@@ -645,7 +650,7 @@ class Tosca:
             # If there are network nodes, use it to define system network
             # properties
             port_net = None
-            for net_name, ip, dns_name, additional_dns_names, num, additional_ip in nets:
+            for net_name, ip, dns_name, additional_dns_names, num, additional_ip, gen_tls in nets:
                 net = radl.get_network_by_id(net_name)
                 if not net:
                     raise Exception("Node %s with a port binded to a non existing network: %s." % (node.name,
@@ -657,11 +662,15 @@ class Tosca:
                 # These are not normative properties
                 if dns_name:
                     system.setValue('net_interface.%d.dns.0.name' % num, dns_name)
+                    if gen_tls:
+                        system.setValue('net_interface.%d.dns.0.tls' % num, 'true')
                 if additional_ip:
                     system.setValue('net_interface.%d.additional_ip' % num, additional_ip)
                 if additional_dns_names:
                     for num_dns, elem in enumerate(additional_dns_names):
-                        system.setValue('net_interface.%d.dns.%d.name' % (num, num_dns + 1), elem)
+                        system.setValue('net_interface.%d.dns.%d.name' % (num, num_dns), elem)
+                        if gen_tls:
+                            system.setValue('net_interface.%d.dns.%d.tls' % (num, num_dns), 'true')
 
                 if net.isPublic():
                     port_net = net
@@ -733,7 +742,9 @@ class Tosca:
                 # allways add the additional_dns_names in the public interface
                 if additional_dns_names:
                     for num_dns, elem in enumerate(additional_dns_names):
-                        system.setValue('net_interface.%d.dns.%d.name' % (num_net, num_dns + 1), elem)
+                        system.setValue('net_interface.%d.dns.%d.name' % (num_net, num_dns), elem)
+                        if gen_tls:
+                            system.setValue('net_interface.%d.dns.%d.tls' % (num_net, num_dns), 'true')
 
             if net_provider_id:
                 if private_net:
@@ -1333,12 +1344,13 @@ class Tosca:
                     Tosca.logger.warning("Attribute ctxt_log only supported"
                                          " in tosca.nodes.indigo.Compute nodes.")
                     return None
-            elif attribute_name == "tls_certificates":
+            elif attribute_name == "tls_certificates" and capability_name == "endpoint":
                 if node.type == "tosca.nodes.indigo.Compute":
                     return vm.get_tls_certificates()
                 else:
                     Tosca.logger.warning("Attribute tls_certificates only supported"
                                          " in tosca.nodes.indigo.Compute nodes.")
+                    return None
             elif attribute_name == "ansible_output":
                 if node.type == "tosca.nodes.indigo.Compute":
                     return self._get_ansible_output(vm.cont_out, attribute_params)
@@ -1498,17 +1510,12 @@ class Tosca:
                     return "{{ hostvars[groups['%s'][0]]['IM_NODE_VMID'] }}" % host_node.name
             elif attribute_name == "tosca_name":
                 return node.name
-            elif attribute_name == "tls_certificates":
-                if node.type == "tosca.nodes.indigo.Compute":
-                    if index is not None:
-                        return "{{ hostvars[groups['%s'][%d]]['IM_NODE_TLS_CERTIFICATES'] }}" % (host_node.name, index)
-                    else:
-                        return ("{{ groups['%s']|map('extract', hostvars,'IM_NODE_TLS_CERTIFICATES')|list"
-                                " if '%s' in groups else []}}" % (host_node.name, host_node.name))
+            elif attribute_name == "tls_certificates" and capability_name == "endpoint":
+                if node_name in ["HOST", "SELF"]:
+                    return "{{ IM_NODE_TLS_CERTIFICATES }}"
                 else:
-                    Tosca.logger.warning("Attribute tls_certificates only supported"
-                                         " in tosca.nodes.indigo.Compute nodes.")
-                    return None
+                    # Assume that there is only one VM per group
+                    return "{{ hostvars[groups['%s'][0]]['IM_NODE_TLS_CERTIFICATES'] }}" % host_node.name
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     if index is not None:
@@ -1971,7 +1978,8 @@ class Tosca:
                     additional_ip = self._final_function_result(port.get_property_value('additional_ip'), port)
                     additional_dns_names = self._final_function_result(port.get_property_value('additional_dns_names'),
                                                                        port)
-                    nets.append((link, ip, dns_name, additional_dns_names, order, additional_ip))
+                    tls = self._final_function_result(port.get_property_value('tls'), port)
+                    nets.append((link, ip, dns_name, additional_dns_names, order, additional_ip, tls))
 
         return nets
 

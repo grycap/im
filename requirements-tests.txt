@@ -10,7 +10,7 @@ uvicorn
 netaddr
 requests >= 2.19
 scp
-tosca-parser
+git+https://github.com/micafer/tosca-parser@im
 defusedxml
 urllib3>=2.5
 suds-py3
@@ -36,5 +36,5 @@ coverage
 requests-cache
 packaging
 lxml
-httpx
+httpx2
 pydantic
