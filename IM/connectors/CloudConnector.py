@@ -20,6 +20,7 @@ import time
 import yaml
 import uuid
 import re
+import datetime
 
 from radl.radl import Feature, outport
 from IM.config import Config
@@ -633,8 +634,8 @@ class CloudConnector(LoggerMixin):
             tls = False
             gen_tls_cert = system.getValue('net_interface.%s.dns.0.tls' % num_conn)
             tls_cert = system.getValue('net_interface.%s.dns.0.tls.certificate' % num_conn)
-            if not tls_cert and gen_tls_cert and gen_tls_cert in ["true", "yes"]:
-                tls = True
+            if gen_tls_cert and gen_tls_cert in ["true", "yes"]:
+                tls = (not tls_cert) or self._is_tls_certificate_expired(tls_cert)
             if domain != "localdomain." and ip and hostname:
                 res.append((hostname, domain, ip, tls))
 
@@ -648,8 +649,8 @@ class CloudConnector(LoggerMixin):
                 tls = False
                 gen_tls_cert = system.getValue('net_interface.%d.dns.%d.tls' % (num_conn, num_dns))
                 tls_cert = system.getValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns))
-                if not tls_cert and gen_tls_cert and gen_tls_cert in ["true", "yes"]:
-                    tls = True
+                if gen_tls_cert and gen_tls_cert in ["true", "yes"]:
+                    tls = (not tls_cert) or self._is_tls_certificate_expired(tls_cert)
                 dns_names.append((dns_name, tls))
                 num_dns += 1
 
@@ -676,6 +677,36 @@ class CloudConnector(LoggerMixin):
                             res.append(entry)
 
         return res
+
+    def _is_tls_certificate_expired(self, tls_certificate):
+        """
+        Check if a PEM encoded TLS certificate is expired.
+
+        If the certificate cannot be parsed, consider it expired to force regeneration.
+        """
+        if not tls_certificate:
+            return True
+
+        try:
+            from cryptography import x509
+            from cryptography.hazmat.backends import default_backend
+
+            cert_data = tls_certificate.encode('utf-8') if isinstance(tls_certificate, str) else tls_certificate
+            cert = x509.load_pem_x509_certificate(cert_data, default_backend())
+
+            expiry = getattr(cert, 'not_valid_after_utc', None)
+            if expiry is None:
+                expiry = cert.not_valid_after
+
+            if expiry.tzinfo is None:
+                now = datetime.datetime.utcnow()
+            else:
+                now = datetime.datetime.now(expiry.tzinfo)
+
+            return expiry <= now
+        except Exception:
+            self.log_warn("Unable to parse TLS certificate. It will be regenerated.")
+            return True
 
     def resize_vm_radl(self, vm, radl):
         """
@@ -778,18 +809,20 @@ class CloudConnector(LoggerMixin):
             if not hasattr(vm, 'dns_entries'):
                 vm.dns_entries = []
             if op == "add":
-                dns_entries = [entry for entry in self.get_dns_entries(vm) if entry not in vm.dns_entries]
+                all_dns_entries = self.get_dns_entries(vm)
+                dns_entries = [entry for entry in all_dns_entries if entry not in vm.dns_entries]
             elif op == "del":
                 dns_entries = list(vm.dns_entries)
             else:
                 raise Exception("Invalid DNS operation.")
+
+            tls_entries = all_dns_entries if op == "add" else []
 
             if dns_entries:
                 for entry in dns_entries:
                     hostname = entry[0]
                     domain = entry[1]
                     ip = entry[2]
-                    tls = entry[3] if len(entry) > 3 else False
                     try:
                         if op == "add" and entry not in vm.dns_entries:
                             success = self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
@@ -805,7 +838,13 @@ class CloudConnector(LoggerMixin):
                         if not success:
                             raise niex
 
-                    if tls and op == "add":
+            if tls_entries:
+                for entry in tls_entries:
+                    hostname = entry[0]
+                    domain = entry[1]
+                    ip = entry[2]
+                    tls = entry[3] if len(entry) > 3 else False
+                    if tls:
                         self.log_debug("TLS certificate required for %s.%s." % (hostname, domain))
                         try:
                             success = self.create_tls_certificate(vm, hostname, domain, ip, auth_data)

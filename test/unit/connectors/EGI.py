@@ -198,6 +198,85 @@ class TestEGIConnector(unittest.TestCase):
         mock_add_dns.assert_called_once_with('hostname', 'domain.com.', '158.42.1.1', auth_data, None)
         mock_create_tls.assert_called_once_with(vm, 'hostname', 'domain.com.', '158.42.1.1', auth_data)
 
+    @patch('IM.connectors.CloudConnector.CloudConnector._is_tls_certificate_expired')
+    @patch('IM.connectors.EGI.EGICloudConnector.create_tls_certificate')
+    @patch('IM.connectors.EGI.EGICloudConnector.add_dns_entry')
+    def test_manage_dns_entries_with_expired_tls(self, mock_add_dns, mock_create_tls, mock_is_expired):
+        mock_add_dns.return_value = True
+        mock_create_tls.return_value = True
+        mock_is_expired.return_value = True
+
+        radl_data = """
+            network net (outbound = 'yes')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.ip = '158.42.1.1' and
+            net_interface.0.dns.0.name = 'hostname.domain.com' and
+            net_interface.0.dns.0.tls = 'true' and
+            net_interface.0.dns.0.tls.certificate = 'expired-cert' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'ost://server.com/1' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
+        cloud = EGICloudConnector(None, None)
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "vmid", cloud.cloud, radl, radl, cloud, 1)
+
+        success = cloud.manage_dns_entries("add", vm, auth_data)
+        self.assertTrue(success)
+
+        mock_add_dns.assert_called_once_with('hostname', 'domain.com.', '158.42.1.1', auth_data, None)
+        mock_is_expired.assert_called_once_with('expired-cert')
+        mock_create_tls.assert_called_once_with(vm, 'hostname', 'domain.com.', '158.42.1.1', auth_data)
+
+    @patch('IM.connectors.CloudConnector.CloudConnector._is_tls_certificate_expired')
+    @patch('IM.connectors.EGI.EGICloudConnector.create_tls_certificate')
+    @patch('IM.connectors.EGI.EGICloudConnector.add_dns_entry')
+    def test_manage_dns_entries_renews_tls_with_existing_dns(self, mock_add_dns, mock_create_tls, mock_is_expired):
+        mock_add_dns.return_value = True
+        mock_create_tls.return_value = True
+        mock_is_expired.return_value = True
+
+        radl_data = """
+            network net (outbound = 'yes')
+            system test (
+            cpu.arch='x86_64' and
+            cpu.count=1 and
+            memory.size=512m and
+            net_interface.0.connection = 'net' and
+            net_interface.0.ip = '158.42.1.1' and
+            net_interface.0.dns.0.name = 'hostname.domain.com' and
+            net_interface.0.dns.0.tls = 'true' and
+            net_interface.0.dns.0.tls.certificate = 'expired-cert' and
+            disk.0.os.name = 'linux' and
+            disk.0.image.url = 'ost://server.com/1' and
+            disk.0.os.credentials.username = 'user' and
+            disk.0.os.credentials.password = 'pass'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+
+        auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
+        cloud = EGICloudConnector(None, None)
+
+        inf = MagicMock()
+        vm = VirtualMachine(inf, "vmid", cloud.cloud, radl, radl, cloud, 1)
+        vm.dns_entries = [('hostname', 'domain.com.', '158.42.1.1', True)]
+
+        success = cloud.manage_dns_entries("add", vm, auth_data)
+        self.assertTrue(success)
+
+        mock_add_dns.assert_not_called()
+        mock_is_expired.assert_called_once_with('expired-cert')
+        mock_create_tls.assert_called_once_with(vm, 'hostname', 'domain.com.', '158.42.1.1', auth_data)
+
 
 if __name__ == '__main__':
     unittest.main()
