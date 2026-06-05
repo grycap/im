@@ -148,7 +148,7 @@ class TestEGIConnector(unittest.TestCase):
         post_call = mock_post.call_args
         self.assertEqual(post_call.args[0], post_url)
         self.assertEqual(post_call.kwargs['headers'], {'Authorization': 'Bearer access_token'})
-        self.assertEqual(post_call.kwargs['timeout'], 10)
+        self.assertEqual(post_call.kwargs['timeout'], 60)
         self.assertIn('csr', post_call.kwargs['json'])
         self.assertTrue(post_call.kwargs['json']['csr'].startswith('-----BEGIN CERTIFICATE REQUEST-----'))
 

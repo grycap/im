@@ -359,8 +359,7 @@ class VirtualMachine(LoggerMixin):
             full_name = system.getValue("net_interface.%d.dns_name" % iface_num)
 
         if full_name:
-            replaced_full_name = system.replaceTemplateName(full_name, self.im_id)
-            (hostname, domain) = replaced_full_name
+            hostname, domain = system.replaceTemplateName(full_name, self.im_id)
             if not domain:
                 domain = default_domain
             return (hostname, domain)
@@ -1244,10 +1243,14 @@ class VirtualMachine(LoggerMixin):
         system = self.info.systems[0]
         for net_name in system.getNetworkIDs():
             num_conn = system.getNumNetworkWithConnection(net_name)
+
             num_dns = 0
             while True:
                 dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
                 if not dns_name:
+                    break
+                _, domain = system.replaceTemplateName(dns_name, self.im_id)
+                if domain is None or domain == "localdomain":
                     break
                 gen_tls_cert = system.getValue('net_interface.%d.dns.%d.tls' % (num_conn, num_dns))
                 if gen_tls_cert in ['true', 'yes']:
