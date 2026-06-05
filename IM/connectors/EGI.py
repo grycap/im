@@ -34,6 +34,9 @@ class EGICloudConnector(CloudConnector):
     """str with the name of the provider."""
     DYDNS_URL = "https://nsupdate.fedcloud.eu"
     DEFAULT_TIMEOUT = 10
+    """Default timeout for HTTP requests to the DyDNS service in seconds."""
+    DEFAULT_CERT_TIMEOUT = 60
+    """Default timeout for HTTP requests to the DyDNS service when creating TLS certificates in seconds."""
 
     @staticmethod
     def _get_domains(token, domain_name=None):
@@ -251,11 +254,9 @@ class EGICloudConnector(CloudConnector):
                 csr_pem, private_key_pem = EGICloudConnector._generate_csr(f"{hostname}.{domain}")
                 body = {"csr": csr_pem}
 
-                dydns_url = EGICloudConnector.DYDNS_URL
-                # dydns_url = "https://nsupdate-01.fedcloud.eu/"
-                url = f'{dydns_url}/api/hosts/{hostname}.{domain}/certificate'
+                url = f'{EGICloudConnector.DYDNS_URL}/api/hosts/{hostname}.{domain}/certificate'
                 resp = requests.post(url, headers={'Authorization': f'Bearer {token}'}, json=body,
-                                     timeout=EGICloudConnector.DEFAULT_TIMEOUT)
+                                     timeout=EGICloudConnector.DEFAULT_CERT_TIMEOUT)
                 if resp.status_code != 200:
                     self.log_error(f"Error creating TLS certificate for {hostname}.{domain}: {resp.text}")
                     return False
