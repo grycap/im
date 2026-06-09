@@ -123,7 +123,8 @@ class EGICloudConnector(CloudConnector):
         """
         Add a DNS entry to the DNS server
         """
-        domain = domain[:-1] if domain.endswith(".") else domain
+        # call str() to ensure to create a new string object as domain can be later modified
+        domain = str(domain[:-1] if domain.endswith(".") else domain)
         im_auth = auth_data.getAuthInfo("InfrastructureManager")
         try:
             secret = None
