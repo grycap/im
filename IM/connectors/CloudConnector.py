@@ -633,8 +633,8 @@ class CloudConnector(LoggerMixin):
             while True:
                 if num_conn == 0 and num_dns == 0:
                     (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                                default_hostname=Config.DEFAULT_VM_NAME,
-                                                                default_domain=Config.DEFAULT_DOMAIN)
+                                                                  default_hostname=Config.DEFAULT_VM_NAME,
+                                                                  default_domain=Config.DEFAULT_DOMAIN)
                     dns_name = "%s.%s" % (hostname, domain)
                 else:
                     dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
