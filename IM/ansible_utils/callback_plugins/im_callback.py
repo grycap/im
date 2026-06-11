@@ -16,41 +16,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
-import sys
 from datetime import datetime
 from ansible import constants as C
 from ansible.utils.color import colorize, hostcolor
 from ansible.utils.display import Display
 from ansible.plugins.callback import CallbackBase
 from IM.ansible_utils import CallbackContext
+from IM.ansible_utils.output import AnsibleOutput
 
 
 class IMDisplay(Display):
 
     def __init__(self, verbosity=0, output=None):
-        self.output = output
+        self.output = AnsibleOutput.from_value(output)
         super(IMDisplay, self).__init__(verbosity)
 
     def display(self, msg, **kwargs):
-        if self.output:
-            if isinstance(self.output, logging.Logger):
-                # Re-fetch logger by name: the Logger object may have been forked into a child
-                # process (AnsibleThread is a multiprocessing.Process) and its handlers may not
-                # be alive. logging.getLogger() always returns the correct instance for this process.
-                logger = logging.getLogger(self.output.name)
-                if logger.handlers or logging.root.handlers:
-                    logger.info(msg)
-                else:
-                    sys.stdout.write(msg + "\n")
-                    sys.stdout.flush()
-            else:
-                self.output.write("%s\n" % msg)
-                if hasattr(self.output, 'flush'):
-                    self.output.flush()
-        else:
-            sys.stdout.write(msg)
-            sys.stdout.flush()
+        self.output.write(msg)
 
 
 class CallbackModule(CallbackBase):
@@ -69,7 +51,7 @@ class CallbackModule(CallbackBase):
         if output is None:
             output = CallbackContext.config.get("output")
         self._display = IMDisplay(output=output)
-        self._display.output = output  # Always update: IMDisplay is a Singleton, __init__ only runs once
+        self._display.output = AnsibleOutput.from_value(output)  # IMDisplay is a Singleton, __init__ only runs once
 
     def v2_runner_on_failed(self, result, ignore_errors=False):
         delegated_vars = result._result.get('_ansible_delegated_vars', None)

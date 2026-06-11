@@ -243,14 +243,15 @@ class CtxtAgent(CtxtAgentBase):
         os.environ['DEFAULT_LOCAL_TMP'] = remote_dir + "/.ansible_tmp"
         # it must be set before doing the import
         from IM.ansible_utils.ansible_launcher import AnsibleThread
+        from IM.ansible_utils.output import AnsibleOutput
 
         playbook_file = "/tmp/gen_facts_cache.yml"
         with open(playbook_file, "w+") as f:
             f.write(" - hosts: allnowindows\n")
 
         result = Queue()
-        t = AnsibleThread(result, self.logger, playbook_file, threads, CtxtAgentBase.PK_FILE,
-                          None, CtxtAgent.PLAYBOOK_RETRIES, inventory_file)
+        t = AnsibleThread(result, AnsibleOutput.from_logger(self.logger), playbook_file, threads,
+                          CtxtAgentBase.PK_FILE, None, CtxtAgent.PLAYBOOK_RETRIES, inventory_file)
         t.start()
         return (t, result)
 
