@@ -21,7 +21,7 @@
 import sys
 import time
 import os
-from multiprocessing import Process
+from multiprocessing import Process, set_start_method
 import psutil
 import signal
 import logging
@@ -48,6 +48,14 @@ except ImportError:
     from ansible.inventory import Inventory
 
 from .ansible_executor_v2 import IMPlaybookExecutor
+
+
+# Python 3.14 defaults to forkserver on POSIX, which does not inherit logger handlers.
+# Keep the previous behavior until the Ansible launcher is refactored.
+try:
+     set_start_method("fork")
+except (RuntimeError, ValueError):
+    pass
 
 
 def display(msg, color=None, stderr=False, screen_only=False, log_only=False, output=None):
