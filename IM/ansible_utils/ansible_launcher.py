@@ -18,13 +18,11 @@
 # (c) 2012-2014, Michael DeHaan <michael.dehaan@gmail.com>
 #
 
-import sys
 import time
 import os
 from multiprocessing import Process
 import psutil
 import signal
-import logging
 from packaging.version import Version
 from collections import namedtuple
 from ansible import errors
@@ -48,17 +46,11 @@ except ImportError:
     from ansible.inventory import Inventory
 
 from .ansible_executor_v2 import IMPlaybookExecutor
+from .output import AnsibleOutput
 
 
 def display(msg, color=None, stderr=False, screen_only=False, log_only=False, output=None):
-    if output:
-        if isinstance(output, logging.Logger):
-            output.info(msg)
-        else:
-            output.write("%s\n" % msg)
-    else:
-        sys.stdout.write(msg)
-        sys.stdout.flush()
+    AnsibleOutput.from_value(output).write(msg)
 
 
 def colorize(lead, num, color):
@@ -88,25 +80,10 @@ class AnsibleThread(Process):
         self.extra_vars = {}
         if extra_vars:
             self.extra_vars = extra_vars
-        self.output = output
-        self._init_logging(output)
+        self.output = AnsibleOutput.from_value(output)
         self.result = result
         self.vault_pass = vault_pass
         self.timeout = timeout
-
-    def _init_logging(self, output):
-        self.log_file = None
-        self.log_name = None
-        self.log_level = None
-        if isinstance(output, logging.Logger):
-            self.log_name = output.name
-            self.log_level = output.getEffectiveLevel()
-            # Capture the parent log destination so the child process can
-            # bootstrap logging when started with spawn/no inherited handlers.
-            for handler in output.handlers + logging.root.handlers:
-                if isinstance(handler, logging.FileHandler) and getattr(handler, 'baseFilename', None):
-                    self.log_file = handler.baseFilename
-                    break
 
     def teminate(self):
         try:
@@ -140,44 +117,9 @@ class AnsibleThread(Process):
         for pid_str in self._get_childs():
             os.kill(int(pid_str), signal.SIGKILL)
 
-    def _get_logger(self):
-        logger = logging.getLogger(self.log_name or self.output.name)
-        level = self.log_level if self.log_level is not None else logging.INFO
-        logger.setLevel(level)
-
-        # In spawn start method (common in newer distros), child process
-        # starts without parent handlers. Recreate file logging here.
-        if logger.handlers or logging.root.handlers:
-            return logger
-
-        if not self.log_file:
-            logging.basicConfig(level=level,
-                                format='%(message)s',
-                                datefmt='%m-%d-%Y %H:%M:%S')
-            return logger
-
-        try:
-            handler = logging.FileHandler(self.log_file)
-            handler.setFormatter(logging.Formatter('%(message)s', datefmt='%m-%d-%Y %H:%M:%S'))
-            logger.addHandler(handler)
-            logger.propagate = False
-        except Exception:
-            logging.basicConfig(level=level,
-                                format='%(message)s',
-                                datefmt='%m-%d-%Y %H:%M:%S')
-
-        return logger
-
     def run(self):
-        queue_output = None
+        queue_output = self.output.queue_output()
         try:
-            if isinstance(self.output, logging.Logger):
-                logger = self._get_logger()
-                self.output = logger
-
-            # Do not put Logger objects in multiprocessing.Queue.
-            if not isinstance(self.output, logging.Logger):
-                queue_output = self.output
             self.result.put((0, self.launch_playbook_v2(), queue_output))
         except errors.AnsibleError as e:
             display("ERROR: %s" % e, output=self.output)

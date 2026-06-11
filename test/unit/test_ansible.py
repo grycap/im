@@ -22,6 +22,7 @@ from multiprocessing import Queue
 from io import StringIO
 
 from IM.ansible_utils.ansible_launcher import AnsibleThread
+from IM.ansible_utils.output import AnsibleOutput
 
 
 class TestAnsible(unittest.TestCase):
@@ -34,8 +35,8 @@ class TestAnsible(unittest.TestCase):
         tests_path = os.path.dirname(os.path.abspath(__file__))
         play_file_path = os.path.join(tests_path, "../files/play.yaml")
         inventory = os.path.join(tests_path, "../files/inventory")
-        ansible_process = AnsibleThread(result, StringIO(), play_file_path, 1, None,
-                                        "password", 1, inventory, "username")
+        ansible_process = AnsibleThread(result, AnsibleOutput.from_stream(StringIO()), play_file_path,
+                                        1, None, "password", 1, inventory, "username")
         ansible_process.run()
 
         _, return_code, output = result.get()

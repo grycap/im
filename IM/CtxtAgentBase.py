@@ -624,9 +624,10 @@ class CtxtAgentBase:
         os.environ['ANSIBLE_CONFIG'] = self.ANSIBLE_CFG_FILE
         # it must be set before doing the import
         from IM.ansible_utils.ansible_launcher import AnsibleThread
+        from IM.ansible_utils.output import AnsibleOutput
 
         result = Queue()
-        t = AnsibleThread(result, output, playbook_file, threads, gen_pk_file,
+        t = AnsibleThread(result, AnsibleOutput.from_value(output), playbook_file, threads, gen_pk_file,
                           passwd, retries, inventory_file, user, vault_pass, extra_vars)
         t.start()
         return (t, result)

@@ -45,6 +45,7 @@ except ImportError:
 
 from IM.ansible_utils import merge_recipes
 from IM.ansible_utils.ansible_launcher import AnsibleThread
+from IM.ansible_utils.output import AnsibleOutput
 
 import IM.InfrastructureList
 from IM.LoggerMixin import LoggerMixin
@@ -1281,7 +1282,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         if ansible_version:
             extra_vars['im_ansible_version'] = ansible_version
         # store the process to terminate it later is Ansible does not finish correctly
-        self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, 1, gen_pk_file,
+        self.ansible_process = AnsibleThread(result, AnsibleOutput.from_stream(StringIO()),
+                                             tmp_dir + "/" + playbook, 1, gen_pk_file,
                                              ssh.password, 1, tmp_dir + "/" + inventory, ssh.username,
                                              extra_vars=extra_vars)
         self.ansible_process.start()
