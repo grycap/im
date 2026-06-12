@@ -105,17 +105,20 @@ class EGICloudConnector(CloudConnector):
 
         The CSR includes subjectAltName for DNS validation and supports wildcard names.
         """
-        cert_name = f"*.{fqdn}" if wildcard else fqdn
+        dns_names = [fqdn]
+        if wildcard:
+            dns_names.append(f"*.{fqdn}")
+
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048,
                                                backend=default_backend())
         csr_builder = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
             x509.NameAttribute(NameOID.COUNTRY_NAME, "SK"),
             x509.NameAttribute(NameOID.LOCALITY_NAME, "Bratislava"),
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Ustav informatiky SAV"),
-            x509.NameAttribute(NameOID.COMMON_NAME, cert_name),
+            x509.NameAttribute(NameOID.COMMON_NAME, fqdn),
         ]))
         csr_builder = csr_builder.add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(cert_name)]),
+            x509.SubjectAlternativeName([x509.DNSName(name) for name in dns_names]),
             critical=False
         )
         csr = csr_builder.sign(private_key, hashes.SHA256(), default_backend())

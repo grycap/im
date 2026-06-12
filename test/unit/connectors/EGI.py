@@ -172,9 +172,9 @@ class TestEGIConnector(unittest.TestCase):
     def test_generate_wildcard_csr(self):
         csr_pem, _ = EGICloudConnector._generate_csr("hostname.domain", wildcard=True)
         csr = x509.load_pem_x509_csr(csr_pem.encode('utf-8'))
-        self.assertEqual(csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value, "*.hostname.domain")
+        self.assertEqual(csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value, "hostname.domain")
         san = csr.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
-        self.assertIn("*.hostname.domain", san.get_values_for_type(x509.DNSName))
+        self.assertEqual(san.get_values_for_type(x509.DNSName), ["hostname.domain", "*.hostname.domain"])
 
     @patch('requests.get')
     @patch('requests.post')
@@ -194,7 +194,9 @@ class TestEGIConnector(unittest.TestCase):
         post_call = mock_post.call_args
         csr_pem = post_call.kwargs['json']['csr']
         csr = x509.load_pem_x509_csr(csr_pem.encode('utf-8'))
-        self.assertEqual(csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value, "*.hostname.domain")
+        self.assertEqual(csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value, "hostname.domain")
+        san = csr.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
+        self.assertEqual(san.get_values_for_type(x509.DNSName), ["hostname.domain", "*.hostname.domain"])
 
     @patch('IM.connectors.EGI.EGICloudConnector.create_tls_certificate')
     @patch('IM.connectors.EGI.EGICloudConnector.add_dns_entry')
