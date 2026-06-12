@@ -17,6 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import sys
 import unittest
+from cryptography import x509
+from cryptography.x509.oid import ExtensionOID, NameOID
 
 sys.path.append(".")
 sys.path.append("..")
@@ -162,6 +164,37 @@ class TestEGIConnector(unittest.TestCase):
         csr_pem, private_key_pem = EGICloudConnector._generate_csr("hostname.domain")
         self.assertTrue(csr_pem.startswith('-----BEGIN CERTIFICATE REQUEST-----'))
         self.assertTrue(private_key_pem.startswith('-----BEGIN RSA PRIVATE KEY-----'))
+        csr = x509.load_pem_x509_csr(csr_pem.encode('utf-8'))
+        self.assertEqual(csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value, "hostname.domain")
+        san = csr.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
+        self.assertIn("hostname.domain", san.get_values_for_type(x509.DNSName))
+
+    def test_generate_wildcard_csr(self):
+        csr_pem, _ = EGICloudConnector._generate_csr("hostname.domain", wildcard=True)
+        csr = x509.load_pem_x509_csr(csr_pem.encode('utf-8'))
+        self.assertEqual(csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value, "*.hostname.domain")
+        san = csr.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
+        self.assertIn("*.hostname.domain", san.get_values_for_type(x509.DNSName))
+
+    @patch('requests.get')
+    @patch('requests.post')
+    @patch('IM.connectors.EGI.EGICloudConnector._get_host')
+    def test_create_tls_certificate_wildcard(self, mock_get_host, mock_post, mock_get):
+        mock_get_host.return_value = {"name": "hostname"}, ""
+        mock_post.return_value = MagicMock(status_code=200, text="issued-cert")
+        mock_get.return_value = MagicMock(status_code=200)
+
+        auth_data = Authentication([{'type': 'InfrastructureManager', 'token': 'access_token'}])
+        cloud = EGICloudConnector(None, None)
+        vm = MagicMock()
+
+        success = cloud.create_tls_certificate(vm, "*", "hostname.domain", "8.8.8.8", auth_data)
+        self.assertTrue(success)
+
+        post_call = mock_post.call_args
+        csr_pem = post_call.kwargs['json']['csr']
+        csr = x509.load_pem_x509_csr(csr_pem.encode('utf-8'))
+        self.assertEqual(csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value, "*.hostname.domain")
 
     @patch('IM.connectors.EGI.EGICloudConnector.create_tls_certificate')
     @patch('IM.connectors.EGI.EGICloudConnector.add_dns_entry')
