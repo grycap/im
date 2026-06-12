@@ -295,6 +295,27 @@ machine.  The supported features are:
    string contains ``#N#`` they are replaced by a number that is distinct for
    every virtual machine deployed with this ``system`` description.
 
+``net_interface.<netId>.dns.<index>.name = <string>``
+   Specify a set of DNS names for the IP assigned to this interface. If the
+   string contains ``#N#`` they are replaced by a number that is distinct for
+   every virtual machine deployed with this ``system`` description.
+   (new in version 2.0.0).
+
+``net_interface.<netId>.dns.<index>.tls = <boolean>``
+   If set to ``true`` a TLS certificate for the DNS name specified in the previous
+   field will generated. This field only applies if the Cloud provider supports it.
+   (new in version 2.0.0).
+
+``net_interface.<netId>.dns.<index>.tls.certificate = <string>``
+   If the previous field is set to ``true`` this field will be used to return the
+   generated TLS certificate for the DNS name specified.
+   (new in version 2.0.0).
+
+``net_interface.<netId>.dns.<index>.tls.private_key = <string>``
+   If the previous field is set to ``true`` this field will be used to return the
+   generated TLS private key for the DNS name specified.
+   (new in version 2.0.0).
+
 ``availability_zone``
    Set the availability zone or region where this VM will be launched.
    It only applies to Google Cloud, Microsoft Azure, and Amazon AWS
