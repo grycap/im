@@ -626,24 +626,18 @@ class CloudConnector(LoggerMixin):
         for net_name in system.getNetworkIDs():
             num_conn = system.getNumNetworkWithConnection(net_name)
             ip = system.getIfaceIP(num_conn)
-            (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                          default_hostname=Config.DEFAULT_VM_NAME,
-                                                          default_domain=Config.DEFAULT_DOMAIN)
-            if not domain.endswith("."):
-                domain += "."
-            tls = False
-            gen_tls_cert = system.getValue('net_interface.%s.dns.0.tls' % num_conn)
-            tls_cert = system.getValue('net_interface.%s.dns.0.tls.certificate' % num_conn)
-            if gen_tls_cert and gen_tls_cert in ["true", "yes"]:
-                tls = (not tls_cert) or self._is_tls_certificate_expired(tls_cert)
-            if domain != "localdomain." and ip and hostname:
-                res.append((hostname, domain, ip, tls))
 
-            # Also add additional names from net_interface.<n>.dns.<i>.name
+            # Add all names from net_interface.<n>.dns.<i>.name
             dns_names = []
-            num_dns = 1
+            num_dns = 0
             while True:
-                dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
+                if num_conn == 0 and num_dns == 0:
+                    (hostname, domain) = vm.getRequestedNameIface(num_conn,
+                                                                  default_hostname=Config.DEFAULT_VM_NAME,
+                                                                  default_domain=Config.DEFAULT_DOMAIN)
+                    dns_name = "%s.%s" % (hostname, domain)
+                else:
+                    dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
                 if not dns_name:
                     break
                 tls = False
@@ -654,27 +648,26 @@ class CloudConnector(LoggerMixin):
                 dns_names.append((dns_name, tls))
                 num_dns += 1
 
-            if dns_names:
-                for dns_name, tls in dns_names:
-                    if "@" in dns_name:
-                        dns_parts = dns_name.split("@")
-                        if len(dns_parts) != 2:
-                            self.log_error("Invalid format for additional name: %s." % dns_name)
-                            self.error_messages = "Invalid format for additional name: %s." % dns_name
-                            break
-                        hostname = dns_parts[0]
-                        domain = dns_parts[1]
-                    else:
-                        dns_parts = dns_name.split(".")
-                        hostname = dns_parts[0]
-                        domain = ".".join(dns_parts[1:])
+            for dns_name, tls in dns_names:
+                if "@" in dns_name:
+                    dns_parts = dns_name.split("@")
+                    if len(dns_parts) != 2:
+                        self.log_error("Invalid format for additional name: %s." % dns_name)
+                        self.error_messages = "Invalid format for additional name: %s." % dns_name
+                        break
+                    hostname = dns_parts[0]
+                    domain = dns_parts[1]
+                else:
+                    dns_parts = dns_name.split(".")
+                    hostname = dns_parts[0]
+                    domain = ".".join(dns_parts[1:])
 
-                    if not domain.endswith("."):
-                        domain += "."
-                    if domain != "localdomain." and ip and hostname:
-                        entry = (hostname, domain, ip, tls)
-                        if entry not in res:
-                            res.append(entry)
+                if not domain.endswith("."):
+                    domain += "."
+                if domain != "localdomain." and ip and hostname:
+                    entry = (hostname, domain, ip, tls)
+                    if entry not in res:
+                        res.append(entry)
 
         return res
 
