@@ -1200,6 +1200,7 @@ class VirtualMachine(LoggerMixin):
         """
         Set the TLS certificate in the VM info
         """
+        expected_dns_name = "%s.%s" % (hostname, domain if not domain.endswith(".") else domain[:-1])
         system = self.info.systems[0]
         for net_name in system.getNetworkIDs():
             num_conn = system.getNumNetworkWithConnection(net_name)
@@ -1208,7 +1209,7 @@ class VirtualMachine(LoggerMixin):
                 dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
                 if not dns_name:
                     break
-                if dns_name == "%s.%s" % (hostname, domain if not domain.endswith(".") else domain[:-1]):
+                if dns_name in [expected_dns_name, "*." + expected_dns_name]:
                     system.setValue('net_interface.%d.dns.%d.tls.private_key' % (num_conn, num_dns), private_key_pem)
                     system.setValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns), cert_pem)
                 num_dns += 1
