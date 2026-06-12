@@ -98,19 +98,27 @@ class EGICloudConnector(CloudConnector):
         return hostname, domain, wildcard
 
     @staticmethod
-    def _generate_csr(fqdn):
+    def _generate_csr(fqdn, wildcard=False):
         """
         Generate a PEM-encoded CSR and unencrypted private key equivalent to:
         openssl req -new -newkey rsa:2048 -nodes -subj "/C=SK/L=Bratislava/O=Ustav informatiky SAV/CN=<fqdn>"
+
+        The CSR includes subjectAltName for DNS validation and supports wildcard names.
         """
+        cert_name = f"*.{fqdn}" if wildcard else fqdn
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048,
                                                backend=default_backend())
-        csr = (x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
+        csr_builder = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
             x509.NameAttribute(NameOID.COUNTRY_NAME, "SK"),
             x509.NameAttribute(NameOID.LOCALITY_NAME, "Bratislava"),
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Ustav informatiky SAV"),
-            x509.NameAttribute(NameOID.COMMON_NAME, fqdn),
-        ])).sign(private_key, hashes.SHA256(), default_backend()))
+            x509.NameAttribute(NameOID.COMMON_NAME, cert_name),
+        ]))
+        csr_builder = csr_builder.add_extension(
+            x509.SubjectAlternativeName([x509.DNSName(cert_name)]),
+            critical=False
+        )
+        csr = csr_builder.sign(private_key, hashes.SHA256(), default_backend())
         csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode("utf-8")
         private_key_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
@@ -242,7 +250,7 @@ class EGICloudConnector(CloudConnector):
         try:
             if im_auth and im_auth[0].get("token"):
                 token = im_auth[0].get("token")
-                hostname, domain, _ = EGICloudConnector._get_wildcard_host_domain(hostname, domain)
+                hostname, domain, wildcard = EGICloudConnector._get_wildcard_host_domain(hostname, domain)
 
                 host, error = EGICloudConnector._get_host(hostname, domain, token)
                 if error:
@@ -251,7 +259,7 @@ class EGICloudConnector(CloudConnector):
                     self.log_debug(f"DNS entry {hostname}.{domain} does not exist. Do not add TLS certificate.")
                     return False
 
-                csr_pem, private_key_pem = EGICloudConnector._generate_csr(f"{hostname}.{domain}")
+                csr_pem, private_key_pem = EGICloudConnector._generate_csr(f"{hostname}.{domain}", wildcard)
                 body = {"csr": csr_pem}
 
                 url = f'{EGICloudConnector.DYDNS_URL}/api/hosts/{hostname}.{domain}/certificate'
