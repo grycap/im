@@ -613,6 +613,22 @@ class CloudConnector(LoggerMixin):
         else:
             return name
 
+    @staticmethod
+    def get_dns_host_domain(dns_name, add_dot=True):
+        if "@" in dns_name:
+            dns_parts = dns_name.split("@")
+            if len(dns_parts) != 2:
+                return None, None
+            hostname = dns_parts[0]
+            domain = dns_parts[1]
+        else:
+            dns_parts = dns_name.split(".")
+            hostname = dns_parts[0]
+            domain = ".".join(dns_parts[1:])
+        if not domain.endswith(".") and add_dot:
+            domain += "."
+        return hostname, domain
+
     def get_dns_entries(self, vm):
         """
         Get the required entries in the to add in the Cloud provider DNS service
@@ -649,21 +665,12 @@ class CloudConnector(LoggerMixin):
                 num_dns += 1
 
             for dns_name, tls in dns_names:
-                if "@" in dns_name:
-                    dns_parts = dns_name.split("@")
-                    if len(dns_parts) != 2:
-                        self.log_error("Invalid format for additional name: %s." % dns_name)
-                        self.error_messages = "Invalid format for additional name: %s." % dns_name
-                        break
-                    hostname = dns_parts[0]
-                    domain = dns_parts[1]
-                else:
-                    dns_parts = dns_name.split(".")
-                    hostname = dns_parts[0]
-                    domain = ".".join(dns_parts[1:])
+                hostname, domain = self.get_dns_host_domain(dns_name)
+                if not domain:
+                    self.log_error("Invalid format for additional name: %s." % dns_name)
+                    self.error_messages = "Invalid format for additional name: %s." % dns_name
+                    break
 
-                if not domain.endswith("."):
-                    domain += "."
                 if domain != "localdomain." and ip and hostname:
                     entry = (hostname, domain, ip, tls)
                     if entry not in res:
