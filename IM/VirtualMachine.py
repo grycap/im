@@ -1209,7 +1209,7 @@ class VirtualMachine(LoggerMixin):
                 dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
                 if not dns_name:
                     break
-                h, d = self.getCloudConnector().get_dns_host_domain(dns_name, False)
+                h, d = self.get_dns_host_domain(dns_name, False)
                 dns_name = "%s.%s" % (h, d)
                 if dns_name in [expected_dns_name, "*." + expected_dns_name]:
                     system.setValue('net_interface.%d.dns.%d.tls.private_key' % (num_conn, num_dns), private_key_pem)
@@ -1229,7 +1229,7 @@ class VirtualMachine(LoggerMixin):
                 dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
                 if not dns_name:
                     break
-                h, d = self.getCloudConnector().get_dns_host_domain(dns_name, False)
+                h, d = self.get_dns_host_domain(dns_name, False)
                 dns_name = "%s.%s" % (h, d)
                 tls_cert = system.getValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns))
                 tls_key = system.getValue('net_interface.%d.dns.%d.tls.private_key' % (num_conn, num_dns))
@@ -1262,3 +1262,19 @@ class VirtualMachine(LoggerMixin):
                     return True
                 num_dns += 1
         return False
+
+    @staticmethod
+    def get_dns_host_domain(dns_name, add_dot=True):
+        if "@" in dns_name:
+            dns_parts = dns_name.split("@")
+            if len(dns_parts) != 2:
+                return None, None
+            hostname = dns_parts[0]
+            domain = dns_parts[1]
+        else:
+            dns_parts = dns_name.split(".")
+            hostname = dns_parts[0]
+            domain = ".".join(dns_parts[1:])
+        if not domain.endswith(".") and add_dot:
+            domain += "."
+        return hostname, domain
