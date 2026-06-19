@@ -1229,6 +1229,8 @@ class VirtualMachine(LoggerMixin):
                 dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
                 if not dns_name:
                     break
+                h, d = self.getCloudConnector().get_dns_host_domain(dns_name, False)
+                dns_name = "%s.%s" % (h, d)
                 tls_cert = system.getValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns))
                 tls_key = system.getValue('net_interface.%d.dns.%d.tls.private_key' % (num_conn, num_dns))
                 if tls_cert:
