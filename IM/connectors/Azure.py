@@ -29,7 +29,7 @@ from netaddr import IPNetwork, IPAddress
 from IM.config import Config
 
 try:
-    from azure.mgmt.resource import ResourceManagementClient
+    from azure.mgmt.resource.resources import ResourceManagementClient
     from azure.mgmt.compute import ComputeManagementClient
     from azure.mgmt.network import NetworkManagementClient
     from azure.mgmt.dns import DnsManagementClient
