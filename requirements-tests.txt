@@ -24,7 +24,7 @@ azure-common
 azure-mgmt-storage
 azure-mgmt-compute
 azure-mgmt-network
-azure-mgmt-resource
+azure-mgmt-resource < 26.0.0
 azure-mgmt-dns
 azure-identity
 pyVmomi
