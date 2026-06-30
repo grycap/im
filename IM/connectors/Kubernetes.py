@@ -61,7 +61,8 @@ class KubernetesCloudConnector(CloudConnector):
             data = json.dumps(body)
         else:
             data = body
-        url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.get_port(), self.cloud.path, url)
+        url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.get_port(),
+                                  self.cloud.path.rstrip('/'), url)
         resp = requests.request(method, url, verify=self.verify_ssl, headers=headers, data=data)
 
         return resp
