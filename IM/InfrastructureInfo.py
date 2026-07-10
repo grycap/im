@@ -26,10 +26,7 @@ from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
 from radl.radl_json import radlToSimple
 from IM.config import Config
-try:
-    from Queue import PriorityQueue
-except ImportError:
-    from queue import PriorityQueue
+from queue import PriorityQueue
 from IM.VirtualMachine import VirtualMachine
 from IM.auth import Authentication
 from IM.tosca.Tosca import Tosca
@@ -440,7 +437,7 @@ class InfrastructureInfo:
             for key in elem.keys():
                 new_data[key.replace(".", "_")] = elem[key]
             json_data.append(new_data)
-        return json.dumps(json_data)
+        return json_data
 
     def get_radl(self):
         """

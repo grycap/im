@@ -17,19 +17,13 @@
 from defusedxml import xmlrpc
 xmlrpc.monkey_patch()
 
-try:
-    from xmlrpclib import ServerProxy  # nosec
-except ImportError:
-    from xmlrpc.client import ServerProxy  # nosec
+from xmlrpc.client import ServerProxy  # nosec
 
 import os.path
 import time
 from packaging.version import Version
 from IM.xmlobject import XMLObject
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
@@ -37,7 +31,6 @@ from radl.radl import Feature
 from IM.config import ConfigOpenNebula
 from netaddr import IPNetwork, IPAddress
 from IM.config import Config
-from IM.tts.onetts import ONETTSClient
 from IM.SSH import SSH
 
 # Set of classes to parse the XML results of the ONE API
@@ -290,15 +283,6 @@ class OpenNebulaCloudConnector(CloudConnector):
         if 'username' in auth and 'password' in auth:
             passwd = auth['password']
             return auth['username'] + ":" + passwd
-        elif 'token' in auth:
-            username, passwd = ONETTSClient.get_auth_from_tts(ConfigOpenNebula.TTS_URL,
-                                                              self.cloud.server, auth['token'],
-                                                              Config.VERIFI_SSL)
-            if not username or not passwd:
-                raise CloudConnectorException("Error getting ONE credentials using TTS.")
-            auth["username"] = username
-            auth["password"] = passwd
-            return username + ":" + passwd
         else:
             raise NoCorrectAuthData(self.type, "username and password")
 

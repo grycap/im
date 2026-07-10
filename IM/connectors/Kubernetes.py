@@ -24,10 +24,7 @@ import socket
 from random import choice
 from string import ascii_lowercase, digits
 from netaddr import IPNetwork, IPAddress
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
@@ -61,7 +58,8 @@ class KubernetesCloudConnector(CloudConnector):
             data = json.dumps(body)
         else:
             data = body
-        url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.get_port(), self.cloud.path, url)
+        url = "%s://%s:%d%s%s" % (self.cloud.protocol, self.cloud.server, self.cloud.get_port(),
+                                  self.cloud.path.rstrip('/'), url)
         resp = requests.request(method, url, verify=self.verify_ssl, headers=headers, data=data)
 
         return resp
@@ -382,6 +380,7 @@ class KubernetesCloudConnector(CloudConnector):
                 path = dns_url[2]
 
             vm.info.systems[0].setValue('net_interface.0.dns_name', '%s://%s%s' % (dns_url[0], host, path))
+            vm.info.systems[0].setValue('net_interface.0.dns.0.name', '%s://%s%s' % (dns_url[0], host, path))
 
         ingress_data["metadata"]["annotations"] = {
             "haproxy.router.openshift.io/ip_whitelist": "0.0.0.0/0",
@@ -625,6 +624,8 @@ class KubernetesCloudConnector(CloudConnector):
                 vm.destroy = False
 
                 dns_name = system.getValue("net_interface.0.dns_name")
+                if not dns_name:
+                    dns_name = system.getValue("net_interface.0.dns.0.name")
                 self.create_service_data(namespace, pod_name, outports, pub_net, auth_data, vm)
 
                 if dns_name and outports:
@@ -632,6 +633,7 @@ class KubernetesCloudConnector(CloudConnector):
                     ingress_created = self.create_ingress(namespace, pod_name, dns_name, port, auth_data, vm)
                     if not ingress_created:
                         vm.info.systems[0].delValue("net_interface.0.dns_name")
+                        vm.info.systems[0].delValue("net_interface.0.dns.0.name")
 
                 res.append((True, vm))
 

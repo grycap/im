@@ -30,7 +30,7 @@
           </elementProp>
           <elementProp name="AUTH" elementType="Argument">
             <stringProp name="Argument.name">AUTH</stringProp>
-            <stringProp name="Argument.value">type = InfrastructureManager; username = micafer; password = grycap01\nid = kube; type = Kubernetes; host = https://${__P(KUBE_IP,127.0.0.1)}:6443; token = ${__P(KUBE_TOKEN,sometoken)}</stringProp>
+            <stringProp name="Argument.value">type = InfrastructureManager; username = micafer; password = grycap01\nid = kube; type = KubeVirt; host = https://${__P(KUBE_IP,127.0.0.1)}:6443; token = ${__P(KUBE_TOKEN,sometoken)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="THREADS_READ" elementType="Argument">
@@ -207,32 +207,32 @@ network privada ( )&#xd;
 &#xd;
 system front (&#xd;
 cpu.arch=&apos;x86_64&apos; and&#xd;
-cpu.count&gt;=0.5 and&#xd;
-memory.size&gt;=512m and&#xd;
+cpu.count&gt;=1 and&#xd;
+memory.size&gt;=1g and&#xd;
 net_interface.1.connection = &apos;privada&apos; and&#xd;
 net_interface.0.connection = &apos;publica&apos; and&#xd;
 net_interface.0.dns_name = &apos;front&apos; and&#xd;
 disk.0.os.name=&apos;linux&apos; and&#xd;
 disk.0.os.flavour=&apos;ubuntu&apos; and&#xd;
-disk.0.os.version&gt;=&apos;16.04&apos; and&#xd;
+disk.0.os.version&gt;=&apos;24.04&apos; and&#xd;
 disk.0.os.credentials.username = &apos;root&apos; and&#xd;
 disk.0.os.credentials.password = &apos;Aspecial+0ne&apos; and&#xd;
 disk.0.os.credentials.new.password = &apos;Tututu+01&apos; and&#xd;
-disk.0.image.url = &apos;docker://ubuntu:18.04&apos;&#xd;
+disk.0.image.url = &apos;kvr://quay.io/containerdisks/ubuntu:24.04&apos;&#xd;
 )&#xd;
 &#xd;
 system wn (&#xd;
 cpu.arch=&apos;x86_64&apos; and&#xd;
-cpu.count&gt;=0.5 and&#xd;
-memory.size&gt;=512m and&#xd;
+cpu.count&gt;=1 and&#xd;
+memory.size&gt;=1g and&#xd;
 net_interface.0.connection = &apos;privada&apos; and&#xd;
 disk.0.os.name=&apos;linux&apos; and&#xd;
 disk.0.os.flavour=&apos;ubuntu&apos; and&#xd;
-disk.0.os.version&gt;=&apos;16.04&apos; and&#xd;
+disk.0.os.version&gt;=&apos;24.04&apos; and&#xd;
 disk.0.os.credentials.username = &apos;root&apos; and&#xd;
 disk.0.os.credentials.password = &apos;Aspecial+0ne&apos; and&#xd;
 disk.0.os.credentials.new.password = &apos;Tututu+01&apos; and&#xd;
-disk.0.image.url = &apos;docker://ubuntu:18.04&apos;&#xd;
+disk.0.image.url = &apos;kvr://quay.io/containerdisks/ubuntu:24.04&apos;&#xd;
 )&#xd;
 &#xd;
 configure test (&#xd;

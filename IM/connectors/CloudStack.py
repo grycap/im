@@ -26,10 +26,7 @@ except Exception as ex:
     print(ex)
 
 from .LibCloud import LibCloudCloudConnector
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData
 from radl.radl import Feature

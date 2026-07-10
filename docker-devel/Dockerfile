@@ -2,9 +2,9 @@
 FROM ubuntu:26.04
 ARG BRANCH=devel
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
-LABEL version="1.19.2"
+LABEL version="2.0.0"
 LABEL description="Container image to run the IM service. (http://www.grycap.upv.es/im)"
-EXPOSE 8899 8800
+EXPOSE 8800
 
 # Ensure system is up to date with mandatory python packages installed
 RUN apt-get update && apt-get install --no-install-recommends -y patch wget python3 openssh-client sshpass vim libmysqlclient24 python3-mysqldb && \
@@ -13,8 +13,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y patch wget pyth
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip python3-packaging python3-typing-extensions python3-jaraco.functools git && \
      pip3 install --break-system-packages msrest msrestazure azure-common azure-mgmt-storage azure-mgmt-compute azure-mgmt-network azure-mgmt-resource azure-mgmt-dns azure-identity && \
-     pip3 install --break-system-packages pyOpenSSL cheroot xmltodict pymongo ansible==12.3.0&& \
-     pip3 install --break-system-packages git+https://github.com/apache/libcloud && \
+     pip3 install --break-system-packages pyOpenSSL pymongo ansible==12.3.0&& \
      pip3 install --no-cache-dir --break-system-packages git+https://github.com/micafer/tosca-parser@im && \
      pip3 install --break-system-packages git+https://github.com/grycap/im@$BRANCH && \
      apt-get purge -y python3-pip python3-setuptools python3-pkg-resources git && \

@@ -17,6 +17,11 @@
 
 import base64
 import requests
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 from .CloudConnector import CloudConnector
 
 
@@ -29,6 +34,9 @@ class EGICloudConnector(CloudConnector):
     """str with the name of the provider."""
     DYDNS_URL = "https://nsupdate.fedcloud.eu"
     DEFAULT_TIMEOUT = 10
+    """Default timeout for HTTP requests to the DyDNS service in seconds."""
+    DEFAULT_CERT_TIMEOUT = 60
+    """Default timeout for HTTP requests to the DyDNS service when creating TLS certificates in seconds."""
 
     @staticmethod
     def _get_domains(token, domain_name=None):
@@ -89,11 +97,45 @@ class EGICloudConnector(CloudConnector):
             wildcard = True
         return hostname, domain, wildcard
 
+    @staticmethod
+    def _generate_csr(fqdn, wildcard=False):
+        """
+        Generate a PEM-encoded CSR and unencrypted private key equivalent to:
+        openssl req -new -newkey rsa:2048 -nodes -subj "/C=SK/L=Bratislava/O=Ustav informatiky SAV/CN=<fqdn>"
+
+        The CSR includes subjectAltName for DNS validation and supports wildcard names.
+        """
+        dns_names = [fqdn]
+        if wildcard:
+            dns_names.append(f"*.{fqdn}")
+
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048,
+                                               backend=default_backend())
+        csr_builder = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
+            x509.NameAttribute(NameOID.COUNTRY_NAME, "SK"),
+            x509.NameAttribute(NameOID.LOCALITY_NAME, "Bratislava"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Ustav informatiky SAV"),
+            x509.NameAttribute(NameOID.COMMON_NAME, fqdn),
+        ]))
+        csr_builder = csr_builder.add_extension(
+            x509.SubjectAlternativeName([x509.DNSName(name) for name in dns_names]),
+            critical=False
+        )
+        csr = csr_builder.sign(private_key, hashes.SHA256(), default_backend())
+        csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+        private_key_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        ).decode("utf-8")
+        return csr_pem, private_key_pem
+
     def add_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
         """
         Add a DNS entry to the DNS server
         """
-        domain = domain[:-1] if domain.endswith(".") else domain
+        # call str() to ensure to create a new string object as domain can be later modified
+        domain = str(domain[:-1] if domain.endswith(".") else domain)
         im_auth = auth_data.getAuthInfo("InfrastructureManager")
         try:
             secret = None
@@ -200,3 +242,43 @@ class EGICloudConnector(CloudConnector):
             return False
 
         return True
+
+    def create_tls_certificate(self, vm, hostname, domain, ip, auth_data, extra_args=None):
+        """
+        Create a TLS certificate for the given hostname and domain
+        """
+        self.log_debug(f"Creating TLS certificate for {hostname}.{domain} with EGI connector")
+
+        domain = domain[:-1] if domain.endswith(".") else domain
+        im_auth = auth_data.getAuthInfo("InfrastructureManager")
+        try:
+            if im_auth and im_auth[0].get("token"):
+                token = im_auth[0].get("token")
+                hostname, domain, wildcard = EGICloudConnector._get_wildcard_host_domain(hostname, domain)
+
+                host, error = EGICloudConnector._get_host(hostname, domain, token)
+                if error:
+                    self.log_error(f"Error getting host {hostname}.{domain}: {error}")
+                if not host:
+                    self.log_debug(f"DNS entry {hostname}.{domain} does not exist. Do not add TLS certificate.")
+                    return False
+
+                csr_pem, private_key_pem = EGICloudConnector._generate_csr(f"{hostname}.{domain}", wildcard)
+                body = {"csr": csr_pem}
+
+                url = f'{EGICloudConnector.DYDNS_URL}/api/hosts/{hostname}.{domain}/certificate'
+                resp = requests.post(url, headers={'Authorization': f'Bearer {token}'}, json=body,
+                                     timeout=EGICloudConnector.DEFAULT_CERT_TIMEOUT)
+                if resp.status_code != 200:
+                    self.log_error(f"Error creating TLS certificate for {hostname}.{domain}: {resp.text}")
+                    return False
+
+                vm.set_tls_certificate(hostname, domain, private_key_pem, resp.text)
+
+                return True
+            else:
+                self.log_error(f"Error creating TLS certificate for {hostname}.{domain}: No token provided")
+                return False
+        except Exception as e:
+            self.log_error(f"Error creating TLS certificate for {hostname}.{domain}: {str(e)}")
+            return False

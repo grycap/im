@@ -338,8 +338,8 @@ The authorization file can be also set in JSON format (from version 1.19.1)::
 The available keys are:
 
 * ``type`` indicates the service that refers the credential. The services
-  supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
-  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``,
+  supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,
+  ``OpenStack``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``CloudStack``,
   ``Kubernetes``, ``vSphere``, ``Linode``, ``Orange``, ``EGI``, ``Vault`` and ``Lambda``.
 
 * ``username`` indicates the user name associated to the credential. In EC2 and Lambda
@@ -361,10 +361,10 @@ The available keys are:
   
 * ``proxy`` indicates the content of the proxy file associated to the credential.
   To refer to a file you must use the function "file(/tmp/proxyfile.pem)" as shown in the example.
-  This field is used in the OCCI and OpenStack plugins. 
+  This field is used in the OpenStack plugin. 
   
 * ``project`` indicates the project name associated to the credential.
-  This field is only used in the GCE or OCCI (from version 1.6.3) plugins.
+  This field is only used in the GCE plugin.
   
 * ``public_key`` indicates the content of the public key file associated to the credential.
   To refer to a file you must use the function "file(cert.pem)" as shown in the example.
@@ -392,7 +392,7 @@ The available keys are:
   plugin check the documentation of the Azure python SDK:
   `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
 
-* ``token`` indicates the OpenID token associated to the credential. This field is used in the EGI, OCCI plugins
+* ``token`` indicates the OpenID token associated to the credential. This field is used in the EGI plugin
   and also to authenticate with the InfrastructureManager. To refer to the output of a command you must
   use the function "command(command)" as shown in the examples. It can be also used in the EC2 connector
   to specify the security token associated with temporary credentials issued by STS.
@@ -535,7 +535,7 @@ From IM version 1.10.2 the EGI connector is available and you can also use this 
    id = egi; type = EGI; host = CESGA; vo = vo.access.egi.eu; token = egi_aai_token_value
 
 In this case the information needed to access the OpenStack API of the EGI FedCloud site will be obtained from
-`AppDB REST API <https://appdb.egi.eu/rest/1.0>`_. This connector is recommended for non advanced users. If you
+`FedCloudInfo API <https://is.cloud.egi.eu>`_. This connector is recommended for non advanced users. If you
 can get the data to access the OpenStack API directly it is recommened to use it.
 
 There are several ways to get the EGI AAI token:
@@ -597,10 +597,6 @@ An example of the auth file::
    id = docker; type = Docker; host = http://host:2375; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    # Docker site without SSL security
    id = docker; type = Docker; host = http://host:2375
-   # OCCI VOMS site auth data
-   id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://server.com:11443
-   # OCCI OIDC site auth data
-   id = occi; type = OCCI; token = token; host = https://server.com:11443
    # Azure site userpass auth data (old method)
    id = azure_upo; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
    # Azure site userpass auth data
@@ -609,8 +605,6 @@ An example of the auth file::
    id = azure_sc; type = Azure; subscription_id = subscription-id; client_id=clientid; secret=client_secret; tenant=tenant_id
    # Kubernetes site auth data
    id = kub; type = Kubernetes; host = http://server:8080; token = auth_token
-   # FogBow auth data
-   id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
    # vSphere site auth data
    id = vsphere; type = vSphere; host = http://server; username = user; password = pass
    # CloudStack site auth data
@@ -650,7 +644,7 @@ The following example shows how to use the IMClient to create and destroy an inf
       memory.size>=4g and
       net_interface.0.connection = 'public' and
       disk.0.os.name='linux' and
-      disk.0.image.url = 'appdb://SCAI/egi.ubuntu.20.04?vo.access.egi.eu'
+      disk.0.image.url = 'egi://SCAI/egi.ubuntu.20.04?vo.access.egi.eu'
       )
 
       configure wn (

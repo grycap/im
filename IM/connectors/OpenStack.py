@@ -40,10 +40,7 @@ except Exception as ex:
 from IM.connectors.LibCloud import LibCloudCloudConnector
 from IM.connectors.exceptions import NoCompatibleAuthData, NoAuthData, NoCorrectAuthData, CloudConnectorException
 from IM.config import Config
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from IM.FedcloudInfo import FedcloudInfo
@@ -358,7 +355,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         protocol = url[0]
         src_host = url[1].split(':')[0]
 
-        if protocol in ["egi", "appdb"]:
+        if protocol == "egi":
             site_url, image_id, msg = FedcloudInfo.get_image_data(str_url)
             if not image_id or not site_url:
                 self.log_error(msg)
@@ -1297,7 +1294,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
 
         volume = image = None
         image_url = system.getValue("disk.0.image.url")
-        if urlparse(image_url)[0] in ["egi", "appdb"]:
+        if urlparse(image_url)[0] == "egi":
             vo = self.get_vo_name(auth_data)
             _, image_id, msg = FedcloudInfo.get_image_data(image_url, vo)
             if not image_id:
