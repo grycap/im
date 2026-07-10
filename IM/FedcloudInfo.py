@@ -104,7 +104,7 @@ class FedcloudInfo:
             return None
 
     @staticmethod
-    def get_image_data(str_url, vo=None, site_host=None):
+    def get_image_data(str_url, vo=None):
         """
         The url has this format: egi://site/project/repo:tag?vo
         e.g. egi://UPV-GRyCAP/egi_vm_images/ubuntu:24.04?fedcloud.egi.eu
