@@ -101,7 +101,7 @@ class FedcloudInfo:
             return None
 
     @staticmethod
-    def get_image_data(str_url, vo=None, site_host=None):
+    def get_image_data(str_url, vo=None):
         """
         The url has this format: egi://site/project/repo:tag?vo
         e.g. egi://UPV-GRyCAP/egi_vm_images/ubuntu:24.04?fedcloud.egi.eu
@@ -121,13 +121,6 @@ class FedcloudInfo:
                     "No site URL returned from EGI FedcloudInfo for site: %s."
                     % site_name,
                 )
-            if site_host:
-                if site_name != FedcloudInfo._get_site_name(site_host):
-                    return (
-                        None,
-                        None,
-                        "Site host does not match site name: %s." % site_name,
-                    )
             if not vo_name:
                 vo_name = vo
             image_id = FedcloudInfo.get_image_id(site_name, image_name, vo_name)
