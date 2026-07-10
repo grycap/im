@@ -82,8 +82,8 @@ class TestTosca(unittest.TestCase):
         lrms_server = radl.get_system_by_name('lrms_server')
         self.assertEqual(lrms_server.getValue('instance_name'), 'myslurmserver')
         self.assertEqual(lrms_server.getValue('memory.size'), 1000000000)
-        self.assertEqual(lrms_server.getValue('net_interface.0.dns_name'), 'slurmserver')
-        self.assertEqual(lrms_server.getValue('net_interface.1.additional_dns_names'), ['test.some.com'])
+        self.assertEqual(lrms_server.getValue('net_interface.0.dns.0.name'), 'slurmserver')
+        self.assertEqual(lrms_server.getValue('net_interface.1.dns.0.name'), 'test.some.com')
         if lrms_server.getValue("disk.1.size") == 10000000000:
             self.assertEqual(lrms_server.getValue("disk.1.mount_path"), "/mnt/disk2")
         else:
@@ -144,6 +144,7 @@ class TestTosca(unittest.TestCase):
         tosca_data = read_file_as_string('../files/tosca_nets.yml')
         tosca = Tosca(tosca_data)
         _, radl = tosca.to_radl()
+        print(str(radl))
         radl = parse_radl(str(radl))
         net = radl.get_network_by_id('pub_network')
         net1 = radl.get_network_by_id('network1')
@@ -543,6 +544,47 @@ class TestTosca(unittest.TestCase):
         tosca = Tosca(tosca_data, auth=auth)
         outputs = tosca.get_outputs(MagicMock())
         self.assertEqual(outputs, {'some_pass': 'aaaaaaaa', 'user_token': 'access_token'})
+
+    def test_tosca_tls(self):
+        """Test TOSCA RADL translation with DNS and TLS in net interfaces"""
+        tosca_data = read_file_as_string('../files/tosca_tls.yml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl.check()
+        radl = parse_radl(str(radl))
+        server = radl.get_system_by_name('server')
+        self.assertEqual(server.getValue('net_interface.0.dns.0.name'), 'slurmserver')
+        self.assertEqual(server.getValue('net_interface.1.dns.0.name'), 'test.some.com')
+        self.assertEqual(server.getValue('net_interface.1.dns.0.tls'), 'true')
+
+    def test_tosca_tls_get_att(self):
+        tosca_data = read_file_as_string('../files/tosca_tls.yml')
+        tosca = Tosca(tosca_data)
+
+        inf_info = MagicMock()
+        vm1 = MagicMock()
+        vm1.get_tls_certificates.return_value = {"cert1": "cert1_content", "cert2": "cert2_content"}
+        inf_info.get_vm_list_by_system_name.return_value = {"server": [vm1]}
+
+        outputs = tosca.get_outputs(inf_info)
+        self.assertEqual(outputs['tls_certs'], {"cert1": "cert1_content", "cert2": "cert2_content"})
+        self.assertEqual(outputs['tls_cert_1'], "cert1_content")
+
+        _, radl = tosca.to_radl()
+        conf = None
+        for elem in radl.configures:
+            if elem.name == "application_server_conf":
+                conf = elem
+        conf = yaml.safe_load(conf.recipes)[0]
+
+        self.assertEqual(conf['vars']['tls_certs'],
+                         "{{ IM_NODE_TLS_CERTIFICATES }}")
+        self.assertEqual(conf['vars']['tls_certs_2'],
+                         "{{ hostvars[groups['server'][0]]['IM_NODE_TLS_CERTIFICATES'] }}")
+        self.assertEqual(conf['vars']['tls_cert_1'],
+                         "{{ IM_NODE_TLS_CERTIFICATES['cert1'] }}")
+        self.assertEqual(conf['vars']['tls_cert_1_2'],
+                         "{{ hostvars[groups['server'][0]]['IM_NODE_TLS_CERTIFICATES']['cert1'] }}")
 
 
 if __name__ == "__main__":

@@ -22,10 +22,7 @@ try:
 except Exception:
     print("WARN: SCP library not correctly installed. Some sftp functions will not work!.")
 import os
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 from threading import Thread
 from stat import S_ISDIR
 

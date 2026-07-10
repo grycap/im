@@ -26,10 +26,7 @@ except Exception as ex:
     print("WARN: libcloud library not correctly installed. LibCloudCloudConnector will not work!.")
     print(ex)
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
 from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException

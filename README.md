@@ -131,18 +131,10 @@ Security is disabled by default. Please notice that someone with local network
 access can "sniff" the traffic and get the messages with the IM with the
 authorisation data with the cloud providers.
 
-Security can be activated both in the XMLRPC and REST APIs. Setting this
-variables:
-
-```sh
-XMLRCP_SSL = True
-```
-
-or
+Security can be activated both in the REST API. Setting this variable:
 
 ```sh
 REST_SSL = True
 ```
 
-And then set the variables: XMLRCP_SSL_* or REST_SSL_* to your certificates
-paths.
+And then set the variables: REST_SSL_* to your certificates paths.

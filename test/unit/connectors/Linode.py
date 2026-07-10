@@ -184,7 +184,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test.domain.com' and
-            net_interface.0.additional_dns_names = ['other-test.domain.com'] and
+            net_interface.0.dns.1.name = 'other-test.domain.com' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'lin://linode/ubuntu' and
             disk.0.os.credentials.username = 'user' and
@@ -413,7 +413,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
 
         inf = MagicMock(['id'])
         vm = VirtualMachine(inf, "1", lib_cloud.cloud, radl, radl, lib_cloud, 1)
-        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1')]
+        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1', False)]
 
         driver = MagicMock(['ex_get_node', 'list_volumes'])
         get_driver.return_value = driver

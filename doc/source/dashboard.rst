@@ -61,11 +61,11 @@ Create the `config.json` file (see the [example](app/config-sample.json)) settin
 +-----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+
 | ANALYTICS_TAG         | | Google Analytic Tag                                                                                                                                    | N                   | ""                     |
 +-----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+
-| STATIC_SITES          | | List of static sites added to the AppDB ones. Format:                                                                                                  | N                   | []                     |
+| STATIC_SITES          | | List of static sites added to the FedCloudInfo ones. Format:                                                                                           | N                   | []                     |
 |                       | | [{"name": "static_site_name", "url": "static_site_url", "id": "static_id",                                                                             |                     |                        |
 |                       | | "vos": {"vo": "stprojectid"}}]                                                                                                                         |                     |                        |
 +-----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+
-| STATIC_SITES_URL      | | URL of a JSON file with the list of static sites added to the AppDB ones                                                                               | N                   | ""                     |
+| STATIC_SITES_URL      | | URL of a JSON file with the list of static sites added to the FedCloudInfo ones                                                                        | N                   | ""                     |
 +-----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+
 
 
@@ -320,7 +320,7 @@ The final tab will be the "Cloud Provider Selection" (:ref:`Fig. 8 <figure_dash_
 In this tab the user has to select: first, one of the Cloud providers that has been previously added (and not disabled) 
 in the "Cloud Credentials" page, then it has to select the base image used to deploy the VMs.
 In case of EGI Cloud Compute sites the user has two options, he can select an image from the list of images provided by the
-`EGI AppDB information system <https://appdb.egi.eu/>`_ or from the list provided directly by the Cloud site.
+`EGI FedCloudInfo information system <https://is.cloud.egi.eu>`_ or from the list provided directly by the Cloud site.
 Other providers will only show a dropdown list with the available images to use. Only in the case of AWS Cloud provider
 the user has to specify manually the AMI id of the image to use.
 

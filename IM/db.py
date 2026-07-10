@@ -17,10 +17,7 @@
 """Class to manage DB operations"""
 import time
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 try:
     import sqlite3 as sqlite

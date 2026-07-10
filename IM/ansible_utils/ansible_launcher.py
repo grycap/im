@@ -18,13 +18,11 @@
 # (c) 2012-2014, Michael DeHaan <michael.dehaan@gmail.com>
 #
 
-import sys
 import time
 import os
 from multiprocessing import Process
 import psutil
 import signal
-import logging
 from packaging.version import Version
 from collections import namedtuple
 from ansible import errors
@@ -48,17 +46,11 @@ except ImportError:
     from ansible.inventory import Inventory
 
 from .ansible_executor_v2 import IMPlaybookExecutor
+from .output import AnsibleOutput
 
 
 def display(msg, color=None, stderr=False, screen_only=False, log_only=False, output=None):
-    if output:
-        if isinstance(output, logging.Logger):
-            output.info(msg)
-        else:
-            output.write("%s\n" % msg)
-    else:
-        sys.stdout.write(msg)
-        sys.stdout.flush()
+    AnsibleOutput.from_value(output).write(msg)
 
 
 def colorize(lead, num, color):
@@ -88,7 +80,7 @@ class AnsibleThread(Process):
         self.extra_vars = {}
         if extra_vars:
             self.extra_vars = extra_vars
-        self.output = output
+        self.output = AnsibleOutput.from_value(output)
         self.result = result
         self.vault_pass = vault_pass
         self.timeout = timeout
@@ -126,14 +118,15 @@ class AnsibleThread(Process):
             os.kill(int(pid_str), signal.SIGKILL)
 
     def run(self):
+        queue_output = self.output.queue_output()
         try:
-            output = self.output
-            if isinstance(output, logging.Logger):
-                output = None
-            self.result.put((0, self.launch_playbook_v2(), output))
+            self.result.put((0, self.launch_playbook_v2(), queue_output))
         except errors.AnsibleError as e:
             display("ERROR: %s" % e, output=self.output)
-            self.result.put((0, 1, output))
+            self.result.put((0, 1, queue_output))
+        except Exception as e:
+            display("ERROR launching ansible process: %s" % e, output=self.output)
+            self.result.put((0, 1, queue_output))
         finally:
             self._kill_childs()
 

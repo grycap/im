@@ -278,7 +278,7 @@ class TestGCEConnector(TestCloudConnectorBase):
             memory.size=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test.domain.com' and
-            net_interface.0.additional_dns_names = ['some.test@domain.com'] and
+            net_interface.0.dns.1.name = 'some.test@domain.com' and
             disk.0.os.name = 'linux' and
             disk.0.image.url = 'gce://us-central1-a/centos-6' and
             disk.0.os.credentials.username = 'user'
@@ -420,7 +420,7 @@ class TestGCEConnector(TestCloudConnectorBase):
         inf = MagicMock()
         inf.id = "infid"
         vm = VirtualMachine(inf, "1", gce_cloud.cloud, radl, radl, gce_cloud, 1)
-        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1')]
+        vm.dns_entries = [('test', 'domain.com.', '158.42.1.1', False)]
 
         driver = MagicMock()
         get_driver.return_value = driver

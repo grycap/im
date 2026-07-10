@@ -30,7 +30,6 @@ from IM.VMRC import VMRC
 from IM.FedcloudInfo import FedcloudInfo
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
-from IM.recipe import Recipe
 from IM.config import Config
 from IM.VirtualMachine import VirtualMachine
 
@@ -417,7 +416,7 @@ class InfrastructureManager:
     def systems_with_iis(sel_inf, radl, auth):
         """
         Concrete systems using Image Information Systems.
-        Currently supported VMRC and AppDBIS/EGIIS
+        Currently supported VMRC and EGIIS
         NOTE: consider not-fake deploys (vm_number > 0)
         """
         # Get VMRC credentials
@@ -426,24 +425,14 @@ class InfrastructureManager:
             if 'host' in vmrc_elem and 'username' in vmrc_elem and 'password' in vmrc_elem:
                 vmrc_list.append(VMRC(vmrc_elem['host'], vmrc_elem['username'], vmrc_elem['password']))
 
-        # Get AppDBIS credentials
-        egiis_list = []
-        for _ in auth.getAuthInfo('AppDBIS'):
-            egiis_list.append(FedcloudInfo)
         # Get EGIIS credentials
-        for _ in auth.getAuthInfo('EGIIS'):
+        egiis_list = []
+        if auth.getAuthInfo('EGIIS'):
             egiis_list.append(FedcloudInfo)
 
         systems_with_vmrc = {}
         for system_id in set([d.id for d in radl.deploys if d.vm_number > 0]):
             s = radl.get_system_by_name(system_id)
-
-            if Config.SINGLE_SITE:
-                image_id = os.path.basename(s.getValue("disk.0.image.url"))
-                url_prefix = Config.SINGLE_SITE_IMAGE_URL_PREFIX
-                if not url_prefix.endswith("/"):
-                    url_prefix = url_prefix + "/"
-                s.setValue("disk.0.image.url", url_prefix + image_id)
 
             # Remove the requested apps from the system
             s_without_apps = radl.get_system_by_name(system_id).clone()
@@ -530,26 +519,6 @@ class InfrastructureManager:
         return deploys_group_cloud
 
     @staticmethod
-    def add_app_reqs(radl, inf_id=None):
-        """ Add apps requirements to the RADL. """
-        for radl_system in radl.systems:
-            apps_to_install = radl_system.getApplications()
-            for app_to_install in apps_to_install:
-                for app_avail, _, _, _, requirements in Recipe.getInstallableApps():
-                    if requirements and app_avail.isNewerThan(app_to_install):
-                        # This app must be installed and it has special
-                        # requirements
-                        try:
-                            requirements_radl = radl_parse.parse_radl(requirements).systems[0]
-                            radl_system.applyFeatures(requirements_radl, conflict="other", missing="other")
-                        except Exception:
-                            InfrastructureManager.logger.exception(
-                                "Inf ID: " + inf_id + ": Error in the requirements of the app: " +
-                                app_to_install.getValue("name") + ". Ignore them.")
-                            InfrastructureManager.logger.debug("Inf ID: " + inf_id + ": " + str(requirements))
-                        break
-
-    @staticmethod
     def get_deploy_groups(cloud_list, radl, systems_with_iis, sel_inf, auth):
         # Concrete systems with cloud providers and select systems with the greatest score
         # in every cloud
@@ -628,8 +597,6 @@ class InfrastructureManager:
             sel_inf.add_cont_msg("Error parsing RADL: %s" % str(ex))
             InfrastructureManager.logger.exception("Inf ID: " + sel_inf.id + " error parsing RADL")
             raise ex
-
-        InfrastructureManager.add_app_reqs(radl, sel_inf.id)
 
         # Concrete systems using VMRC
         try:
@@ -1507,23 +1474,23 @@ class InfrastructureManager:
             return auth
 
     @staticmethod
-    def gen_auth_from_appdb(auth):
+    def gen_auth_from_egiis(auth):
         # Gen EGI auth for all the sites that supports the specified VO
-        appdbis_auth = auth.getAuthInfo("AppDBIS")
-        if appdbis_auth and "vo" in appdbis_auth[0] and "token" in appdbis_auth[0]:
-            vo = appdbis_auth[0]["vo"]
-            # To avoid connecting with AppDBIS again
-            del appdbis_auth[0]["vo"]
+        egiis_auth = auth.getAuthInfo("EGIIS")
+        if egiis_auth and "vo" in egiis_auth[0] and "token" in egiis_auth[0]:
+            vo = egiis_auth[0]["vo"]
+            # To avoid connecting with EGIIS again
+            del egiis_auth[0]["vo"]
             InfrastructureManager.logger.debug("Getting auth data from Fedcloud IS")
             sites = FedcloudInfo.get_sites_supporting_vo(vo)
             if sites:
                 for site in sites:
                     auth_site = {"id": site["name"], "host": site["url"], "type": "OpenStack",
                                  "username": "egi.eu", "tenant": "openid", "auth_version": "3.x_oidc_access_token",
-                                 "domain": site["project_id"], "password": appdbis_auth[0]["token"], "vo": vo}
+                                 "domain": site["project_id"], "password": egiis_auth[0]["token"], "vo": vo}
                     auth.auth_list.append(auth_site)
             else:
-                InfrastructureManager.logger.error("Error getting auth data from AppDBIS: %s" % sites)
+                InfrastructureManager.logger.error("Error getting auth data from EGIIS: %s" % sites)
         return auth
 
     @staticmethod
@@ -1599,21 +1566,11 @@ class InfrastructureManager:
             else:
                 raise InvaliddUserException("No username nor token for the InfrastructureManager.")
 
-        if Config.SINGLE_SITE:
-            vmrc_auth = auth.getAuthInfo("VMRC")
-            single_site_auth = auth.getAuthInfo(Config.SINGLE_SITE_TYPE)
-
-            single_site_auth[0]["host"] = Config.SINGLE_SITE_AUTH_HOST
-
-            auth_list = []
-            auth_list.extend(im_auth)
-            auth_list.extend(vmrc_auth)
-            auth_list.extend(single_site_auth)
-            auth = Authentication(auth_list)
-
-        # We have to check if TTS is needed for other auth item
+        # Now check if we need to get credentials from vault
         auth = InfrastructureManager.get_auth_from_vault(auth)
-        auth = InfrastructureManager.gen_auth_from_appdb(auth)
+        # or generate EGI auth from EGIIS
+        auth = InfrastructureManager.gen_auth_from_egiis(auth)
+        # or translate EGI auth to OST auth
         auth = InfrastructureManager.translate_egi_to_ost(auth)
         return auth
 
@@ -1852,8 +1809,8 @@ class InfrastructureManager:
         """
         # First check the auth data
         auth = InfrastructureManager.check_auth_data(auth)
-        appdbis_auth = auth.getAuthInfo("AppDBIS")
-        if appdbis_auth and "token" in appdbis_auth[0] and cloud_id == appdbis_auth[0]['id']:
+        egiis_auth = auth.getAuthInfo("EGIIS")
+        if egiis_auth and "token" in egiis_auth[0] and cloud_id == egiis_auth[0]['id']:
             return FedcloudInfo.list_images(filters)
         else:
             return InfrastructureManager._get_cloud_conn(cloud_id, auth).list_images(auth, filters)
@@ -1995,8 +1952,6 @@ class InfrastructureManager:
         except Exception as ex:
             InfrastructureManager.logger.exception("Error getting cost of an infrastructure when parsing RADL")
             raise ex
-
-        InfrastructureManager.add_app_reqs(radl, inf.id)
 
         # Concrete systems using VMRC
         try:

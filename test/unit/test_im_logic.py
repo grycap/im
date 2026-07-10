@@ -499,6 +499,7 @@ class TestIM(unittest.TestCase):
 
     def test_inf_addresources_parallel(self):
         """Deploy parallel virtual machines."""
+        original_max_simultaneous = Config.MAX_SIMULTANEOUS_LAUNCHES
         radl = """"
             network publica (outbound = 'yes')
             network privada ()
@@ -530,49 +531,70 @@ class TestIM(unittest.TestCase):
             deploy wn 3
             deploy wn 2
         """
+
+        # Use a short fixed delay to keep the test fast and deterministic.
+        launch_delay = 0.25
+
+        def launch_with_delay(start_times):
+            def _launch(inf, radl, requested_radl, num_vm, auth_data):
+                start_times.append(time.perf_counter())
+                time.sleep(launch_delay)
+                return self.gen_launch_res(inf, radl, requested_radl, num_vm, auth_data)
+            return _launch
+
+        serial_start_times = []
         cloud = type("MyMock0", (CloudConnector, object), {})
-        cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
+        cloud.launch = Mock(side_effect=launch_with_delay(serial_start_times))
         self.register_cloudconnector("Mock", cloud)
         auth0 = self.getAuth([0], [], [("Mock", 0)])
-        infId = IM.CreateInfrastructure("", auth0)
+        infId = None
+        try:
+            infId = IM.CreateInfrastructure("", auth0)
 
-        # in this case it will take aprox 15 secs
-        before = int(time.time())
-        Config.MAX_SIMULTANEOUS_LAUNCHES = 1
-        vms = IM.AddResource(infId, str(radl), auth0)
-        delay = int(time.time()) - before
-        self.assertLess(delay, 21)
-        self.assertGreater(delay, 14)
+            before = time.perf_counter()
+            Config.MAX_SIMULTANEOUS_LAUNCHES = 1
+            vms = IM.AddResource(infId, str(radl), auth0)
+            serial_delay = time.perf_counter() - before
 
-        self.assertEqual(vms, [0, 1, 2, 3, 4, 5])
-        self.assertEqual(cloud.launch.call_count, 3)
-        self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
-        self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
-        self.assertEqual(cloud.launch.call_args_list[2][0][3], 2)
+            self.assertGreater(serial_delay, launch_delay * 2.5)
 
-        cloud = type("MyMock0", (CloudConnector, object), {})
-        cloud.launch = Mock(side_effect=self.sleep_and_create_vm)
-        self.register_cloudconnector("Mock", cloud)
+            self.assertEqual(vms, [0, 1, 2, 3, 4, 5])
+            self.assertEqual(cloud.launch.call_count, 3)
+            self.assertEqual(cloud.launch.call_args_list[0][0][3], 1)
+            self.assertEqual(cloud.launch.call_args_list[1][0][3], 3)
+            self.assertEqual(cloud.launch.call_args_list[2][0][3], 2)
 
-        # in this case it will take aprox 5 secs
-        before = int(time.time())
-        Config.MAX_SIMULTANEOUS_LAUNCHES = 3  # Test the pool
-        vms = IM.AddResource(infId, str(radl), auth0)
-        delay = int(time.time()) - before
-        # self.assertLess(delay, 17)
-        # self.assertGreater(delay, 14)
-        self.assertLess(delay, 12)
-        self.assertGreater(delay, 4)
-        Config.MAX_SIMULTANEOUS_LAUNCHES = 1
+            self.assertEqual(len(serial_start_times), 3)
+            serial_min_gap = min(serial_start_times[i + 1] - serial_start_times[i] for i in range(2))
+            self.assertGreater(serial_min_gap, launch_delay * 0.8)
 
-        self.assertEqual(vms, [6, 7, 8, 9, 10, 11])
-        self.assertEqual(cloud.launch.call_count, 3)
-        total = cloud.launch.call_args_list[0][0][3]
-        total += cloud.launch.call_args_list[1][0][3]
-        total += cloud.launch.call_args_list[2][0][3]
-        self.assertEqual(total, 6)
+            parallel_start_times = []
+            cloud = type("MyMock0", (CloudConnector, object), {})
+            cloud.launch = Mock(side_effect=launch_with_delay(parallel_start_times))
+            self.register_cloudconnector("Mock", cloud)
 
-        IM.DestroyInfrastructure(infId, auth0)
+            before = time.perf_counter()
+            Config.MAX_SIMULTANEOUS_LAUNCHES = 3  # Test the pool
+            vms = IM.AddResource(infId, str(radl), auth0)
+            parallel_delay = time.perf_counter() - before
+
+            self.assertLess(parallel_delay, serial_delay * 0.7)
+            self.assertLess(parallel_delay, launch_delay * 2.6)
+
+            self.assertEqual(vms, [6, 7, 8, 9, 10, 11])
+            self.assertEqual(cloud.launch.call_count, 3)
+            total = cloud.launch.call_args_list[0][0][3]
+            total += cloud.launch.call_args_list[1][0][3]
+            total += cloud.launch.call_args_list[2][0][3]
+            self.assertEqual(total, 6)
+
+            self.assertEqual(len(parallel_start_times), 3)
+            parallel_span = max(parallel_start_times) - min(parallel_start_times)
+            self.assertLess(parallel_span, launch_delay * 0.8)
+        finally:
+            Config.MAX_SIMULTANEOUS_LAUNCHES = original_max_simultaneous
+            if infId is not None:
+                IM.DestroyInfrastructure(infId, auth0)
 
     @patch('IM.VMRC.Client')
     def test_inf_cloud_order(self, suds_cli):
@@ -942,7 +964,6 @@ class TestIM(unittest.TestCase):
             disk.1.fstype='ext4' and
             disk.1.mount_path='/mnt/disk' and
             disk.0.applications contains (name = 'ansible.roles.micafer.hadoop') and
-            disk.0.applications contains (name='gmetad') and
             disk.0.applications contains (name='wget')
             )
 
@@ -1377,7 +1398,7 @@ configure step2 (
         Config.BOOT_MODE = 0
 
     @patch('IM.InfrastructureManager.FedcloudInfo')
-    def test_get_cloud_info(self, appdbis):
+    def test_get_cloud_info(self, egiis):
         auth = self.getAuth([0], [], [("Dummy", 0), ("Dummy", 1)])
         res = IM.GetCloudImageList("cloud1", auth)
 
@@ -1394,13 +1415,13 @@ configure step2 (
             IM.GetCloudQuotas("cloud2", auth)
 
         auth = Authentication([{'id': 'im', 'type': 'InfrastructureManager', 'username': 'user', 'password': 'pass'},
-                               {'id': 'app', 'type': 'AppDBIS', 'token': 'atoken'}])
+                               {'id': 'app', 'type': 'EGIIS', 'token': 'atoken'}])
 
-        appdbis.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
+        egiis.list_images.return_value = [{'uri': 'ost://site/imageid', 'name': 'Image Name'}]
 
         res = IM.GetCloudImageList("app", auth, {"distribution": "Ubuntu", "version": "20.04"})
         self.assertEqual(res, [{'uri': 'ost://site/imageid', 'name': 'Image Name'}])
-        self.assertEqual(appdbis.list_images.call_args_list[0][0][0],
+        self.assertEqual(egiis.list_images.call_args_list[0][0][0],
                          {'distribution': 'Ubuntu', 'version': '20.04'})
 
     @patch('IM.InfrastructureManager.VMRC')
@@ -1512,9 +1533,9 @@ configure step2 (
         self.assertEqual(res[1].getValue("disk.0.image.url"), "imageuri2")
 
     @patch('IM.InfrastructureManager.FedcloudInfo')
-    def test_translate_egi_to_ost(self, appdb):
-        appdb.get_site_url.return_value = 'https://ostsite.com:5000'
-        appdb.get_project_ids.return_value = {'vo_name': 'projectid'}
+    def test_translate_egi_to_ost(self, egiis):
+        egiis.get_site_url.return_value = 'https://ostsite.com:5000'
+        egiis.get_project_ids.return_value = {'vo_name': 'projectid'}
 
         auth = Authentication([{'id': 'egi', 'type': 'EGI', 'host': 'SITE_NAME', 'vo': 'vo_name', 'token': 'atoken'},
                                {'type': 'InfrastructureManager', 'token': 'atoken'}])
@@ -1618,16 +1639,18 @@ configure step2 (
                          'last_date': '2022-03-23 00:00:00'}]
         self.assertEqual(stats, expected_res)
         db.select.assert_called_with('select data, date, id from inf_list where '
-                                     '((auth like \'%%"__OPENID__mcaballer"%%\')) order by rowid desc')
+                                     '((auth like %s)) order by rowid desc',
+                                     ('%"__OPENID__mcaballer"%',))
 
         auth = Authentication([{'type': 'InfrastructureManager', 'token': 'atoken',
                                 'username': 'micafer', 'password': 'pass'}])
         check_auth_data.return_value = auth
         stats = IM.GetStats('2001-01-01', '2122-01-01', auth)
-        self.assertEqual(db.select.call_args_list[1][0][0],
+        self.assertEqual(db.select.call_args_list[1][0],
                          ('select data, date, id from inf_list where '
-                          '((auth like \'%%"micafer"%%\' and auth like \'%%"pass"%%\')) '
-                          'order by rowid desc'))
+                          '((auth like %s and auth like %s)) '
+                          'order by rowid desc',
+                          ('%"micafer"%', '%"pass"%')))
 
         db.find.return_value = [{'data': json.dumps(inf_data),
                                  'date': datetime.strptime('2022-03-23', "%Y-%m-%d"),

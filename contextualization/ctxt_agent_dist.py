@@ -21,6 +21,7 @@ import sys
 import os
 import getpass
 import json
+import yaml
 import threading
 from multiprocessing import Queue
 from multiprocessing.pool import ThreadPool
@@ -155,14 +156,14 @@ class CtxtAgent(CtxtAgentBase):
             ssh_client.execute("mkdir -p %s" % os.path.dirname(self.vm_conf_data_filename))
             ssh_client.sftp_put(self.vm_conf_data_filename, self.vm_conf_data_filename)
 
-        vault_export = ""
+        export = f"export ANSIBLE_CONFIG={CtxtAgentBase.ANSIBLE_CFG_FILE} && "
         if vault_pass:
-            vault_export = "export VAULT_PASS='%s' && " % vault_pass
+            export += "export VAULT_PASS='%s' && " % vault_pass
         pid = None
         vm_dir = os.path.abspath(os.path.dirname(self.vm_conf_data_filename))
         remote_dir = os.path.abspath(os.path.dirname(self.conf_data_filename))
         try:
-            (pid, _, _) = ssh_client.execute(vault_export + "nohup " + CtxtAgentBase.VENV_DIR + "/bin/python3 " +
+            (pid, _, _) = ssh_client.execute(export + "nohup " + CtxtAgentBase.MAMBA_CMD + "python3 " +
                                              remote_dir + "/ctxt_agent_dist.py " +
                                              self.conf_data_filename + " " + self.vm_conf_data_filename +
                                              " 1 > " + vm_dir + "/stdout 2> " + vm_dir +
@@ -176,15 +177,22 @@ class CtxtAgent(CtxtAgentBase):
         filename = general_conf_data['conf_dir'] + "/hosts"
         vm_id = vm['ip'] + "_" + str(vm['id'])
         with open(filename) as f:
-            inventoy_data = ""
-            for line in f:
-                if "ansible_connection=local" in line:
-                    line = line.replace("ansible_connection=local", "")
-                if vm_id in line:
-                    line = line[:-1] + " ansible_connection=local\n"
-                inventoy_data += line
+            inventory_data = yaml.safe_load(f) or {}
+
+        children = inventory_data.get('all', {}).get('children', {})
+        for group in children.values():
+            hosts = group.get('hosts', {})
+            for host_vars in hosts.values():
+                if isinstance(host_vars, dict) and 'ansible_connection' in host_vars:
+                    del host_vars['ansible_connection']
+
+        for group in children.values():
+            hosts = group.get('hosts', {})
+            if vm_id in hosts and isinstance(hosts[vm_id], dict):
+                hosts[vm_id]['ansible_connection'] = 'local'
+
         with open(filename, 'w+') as f:
-            f.write(inventoy_data)
+            yaml.dump(inventory_data, f, default_flow_style=False, sort_keys=False)
 
     def get_master_ssh(self, general_conf_data):
         ctxt_vm = None
@@ -235,14 +243,15 @@ class CtxtAgent(CtxtAgentBase):
         os.environ['DEFAULT_LOCAL_TMP'] = remote_dir + "/.ansible_tmp"
         # it must be set before doing the import
         from IM.ansible_utils.ansible_launcher import AnsibleThread
+        from IM.ansible_utils.output import AnsibleOutput
 
         playbook_file = "/tmp/gen_facts_cache.yml"
         with open(playbook_file, "w+") as f:
             f.write(" - hosts: allnowindows\n")
 
         result = Queue()
-        t = AnsibleThread(result, self.logger, playbook_file, threads, CtxtAgentBase.PK_FILE,
-                          None, CtxtAgent.PLAYBOOK_RETRIES, inventory_file)
+        t = AnsibleThread(result, AnsibleOutput.from_logger(self.logger), playbook_file, threads,
+                          CtxtAgentBase.PK_FILE, None, CtxtAgent.PLAYBOOK_RETRIES, inventory_file)
         t.start()
         return (t, result)
 
@@ -332,13 +341,15 @@ class CtxtAgent(CtxtAgentBase):
                             ssh_client.sftp_put_dir(cache_dir, cache_dir)
 
                             self.logger.info("Copy ansible roles to: %s" % ctxt_vm['ip'])
-                            ssh_client.sftp_mkdir("/etc/ansible/roles")
-                            ssh_client.sftp_put_dir("/etc/ansible/roles", "/etc/ansible/roles")
+                            ssh_client.sftp_mkdir(self.ANSIBLE_DIR)
+                            ssh_client.sftp_mkdir(self.ANSIBLE_DIR + "/roles")
+                            ssh_client.sftp_put_dir(self.ANSIBLE_DIR + "/roles",
+                                                    self.ANSIBLE_DIR + "/roles")
 
                             self.logger.info("Copy ansible collections to: %s" % ctxt_vm['ip'])
-                            ssh_client.sftp_mkdir("/etc/ansible/ansible_collections")
-                            ssh_client.sftp_put_dir("/etc/ansible/ansible_collections",
-                                                    "/etc/ansible/ansible_collections")
+                            ssh_client.sftp_mkdir(self.ANSIBLE_DIR + "/ansible_collections")
+                            ssh_client.sftp_put_dir(self.ANSIBLE_DIR + "/ansible_collections",
+                                                    self.ANSIBLE_DIR + "/ansible_collections")
                         except Exception:
                             self.logger.exception("Error copying cache to VM: " + ctxt_vm['ip'])
                     else:

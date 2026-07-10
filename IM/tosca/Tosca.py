@@ -8,15 +8,7 @@ import re
 from random import choice
 from string import ascii_letters, digits
 
-try:
-    unicode("hola")
-except NameError:
-    unicode = str
-
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from uuid import uuid1
 from toscaparser.nodetemplate import NodeTemplate
 from toscaparser.tosca_template import ToscaTemplate
@@ -585,6 +577,7 @@ class Tosca:
             public_ip = self._final_function_result(node_props["public_ip"].value, node)
 
         # This is the solution using endpoints
+        gen_tls = False
         net_provider_id = None
         dns_name = None
         additional_dns_names = []
@@ -640,9 +633,14 @@ class Tosca:
                         ports["im-%s-%s" % (protocol, port)]['remote_cidr'] = remote_cidr
             if cap_props and "additional_ip" in cap_props:
                 additional_ip = self._final_function_result(cap_props["additional_ip"].value, node)
+            if cap_props and "tls" in cap_props:
+                gen_tls = self._final_function_result(cap_props["tls"].value, node)
 
         if dns_name:
             system.setValue('net_interface.0.dns_name', dns_name)
+            system.setValue('net_interface.0.dns.0.name', dns_name)
+            if gen_tls:
+                system.setValue('net_interface.0.dns.0.tls', 'true')
         if additional_ip:
             system.setValue('net_interface.0.additional_ip', additional_ip)
 
@@ -652,7 +650,7 @@ class Tosca:
             # If there are network nodes, use it to define system network
             # properties
             port_net = None
-            for net_name, ip, dns_name, additional_dns_names, num, additional_ip in nets:
+            for net_name, ip, dns_name, additional_dns_names, num, additional_ip, gen_tls in nets:
                 net = radl.get_network_by_id(net_name)
                 if not net:
                     raise Exception("Node %s with a port binded to a non existing network: %s." % (node.name,
@@ -663,11 +661,16 @@ class Tosca:
                     system.setValue('net_interface.%d.ip' % num, ip)
                 # These are not normative properties
                 if dns_name:
-                    system.setValue('net_interface.%d.dns_name' % num, dns_name)
+                    system.setValue('net_interface.%d.dns.0.name' % num, dns_name)
+                    if gen_tls:
+                        system.setValue('net_interface.%d.dns.0.tls' % num, 'true')
                 if additional_ip:
                     system.setValue('net_interface.%d.additional_ip' % num, additional_ip)
                 if additional_dns_names:
-                    system.setValue('net_interface.%d.additional_dns_names' % num, additional_dns_names)
+                    for num_dns, elem in enumerate(additional_dns_names):
+                        system.setValue('net_interface.%d.dns.%d.name' % (num, num_dns), elem)
+                        if gen_tls:
+                            system.setValue('net_interface.%d.dns.%d.tls' % (num, num_dns), 'true')
 
                 if net.isPublic():
                     port_net = net
@@ -738,7 +741,10 @@ class Tosca:
                 system.setValue('net_interface.%d.connection' % num_net, public_net.id)
                 # allways add the additional_dns_names in the public interface
                 if additional_dns_names:
-                    system.setValue('net_interface.%d.additional_dns_names' % num_net, additional_dns_names)
+                    for num_dns, elem in enumerate(additional_dns_names):
+                        system.setValue('net_interface.%d.dns.%d.name' % (num_net, num_dns), elem)
+                        if gen_tls:
+                            system.setValue('net_interface.%d.dns.%d.tls' % (num_net, num_dns), 'true')
 
             if net_provider_id:
                 if private_net:
@@ -1208,6 +1214,15 @@ class Tosca:
                 return None
         return res
 
+    @staticmethod
+    def _jinja_map_access(base_expr, params):
+        """Append map-key accessors to a Jinja expression body."""
+        expr = base_expr
+        for param in params:
+            escaped_param = str(param).replace("'", "\\'")
+            expr += "['%s']" % escaped_param
+        return "{{ %s }}" % expr
+
     def _get_attribute_result(self, func, node, inf_info):
         """Get an attribute value of an entity defined in the service template
 
@@ -1240,6 +1255,7 @@ class Tosca:
         if len(func.args) < 2:
             Tosca.logger.error("Calling get_attribute function. Min 2 parameters.")
             return None
+
         node_name = func.args[0]
 
         # Get node
@@ -1336,6 +1352,16 @@ class Tosca:
                     return vm.cont_out
                 else:
                     Tosca.logger.warning("Attribute ctxt_log only supported"
+                                         " in tosca.nodes.indigo.Compute nodes.")
+                    return None
+            elif attribute_name == "tls_certificates" and capability_name == "endpoint":
+                if node.type == "tosca.nodes.indigo.Compute":
+                    tls_certs = vm.get_tls_certificates()
+                    if attribute_params:
+                        return self._get_object_values(tls_certs, attribute_params)
+                    return tls_certs
+                else:
+                    Tosca.logger.warning("Attribute tls_certificates only supported"
                                          " in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "ansible_output":
@@ -1461,6 +1487,8 @@ class Tosca:
                 if node.type == "tosca.nodes.Container.Application.Docker":
                     res = []
                     dmsname = vm.info.systems[0].getValue("net_interface.0.dns_name")
+                    if not dmsname:
+                        dmsname = vm.info.systems[0].getValue("net_interface.0.dns.0.name")
                     pub_net = vm.getConnectedNet(public=True)
                     priv_net = vm.getConnectedNet(public=False)
                     if pub_net:
@@ -1495,6 +1523,14 @@ class Tosca:
                     return "{{ hostvars[groups['%s'][0]]['IM_NODE_VMID'] }}" % host_node.name
             elif attribute_name == "tosca_name":
                 return node.name
+            elif attribute_name == "tls_certificates" and capability_name == "endpoint":
+                if node_name in ["HOST", "SELF"]:
+                    base_expr = "IM_NODE_TLS_CERTIFICATES"
+                else:
+                    # Assume that there is only one VM per group
+                    base_expr = "hostvars[groups['%s'][0]]['IM_NODE_TLS_CERTIFICATES']" % host_node.name
+
+                return Tosca._jinja_map_access(base_expr, attribute_params)
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     if index is not None:
@@ -1559,6 +1595,8 @@ class Tosca:
                     res = []
                     if net.isPublic():
                         dmsname = k8s_sys.getValue("net_interface.0.dns_name")
+                        if not dmsname:
+                            dmsname = vm.info.systems[0].getValue("net_interface.0.dns.0.name")
                         if net.getOutPorts():
                             for outport in net.getOutPorts():
                                 # if DNS name is set, the endpoint of the first public port is the DNS name
@@ -1955,7 +1993,8 @@ class Tosca:
                     additional_ip = self._final_function_result(port.get_property_value('additional_ip'), port)
                     additional_dns_names = self._final_function_result(port.get_property_value('additional_dns_names'),
                                                                        port)
-                    nets.append((link, ip, dns_name, additional_dns_names, order, additional_ip))
+                    tls = self._final_function_result(port.get_property_value('tls'), port)
+                    nets.append((link, ip, dns_name, additional_dns_names, order, additional_ip, tls))
 
         return nets
 
@@ -2346,6 +2385,7 @@ class Tosca:
                         res.setValue("net_interface.0.connection", "%s_pub" % res.name)
                         if value and value[0] and 'endpoint' in value[0]:
                             res.setValue("net_interface.0.dns_name", value[0]['endpoint'])
+                            res.setValue("net_interface.0.dns.0.name", value[0]['endpoint'])
                     elif prop.name == 'expose_ports':
                         # Asume that publish_ports must be published as ClusterIP
                         priv = network("%s_priv" % res.name)
