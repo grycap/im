@@ -180,6 +180,7 @@ class UpCloudCloudConnector(CloudConnector):
     type = "UpCloud"
     DEFAULT_USER = "root"
     DEFAULT_LOCATION = "fi-hel1"
+    UTILITY_NETWORK = "10.0.0.0/8"
     VM_STATE_MAP = {
         "running": VirtualMachine.RUNNING,
         "pending": VirtualMachine.PENDING,
@@ -425,6 +426,19 @@ class UpCloudCloudConnector(CloudConnector):
 
         rules = []
         seen = set()
+        # Utility addresses are private to the UpCloud account. Allow all
+        # traffic from that network without having to update existing servers
+        # whenever a new VM is created.
+        utility_network = ipaddress.ip_network(self.UTILITY_NETWORK)
+        rules.append({
+            "direction": "in",
+            "family": "IPv%d" % utility_network.version,
+            "source_address_start": str(utility_network.network_address),
+            "source_address_end": str(utility_network.broadcast_address),
+            "action": "accept",
+            "comment": "Allow all traffic from UpCloud Utility network",
+        })
+
         for outport in outports:
             protocol = outport.get_protocol().lower()
             port_start = outport.get_port_init() if outport.is_range() else outport.get_remote_port()
@@ -606,13 +620,13 @@ class UpCloudCloudConnector(CloudConnector):
                     args["ex_storage_devices"] = storage_devices
                 server = self.create_server(client, args, public_ip)
                 vm.id = server["uuid"]
-                firewall_error = self.configure_firewall(client, vm.id, radl, system)
-                if firewall_error:
-                    vm.error_msg = firewall_error
                 vm.volumes = self.get_created_volume_ids(vm.id, created_addresses, auth_data)
                 vm.info.systems[0].setValue("instance_id", str(vm.id))
                 vm.info.systems[0].setValue("instance_name", str(server["title"]))
                 vm.destroy = False
+                firewall_error = self.configure_firewall(client, vm.id, radl, system)
+                if firewall_error:
+                    vm.error_msg = firewall_error
                 res.append((True, vm))
                 self.log_debug("Server %s successfully created." % vm.id)
             except Exception as ex:

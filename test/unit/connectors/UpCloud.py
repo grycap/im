@@ -253,7 +253,19 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.assertEqual(rules[-2], {"direction": "out", "action": "accept",
                                      "position": str(len(rules) - 1)})
         self.assertEqual(rules[-1], {"direction": "in", "action": "drop",
-                                     "position": str(len(rules))})
+                                    "position": str(len(rules))})
+
+    def test_firewall_allows_all_traffic_from_utility_network(self):
+        connector = self.get_connector()
+        radl = self.get_radl()
+
+        rules = connector.get_firewall_rules(radl, radl.systems[0])
+
+        internal = rules[0]
+        self.assertEqual(internal["source_address_start"], "10.0.0.0")
+        self.assertEqual(internal["source_address_end"], "10.255.255.255")
+        self.assertNotIn("protocol", internal)
+        self.assertEqual(internal["action"], "accept")
 
     def test_rest_set_firewall_rules(self):
         client = UpCloudRESTClient(token="token")
