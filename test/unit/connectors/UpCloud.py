@@ -260,9 +260,9 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         icmp = next(rule for rule in rules if rule.get("protocol") == "icmp")
         self.assertNotIn("destination_port_start", icmp)
         self.assertEqual(rules[-2], {"direction": "out", "action": "accept",
-                                    "position": str(len(rules) - 1)})
+                                     "position": str(len(rules) - 1)})
         self.assertEqual(rules[-1], {"direction": "in", "action": "drop",
-                                    "position": str(len(rules))})
+                                     "position": str(len(rules))})
 
     def test_rest_set_firewall_rules(self):
         client = UpCloudRESTClient(token="token")

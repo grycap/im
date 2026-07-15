@@ -85,10 +85,10 @@ class UpCloudRESTClient:
         for plan in plans:
             price = zone_price.get("server_plan_%s" % plan["name"], {}).get("price")
             result.append(SimpleNamespace(id=plan["name"], name=plan["name"],
-                                         ram=int(plan["memory_amount"]), disk=int(plan["storage_size"]),
-                                         price=float(price) if price is not None else None,
-                                         extra={"core_number": int(plan["core_number"]),
-                                                "storage_tier": plan.get("storage_tier", "maxiops")}))
+                                          ram=int(plan["memory_amount"]), disk=int(plan["storage_size"]),
+                                          price=float(price) if price is not None else None,
+                                          extra={"core_number": int(plan["core_number"]),
+                                                 "storage_tier": plan.get("storage_tier", "maxiops")}))
         return result
 
     def list_images(self):
@@ -141,8 +141,9 @@ class UpCloudRESTClient:
         else:
             server["login_user"]["create_password"] = "yes"
         if not ex_public_ip:
-            server["networking"] = {"interfaces": {"interface": [{"type": "utility",
-                "ip_addresses": {"ip_address": [{"family": "IPv4"}]}}]}}
+            server["networking"] = {"interfaces":
+                                    {"interface": [{"type": "utility",
+                                                    "ip_addresses": {"ip_address": [{"family": "IPv4"}]}}]}}
         created = self.request("server", method="POST", data=json.dumps({"server": server})).object["server"]
         return self._to_node(created, "pending")
 
