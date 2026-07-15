@@ -253,7 +253,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.assertEqual(rules[-2], {"direction": "out", "action": "accept",
                                      "position": str(len(rules) - 1)})
         self.assertEqual(rules[-1], {"direction": "in", "action": "drop",
-                                    "position": str(len(rules))})
+                                     "position": str(len(rules))})
 
     def test_firewall_allows_all_traffic_from_utility_network(self):
         connector = self.get_connector()
