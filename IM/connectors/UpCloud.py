@@ -127,6 +127,9 @@ class UpCloudRESTClient:
     def list_volumes(self):
         return self._items(self.request("storage/normal"), "storages", "storage")
 
+    def list_ip_addresses(self):
+        return self._items(self.request("ip_address"), "ip_addresses", "ip_address")
+
     def destroy_volume(self, volume_id):
         self.request("storage/%s" % volume_id, method="DELETE")
         return True
@@ -748,6 +751,8 @@ class UpCloudCloudConnector(CloudConnector):
         cores = sum(int(server.get("core_number", 0)) for server in servers)
         memory_mib = sum(int(server.get("memory_amount", 0)) for server in servers)
         volumes = client.list_volumes()
+        ip_addresses = client.list_ip_addresses()
+        floating_ips = sum(1 for address in ip_addresses if address.get("floating") == "yes")
 
         storage_by_tier = {"hdd": 0, "maxiops": 0, "standard": 0}
         for volume in volumes:
@@ -761,14 +766,16 @@ class UpCloudCloudConnector(CloudConnector):
                     "limit": int(limits["memory"]) / 1024.0 if "memory" in limits else -1},
             "instances": {"used": len(servers), "limit": -1},
             "volumes": {"used": len(volumes), "limit": -1},
+            # detached_floating_ips is not a limit on floating IPs assigned to VMs.
+            "floating_ips": {"used": floating_ips, "limit": -1},
             "volume_storage": {"used": sum(int(volume["size"]) for volume in volumes),
-                               "limit": int(limits["storage_total"]) / 1024.0
+                               "limit": int(limits["storage_total"])
                                if "storage_total" in limits else -1},
         }
         for tier, used in storage_by_tier.items():
             limit_name = "storage_%s" % tier
             quotas["volume_storage_%s" % tier] = {
                 "used": used,
-                "limit": int(limits[limit_name]) / 1024.0 if limit_name in limits else -1,
+                "limit": int(limits[limit_name]) if limit_name in limits else -1,
             }
         return quotas

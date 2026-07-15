@@ -458,14 +458,20 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         volume1 = {"uuid": "volume-1", "size": "40", "tier": "maxiops", "zone": "fi-hel1"}
         volume2 = {"uuid": "volume-2", "size": "20", "tier": "hdd", "zone": "de-fra1"}
         driver.list_volumes.return_value = [volume1, volume2]
+        driver.list_ip_addresses.return_value = [
+            {"address": "192.0.2.1", "floating": "yes", "mac": None},
+            {"address": "192.0.2.2", "floating": "yes", "mac": "00:11:22:33:44:55"},
+            {"address": "192.0.2.3", "floating": "no", "mac": None},
+        ]
 
         quotas = connector.get_quotas(Authentication([]))
 
         self.assertEqual(quotas["cores"], {"used": 3, "limit": 20})
         self.assertEqual(quotas["ram"], {"used": 6.0, "limit": 10.0})
         self.assertEqual(quotas["instances"], {"used": 2, "limit": -1})
-        self.assertEqual(quotas["volume_storage"], {"used": 60, "limit": 100.0})
-        self.assertEqual(quotas["volume_storage_maxiops"], {"used": 40, "limit": 80.0})
+        self.assertEqual(quotas["floating_ips"], {"used": 2, "limit": -1})
+        self.assertEqual(quotas["volume_storage"], {"used": 60, "limit": 102400})
+        self.assertEqual(quotas["volume_storage_maxiops"], {"used": 40, "limit": 81920})
 
 
 if __name__ == "__main__":
