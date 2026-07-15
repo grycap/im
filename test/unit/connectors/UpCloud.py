@@ -7,7 +7,7 @@ import json
 sys.path.append(".")
 sys.path.append("..")
 
-from mock import MagicMock, patch
+from mock import ANY, MagicMock, patch
 from radl import radl_parse
 
 from IM.CloudInfo import CloudInfo
@@ -67,6 +67,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         connector.get_client(auth)
 
         client_cls.assert_called_once_with(base_url="https://api.upcloud.com/1.3", verify=False,
+                                           log_debug=ANY,
                                            username="user", password="secret")
 
     @patch("IM.connectors.UpCloud.UpCloudRESTClient")
@@ -83,6 +84,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.get_connector().get_client(auth)
 
         client_cls.assert_called_once_with(base_url="https://api.upcloud.com/1.3", verify=False,
+                                           log_debug=ANY,
                                            token="api-token")
 
     def test_concrete(self):
@@ -110,6 +112,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         driver.create_node.return_value = node
         auth = Authentication([])
         radl = self.get_radl()
+        radl.systems[0].setValue("disk.0.size", 120, "G")
 
         result = connector.launch(InfrastructureInfo(), radl, radl, 1, auth)
 
@@ -122,6 +125,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.assertEqual(args["size"], size)
         self.assertEqual(args["ex_username"], "root")
         self.assertEqual(args["ex_metadata"], "yes")
+        self.assertEqual(args["ex_root_disk_size"], 120)
         driver.wait_server_ready.assert_not_called()
         driver.set_firewall_rules.assert_called_once()
         self.assertEqual(args["auth"].pubkey, "public")
@@ -270,6 +274,26 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         client.request.assert_called_once_with(
             "server/server-id/firewall_rule", method="PUT",
             data=json.dumps({"firewall_rules": {"firewall_rule": rules}}))
+
+    def test_rest_destroy_node_waits_through_maintenance(self):
+        client = UpCloudRESTClient(token="token")
+        client.log_debug = MagicMock()
+        responses = [
+            MagicMock(object={"server": {"state": "started"}}),
+            MagicMock(object={"server": {"state": "maintenance"}}),
+            MagicMock(object={"server": {"state": "stopped"}}),
+            MagicMock(object={}),
+        ]
+        client.request = MagicMock(side_effect=responses)
+        client.stop_node = MagicMock(return_value=True)
+
+        self.assertTrue(client.destroy_node("server-id", timeout=10, poll_interval=0))
+
+        client.stop_node.assert_called_once()
+        client.request.assert_called_with("server/server-id", method="DELETE")
+        self.assertEqual(client.log_debug.call_count, 2)
+        self.assertIn("Stopping", client.log_debug.call_args_list[0].args[0])
+        self.assertIn("Deleting", client.log_debug.call_args_list[1].args[0])
 
     def test_firewall_waits_only_on_illegal_state(self):
         connector = self.get_connector()

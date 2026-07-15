@@ -37,9 +37,10 @@ class UpCloudRESTClient:
                  "maintenance": "pending", "error": "error"}
 
     def __init__(self, base_url="https://api.upcloud.com/1.3", token=None,
-                 username=None, password=None, verify=True):
+                 username=None, password=None, verify=True, log_debug=None):
         self.base_url = base_url.rstrip("/")
         self.connection = self
+        self.log_debug = log_debug or (lambda _message: None)
         self.session = requests.Session()
         self.session.verify = verify
         self.session.headers.update({"Accept": "application/json", "Content-Type": "application/json"})
@@ -121,12 +122,14 @@ class UpCloudRESTClient:
 
     def create_node(self, name, size, image, location, auth=None, ex_hostname="localhost",
                     ex_username="root", ex_storage_devices=None, ex_metadata=None,
-                    ex_public_ip=True):
+                    ex_public_ip=True, ex_root_disk_size=None):
+        root_disk_size = ex_root_disk_size or size.disk
         if image.extra["type"] == "template":
             devices = [{"action": "clone", "storage": image.id, "title": image.name,
-                        "size": size.disk, "tier": size.extra.get("storage_tier", "maxiops")}]
+                        "size": root_disk_size,
+                        "tier": size.extra.get("storage_tier", "maxiops")}]
         else:
-            devices = [{"action": "create", "title": image.name, "size": size.disk,
+            devices = [{"action": "create", "title": image.name, "size": root_disk_size,
                         "tier": size.extra.get("storage_tier", "maxiops")},
                        {"action": "attach", "storage": image.id, "type": "cdrom"}]
         devices.extend(ex_storage_devices or [])
@@ -176,19 +179,28 @@ class UpCloudRESTClient:
                      data=json.dumps({"firewall_rules": {"firewall_rule": rules}}))
         return True
 
-    def destroy_node(self, node_id):
-        for _ in range(25):
+    def destroy_node(self, node_id, timeout=300, poll_interval=2):
+        """Stop and delete a server, allowing for UpCloud maintenance transitions."""
+        deadline = time.monotonic() + timeout
+        stop_requested = False
+        state = "unknown"
+        while time.monotonic() < deadline:
             server = self.request("server/%s" % node_id).object["server"]
             state = server.get("state")
             if state == "stopped":
+                self.log_debug("Deleting UpCloud server %s." % node_id)
                 self.request("server/%s" % node_id, method="DELETE")
                 return True
-            if state == "started":
+            if state == "started" and not stop_requested:
+                self.log_debug("Stopping UpCloud server %s before deletion." % node_id)
                 self.stop_node(SimpleNamespace(id=node_id))
+                stop_requested = True
             elif state == "error":
                 return False
-            time.sleep(2)
-        raise CloudConnectorException("Timeout destroying UpCloud server %s" % node_id)
+            time.sleep(poll_interval)
+        raise CloudConnectorException(
+            "Timeout destroying UpCloud server %s after %d seconds (last state: %s)" %
+            (node_id, timeout, state))
 
 
 class UpCloudCloudConnector(CloudConnector):
@@ -238,7 +250,8 @@ class UpCloudCloudConnector(CloudConnector):
             base_url = "%s://%s%s%s" % (protocol, self.cloud.server, port, path)
             if not base_url.endswith("/1.3"):
                 base_url += "/1.3"
-        self.client = UpCloudRESTClient(base_url=base_url, verify=self.verify_ssl, **client_args)
+        self.client = UpCloudRESTClient(base_url=base_url, verify=self.verify_ssl,
+                                        log_debug=self.log_debug, **client_args)
         self.auth = auth_data
         return self.client
 
@@ -594,6 +607,9 @@ class UpCloudCloudConnector(CloudConnector):
             # service while the boot storage is cloned.
             "ex_metadata": "yes",
         }
+        root_disk = system.getFeature("disk.0.size")
+        if root_disk:
+            base_args["ex_root_disk_size"] = int(root_disk.getValue("G"))
 
         res = []
         public_ip = radl.hasPublicNet(system.name)
