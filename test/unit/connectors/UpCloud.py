@@ -2,6 +2,7 @@
 
 import sys
 import unittest
+import json
 
 sys.path.append(".")
 sys.path.append("..")
@@ -13,7 +14,7 @@ from IM.CloudInfo import CloudInfo
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.VirtualMachine import VirtualMachine
 from IM.auth import Authentication
-from IM.connectors.UpCloud import UpCloudCloudConnector
+from IM.connectors.UpCloud import UpCloudCloudConnector, UpCloudRESTClient
 from IM.connectors.exceptions import CloudConnectorException, NoCorrectAuthData
 from .CloudConn import TestCloudConnectorBase
 
@@ -58,39 +59,37 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         driver.list_images.return_value = [image]
         return location, medium
 
-    @patch("IM.connectors.UpCloud.get_driver")
-    def test_get_driver(self, get_driver):
-        driver_cls = MagicMock()
-        get_driver.return_value = driver_cls
+    @patch("IM.connectors.UpCloud.UpCloudRESTClient")
+    def test_get_client(self, client_cls):
         auth = Authentication([{"type": "UpCloud", "username": "user", "password": "secret"}])
 
         connector = self.get_connector()
-        connector.get_driver(auth)
+        connector.get_client(auth)
 
-        driver_cls.assert_called_once_with(username="user", password="secret")
+        client_cls.assert_called_once_with(base_url="https://api.upcloud.com/1.3", verify=False,
+                                           username="user", password="secret")
 
-    @patch("IM.connectors.UpCloud.get_driver")
-    def test_get_driver_requires_password(self, get_driver):
+    @patch("IM.connectors.UpCloud.UpCloudRESTClient")
+    def test_get_client_requires_password(self, client_cls):
         auth = Authentication([{"type": "UpCloud", "username": "user"}])
         with self.assertRaises(NoCorrectAuthData):
-            self.get_connector().get_driver(auth)
-        get_driver.assert_not_called()
+            self.get_connector().get_client(auth)
+        client_cls.assert_not_called()
 
-    @patch("IM.connectors.UpCloud.get_driver")
-    def test_get_driver_with_token(self, get_driver):
-        driver_cls = MagicMock()
-        get_driver.return_value = driver_cls
+    @patch("IM.connectors.UpCloud.UpCloudRESTClient")
+    def test_get_client_with_token(self, client_cls):
         auth = Authentication([{"type": "UpCloud", "token": "api-token"}])
 
-        self.get_connector().get_driver(auth)
+        self.get_connector().get_client(auth)
 
-        driver_cls.assert_called_once_with(token="api-token")
+        client_cls.assert_called_once_with(base_url="https://api.upcloud.com/1.3", verify=False,
+                                           token="api-token")
 
     def test_concrete(self):
         connector = self.get_connector()
         driver = MagicMock()
         _, size = self.configure_driver(driver)
-        connector.get_driver = MagicMock(return_value=driver)
+        connector.get_client = MagicMock(return_value=driver)
         auth = Authentication([])
 
         concrete = connector.concreteSystem(self.get_radl().systems[0], auth)
@@ -100,13 +99,12 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.assertEqual(concrete[0].getValue("cpu.count"), 2)
         driver.list_sizes.assert_called_once()
 
-    @patch("IM.connectors.UpCloud.NodeAuthSSHKey")
     @patch("IM.connectors.UpCloud.SSH.keygen", return_value=("public", "private"))
-    def test_launch(self, keygen, node_auth):
+    def test_launch(self, keygen):
         connector = self.get_connector()
         driver = MagicMock()
         location, size = self.configure_driver(driver)
-        connector.get_driver = MagicMock(return_value=driver)
+        connector.get_client = MagicMock(return_value=driver)
         connector.cloud.getCloudConnector = MagicMock(return_value=connector)
         node = MagicMock(id="server-id", name="server-name")
         driver.create_node.return_value = node
@@ -124,15 +122,32 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.assertEqual(args["size"], size)
         self.assertEqual(args["ex_username"], "root")
         self.assertEqual(args["ex_metadata"], "yes")
-        node_auth.assert_called_once_with("public")
+        driver.wait_server_ready.assert_not_called()
+        driver.set_firewall_rules.assert_called_once()
+        self.assertEqual(args["auth"].pubkey, "public")
 
-    @patch("IM.connectors.UpCloud.NodeAuthSSHKey")
     @patch("IM.connectors.UpCloud.SSH.keygen", return_value=("public", "private"))
-    def test_launch_with_volumes(self, keygen, node_auth):
+    def test_launch_keeps_vm_when_firewall_fails(self, keygen):
+        connector = self.get_connector()
+        driver = MagicMock()
+        self.configure_driver(driver)
+        connector.get_client = MagicMock(return_value=driver)
+        connector.cloud.getCloudConnector = MagicMock(return_value=connector)
+        driver.create_node.return_value = MagicMock(id="server-id", name="server-name")
+        driver.set_firewall_rules.side_effect = CloudConnectorException("FIREWALL_ERROR")
+        radl = self.get_radl()
+
+        result = connector.launch(InfrastructureInfo(), radl, radl, 1, Authentication([]))
+
+        self.assertTrue(result[0][0])
+        self.assertIn("FIREWALL_ERROR", result[0][1].error_msg)
+
+    @patch("IM.connectors.UpCloud.SSH.keygen", return_value=("public", "private"))
+    def test_launch_with_volumes(self, keygen):
         connector = self.get_connector()
         driver = MagicMock()
         location, _ = self.configure_driver(driver)
-        connector.get_driver = MagicMock(return_value=driver)
+        connector.get_client = MagicMock(return_value=driver)
         connector.cloud.getCloudConnector = MagicMock(return_value=connector)
         driver.create_node.return_value = MagicMock(id="server-id", name="server-name")
         created_node = MagicMock()
@@ -173,6 +188,114 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         connector.get_node_with_id.assert_called_once_with("server-id", auth)
         self.assertEqual(radl.systems[0].getValue("disk.1.device"), "/dev/vdb")
         self.assertEqual(radl.systems[0].getValue("disk.2.device"), "/dev/sdc")
+
+    def test_create_node_without_public_ip(self):
+        driver = MagicMock()
+        node = MagicMock()
+        driver.create_node.return_value = node
+        args = {"name": "server", "size": MagicMock(), "image": MagicMock(),
+                "location": MagicMock()}
+
+        result = self.get_connector().create_node(driver, args, public_ip=False)
+
+        self.assertEqual(result, node)
+        driver.create_node.assert_called_once_with(ex_public_ip=False, **args)
+
+    def test_rest_create_node_without_public_ip(self):
+        client = UpCloudRESTClient(token="token")
+        server = {"uuid": "server-id", "title": "server", "state": "maintenance",
+                  "ip_addresses": {"ip_address": [
+                      {"access": "utility", "address": "10.0.0.1"}
+                  ]}}
+        response = MagicMock()
+        response.object = {"server": server}
+        client.request = MagicMock(return_value=response)
+        size = MagicMock(id="2xCPU-4GB", disk=80,
+                         extra={"storage_tier": "maxiops"})
+        image = MagicMock(id="image-id", extra={"type": "template"})
+        image.name = "Ubuntu"
+        location = MagicMock(id="fi-hel1")
+        auth = MagicMock(pubkey="ssh-rsa public")
+
+        node = client.create_node("server", size, image, location, auth=auth,
+                                  ex_hostname="server", ex_username="root",
+                                  ex_metadata="yes", ex_public_ip=False)
+
+        payload = json.loads(client.request.call_args.kwargs["data"])
+        interfaces = payload["server"]["networking"]["interfaces"]["interface"]
+        self.assertEqual(interfaces, [{
+            "type": "utility",
+            "ip_addresses": {"ip_address": [{"family": "IPv4"}]},
+        }])
+        self.assertEqual(node.public_ips, [])
+        self.assertEqual(node.private_ips, ["10.0.0.1"])
+
+    def test_firewall_rules(self):
+        connector = self.get_connector()
+        radl = radl_parse.parse_radl("""
+            network public (outbound = 'yes' and
+                              outports = '192.0.2.0/24-80/tcp,1000:1002/udp,8/icmp')
+            system test (
+                net_interface.0.connection = 'public' and
+                disk.0.image.url = 'upc://image-id'
+            )
+        """)
+
+        rules = connector.get_firewall_rules(radl, radl.systems[0])
+
+        # SSH is automatically added to public networks.
+        ssh = next(rule for rule in rules if rule.get("destination_port_start") == "22")
+        self.assertEqual(ssh["source_address_start"], "0.0.0.0")
+        self.assertEqual(ssh["source_address_end"], "255.255.255.255")
+        http = next(rule for rule in rules if rule.get("destination_port_start") == "80")
+        self.assertEqual(http["source_address_start"], "192.0.2.0")
+        self.assertEqual(http["source_address_end"], "192.0.2.255")
+        udp = next(rule for rule in rules if rule.get("protocol") == "udp")
+        self.assertEqual((udp["destination_port_start"], udp["destination_port_end"]),
+                         ("1000", "1002"))
+        icmp = next(rule for rule in rules if rule.get("protocol") == "icmp")
+        self.assertNotIn("destination_port_start", icmp)
+        self.assertEqual(rules[-2], {"direction": "out", "action": "accept",
+                                    "position": str(len(rules) - 1)})
+        self.assertEqual(rules[-1], {"direction": "in", "action": "drop",
+                                    "position": str(len(rules))})
+
+    def test_rest_set_firewall_rules(self):
+        client = UpCloudRESTClient(token="token")
+        client.request = MagicMock(return_value=MagicMock(object={}))
+        rules = [{"direction": "out", "action": "accept", "position": "1"}]
+
+        self.assertTrue(client.set_firewall_rules("server-id", rules))
+
+        client.request.assert_called_once_with(
+            "server/server-id/firewall_rule", method="PUT",
+            data=json.dumps({"firewall_rules": {"firewall_rule": rules}}))
+
+    def test_firewall_waits_only_on_illegal_state(self):
+        connector = self.get_connector()
+        driver = MagicMock()
+        driver.set_firewall_rules.side_effect = [
+            CloudConnectorException("SERVER_STATE_ILLEGAL"), True]
+        radl = self.get_radl()
+
+        connector.configure_firewall(driver, "server-id", radl, radl.systems[0])
+
+        driver.wait_server_ready.assert_not_called()
+        self.assertEqual(driver.set_firewall_rules.call_count, 2)
+
+    def test_firewall_is_skipped_for_trial_accounts(self):
+        connector = self.get_connector()
+        connector.log_error = MagicMock()
+        driver = MagicMock()
+        driver.set_firewall_rules.side_effect = CloudConnectorException(
+            "UpCloud API error 403: TRIAL_FIREWALL: Trial mode firewall cannot be modified.")
+        radl = self.get_radl()
+
+        result = connector.configure_firewall(driver, "server-id", radl, radl.systems[0])
+
+        driver.set_firewall_rules.assert_called_once()
+        connector.log_error.assert_called_once()
+        self.assertIn("TRIAL_FIREWALL", result)
 
     def test_device_translation(self):
         connector = self.get_connector()
@@ -233,7 +356,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         connector = self.get_connector()
         driver = MagicMock()
         self.configure_driver(driver)
-        connector.get_driver = MagicMock(return_value=driver)
+        connector.get_client = MagicMock(return_value=driver)
 
         with self.assertRaises(CloudConnectorException):
             connector.concrete_system(self.get_radl("unknown").systems[0],
@@ -242,7 +365,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
     def test_update_vm_info(self):
         connector = self.get_connector()
         driver = MagicMock()
-        connector.get_driver = MagicMock(return_value=driver)
+        connector.get_client = MagicMock(return_value=driver)
         server = {
             "uuid": "server-id", "title": "server", "state": "started",
             "core_number": "2", "memory_amount": "4096", "plan": "2xCPU-4GB",
@@ -252,14 +375,14 @@ class TestUpCloudConnector(TestCloudConnectorBase):
                 {"access": "private", "address": "10.0.0.1"},
             ]},
         }
-        driver.connection.request.return_value.object = {"server": server}
         node = MagicMock()
         node.state = "running"
         node.public_ips = ["198.51.100.1"]
         node.private_ips = ["10.0.0.1"]
-        node.extra = {}
+        node.extra = {key: server[key] for key in
+                      ("core_number", "memory_amount", "plan", "zone")}
         node.driver = driver
-        driver._to_node.return_value = node
+        connector.get_node_with_id = MagicMock(return_value=node)
         connector.attach_volumes = MagicMock(return_value=True)
         connector.setIPsFromInstance = MagicMock()
         radl = self.get_radl()
@@ -272,12 +395,12 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.assertEqual(vm.info.systems[0].getFeature("memory.size").getValue("M"), 4096)
         self.assertEqual(vm.info.systems[0].getValue("instance_type"), "2xCPU-4GB")
         self.assertEqual(vm.info.systems[0].getValue("availability_zone"), "fi-hel1")
-        connector.setIPsFromInstance.assert_called_once_with(vm, node)
+        self.assertEqual(vm.getPublicIP(), "198.51.100.1")
 
     def test_list_images(self):
         connector = self.get_connector()
         driver = MagicMock()
-        connector.get_driver = MagicMock(return_value=driver)
+        connector.get_client = MagicMock(return_value=driver)
         online = MagicMock(id="image-1", extra={"state": "online"})
         online.name = "Ubuntu 24.04"
         offline = MagicMock(id="image-2", extra={"state": "maintenance"})
@@ -308,7 +431,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
     def test_get_quotas(self):
         connector = self.get_connector()
         driver = MagicMock()
-        connector.get_driver = MagicMock(return_value=driver)
+        connector.get_client = MagicMock(return_value=driver)
         account_response = MagicMock()
         account_response.object = {"account": {"resource_limits": {
             "cores": 20, "memory": 10240, "storage_total": 102400,
