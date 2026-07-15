@@ -46,16 +46,15 @@ class TestUpCloudConnector(TestCloudConnectorBase):
 
     @staticmethod
     def configure_driver(driver):
-        location = MagicMock(id="fi-hel1", name="Helsinki 1")
+        location = {"id": "fi-hel1", "description": "Helsinki 1"}
         driver.list_locations.return_value = [location]
-        small = MagicMock(id="1xCPU-1GB", name="1xCPU-1GB", ram=1024, disk=25,
-                          price=3.0, extra={"core_number": 1})
-        medium = MagicMock(id="2xCPU-4GB", name="2xCPU-4GB", ram=4096, disk=80,
-                           price=8.0, extra={"core_number": 2})
+        small = {"name": "1xCPU-1GB", "memory_amount": 1024, "storage_size": 25,
+                 "price": 3.0, "core_number": 1}
+        medium = {"name": "2xCPU-4GB", "memory_amount": 4096, "storage_size": 80,
+                  "price": 8.0, "core_number": 2}
         driver.list_sizes.return_value = [small, medium]
-        image = MagicMock(id="01000000-0000-4000-8000-000030200200",
-                          extra={"type": "template", "state": "online"})
-        image.name = "Ubuntu"
+        image = {"uuid": "01000000-0000-4000-8000-000030200200",
+                 "title": "Ubuntu", "type": "template", "state": "online"}
         driver.list_images.return_value = [image]
         return location, medium
 
@@ -97,7 +96,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         concrete = connector.concreteSystem(self.get_radl().systems[0], auth)
 
         self.assertEqual(len(concrete), 1)
-        self.assertEqual(concrete[0].getValue("instance_type"), size.id)
+        self.assertEqual(concrete[0].getValue("instance_type"), size["name"])
         self.assertEqual(concrete[0].getValue("cpu.count"), 2)
         driver.list_sizes.assert_called_once()
 
@@ -108,8 +107,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         location, size = self.configure_driver(driver)
         connector.get_client = MagicMock(return_value=driver)
         connector.cloud.getCloudConnector = MagicMock(return_value=connector)
-        node = MagicMock(id="server-id", name="server-name")
-        driver.create_node.return_value = node
+        driver.create_server.return_value = {"uuid": "server-id", "title": "server-name"}
         auth = Authentication([])
         radl = self.get_radl()
         radl.systems[0].setValue("disk.0.size", 120, "G")
@@ -119,8 +117,8 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.assertTrue(result[0][0])
         self.assertEqual(result[0][1].id, "server-id")
         self.assertEqual(radl.systems[0].getValue("disk.0.os.credentials.private_key"), "private")
-        driver.create_node.assert_called_once()
-        args = driver.create_node.call_args.kwargs
+        driver.create_server.assert_called_once()
+        args = driver.create_server.call_args.kwargs
         self.assertEqual(args["location"], location)
         self.assertEqual(args["size"], size)
         self.assertEqual(args["ex_username"], "root")
@@ -128,7 +126,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.assertEqual(args["ex_root_disk_size"], 120)
         driver.wait_server_ready.assert_not_called()
         driver.set_firewall_rules.assert_called_once()
-        self.assertEqual(args["auth"].pubkey, "public")
+        self.assertEqual(args["public_key"], "public")
 
     @patch("IM.connectors.UpCloud.SSH.keygen", return_value=("public", "private"))
     def test_launch_keeps_vm_when_firewall_fails(self, keygen):
@@ -137,7 +135,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.configure_driver(driver)
         connector.get_client = MagicMock(return_value=driver)
         connector.cloud.getCloudConnector = MagicMock(return_value=connector)
-        driver.create_node.return_value = MagicMock(id="server-id", name="server-name")
+        driver.create_server.return_value = {"uuid": "server-id", "title": "server-name"}
         driver.set_firewall_rules.side_effect = CloudConnectorException("FIREWALL_ERROR")
         radl = self.get_radl()
 
@@ -150,17 +148,16 @@ class TestUpCloudConnector(TestCloudConnectorBase):
     def test_launch_with_volumes(self, keygen):
         connector = self.get_connector()
         driver = MagicMock()
-        location, _ = self.configure_driver(driver)
+        self.configure_driver(driver)
         connector.get_client = MagicMock(return_value=driver)
         connector.cloud.getCloudConnector = MagicMock(return_value=connector)
-        driver.create_node.return_value = MagicMock(id="server-id", name="server-name")
-        created_node = MagicMock()
-        created_node.extra = {"storage_devices": {"storage_device": [
+        driver.create_server.return_value = {"uuid": "server-id", "title": "server-name"}
+        created_server = {"storage_devices": {"storage_device": [
             {"address": "virtio:0", "storage": "boot-volume"},
             {"address": "virtio:1", "storage": "new-volume"},
             {"address": "scsi:0:2", "storage": "existing-volume"},
         ]}}
-        connector.get_node_with_id = MagicMock(return_value=created_node)
+        connector.get_server = MagicMock(return_value=created_server)
         radl = radl_parse.parse_radl("""
             network net (outbound = 'yes')
             system test (
@@ -182,48 +179,43 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.assertTrue(result[0][0])
         self.assertEqual(result[0][1].volumes, ["new-volume"])
         driver.create_volume.assert_not_called()
-        storage_devices = driver.create_node.call_args.kwargs["ex_storage_devices"]
+        storage_devices = driver.create_server.call_args.kwargs["ex_storage_devices"]
         self.assertEqual(storage_devices, [
-            {"action": "create", "title": driver.create_node.call_args.kwargs["name"] + "-disk-1",
+            {"action": "create", "title": driver.create_server.call_args.kwargs["name"] + "-disk-1",
              "size": 25, "tier": "hdd", "type": "disk", "address": "virtio:1"},
             {"action": "attach", "storage": "existing-volume", "type": "disk",
              "address": "scsi:0:2"},
         ])
-        connector.get_node_with_id.assert_called_once_with("server-id", auth)
+        connector.get_server.assert_called_once_with("server-id", auth)
         self.assertEqual(radl.systems[0].getValue("disk.1.device"), "/dev/vdb")
         self.assertEqual(radl.systems[0].getValue("disk.2.device"), "/dev/sdc")
 
-    def test_create_node_without_public_ip(self):
-        driver = MagicMock()
-        node = MagicMock()
-        driver.create_node.return_value = node
+    def test_create_server_without_public_ip(self):
+        client = MagicMock()
+        server = {"uuid": "server-id", "title": "server"}
+        client.create_server.return_value = server
         args = {"name": "server", "size": MagicMock(), "image": MagicMock(),
                 "location": MagicMock()}
 
-        result = self.get_connector().create_node(driver, args, public_ip=False)
+        result = self.get_connector().create_server(client, args, public_ip=False)
 
-        self.assertEqual(result, node)
-        driver.create_node.assert_called_once_with(ex_public_ip=False, **args)
+        self.assertEqual(result, server)
+        client.create_server.assert_called_once_with(ex_public_ip=False, **args)
 
-    def test_rest_create_node_without_public_ip(self):
+    def test_rest_create_server_without_public_ip(self):
         client = UpCloudRESTClient(token="token")
         server = {"uuid": "server-id", "title": "server", "state": "maintenance",
                   "ip_addresses": {"ip_address": [
                       {"access": "utility", "address": "10.0.0.1"}
                   ]}}
-        response = MagicMock()
-        response.object = {"server": server}
-        client.request = MagicMock(return_value=response)
-        size = MagicMock(id="2xCPU-4GB", disk=80,
-                         extra={"storage_tier": "maxiops"})
-        image = MagicMock(id="image-id", extra={"type": "template"})
-        image.name = "Ubuntu"
-        location = MagicMock(id="fi-hel1")
-        auth = MagicMock(pubkey="ssh-rsa public")
-
-        node = client.create_node("server", size, image, location, auth=auth,
-                                  ex_hostname="server", ex_username="root",
-                                  ex_metadata="yes", ex_public_ip=False)
+        client.request = MagicMock(return_value={"server": server})
+        size = {"name": "2xCPU-4GB", "storage_size": 80, "storage_tier": "maxiops"}
+        image = {"uuid": "image-id", "type": "template", "title": "Ubuntu"}
+        location = {"id": "fi-hel1"}
+        result = client.create_server("server", size, image, location,
+                                      public_key="ssh-rsa public",
+                                      ex_hostname="server", ex_username="root",
+                                      ex_metadata="yes", ex_public_ip=False)
 
         payload = json.loads(client.request.call_args.kwargs["data"])
         interfaces = payload["server"]["networking"]["interfaces"]["interface"]
@@ -231,8 +223,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
             "type": "utility",
             "ip_addresses": {"ip_address": [{"family": "IPv4"}]},
         }])
-        self.assertEqual(node.public_ips, [])
-        self.assertEqual(node.private_ips, ["10.0.0.1"])
+        self.assertEqual(result, server)
 
     def test_firewall_rules(self):
         connector = self.get_connector()
@@ -275,21 +266,21 @@ class TestUpCloudConnector(TestCloudConnectorBase):
             "server/server-id/firewall_rule", method="PUT",
             data=json.dumps({"firewall_rules": {"firewall_rule": rules}}))
 
-    def test_rest_destroy_node_waits_through_maintenance(self):
+    def test_rest_destroy_server_waits_through_maintenance(self):
         client = UpCloudRESTClient(token="token")
         client.log_debug = MagicMock()
         responses = [
-            MagicMock(object={"server": {"state": "started"}}),
-            MagicMock(object={"server": {"state": "maintenance"}}),
-            MagicMock(object={"server": {"state": "stopped"}}),
-            MagicMock(object={}),
+            {"server": {"state": "started"}},
+            {"server": {"state": "maintenance"}},
+            {"server": {"state": "stopped"}},
+            {},
         ]
         client.request = MagicMock(side_effect=responses)
-        client.stop_node = MagicMock(return_value=True)
+        client.stop_server = MagicMock(return_value=True)
 
-        self.assertTrue(client.destroy_node("server-id", timeout=10, poll_interval=0))
+        self.assertTrue(client.destroy_server("server-id", timeout=10, poll_interval=0))
 
-        client.stop_node.assert_called_once()
+        client.stop_server.assert_called_once_with("server-id")
         client.request.assert_called_with("server/server-id", method="DELETE")
         self.assertEqual(client.log_debug.call_count, 2)
         self.assertIn("Stopping", client.log_debug.call_args_list[0].args[0])
@@ -334,10 +325,10 @@ class TestUpCloudConnector(TestCloudConnectorBase):
 
     def test_delete_created_volumes(self):
         connector = self.get_connector()
-        volume = MagicMock(id="new-volume")
-        volume.destroy.return_value = True
+        volume = {"uuid": "new-volume", "title": "data", "size": "20"}
         driver = MagicMock()
         driver.list_volumes.return_value = [volume]
+        driver.destroy_volume.return_value = True
         vm = MagicMock(volumes=["new-volume"])
 
         success, message = connector.delete_volumes(driver, vm)
@@ -345,35 +336,32 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         self.assertTrue(success)
         self.assertEqual(message, "")
         self.assertEqual(vm.volumes, [])
-        volume.destroy.assert_called_once_with()
+        driver.destroy_volume.assert_called_once_with("new-volume")
 
     def test_finalize_deletes_only_im_owned_volumes(self):
         connector = self.get_connector()
-        driver = MagicMock()
-        node = MagicMock(driver=driver)
-        node.extra = {"storage_devices": {"storage_device": [
+        client = MagicMock()
+        server = {"storage_devices": {"storage_device": [
             {"address": "virtio:0", "storage": "root-volume", "type": "disk"},
             {"address": "virtio:1", "storage": "new-volume", "type": "disk"},
             {"address": "virtio:2", "storage": "user-volume", "type": "disk"},
         ]}}
-        node.destroy.return_value = True
-        connector.get_node_with_id = MagicMock(return_value=node)
-        root_volume = MagicMock(id="root-volume")
-        root_volume.destroy.return_value = True
-        new_volume = MagicMock(id="new-volume")
-        new_volume.destroy.return_value = True
-        user_volume = MagicMock(id="user-volume")
-        driver.list_volumes.return_value = [root_volume, new_volume, user_volume]
+        client.get_server.return_value = server
+        client.destroy_server.return_value = True
+        connector.get_client = MagicMock(return_value=client)
+        root_volume = {"uuid": "root-volume", "size": "80"}
+        new_volume = {"uuid": "new-volume", "size": "20"}
+        user_volume = {"uuid": "user-volume", "size": "20"}
+        client.list_volumes.return_value = [root_volume, new_volume, user_volume]
         vm = MagicMock(id="server-id", volumes=["new-volume"])
 
         success, message = connector.finalize(vm, True, Authentication([]))
 
         self.assertTrue(success)
         self.assertEqual(message, "")
-        node.destroy.assert_called_once_with()
-        root_volume.destroy.assert_called_once_with()
-        new_volume.destroy.assert_called_once_with()
-        user_volume.destroy.assert_not_called()
+        client.destroy_server.assert_called_once_with("server-id")
+        self.assertEqual(client.destroy_volume.call_args_list,
+                         [unittest.mock.call("new-volume"), unittest.mock.call("root-volume")])
         self.assertEqual(vm.volumes, [])
 
     def test_invalid_zone(self):
@@ -399,16 +387,7 @@ class TestUpCloudConnector(TestCloudConnectorBase):
                 {"access": "private", "address": "10.0.0.1"},
             ]},
         }
-        node = MagicMock()
-        node.state = "running"
-        node.public_ips = ["198.51.100.1"]
-        node.private_ips = ["10.0.0.1"]
-        node.extra = {key: server[key] for key in
-                      ("core_number", "memory_amount", "plan", "zone")}
-        node.driver = driver
-        connector.get_node_with_id = MagicMock(return_value=node)
-        connector.attach_volumes = MagicMock(return_value=True)
-        connector.setIPsFromInstance = MagicMock()
+        driver.get_server.return_value = server
         radl = self.get_radl()
         vm = VirtualMachine(MagicMock(), "server-id", connector.cloud, radl, radl, connector, 1)
 
@@ -425,50 +404,47 @@ class TestUpCloudConnector(TestCloudConnectorBase):
         connector = self.get_connector()
         driver = MagicMock()
         connector.get_client = MagicMock(return_value=driver)
-        online = MagicMock(id="image-1", extra={"state": "online"})
-        online.name = "Ubuntu 24.04"
-        offline = MagicMock(id="image-2", extra={"state": "maintenance"})
-        offline.name = "Old Ubuntu"
+        online = {"uuid": "image-1", "title": "Ubuntu 24.04", "state": "online"}
+        offline = {"uuid": "image-2", "title": "Old Ubuntu", "state": "maintenance"}
         driver.list_images.return_value = [online, offline]
 
         images = connector.list_images(Authentication([]), {"distribution": "ubuntu"})
 
         self.assertEqual(images, [{"uri": "upc://image-1", "name": "Ubuntu 24.04"}])
 
-    def test_node_operations(self):
+    def test_server_operations(self):
         connector = self.get_connector()
-        node = MagicMock()
-        connector.get_node_with_id = MagicMock(return_value=node)
-        node.driver.reboot_node.return_value = True
-        node.driver.start_node.return_value = True
-        node.driver.stop_node.return_value = True
+        client = MagicMock()
+        client.get_server.return_value = {"uuid": "server-id"}
+        client.reboot_server.return_value = True
+        client.start_server.return_value = True
+        client.stop_server.return_value = True
+        connector.get_client = MagicMock(return_value=client)
         vm = MagicMock(id="server-id")
         auth = Authentication([])
 
         self.assertEqual(connector.reboot(vm, auth), (True, ""))
         self.assertEqual(connector.start(vm, auth), (True, ""))
         self.assertEqual(connector.stop(vm, auth), (True, ""))
-        node.driver.reboot_node.assert_called_once_with(node)
-        node.driver.start_node.assert_called_once_with(node)
-        node.driver.stop_node.assert_called_once_with(node)
+        client.reboot_server.assert_called_once_with("server-id")
+        client.start_server.assert_called_once_with("server-id")
+        client.stop_server.assert_called_once_with("server-id")
 
     def test_get_quotas(self):
         connector = self.get_connector()
         driver = MagicMock()
         connector.get_client = MagicMock(return_value=driver)
-        account_response = MagicMock()
-        account_response.object = {"account": {"resource_limits": {
+        account_response = {"account": {"resource_limits": {
             "cores": 20, "memory": 10240, "storage_total": 102400,
             "storage_hdd": 20480, "storage_maxiops": 81920,
         }}}
-        servers_response = MagicMock()
-        servers_response.object = {"servers": {"server": [
+        servers_response = {"servers": {"server": [
             {"core_number": "2", "memory_amount": "4096", "zone": "fi-hel1"},
             {"core_number": "1", "memory_amount": "2048", "zone": "de-fra1"},
         ]}}
-        driver.connection.request.side_effect = [account_response, servers_response]
-        volume1 = MagicMock(size=40, extra={"tier": "maxiops", "zone": "fi-hel1"})
-        volume2 = MagicMock(size=20, extra={"tier": "hdd", "zone": "de-fra1"})
+        driver.request.side_effect = [account_response, servers_response]
+        volume1 = {"uuid": "volume-1", "size": "40", "tier": "maxiops", "zone": "fi-hel1"}
+        volume2 = {"uuid": "volume-2", "size": "20", "tier": "hdd", "zone": "de-fra1"}
         driver.list_volumes.return_value = [volume1, volume2]
 
         quotas = connector.get_quotas(Authentication([]))
