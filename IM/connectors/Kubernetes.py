@@ -40,6 +40,8 @@ class KubernetesCloudConnector(CloudConnector):
     Cloud Launcher to Kubernetes platform
     """
 
+    MANAGED_PVCS_ANNOTATION = "im.grycap.net/managed-pvcs"
+
     type = "Kubernetes"
 
     VM_STATE_MAP = {
@@ -140,10 +142,17 @@ class KubernetesCloudConnector(CloudConnector):
             return False
 
     def _delete_volume_claims(self, pod_data, auth_data):
+        annotations = pod_data.get('metadata', {}).get('annotations', {})
+        managed_pvcs = annotations.get(self.MANAGED_PVCS_ANNOTATION, '').split(',')
+        managed_pvcs = {pvc for pvc in managed_pvcs if pvc}
         if 'volumes' in pod_data['spec']:
             for volume in pod_data['spec']['volumes']:
                 if 'persistentVolumeClaim' in volume and 'claimName' in volume['persistentVolumeClaim']:
                     vc_name = volume['persistentVolumeClaim']['claimName']
+                    if vc_name not in managed_pvcs:
+                        self.log_debug("Not deleting external PVC: %s/%s" %
+                                       (pod_data["metadata"]["namespace"], vc_name))
+                        continue
                     success = self._delete_volume_claim(pod_data["metadata"]["namespace"], vc_name, auth_data)
                     if not success:
                         self.log_error("Error deleting PersistentVolumeClaim:" + vc_name)
@@ -257,26 +266,31 @@ class KubernetesCloudConnector(CloudConnector):
 
                 volume_id = system.getValue("disk." + str(cont) + ".image.url")
                 disk_mount_path = system.getValue("disk." + str(cont) + ".mount_path")
-                disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('B')
+                disk_size = None
+                disk_size_feature = system.getFeature("disk." + str(cont) + ".size")
+                if disk_size_feature:
+                    disk_size = disk_size_feature.getValue('B')
                 if not disk_mount_path.startswith('/'):
                     disk_mount_path = '/' + disk_mount_path
-                name = "%s-%d" % (pod_name, cont)
-
-                claim_data = self._gen_basic_k8s_elem(namespace, name, 'PersistentVolumeClaim')
-                claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
-                    'requests': {'storage': disk_size}}}
 
                 if volume_id:
-                    claim_data['spec']['storageClassName'] = ""
-                    claim_data['spec']['volumeName'] = volume_id
-
-                self.log_debug("Creating PVC: %s/%s" % (namespace, name))
-                success = self._create_volume_claim(claim_data, auth_data)
-                if success:
-                    res.append((name, disk_size, disk_mount_path))
+                    self.log_debug("Using existing PVC: %s/%s" % (namespace, volume_id))
+                    # Pod volume names are DNS labels and are more restrictive
+                    # than PVC names, so use a separate local name.
+                    name = "%s-%d" % (pod_name, cont)
+                    res.append((name, volume_id, disk_size, disk_mount_path, False))
                 else:
-                    self.log_error("Error creating PersistentVolumeClaim:" + name)
-                    self.error_messages += "Error creating PersistentVolumeClaim for pod %s" % name
+                    name = "%s-%d" % (pod_name, cont)
+                    claim_data = self._gen_basic_k8s_elem(namespace, name, 'PersistentVolumeClaim')
+                    claim_data['spec'] = {'accessModes': ['ReadWriteOnce'], 'resources': {
+                        'requests': {'storage': disk_size}}}
+                    self.log_debug("Creating PVC: %s/%s" % (namespace, name))
+                    success = self._create_volume_claim(claim_data, auth_data)
+                    if success:
+                        res.append((name, name, disk_size, disk_mount_path, True))
+                    else:
+                        self.log_error("Error creating PersistentVolumeClaim:" + name)
+                        self.error_messages += "Error creating PersistentVolumeClaim for pod %s" % name
 
             cont += 1
 
@@ -500,11 +514,19 @@ class KubernetesCloudConnector(CloudConnector):
             containers[0]['volumeMounts'] = []
             pod_data['spec']['volumes'] = []
 
-            for (v_name, _, v_mount_path) in volumes:
+            managed_pvcs = []
+            for (v_name, claim_name, _, v_mount_path, managed) in volumes:
                 containers[0]['volumeMounts'].append(
                     {'name': v_name, 'mountPath': v_mount_path})
                 pod_data['spec']['volumes'].append(
-                    {'name': v_name, 'persistentVolumeClaim': {'claimName': v_name}})
+                    {'name': v_name, 'persistentVolumeClaim': {'claimName': claim_name}})
+                if managed:
+                    managed_pvcs.append(claim_name)
+
+            if managed_pvcs:
+                pod_data['metadata']['annotations'] = {
+                    self.MANAGED_PVCS_ANNOTATION: ','.join(managed_pvcs)
+                }
 
         if configmaps:
             containers[0]['volumeMounts'] = containers[0].get('volumeMounts', [])
