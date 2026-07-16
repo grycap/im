@@ -270,6 +270,16 @@ class KubernetesCloudConnector(CloudConnector):
                     disk_mount_path = '/' + disk_mount_path
 
                 if volume_id:
+                    uri = "/api/v1/namespaces/%s/%s/%s" % (
+                        namespace, "persistentvolumeclaims", volume_id)
+                    resp = self.create_request('GET', uri, auth_data)
+                    if resp.status_code == 404:
+                        raise Exception("PersistentVolumeClaim %s/%s does not exist" %
+                                        (namespace, volume_id))
+                    if resp.status_code != 200:
+                        raise Exception("Error getting PersistentVolumeClaim %s/%s: %s" %
+                                        (namespace, volume_id, resp.text))
+
                     self.log_debug("Using existing PVC: %s/%s" % (namespace, volume_id))
                     # The Pod volume name is a DNS label and is more restrictive
                     # than a PVC name, so do not reuse the claim name here.
@@ -662,8 +672,9 @@ class KubernetesCloudConnector(CloudConnector):
             self.log_exception("Error connecting with Kubernetes API server")
             # Delete the created resources
             try:
-                for (vc_name, _, _) in volumes:
-                    self._delete_volume_claim(namespace, vc_name, auth_data)
+                for (_, vc_name, _, _, managed) in volumes:
+                    if managed:
+                        self._delete_volume_claim(namespace, vc_name, auth_data)
             except Exception:
                 self.log_exception("Error deleting volumes.")
             try:
