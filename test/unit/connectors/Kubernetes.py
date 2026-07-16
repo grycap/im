@@ -76,7 +76,11 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         query = parts[4]
 
         pod_data = {
-            "metadata": {"namespace": "somenamespace", "name": "name"},
+            "metadata": {
+                "namespace": "somenamespace",
+                "name": "name",
+                "annotations": {"im.grycap.net/managed-pvcs": "cname"},
+            },
             "status": {
                 "phase": "Running",
                 "hostIP": "158.42.1.1",
@@ -108,7 +112,11 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             elif url == "/apis/apps/v1/namespaces/somenamespace/deployments/1":
                 resp.status_code = 200
                 resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Deployment',
-                                          "metadata": {"namespace": "somenamespace", "name": "name"},
+                                          "metadata": {
+                                              "namespace": "somenamespace",
+                                              "name": "name",
+                                              "annotations": {"im.grycap.net/managed-pvcs": "cname"},
+                                          },
                                           'spec': {'template': pod_data}}
             elif url == "/api/v1/namespaces/somenamespace/resourcequotas":
                 resp.status_code = 200
@@ -181,6 +189,52 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
     def add_vm(self, vm):
         vm.im_id = 0
+
+    def test_15_existing_volume(self):
+        radl_data = """
+            system test (
+            cpu.count = 1 and
+            memory.size = 512m and
+            disk.0.image.url = 'docker://someimage' and
+            disk.1.image.url = 'existing.pvc' and
+            disk.1.mount_path = '/mnt'
+            )"""
+        system = radl_parse.parse_radl(radl_data).systems[0]
+        kube_cloud = self.get_kube_cloud()
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
+
+        with patch.object(kube_cloud, '_create_volume_claim') as create_claim:
+            volumes = kube_cloud._create_volumes('somenamespace', system, 'test', auth)
+
+        create_claim.assert_not_called()
+        self.assertEqual(volumes, [('test-1', 'existing.pvc', None, '/mnt', False)])
+
+        dep_data = kube_cloud._generate_dep_data(
+            'somenamespace', 'test', [], system, volumes, [], {})
+        pod_spec = dep_data['spec']['template']['spec']
+        self.assertEqual(pod_spec['containers'][0]['volumeMounts'],
+                         [{'name': 'test-1', 'mountPath': '/mnt'}])
+        self.assertEqual(pod_spec['volumes'], [{
+            'name': 'test-1',
+            'persistentVolumeClaim': {'claimName': 'existing.pvc'},
+        }])
+        self.assertNotIn('annotations', dep_data['metadata'])
+
+    def test_16_do_not_delete_external_volume(self):
+        kube_cloud = self.get_kube_cloud()
+        dep_data = {
+            'metadata': {'namespace': 'somenamespace'},
+            'spec': {'template': {'spec': {'volumes': [{
+                'name': 'test-1',
+                'persistentVolumeClaim': {'claimName': 'existing.pvc'},
+            }]}}},
+        }
+
+        with patch.object(kube_cloud, '_delete_volume_claim') as delete_claim:
+            kube_cloud._delete_volume_claims(dep_data, MagicMock())
+
+        delete_claim.assert_not_called()
 
     @patch('requests.request')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
@@ -278,6 +332,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "name": "test",
                 "namespace": "somenamespace",
                 "labels": {"name": "test", "IM_INFRA_ID": "infid", "key": "invalid_"},
+                "annotations": {"im.grycap.net/managed-pvcs": "test-1"},
             },
             "spec": {
                 "replicas": 1,
@@ -287,6 +342,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 "template": {
                     "metadata": {
                         "labels": {"name": "test"},
+                        "annotations": {"im.grycap.net/managed-pvcs": "test-1"},
                     },
                     "spec": {
                         "containers": [
