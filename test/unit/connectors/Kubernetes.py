@@ -109,6 +109,8 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                 resp.status_code = 200
                 resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Namespace',
                                           'metadata': {'name': 'somenamespace', 'labels': {'inf_id': 'infid'}}}
+            elif url == "/api/v1/namespaces/somenamespace/persistentvolumeclaims/existing.pvc":
+                resp.status_code = 200
             elif url == "/apis/apps/v1/namespaces/somenamespace/deployments/1":
                 resp.status_code = 200
                 resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Deployment',
@@ -204,7 +206,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
         auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
                                 'host': 'http://server.com:8080', 'token': 'token'}])
 
-        with patch.object(kube_cloud, '_create_volume_claim') as create_claim:
+        with patch.object(kube_cloud, '_create_volume_claim') as create_claim, \
+                patch.object(kube_cloud, 'create_request') as create_request:
+            create_request.return_value.status_code = 200
             volumes = kube_cloud._create_volumes('somenamespace', system, 'test', auth)
 
         create_claim.assert_not_called()
@@ -220,6 +224,20 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             'persistentVolumeClaim': {'claimName': 'existing.pvc'},
         }])
         self.assertNotIn('annotations', dep_data['metadata'])
+
+    def test_15_missing_existing_volume(self):
+        radl_data = """
+            system test (
+            disk.1.image.url = 'missing-pvc' and
+            disk.1.mount_path = '/mnt'
+            )"""
+        system = radl_parse.parse_radl(radl_data).systems[0]
+        kube_cloud = self.get_kube_cloud()
+        response = MagicMock(status_code=404)
+
+        with patch.object(kube_cloud, 'create_request', return_value=response), \
+                self.assertRaisesRegex(Exception, 'PersistentVolumeClaim somenamespace/missing-pvc does not exist'):
+            kube_cloud._create_volumes('somenamespace', system, 'test', MagicMock())
 
     def test_16_do_not_delete_external_volume(self):
         kube_cloud = self.get_kube_cloud()
