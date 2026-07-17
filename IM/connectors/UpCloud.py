@@ -195,6 +195,7 @@ class UpCloudCloudConnector(CloudConnector):
     def __init__(self, cloud_info, inf):
         self.auth = None
         self.client = None
+        self.location = self.DEFAULT_LOCATION
         CloudConnector.__init__(self, cloud_info, inf)
 
     def get_client(self, auth_data):
@@ -216,6 +217,7 @@ class UpCloudCloudConnector(CloudConnector):
             client_args = {"username": auth["username"], "password": auth["password"]}
         else:
             raise NoCorrectAuthData(self.type, "token or username and password")
+        self.location = auth.get("location") or auth.get("region") or self.DEFAULT_LOCATION
 
         base_url = "https://api.upcloud.com/1.3"
         if self.cloud.server:
@@ -293,7 +295,7 @@ class UpCloudCloudConnector(CloudConnector):
                                   conflict="me", missing="other")
 
     def _get_location_from_system(self, client, system):
-        location_name = system.getValue("availability_zone") or self.DEFAULT_LOCATION
+        location_name = system.getValue("availability_zone") or self.location
         location = self.get_location(client, location_name)
         if not location:
             raise CloudConnectorException("Invalid UpCloud zone specified: %s" % location_name)
