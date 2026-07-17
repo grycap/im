@@ -86,6 +86,41 @@ class TestUpCloudConnector(TestCloudConnectorBase):
                                            log_debug=ANY,
                                            token="api-token")
 
+    @patch("IM.connectors.UpCloud.UpCloudRESTClient")
+    def test_get_client_location(self, client_cls):
+        connector = self.get_connector()
+        auth = Authentication([{"type": "UpCloud", "token": "api-token",
+                                "location": "es-mad1"}])
+
+        connector.get_client(auth)
+
+        self.assertEqual(connector.location, "es-mad1")
+
+    @patch("IM.connectors.UpCloud.UpCloudRESTClient")
+    def test_get_client_region_alias_and_default(self, client_cls):
+        connector = self.get_connector()
+        auth = Authentication([{"type": "UpCloud", "token": "api-token",
+                                "region": "de-fra1"}])
+        connector.get_client(auth)
+        self.assertEqual(connector.location, "de-fra1")
+
+        auth = Authentication([{"type": "UpCloud", "token": "another-token"}])
+        connector.get_client(auth)
+        self.assertEqual(connector.location, connector.DEFAULT_LOCATION)
+
+    def test_location_priority(self):
+        connector = self.get_connector()
+        connector.location = "es-mad1"
+        driver = MagicMock()
+        driver.list_locations.return_value = [
+            {"id": "es-mad1", "description": "Madrid"},
+            {"id": "de-fra1", "description": "Frankfurt"},
+        ]
+
+        system = self.get_radl("de-fra1").systems[0]
+
+        self.assertEqual(connector._get_location_from_system(driver, system)["id"], "de-fra1")
+
     def test_concrete(self):
         connector = self.get_connector()
         driver = MagicMock()
