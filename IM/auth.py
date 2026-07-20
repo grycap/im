@@ -29,7 +29,6 @@ class Authentication:
     type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
     id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
     id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
-    id = occi; type = OCCI; host = occiserver:4567; username = user; password = pass
 
     Arguments:
         - auth_data(list of dicts or :py:class:`IM.Authentication`): Data to initialize the Authentication object
@@ -172,15 +171,13 @@ class Authentication:
     def read_auth_data(filename):
         """
         Read a file to load the Authentication data.
-        The file has the following format:
+        The file has the following format or a JSON file with the same data:
 
         id = one; type = OpenNebula; host = oneserver:2633; username = user; password = pass
         type = InfrastructureManager; username = user; password = 'pass;test'
         type = VMRC; host = http://server:8080/vmrc; username = user; password = "pass';test"
         id = ec2; type = EC2; username = ACCESS_KEY; password = SECRET_KEY
         id = oshost; type = OpenStack; host = oshost:8773; username = ACCESS_KEY; key = SECRET_KEY
-        id = occi; type = OCCI; host = occiserver:4567; username = user; password = file(/tmp/filename)
-        id = occi; type = OCCI; proxy = file(/tmp/proxy.pem)
 
         Arguments:
            - filename(str or list): The filename to read or list of auth lines
@@ -189,10 +186,21 @@ class Authentication:
         """
         if isinstance(filename, list):
             lines = filename
+            if len(lines) == 1:
+                try:
+                    auth_json = json.loads(lines[0])  # Check if it's a JSON string
+                    return auth_json
+                except json.JSONDecodeError:
+                    pass
         else:
-            auth_file = open(filename, 'r')
-            lines = auth_file.readlines()
-            auth_file.close()
+            try:
+                with open(filename, 'r') as auth_file:
+                    auth_json = json.load(auth_file)
+                return auth_json
+            except json.JSONDecodeError:
+                with open(filename, 'r') as auth_file:
+                    lines = auth_file.readlines()
+                auth_file.close()
 
         res = []
 
@@ -207,8 +215,7 @@ class Authentication:
                         break
                     else:
                         value = key_value[1].strip().replace("\\n", "\n")
-                        # Enable to specify a filename and set the contents of
-                        # it
+                        # Enable to specify a filename and set the contents of it
                         if value.startswith("file(") and value.endswith(")"):
                             filename = value[5:len(value) - 1]
                             try:
@@ -223,11 +230,12 @@ class Authentication:
         return res
 
     def serialize(self):
-        return json.dumps(self.auth_list, sort_keys=True)
+        return self.auth_list
 
     @staticmethod
     def deserialize(str_data):
-        return Authentication(json.loads(str_data))
+        data = str_data if isinstance(str_data, list) else json.loads(str_data)
+        return Authentication(data)
 
     def delAuthInfo(self, auth_type, host=None):
         """

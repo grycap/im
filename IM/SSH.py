@@ -22,10 +22,7 @@ try:
 except Exception:
     print("WARN: SCP library not correctly installed. Some sftp functions will not work!.")
 import os
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 from threading import Thread
 from stat import S_ISDIR
 
@@ -138,7 +135,7 @@ class SSH:
     @staticmethod
     def _load_private_key(private_key_obj):
         """ Load a private key from a file-like object"""
-        for kype in [paramiko.RSAKey, paramiko.DSSKey, paramiko.ECDSAKey, paramiko.Ed25519Key]:
+        for kype in [paramiko.RSAKey, paramiko.ECDSAKey, paramiko.Ed25519Key]:
             try:
                 return kype.from_private_key(private_key_obj)
             except Exception:

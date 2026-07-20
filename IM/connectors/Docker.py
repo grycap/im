@@ -22,13 +22,11 @@ import socket
 import requests
 import random
 import uuid
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from IM.config import Config
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData
 from radl.radl import Feature
 from IM import UnixHTTPAdapter
 
@@ -57,7 +55,7 @@ class DockerCloudConnector(CloudConnector):
 
         auths = auth_data.getAuthInfo(DockerCloudConnector.type, self.cloud.server)
         if not auths:
-            raise Exception("No correct auth data has been specified to Docker.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 

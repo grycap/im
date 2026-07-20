@@ -168,6 +168,29 @@ class TestVirtualMachine(unittest.TestCase):
         vm.update_status(None)
         self.assertEqual(vm.info.systems[0].getValue('net_interface.0.dns_name'), "vnode-1")
 
+    @patch.object(VirtualMachine, 'log_warn')
+    def test_get_tls_certificates(self, log_warn):
+        radl_data = """
+            network net1 (outbound = 'yes')
+            system test (
+            net_interface.0.connection = 'net1' and
+            net_interface.0.dns.0.name = 'api.example.org' and
+            net_interface.0.dns.0.tls.certificate = 'cert-1' and
+            net_interface.0.dns.0.tls.private_key = 'key-1' and
+            net_interface.0.dns.1.name = 'alt.example.org' and
+            net_interface.0.dns.1.tls.certificate = 'cert-2' and
+            net_interface.0.dns.1.tls.private_key = 'key-2'
+            )"""
+        radl = radl_parse.parse_radl(radl_data)
+        vm = VirtualMachine(None, "1", None, radl, radl)
+
+        tls_certs = vm.get_tls_certificates()
+
+        self.assertEqual(tls_certs, {
+            'api.example.org': {'cert': 'cert-1', 'key': 'key-1'},
+            'alt.example.org': {'cert': 'cert-2', 'key': 'key-2'}
+        })
+
 
 if __name__ == '__main__':
     unittest.main()

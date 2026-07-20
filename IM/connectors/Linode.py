@@ -33,10 +33,8 @@ except Exception as ex:
     print(ex)
 
 from .LibCloud import LibCloudCloudConnector
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from IM.SSH import SSH
@@ -90,7 +88,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to Linode.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -107,8 +105,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
                 return driver
             else:
-                self.log_error("Incorrect auth data")
-                return None
+                raise NoCorrectAuthData(self.type, "username")
 
     def get_dns_driver(self, auth_data):
         """
@@ -121,7 +118,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to Linode.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -138,8 +135,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
                 return driver
             else:
-                self.log_error("Incorrect auth data")
-                return None
+                raise NoCorrectAuthData(self.type, "username")
 
     def get_instance_type(self, driver, radl, location=None):
         sizes = driver.list_sizes()
@@ -259,7 +255,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             if location:
                 args['location'] = location
             else:
-                raise Exception('Invalid Linode datacenter specified: %s' % system.getValue('availability_zone'))
+                raise CloudConnectorException('Invalid Linode datacenter specified: %s'
+                                              % system.getValue('availability_zone'))
         else:
             args['location'] = NodeLocation(self.DEFAULT_LOCATION, '', '', driver)
 

@@ -295,11 +295,31 @@ machine.  The supported features are:
    string contains ``#N#`` they are replaced by a number that is distinct for
    every virtual machine deployed with this ``system`` description.
 
+``net_interface.<netId>.dns.<index>.name = <string>``
+   Specify a set of DNS names for the IP assigned to this interface. If the
+   string contains ``#N#`` they are replaced by a number that is distinct for
+   every virtual machine deployed with this ``system`` description.
+   (new in version 2.0.0).
+
+``net_interface.<netId>.dns.<index>.tls = <boolean>``
+   If set to ``true`` a TLS certificate for the DNS name specified in the previous
+   field will generated. This field only applies if the Cloud provider supports it.
+   (new in version 2.0.0).
+
+``net_interface.<netId>.dns.<index>.tls.certificate = <string>``
+   If the previous field is set to ``true`` this field will be used to return the
+   generated TLS certificate for the DNS name specified.
+   (new in version 2.0.0).
+
+``net_interface.<netId>.dns.<index>.tls.private_key = <string>``
+   If the previous field is set to ``true`` this field will be used to return the
+   generated TLS private key for the DNS name specified.
+   (new in version 2.0.0).
+
 ``availability_zone``
    Set the availability zone or region where this VM will be launched.
-   It only applies to Google Cloud, Microsoft Azure, Amazon AWS, and Fogbow
-   connectors. In the Fogbow case it specifies the site and cloud where the VM will
-   be launched (in format cloud@site).
+   It only applies to Google Cloud, Microsoft Azure, and Amazon AWS
+   connectors.
 
 ``instance_id``
    Get the instance ID assigned by the Cloud provider for this VM. 
@@ -328,15 +348,11 @@ machine.  The supported features are:
    * ``aws://<region>/<snapshot-id>``, for Amazon Web Service;
    * ``aws://<region>/<snapshot-name>``, for Amazon Web Service;
    * ``gce://<region>/<image-id>``, for Google Cloud;
-   * ``azr://<image-id>``, for Microsoft Azure Clasic;
-   * ``azr://<publisher>/<offer>/<sku>/<version>``, for Microsoft Azure;
+   * ``azr://<image-id>``, for Microsoft Azure Clasic (deprecated);
+   * ``azr://[region]/<publisher>/<offer>/<sku>/<version>``, for Microsoft Azure;
    * ``azr://[snapshots|disk]/<rgname>/<diskname>``, for Microsoft Azure;
-   * ``<fedcloud_endpoint_url>/<image_id>``, for FedCloud OCCI connector.
-   * ``appdb://<site_name>/<apc_name>?<vo_name>``, for FedCloud OCCI, OpenStack or EGI connectors using AppDB info (from vers. 1.6.0, 1.8.6 and 1.10.2 respectively).
-     In case of EGI connector the ``vo_name`` is not required as it will be get from auth data.
-   * ``appdb://<apc_name>?<vo_name>``, for FedCloud OCCI, OpenStack or EGI connectors without setting site_name.
+   * ``egi://<site_name>/<apc_name>?<vo_name>``, for OpenStack or EGI connectors using EGI IS info (from vers. 1.19.0).
    * ``docker://<docker_image>``, for Docker images.
-   * ``fbw://<fns_server>/<image-id>``, for FogBow images.
    * ``lin://linode/<image-id>``, for Linode images.
    * ``ora://<region>/<image-id>``, for Orange Flexible Engine images.
 
@@ -418,7 +434,7 @@ machine.  The supported features are:
    is not installed.
    
    There are some **special** type of application that starts with ``ansible.roles.``
-   (``ansible.modules.`` in < IM 1.14 ) or ``ansible.collections.``.
+   or ``ansible.collections.``.
    These applications installs `ansible roles <https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_reuse_roles.html>`_ or 
    `ansible collections <https://docs.ansible.com/ansible/latest/collections_guide/index.html>`_
    that can be used in the ``configure`` sections of the RADL.

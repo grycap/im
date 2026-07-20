@@ -90,7 +90,7 @@ class IM:
 
     def requestIM(self, method, url, data=None):
         try:
-            logging.debug(method, self.url, data, self.headers)
+            logging.debug("%s %s %s %s", method, url, data, self.headers)
             r = requests.request(method, url, data=data, headers=self.headers,
                                  verify=self.verify_ssl, timeout=self.timeout)
             self.response_times.append(r.elapsed.total_seconds())

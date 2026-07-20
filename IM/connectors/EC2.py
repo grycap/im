@@ -25,13 +25,11 @@ except Exception as ex:
     print("WARN: Boto3 library not correctly installed. EC2CloudConnector will not work!.")
     print(ex)
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from IM.VirtualMachine import VirtualMachine
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
 from radl.radl import Feature
 from IM.config import Config
 from IM.SSH import SSH
@@ -171,7 +169,7 @@ class EC2CloudConnector(CloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to EC2.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -182,12 +180,13 @@ class EC2CloudConnector(CloudConnector):
                 return self.connection.client(service_name)
         else:
             self.auth = auth_data
-            try:
-                if 'username' in auth and 'password' in auth:
+
+            if 'username' in auth and 'password' in auth:
+                try:
                     if region_name != 'universal':
                         region_names = boto3.session.Session().get_available_regions('ec2')
                         if region_name not in region_names:
-                            raise Exception("Incorrect region name: " + region_name)
+                            raise CloudConnectorException("Incorrect region name: " + region_name)
 
                     session = boto3.session.Session(region_name=region_name,
                                                     aws_access_key_id=auth['username'],
@@ -198,15 +197,13 @@ class EC2CloudConnector(CloudConnector):
                         return session.resource(service_name)
                     else:
                         return session.client(service_name)
-                else:
-                    self.log_error("No correct auth data has been specified to EC2: "
-                                   "username (Access Key) and password (Secret Key)")
-                    raise Exception("No correct auth data has been specified to EC2: "
-                                    "username (Access Key) and password (Secret Key)")
-
-            except Exception as ex:
-                self.log_exception("Error getting the region " + region_name)
-                raise Exception("Error getting the region " + region_name + ": " + str(ex))
+                except Exception as ex:
+                    self.log_exception("Error getting the region " + region_name)
+                    raise CloudConnectorException("Error getting the region " + region_name + ": " + str(ex))
+            else:
+                self.log_error("No correct auth data has been specified to EC2: "
+                               "username (Access Key) and password (Secret Key)")
+                raise NoCorrectAuthData(self.type, "username (Access Key) and password (Secret Key)")
 
     # path format: aws://eu-west-1/ami-00685b74
     @staticmethod
@@ -395,7 +392,10 @@ class EC2CloudConnector(CloudConnector):
                     outports = self.add_ssh_port(outports)
 
                 for outport in outports:
-                    if outport.is_range():
+                    if outport.get_protocol() == "icmp":
+                        from_port = -1
+                        to_port = -1
+                    elif outport.is_range():
                         from_port = outport.get_port_init()
                         to_port = outport.get_port_end()
                     else:
@@ -416,10 +416,10 @@ class EC2CloudConnector(CloudConnector):
 
                 i += 1
         except Exception as ex:
-            raise Exception("Error Creating the Security group: " + str(ex))
+            raise CloudConnectorException("Error Creating the Security group: " + str(ex))
 
         if not res:
-            raise Exception("Error Creating the Security groups")
+            raise CloudConnectorException("Error Creating the Security groups")
         else:
             return res
 
@@ -597,12 +597,12 @@ class EC2CloudConnector(CloudConnector):
                 if vpc and subnet:
                     return vpc[0]['VpcId'], subnet[0]['SubnetId']
                 elif vpc:
-                    raise Exception("Incorrect subnet value in provider_id value: %s" % provider_id)
+                    raise CloudConnectorException("Incorrect subnet value in provider_id value: %s" % provider_id)
                 else:
-                    raise Exception("Incorrect vpc value in provider_id value: %s" % provider_id)
+                    raise CloudConnectorException("Incorrect vpc value in provider_id value: %s" % provider_id)
             else:
-                raise Exception("Incorrect provider_id value: " +
-                                provider_id + ". It must be <vpc-id>.<subnet-id>.")
+                raise CloudConnectorException("Incorrect provider_id value: " +
+                                              provider_id + ". It must be <vpc-id>.<subnet-id>.")
         else:
             # Check the default VPC and get the first subnet with a connection with a gateway
             # If there are no default VPC, raise error
@@ -610,7 +610,7 @@ class EC2CloudConnector(CloudConnector):
             if vpc and subnet:
                 return vpc, subnet
             else:
-                raise Exception("No VPC.subnet specified and no VPC default found.")
+                raise CloudConnectorException("No VPC.subnet specified and no VPC default found.")
 
     def launch(self, inf, radl, requested_radl, num_vm, auth_data):
 
@@ -969,7 +969,7 @@ class EC2CloudConnector(CloudConnector):
                         if volume:
                             volume_id = volume[0]['VolumeId']
                         else:
-                            raise Exception("No snapshot/volume found with name: %s" % elem_id)
+                            raise CloudConnectorException("No snapshot/volume found with name: %s" % elem_id)
             else:
                 disk_size = vm.info.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
 
@@ -1307,7 +1307,8 @@ class EC2CloudConnector(CloudConnector):
 
         return (True, vm)
 
-    def _get_zone(self, conn, domain):
+    @staticmethod
+    def _get_zone(conn, domain):
         zones = conn.list_hosted_zones_by_name(DNSName=domain, MaxItems='1')['HostedZones']
         if not zones or len(zones) == 0:
             return None
@@ -1337,17 +1338,13 @@ class EC2CloudConnector(CloudConnector):
             else:
                 auths = auth_data.getAuthInfo("EC2")
                 if not auths:
-                    raise Exception("No auth data has been specified to EC2.")
+                    raise NoAuthData(self.type)
                 else:
                     auth = auths[0]
                     conn = boto3.client('route53', region_name='universal',
                                         aws_access_key_id=auth['username'],
                                         aws_secret_access_key=auth['password'])
-
-            zone = self._get_zone(conn, domain)
-            if not zone:
-                raise Exception("Could not find DNS zone to update")
-            zone_id = zone['Id']
+            zone = EC2CloudConnector._get_zone(conn, domain)
 
             if not zone:
                 self.log_info("Creating DNS zone %s" % domain)
@@ -1356,6 +1353,7 @@ class EC2CloudConnector(CloudConnector):
                 self.log_info("DNS zone %s exists. Do not create." % domain)
 
             if zone:
+                zone_id = zone['Id']
                 fqdn = hostname + "." + domain
                 records = conn.list_resource_record_sets(HostedZoneId=zone_id,
                                                          StartRecordName=fqdn,
@@ -1364,7 +1362,9 @@ class EC2CloudConnector(CloudConnector):
                 if not records or records[0]['Name'] != fqdn:
                     self.log_info("Creating DNS record %s." % fqdn)
                     conn.change_resource_record_sets(HostedZoneId=zone_id,
-                                                     ChangeBatch=self._get_change_batch('CREATE', fqdn, ip))
+                                                     ChangeBatch=EC2CloudConnector._get_change_batch('CREATE',
+                                                                                                     fqdn,
+                                                                                                     ip))
                 else:
                     self.log_info("DNS record %s exists. Do not create." % fqdn)
             return True
@@ -1373,40 +1373,48 @@ class EC2CloudConnector(CloudConnector):
             return False
 
     def del_dns_entry(self, hostname, domain, ip, auth_data, extra_args=None):
-        # Workaround to use EC2 as the default case.
-        if self.type == "EC2":
-            conn = self.get_connection('universal', auth_data, 'route53')
-        else:
-            auths = auth_data.getAuthInfo("EC2")
-            if not auths:
-                raise Exception("No auth data has been specified to EC2.")
+        try:
+            # Workaround to use EC2 as the default case.
+            # Maintain to enable deletion of old OSCAR clusters
+            if self.type == "EC2":
+                conn = self.get_connection('universal', auth_data, 'route53')
             else:
+                auths = auth_data.getAuthInfo("EC2")
+                if not auths:
+                    raise NoAuthData(self.type)
                 auth = auths[0]
                 conn = boto3.client('route53', region_name='universal',
                                     aws_access_key_id=auth['username'],
                                     aws_secret_access_key=auth['password'])
-        zone = self._get_zone(conn, domain)
-        if not zone:
-            self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
-        else:
-            fqdn = hostname + "." + domain
-            records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
-                                                     StartRecordName=fqdn,
-                                                     StartRecordType='A',
-                                                     MaxItems='1')['ResourceRecordSets']
-            if not records or records[0]['Name'] != fqdn:
-                self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
+            zone = EC2CloudConnector._get_zone(conn, domain)
+            if not zone:
+                self.log_info("The DNS zone %s does not exists. Do not delete records." % domain)
             else:
-                self.log_info("Deleting DNS record %s." % fqdn)
-                conn.change_resource_record_sets(HostedZoneId=zone['Id'],
-                                                 ChangeBatch=self._get_change_batch('DELETE', fqdn, ip))
+                fqdn = hostname + "." + domain
+                records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
+                                                         StartRecordName=fqdn,
+                                                         StartRecordType='A',
+                                                         MaxItems='1')['ResourceRecordSets']
+                if not records or records[0]['Name'] != fqdn:
+                    self.log_info("DNS record %s does not exists. Do not delete." % fqdn)
+                else:
+                    self.log_info("Deleting DNS record %s." % fqdn)
+                    conn.change_resource_record_sets(HostedZoneId=zone['Id'],
+                                                     ChangeBatch=EC2CloudConnector._get_change_batch('DELETE',
+                                                                                                     fqdn,
+                                                                                                     ip))
 
-            # if there are no A records
-            # all_a_records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
-            #                                                StartRecordType='A')['ResourceRecordSets']
-            # if not all_a_records:
-            #    self.log_info("Deleting DNS zone %s." % domain)
-            #    conn.delete_hosted_zone(zone['Id'])
+                # if there are no A records
+                # all_a_records = conn.list_resource_record_sets(HostedZoneId=zone['Id'],
+                #                                                StartRecordType='A')['ResourceRecordSets']
+                # if not all_a_records:
+                #    self.log_info("Deleting DNS zone %s." % domain)
+                #    conn.delete_hosted_zone(zone['Id'])
+
+            return True
+        except Exception:
+            self.log_exception("Error deleting DNS entries")
+            return False
 
     def cancel_spot_requests(self, conn, vm):
         """

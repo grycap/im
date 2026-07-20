@@ -15,10 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 
 class CloudInfo:
@@ -98,7 +95,7 @@ class CloudInfo:
         res = []
 
         for i, auth in enumerate(auth_data.auth_list):
-            if 'type' in auth and auth['type'] not in ['InfrastructureManager', 'VMRC', 'AppDBIS']:
+            if 'type' in auth and auth['type'] not in ['InfrastructureManager', 'VMRC', 'EGIIS']:
                 cloud_item = CloudInfo()
                 cloud_item.type = auth['type']
                 if 'id' in auth.keys() and auth['id']:
@@ -140,11 +137,11 @@ class CloudInfo:
         return res
 
     def serialize(self):
-        return json.dumps(self.__dict__)
+        return self.__dict__
 
     @staticmethod
     def deserialize(str_data):
-        dic = json.loads(str_data)
+        dic = str_data if isinstance(str_data, dict) else json.loads(str_data)
         nwecloud = CloudInfo()
         nwecloud.__dict__.update(dic)
         return nwecloud

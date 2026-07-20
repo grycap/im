@@ -66,8 +66,8 @@ configure win (
 )
 
 deploy front 1
-deploy wn 2
-deploy windows 1
+deploy wn 3
+#deploy windows 1
 
 contextualize (
     system front configure ntp step 1

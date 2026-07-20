@@ -20,6 +20,7 @@ import time
 import yaml
 import uuid
 import re
+import datetime
 
 from radl.radl import Feature, outport
 from IM.config import Config
@@ -361,12 +362,13 @@ class CloudConnector(LoggerMixin):
                 res.append(image)
         return res
 
-    def get_quotas(self, auth_data):
+    def get_quotas(self, auth_data, region=None):
         """
         Get the number of used and available resources in the cloud provider
 
         Arguments:
           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+          - region(str): Region to get the quotas. If None, the default region is used.
 
         Returns: dict with the following structure (if there are no limit in some metric, value is set to 1):
                     {
@@ -425,15 +427,16 @@ class CloudConnector(LoggerMixin):
             cloud_config['packages'].extend(["curl", "sshpass"])
 
             curl_command = vm.get_boot_curl_commands()
-            if 'bootcmd' not in cloud_config:
-                cloud_config['bootcmd'] = []
-            cloud_config['bootcmd'].extend(curl_command)
+            if 'runcmd' not in cloud_config:
+                cloud_config['runcmd'] = []
+            cloud_config['runcmd'].append("echo 'Running IM reverse SSH command'")
+            cloud_config['runcmd'].extend(curl_command)
 
         if vm and vm.getSSHPort() != 22:
-            if 'bootcmd' not in cloud_config:
-                cloud_config['bootcmd'] = []
-            cloud_config['bootcmd'].append("sed -i '/Port 22/c\\Port %s' /etc/ssh/sshd_config" % vm.getSSHPort())
-            cloud_config['bootcmd'].append("service sshd restart")
+            if 'runcmd' not in cloud_config:
+                cloud_config['runcmd'] = []
+            cloud_config['runcmd'].append("sed -i '/Port 22/c\\Port %s' /etc/ssh/sshd_config" % vm.getSSHPort())
+            cloud_config['runcmd'].append("service sshd restart")
 
         if public_key:
             user_data = {}
@@ -477,9 +480,9 @@ class CloudConnector(LoggerMixin):
             tags[Config.VM_TAG_USERNAME] = im_username
         if Config.VM_TAG_INF_ID and Config.VM_TAG_INF_ID not in tags and inf:
             tags[Config.VM_TAG_INF_ID] = inf.id
-        from IM.REST import REST_URL
-        if Config.VM_TAG_IM_URL and Config.VM_TAG_IM_URL not in tags and REST_URL:
-            tags[Config.VM_TAG_IM_URL] = REST_URL
+        from IM.rest.REST import RESTServer
+        if Config.VM_TAG_IM_URL and Config.VM_TAG_IM_URL not in tags and RESTServer.REST_URL:
+            tags[Config.VM_TAG_IM_URL] = RESTServer.REST_URL
         if Config.VM_TAG_IM and Config.VM_TAG_IM not in tags:
             tags[Config.VM_TAG_IM] = "es.upv.grycap.im"
         return tags
@@ -623,31 +626,71 @@ class CloudConnector(LoggerMixin):
         for net_name in system.getNetworkIDs():
             num_conn = system.getNumNetworkWithConnection(net_name)
             ip = system.getIfaceIP(num_conn)
-            (hostname, domain) = vm.getRequestedNameIface(num_conn,
-                                                          default_hostname=Config.DEFAULT_VM_NAME,
-                                                          default_domain=Config.DEFAULT_DOMAIN)
-            if not domain.endswith("."):
-                domain += "."
-            if domain != "localdomain." and ip and hostname:
-                res.append((hostname, domain, ip))
 
-            # Also add additional names
-            additional_dns_names = system.getValue('net_interface.%d.additional_dns_names' % num_conn)
-            if additional_dns_names:
-                for dns_name in additional_dns_names:
-                    dns_parts = dns_name.split("@")
-                    if len(dns_parts) != 2:
-                        self.log_error("Invalid format for additional name: %s." % dns_name)
-                        self.error_messages = "Invalid format for additional name: %s." % dns_name
-                        break
-                    hostname = dns_parts[0]
-                    domain = dns_parts[1]
-                    if not domain.endswith("."):
-                        domain += "."
-                    if domain != "localdomain." and ip and hostname:
-                        res.append((hostname, domain, ip))
+            # Add all names from net_interface.<n>.dns.<i>.name
+            dns_names = []
+            num_dns = 0
+            while True:
+                if num_conn == 0 and num_dns == 0:
+                    (hostname, domain) = vm.getRequestedNameIface(num_conn,
+                                                                  default_hostname=Config.DEFAULT_VM_NAME,
+                                                                  default_domain=Config.DEFAULT_DOMAIN)
+                    dns_name = "%s.%s" % (hostname, domain)
+                else:
+                    dns_name = system.getValue('net_interface.%d.dns.%d.name' % (num_conn, num_dns))
+                if not dns_name:
+                    break
+                tls = False
+                gen_tls_cert = system.getValue('net_interface.%d.dns.%d.tls' % (num_conn, num_dns))
+                tls_cert = system.getValue('net_interface.%d.dns.%d.tls.certificate' % (num_conn, num_dns))
+                if gen_tls_cert and gen_tls_cert in ["true", "yes"]:
+                    tls = (not tls_cert) or self._is_tls_certificate_expired(tls_cert)
+                dns_names.append((dns_name, tls))
+                num_dns += 1
+
+            for dns_name, tls in dns_names:
+                hostname, domain = vm.get_dns_host_domain(dns_name)
+                if not domain:
+                    self.log_error("Invalid format for additional name: %s." % dns_name)
+                    self.error_messages = "Invalid format for additional name: %s." % dns_name
+                    break
+
+                if domain != "localdomain." and ip and hostname:
+                    entry = (hostname, domain, ip, tls)
+                    if entry not in res:
+                        res.append(entry)
 
         return res
+
+    def _is_tls_certificate_expired(self, tls_certificate):
+        """
+        Check if a PEM encoded TLS certificate is expired.
+
+        If the certificate cannot be parsed, consider it expired to force regeneration.
+        """
+        if not tls_certificate:
+            return True
+
+        try:
+            from cryptography import x509
+            from cryptography.hazmat.backends import default_backend
+
+            cert_data = tls_certificate.encode('utf-8') if isinstance(tls_certificate, str) else tls_certificate
+            cert = x509.load_pem_x509_certificate(cert_data, default_backend())
+
+            expiry = getattr(cert, 'not_valid_after_utc', None)
+            if expiry is None:
+                expiry = cert.not_valid_after
+
+            if expiry.tzinfo is None:
+                now = datetime.datetime.utcnow()
+            else:
+                now = datetime.datetime.now(expiry.tzinfo)
+
+            return expiry <= now
+        except Exception:
+            self.log_warn("Unable to parse TLS certificate. It will be regenerated.")
+            return True
 
     def resize_vm_radl(self, vm, radl):
         """
@@ -723,6 +766,19 @@ class CloudConnector(LoggerMixin):
         """
         raise NotImplementedError("Should have implemented this")
 
+    def create_tls_certificate(self, vm, hostname, domain, ip, auth_data, extra_args=None):
+        """
+        Create a TLS certificate for the given hostname and domain
+
+        Arguments:
+           - hostname(str): hostname part of the fqdn
+           - domain(str): domain name part of the fqdn
+           - ip(str): ip to assing to the dns entry
+           - auth_data(:py:class:`dict` of str objects): Authentication data to access cloud provider.
+           - extra_args(dict): dict with some extra fields needed in some particular Providers
+        """
+        raise NotImplementedError("Should have implemented this")
+
     def manage_dns_entries(self, op, vm, auth_data, extra_args=None):
         """
         Add/Delete the required entries in a DNS service
@@ -737,45 +793,103 @@ class CloudConnector(LoggerMixin):
             if not hasattr(vm, 'dns_entries'):
                 vm.dns_entries = []
             if op == "add":
-                dns_entries = [entry for entry in self.get_dns_entries(vm) if entry not in vm.dns_entries]
-            else:
+                all_dns_entries = self.get_dns_entries(vm)
+                dns_entries = [entry for entry in all_dns_entries if entry not in vm.dns_entries]
+            elif op == "del":
                 dns_entries = list(vm.dns_entries)
+            else:
+                raise Exception("Invalid DNS operation.")
+
+            tls_entries = all_dns_entries if op == "add" else []
+
             if dns_entries:
                 for entry in dns_entries:
-                    hostname, domain, ip = entry
+                    hostname = entry[0]
+                    domain = entry[1]
+                    ip = entry[2]
                     try:
-                        if op == "add":
+                        if op == "add" and entry not in vm.dns_entries:
                             success = self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if success and entry not in vm.dns_entries:
+                            if success:
                                 vm.dns_entries.append(entry)
                         elif op == "del":
-                            self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if entry in vm.dns_entries:
+                            success = self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
+                            if success and entry in vm.dns_entries:
                                 vm.dns_entries.remove(entry)
-                        else:
-                            raise Exception("Invalid DNS operation.")
                     except NotImplementedError as niex:
-                        # Use EC2 as back up for all providers if EC2 credentials are available
-                        # TODO: Change it to DyDNS when the full API is available
-                        if auth_data.getAuthInfo("EC2"):
-                            from IM.connectors.EC2 import EC2CloudConnector
-                            if op == "add":
-                                success = EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
-                                if success and entry not in vm.dns_entries:
-                                    vm.dns_entries.append(entry)
-                            elif op == "del":
-                                EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
-                                if entry in vm.dns_entries:
-                                    vm.dns_entries.remove(entry)
-                            else:
-                                raise Exception("Invalid DNS operation.")
-                        else:
+                        # Use DyDNS as back up for all providers if IM credentials uses token auth
+                        success = self.back_up_dns_entries(op, vm, auth_data, hostname, domain, ip, entry)
+                        if not success:
                             raise niex
+
+            if tls_entries:
+                for entry in tls_entries:
+                    hostname = entry[0]
+                    domain = entry[1]
+                    ip = entry[2]
+                    tls = entry[3] if len(entry) > 3 else False
+                    if tls:
+                        self.log_debug("TLS certificate required for %s.%s." % (hostname, domain))
+                        try:
+                            success = self.create_tls_certificate(vm, hostname, domain, ip, auth_data)
+                        except NotImplementedError as niex:
+                            self.log_debug("TLS certificate creation not implmented for %s connector. "
+                                           "Using backup method." % self.type)
+                            try:
+                                success = self.back_up_create_tls_certificate(vm, auth_data, hostname,
+                                                                              domain, ip, auth_data)
+                                if not success:
+                                    raise niex
+                            except Exception as ex:
+                                self.log_exception("Error creating TLS certificate for %s.%s." % (hostname, domain))
+                                self.error_messages += "Error creating TLS certificate for %s.%s: %s.\n" % (hostname,
+                                                                                                            domain,
+                                                                                                            str(ex))
             return True
         except Exception as ex:
             self.error_messages += "Error in %s DNS entries %s.\n" % (op, str(ex))
             self.log_exception("Error in %s DNS entries" % op)
             return False
+
+    def back_up_create_tls_certificate(self, vm, auth_data, hostname, domain, ip, extra_args=None):
+        # Use DyDNS as back up for all providers if IM credentials uses token auth
+        im_auth = auth_data.getAuthInfo("InfrastructureManager")
+        if im_auth and im_auth[0].get("token") or (hostname.startswith("dydns:") and "@" in hostname):
+            from IM.connectors.EGI import EGICloudConnector
+            return EGICloudConnector.create_tls_certificate(self, vm, hostname, domain, ip, auth_data)
+        else:
+            self.log_debug("TLS certificate creation not implmented for %s connector." % self.type)
+            return False
+
+    def back_up_dns_entries(self, op, vm, auth_data, hostname, domain, ip, entry):
+        im_auth = auth_data.getAuthInfo("InfrastructureManager")
+        success = False
+
+        # Use DyDNS as back up for all providers if IM credentials uses token auth
+        if im_auth and im_auth[0].get("token") or (hostname.startswith("dydns:") and "@" in hostname):
+            from IM.connectors.EGI import EGICloudConnector
+            if op == "add" and entry not in vm.dns_entries:
+                success = EGICloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
+                if success:
+                    vm.dns_entries.append(entry)
+            elif op == "del":
+                success = EGICloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+                if success and entry in vm.dns_entries:
+                    vm.dns_entries.remove(entry)
+
+        # In other cases check if EC2 credetials anre set and try to use Route53
+        if not success and auth_data.getAuthInfo("EC2"):
+            from IM.connectors.EC2 import EC2CloudConnector
+            # Maintain to enable addition of OSCAR clusters
+            if op == "add" and entry not in vm.dns_entries:
+                success = EC2CloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
+                if success:
+                    vm.dns_entries.append(entry)
+            elif op == "del":
+                # Maintain to enable deletion of OSCAR clusters
+                success = EC2CloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+
+        return success
 
     @staticmethod
     def convert_memory_unit(memory, unit="M"):
@@ -784,6 +898,8 @@ class CloudConnector(LoggerMixin):
                      'G': 1000000000, 'Gi': 1073741824,
                      'T': 1000000000000, 'Ti': 1099511627776}
         regex = re.compile(r'([0-9.]+)\s*([a-zA-Z]+)')
+        if not regex.match(str(memory)):
+            raise ValueError("Invalid memory format.")
         result = regex.match(str(memory)).groups()
         value = float(result[0])
         orig_unit = result[1]
@@ -794,3 +910,13 @@ class CloudConnector(LoggerMixin):
         if converted - int(converted) < 0.0000000000001:
             converted = int(converted)
         return converted
+
+    @staticmethod
+    def loose_version_compare(user_version, system_version):
+        pattern = r'^\d+(?:\.\d+){0,2}$'
+        if re.match(pattern, user_version) and re.match(pattern, system_version):
+            u = [int(x) for x in user_version.split(".")]
+            s = [int(x) for x in system_version.split(".")]
+            return s[:len(u)] == u
+        else:
+            return user_version == system_version

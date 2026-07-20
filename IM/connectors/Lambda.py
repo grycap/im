@@ -22,14 +22,12 @@ import tempfile
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from .CloudConnector import CloudConnector
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
 import scar.logger
 from IM.connectors.OSCAR import OSCARCloudConnector
 from scar.providers.aws.controller import AWS
 from scar.providers.aws.lambdafunction import Lambda, ClientError
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 
 class LambdaCloudConnector(CloudConnector):
@@ -78,7 +76,7 @@ class LambdaCloudConnector(CloudConnector):
         self.scar_errors = []
         auths = auth_data.getAuthInfo(self.type, self.cloud.server)
         if not auths:
-            raise Exception("No auth data has been specified to Lambda.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -98,8 +96,7 @@ class LambdaCloudConnector(CloudConnector):
         else:
             self.log_error("No correct auth data has been specified to Lambda: "
                            "username and password (Access Key, Secret Key and Role)")
-            raise Exception("No correct auth data has been specified to Lambda: "
-                            "username and password (Access Key, Secret Key and Role)")
+            raise NoCorrectAuthData(self.type, "username and password (Access Key, Secret Key and Role)")
 
     @staticmethod
     def _free_scar_env():
@@ -139,7 +136,7 @@ class LambdaCloudConnector(CloudConnector):
             elif url_image.scheme == "":
                 image = url_image[2]
             else:
-                raise Exception("Invalid image protocol: lambda, docker or empty are supported.")
+                raise CloudConnectorException("Invalid image protocol: lambda, docker or empty are supported.")
             func["container"] = {"image": image, "create_image": False, "timeout_threshold": 10}
             func["ecr"] = {"delete_image": False}
 

@@ -26,10 +26,7 @@ from radl.radl import RADL, Feature, deploy, system, contextualize_item
 from radl.radl_parse import parse_radl
 from radl.radl_json import radlToSimple
 from IM.config import Config
-try:
-    from Queue import PriorityQueue
-except ImportError:
-    from queue import PriorityQueue
+from queue import PriorityQueue
 from IM.VirtualMachine import VirtualMachine
 from IM.auth import Authentication
 from IM.tosca.Tosca import Tosca
@@ -143,13 +140,13 @@ class InfrastructureInfo:
             odict['radl'] = str(odict['radl'])
         if odict['extra_info'] and "TOSCA" in odict['extra_info']:
             odict['extra_info'] = {'TOSCA': odict['extra_info']['TOSCA'].serialize()}
-        return json.dumps(odict)
+        return odict
 
     @staticmethod
     def deserialize(str_data):
         newinf = InfrastructureInfo()
         newinf.creation_date = None
-        dic = json.loads(str_data)
+        dic = str_data if isinstance(str_data, dict) else json.loads(str_data)
         vm_list = dic['vm_list']
         vm_master_id = dic['vm_master']
         dic['vm_master'] = None
@@ -440,7 +437,7 @@ class InfrastructureInfo:
             for key in elem.keys():
                 new_data[key.replace(".", "_")] = elem[key]
             json_data.append(new_data)
-        return json.dumps(json_data)
+        return json_data
 
     def get_radl(self):
         """
@@ -700,10 +697,7 @@ class InfrastructureInfo:
             for self_im_auth in self.auth.getAuthInfo("InfrastructureManager"):
                 if self._is_authorized(self_im_auth, auth):
                     return True
-
-            return False
-        else:
-            return False
+        return False
 
     def touch(self):
         """

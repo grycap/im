@@ -5,21 +5,17 @@ import copy
 import requests_cache
 import json
 import re
+from random import choice
+from string import ascii_letters, digits
+
+from urllib.parse import urlparse
+from uuid import uuid1
 from toscaparser.nodetemplate import NodeTemplate
-
-try:
-    unicode("hola")
-except NameError:
-    unicode = str
-
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
 from toscaparser.tosca_template import ToscaTemplate
 from toscaparser.elements.interfaces import InterfacesDef
 from toscaparser.functions import Function, is_function, get_function, GetAttribute, Concat, Token
 from toscaparser.elements.scalarunit import ScalarUnit_Size
+from toscaparser.imports import ImportsLoader
 from IM.ansible_utils import merge_recipes
 from radl.radl import (system, deploy, network, Feature, Features, configure,
                        contextualize_item, RADL, contextualize, ansible, description)
@@ -39,15 +35,36 @@ class Tosca:
 
     logger = logging.getLogger('InfrastructureManager')
 
-    def __init__(self, yaml_str, verify=True):
+    def __init__(self, yaml_str, verify=True, tosca_repo=None, auth=None):
+        self.id = str(uuid1())
+        self.tosca_repo = tosca_repo
         self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
-        self.yaml = yaml.safe_load(yaml_str)
-        if not verify:
-            def verify_fake(tpl):
-                return True
-            ToscaTemplate.verify_template = verify_fake
-        self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
+        try:
+            self.yaml = self._get_tosca_from_repo(yaml.safe_load(yaml_str))
+            if not verify:
+                def verify_fake(tpl):
+                    return True
+                ToscaTemplate.verify_template = verify_fake
+            self._gen_special_input_values(auth)
+            self.tosca = ToscaTemplate(yaml_dict_tpl=copy.deepcopy(self.yaml))
+        except Exception as ex:
+            Tosca.logger.exception("Error parsing TOSCA template")
+            raise Exception("Error parsing TOSCA template: %s" % str(ex))
+
+    def _gen_special_input_values(self, auth):
+        input_values = self.yaml.get('topology_template', {}).get('inputs', {})
+        for name, elem in input_values.items():
+            if elem.get('type') == "string":
+                value = elem.get('default', '')
+                if value == "access_token()" and auth:
+                    im_auth = auth.getAuthInfo("InfrastructureManager")
+                    if im_auth and im_auth[0].get("token"):
+                        elem['default'] = im_auth[0].get("token")
+                elif re.match(r'random\(\d+\)', value):
+                    length = int(re.findall(r'random\((\d+)\)', value)[0])
+                    elem['default'] = ''.join(choice(ascii_letters + digits) for _ in range(length))
+                    Tosca.logger.debug("Generated random value for input: %s" % name)
 
     def serialize(self):
         return yaml.safe_dump(self.yaml)
@@ -81,6 +98,65 @@ class Tosca:
                 Tosca.logger.warning("Policy %s not supported. Ignoring it." % policy.type_definition.type)
 
         return None
+
+    def _get_tosca_from_repo(self, input_yaml):
+        if ('tosca_definitions_version' not in input_yaml or
+                not input_yaml.get('imports') or
+                len(input_yaml.get('imports')) != 1 or
+                not isinstance(input_yaml.get('imports')[0], dict) or
+                input_yaml.get('imports')[0].get("template_file") is None):
+            return input_yaml
+
+        # Check if the import URL
+        import_file = input_yaml.get('imports')[0].get("template_file")
+        if self.tosca_repo:
+            import_file_url = urlparse(import_file)
+            # If the import is a URL, check if it is in the TOSCA repository
+            if import_file_url.scheme and not import_file.startswith(self.tosca_repo):
+                raise Exception("The TOSCA template must be imported from the TOSCA repository: %s" % self.tosca_repo)
+
+        # Load the imported template
+        custom_import = ImportsLoader([import_file], self.tosca_repo,
+                                      type_definition_list=["topology_template", "imports"], tpl=input_yaml)
+        # Get the imports to add them later
+        imports = custom_import.custom_defs.get('imports')
+        if imports:
+            # and remove it to check if there are topology_template elements
+            del custom_import.custom_defs['imports']
+        if custom_import.custom_defs:
+            # remove the import to avoid errors parsing it
+            input_yaml.get('imports').pop()
+            # and merge the new inputs with the imported ones
+            inputs = custom_import.custom_defs.get('inputs', {})
+            for input_name in input_yaml['topology_template'].get('inputs', {}):
+                imported_input = inputs.get(input_name, {})
+                new_input = input_yaml['topology_template'].get('inputs', {}).get(input_name, {})
+                if new_input:
+                    if imported_input:
+                        if isinstance(new_input, dict) and new_input.get('default'):
+                            imported_input['default'] = new_input['default']
+                        else:
+                            imported_input['default'] = new_input
+                    else:
+                        inputs.update({input_name: new_input})
+            # merge the outputs
+            outputs = custom_import.custom_defs.get('outputs', {})
+            for output_elem in input_yaml['topology_template'].get('outputs', {}):
+                new_output = input_yaml['topology_template'].get('outputs', {}).get(output_elem, {})
+                if new_output:
+                    outputs.update({output_elem: new_output})
+            # and the node templates
+            node_teplates = custom_import.custom_defs.get('node_templates', {})
+            for node_elem in input_yaml['topology_template'].get('node_templates', {}):
+                new_node = input_yaml['topology_template'].get('node_templates', {}).get(node_elem, {})
+                if new_node:
+                    node_teplates.update({node_elem: new_node})
+            input_yaml['topology_template']['inputs'] = inputs
+            input_yaml['topology_template']['outputs'] = outputs
+            input_yaml['topology_template']['node_templates'] = node_teplates
+            input_yaml['imports'].extend(imports)
+
+        return input_yaml
 
     def to_radl(self, inf_info=None):
         """
@@ -220,10 +296,10 @@ class Tosca:
                 else:
                     radl.systems.append(k8s_sys)
                     radl.networks.extend(nets)
-                    conf = configure(node.name, None)
+                    conf = configure(k8s_sys.name, None)
                     radl.configures.append(conf)
                     level = Tosca._get_dependency_level(node)
-                    cont_items.append(contextualize_item(node.name, conf.name, level))
+                    cont_items.append(contextualize_item(k8s_sys.name, conf.name, level))
                     cloud_id = self._get_placement_property(k8s_sys.name, "cloud_id")
                     dep = deploy(k8s_sys.name, num_instances, cloud_id)
                     radl.deploys.append(dep)
@@ -501,6 +577,7 @@ class Tosca:
             public_ip = self._final_function_result(node_props["public_ip"].value, node)
 
         # This is the solution using endpoints
+        gen_tls = False
         net_provider_id = None
         dns_name = None
         additional_dns_names = []
@@ -556,9 +633,14 @@ class Tosca:
                         ports["im-%s-%s" % (protocol, port)]['remote_cidr'] = remote_cidr
             if cap_props and "additional_ip" in cap_props:
                 additional_ip = self._final_function_result(cap_props["additional_ip"].value, node)
+            if cap_props and "tls" in cap_props:
+                gen_tls = self._final_function_result(cap_props["tls"].value, node)
 
         if dns_name:
             system.setValue('net_interface.0.dns_name', dns_name)
+            system.setValue('net_interface.0.dns.0.name', dns_name)
+            if gen_tls:
+                system.setValue('net_interface.0.dns.0.tls', 'true')
         if additional_ip:
             system.setValue('net_interface.0.additional_ip', additional_ip)
 
@@ -568,7 +650,7 @@ class Tosca:
             # If there are network nodes, use it to define system network
             # properties
             port_net = None
-            for net_name, ip, dns_name, additional_dns_names, num, additional_ip in nets:
+            for net_name, ip, dns_name, additional_dns_names, num, additional_ip, gen_tls in nets:
                 net = radl.get_network_by_id(net_name)
                 if not net:
                     raise Exception("Node %s with a port binded to a non existing network: %s." % (node.name,
@@ -579,11 +661,16 @@ class Tosca:
                     system.setValue('net_interface.%d.ip' % num, ip)
                 # These are not normative properties
                 if dns_name:
-                    system.setValue('net_interface.%d.dns_name' % num, dns_name)
+                    system.setValue('net_interface.%d.dns.0.name' % num, dns_name)
+                    if gen_tls:
+                        system.setValue('net_interface.%d.dns.0.tls' % num, 'true')
                 if additional_ip:
                     system.setValue('net_interface.%d.additional_ip' % num, additional_ip)
                 if additional_dns_names:
-                    system.setValue('net_interface.%d.additional_dns_names' % num, additional_dns_names)
+                    for num_dns, elem in enumerate(additional_dns_names):
+                        system.setValue('net_interface.%d.dns.%d.name' % (num, num_dns), elem)
+                        if gen_tls:
+                            system.setValue('net_interface.%d.dns.%d.tls' % (num, num_dns), 'true')
 
                 if net.isPublic():
                     port_net = net
@@ -654,7 +741,10 @@ class Tosca:
                 system.setValue('net_interface.%d.connection' % num_net, public_net.id)
                 # allways add the additional_dns_names in the public interface
                 if additional_dns_names:
-                    system.setValue('net_interface.%d.additional_dns_names' % num_net, additional_dns_names)
+                    for num_dns, elem in enumerate(additional_dns_names):
+                        system.setValue('net_interface.%d.dns.%d.name' % (num_net, num_dns), elem)
+                        if gen_tls:
+                            system.setValue('net_interface.%d.dns.%d.tls' % (num_net, num_dns), 'true')
 
             if net_provider_id:
                 if private_net:
@@ -1124,6 +1214,15 @@ class Tosca:
                 return None
         return res
 
+    @staticmethod
+    def _jinja_map_access(base_expr, params):
+        """Append map-key accessors to a Jinja expression body."""
+        expr = base_expr
+        for param in params:
+            escaped_param = str(param).replace("'", "\\'")
+            expr += "['%s']" % escaped_param
+        return "{{ %s }}" % expr
+
     def _get_attribute_result(self, func, node, inf_info):
         """Get an attribute value of an entity defined in the service template
 
@@ -1156,6 +1255,7 @@ class Tosca:
         if len(func.args) < 2:
             Tosca.logger.error("Calling get_attribute function. Min 2 parameters.")
             return None
+
         node_name = func.args[0]
 
         # Get node
@@ -1225,14 +1325,23 @@ class Tosca:
         if inf_info:
             vm_list = inf_info.get_vm_list_by_system_name()
 
-            if host_node.name not in vm_list:
+            if node.type == "tosca.nodes.Container.Application.Docker":
+                # In case of Containers the system name is not the node name
+                sys_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_ ]', '-', node.name) + "-"
+                found = [name for name in vm_list.keys() if name.startswith(sys_name)]
+                if found:
+                    sys_name = found[0]
+            else:
+                sys_name = host_node.name
+
+            if sys_name not in vm_list:
                 Tosca.logger.warning("There are no VM associated with the name %s." % host_node.name)
                 return None
             else:
                 # As default assume that there will be only one VM per group
-                vm = vm_list[host_node.name][0]
-                if index is not None and len(vm_list[host_node.name]) < index:
-                    index = len(vm_list[host_node.name]) - 1
+                vm = vm_list[sys_name][0]
+                if index is not None and len(vm_list[sys_name]) < index:
+                    index = len(vm_list[sys_name]) - 1
 
             if attribute_name == "tosca_id":
                 return vm.id
@@ -1243,6 +1352,16 @@ class Tosca:
                     return vm.cont_out
                 else:
                     Tosca.logger.warning("Attribute ctxt_log only supported"
+                                         " in tosca.nodes.indigo.Compute nodes.")
+                    return None
+            elif attribute_name == "tls_certificates" and capability_name == "endpoint":
+                if node.type == "tosca.nodes.indigo.Compute":
+                    tls_certs = vm.get_tls_certificates()
+                    if attribute_params:
+                        return self._get_object_values(tls_certs, attribute_params)
+                    return tls_certs
+                else:
+                    Tosca.logger.warning("Attribute tls_certificates only supported"
                                          " in tosca.nodes.indigo.Compute nodes.")
                     return None
             elif attribute_name == "ansible_output":
@@ -1368,6 +1487,8 @@ class Tosca:
                 if node.type == "tosca.nodes.Container.Application.Docker":
                     res = []
                     dmsname = vm.info.systems[0].getValue("net_interface.0.dns_name")
+                    if not dmsname:
+                        dmsname = vm.info.systems[0].getValue("net_interface.0.dns.0.name")
                     pub_net = vm.getConnectedNet(public=True)
                     priv_net = vm.getConnectedNet(public=False)
                     if pub_net:
@@ -1381,7 +1502,7 @@ class Tosca:
                                     res.append(url + ":%s" % outport.get_remote_port())
                     if priv_net:
                         # set the internal DNS name
-                        url = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_]', '-', node.name)
+                        url = vm.info.systems[0].name
                         if priv_net.getOutPorts():
                             for outport in priv_net.getOutPorts():
                                 res.append(url + ":%s" % outport.get_local_port())
@@ -1402,6 +1523,14 @@ class Tosca:
                     return "{{ hostvars[groups['%s'][0]]['IM_NODE_VMID'] }}" % host_node.name
             elif attribute_name == "tosca_name":
                 return node.name
+            elif attribute_name == "tls_certificates" and capability_name == "endpoint":
+                if node_name in ["HOST", "SELF"]:
+                    base_expr = "IM_NODE_TLS_CERTIFICATES"
+                else:
+                    # Assume that there is only one VM per group
+                    base_expr = "hostvars[groups['%s'][0]]['IM_NODE_TLS_CERTIFICATES']" % host_node.name
+
+                return Tosca._jinja_map_access(base_expr, attribute_params)
             elif attribute_name == "private_address":
                 if node.type == "tosca.nodes.indigo.Compute":
                     if index is not None:
@@ -1466,6 +1595,8 @@ class Tosca:
                     res = []
                     if net.isPublic():
                         dmsname = k8s_sys.getValue("net_interface.0.dns_name")
+                        if not dmsname:
+                            dmsname = vm.info.systems[0].getValue("net_interface.0.dns.0.name")
                         if net.getOutPorts():
                             for outport in net.getOutPorts():
                                 # if DNS name is set, the endpoint of the first public port is the DNS name
@@ -1476,7 +1607,7 @@ class Tosca:
                                                outport.get_remote_port())
                     else:
                         # set the internal DNS name
-                        url = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_]', '-', node.name)
+                        url = k8s_sys.name
                         if net.getOutPorts():
                             for outport in net.getOutPorts():
                                 res.append(url + ":%s" % outport.get_local_port())
@@ -1862,7 +1993,8 @@ class Tosca:
                     additional_ip = self._final_function_result(port.get_property_value('additional_ip'), port)
                     additional_dns_names = self._final_function_result(port.get_property_value('additional_dns_names'),
                                                                        port)
-                    nets.append((link, ip, dns_name, additional_dns_names, order, additional_ip))
+                    tls = self._final_function_result(port.get_property_value('tls'), port)
+                    nets.append((link, ip, dns_name, additional_dns_names, order, additional_ip, tls))
 
         return nets
 
@@ -2177,7 +2309,10 @@ class Tosca:
 
     def _gen_k8s_system(self, node, nodetemplates):
         """Generate the system for a K8s app."""
-        res = system(node.name)
+        # Replace non-allowed characters in K8s names with '-'
+        system_name = re.sub('[!"#$%&\'()*+,/:;<=>?@[\\]^`{|}~_ ]', '-', node.name)
+        # Add the TOSCA ID to avoid name collisions
+        res = system(f"{system_name}-{self.id[0:8]}")
         nets = []
         cms = []
 
@@ -2226,6 +2361,8 @@ class Tosca:
                 if value not in [None, [], {}]:
                     if prop.name == "num_cpus":
                         res.setValue('cpu.count', float(value))
+                    elif prop.name == "num_gpus":
+                        res.setValue('gpu.count', int(value))
                     elif prop.name == "mem_size":
                         if not value.endswith("B"):
                             value += "B"
@@ -2241,19 +2378,20 @@ class Tosca:
                                 res.setValue('disk.%d.mount_path' % num, mount_path)
                     elif prop.name == 'publish_ports':
                         # Asume that publish_ports must be published as NodePort
-                        pub = network("%s_pub" % node.name)
+                        pub = network("%s_pub" % res.name)
                         pub.setValue("outbound", "yes")
                         pub.setValue("outports", self._format_outports(value, False))
                         nets.append(pub)
-                        res.setValue("net_interface.0.connection", "%s_pub" % node.name)
+                        res.setValue("net_interface.0.connection", "%s_pub" % res.name)
                         if value and value[0] and 'endpoint' in value[0]:
                             res.setValue("net_interface.0.dns_name", value[0]['endpoint'])
+                            res.setValue("net_interface.0.dns.0.name", value[0]['endpoint'])
                     elif prop.name == 'expose_ports':
                         # Asume that publish_ports must be published as ClusterIP
-                        priv = network("%s_priv" % node.name)
+                        priv = network("%s_priv" % res.name)
                         priv.setValue("outbound", "no")
                         priv.setValue("outports", self._format_outports(value))
                         nets.append(priv)
-                        res.setValue("net_interface.0.connection", "%s_priv" % node.name)
+                        res.setValue("net_interface.0.connection", "%s_priv" % res.name)
 
         return res, nets

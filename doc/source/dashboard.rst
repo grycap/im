@@ -26,7 +26,7 @@ How to deploy the dashboard
 Register a client in an OIDC server with the following properties:
 
 - redirect uri: `https://<DASHBOARD_HOST>:<PORT>/login/oidc/authorized`
-- scopes: 'openid', 'email', 'profile', 'offline_access' ('eduperson_entitlement' in EGI Check-In optional)
+- scopes: 'openid', 'email', 'profile', 'offline_access' ('entitlements' in EGI Check-In optional)
 - introspection endpoint enabled
 
 Create the `config.json` file (see the [example](app/config-sample.json)) setting the following variables:
@@ -61,11 +61,11 @@ Create the `config.json` file (see the [example](app/config-sample.json)) settin
 +-----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+
 | ANALYTICS_TAG         | | Google Analytic Tag                                                                                                                                    | N                   | ""                     |
 +-----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+
-| STATIC_SITES          | | List of static sites added to the AppDB ones. Format:                                                                                                  | N                   | []                     |
+| STATIC_SITES          | | List of static sites added to the FedCloudInfo ones. Format:                                                                                           | N                   | []                     |
 |                       | | [{"name": "static_site_name", "url": "static_site_url", "id": "static_id",                                                                             |                     |                        |
 |                       | | "vos": {"vo": "stprojectid"}}]                                                                                                                         |                     |                        |
 +-----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+
-| STATIC_SITES_URL      | | URL of a JSON file with the list of static sites added to the AppDB ones                                                                               | N                   | ""                     |
+| STATIC_SITES_URL      | | URL of a JSON file with the list of static sites added to the FedCloudInfo ones                                                                        | N                   | ""                     |
 +-----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------+---------------------+------------------------+
 
 
@@ -274,7 +274,7 @@ This page enables the user to add or delete public SSH Keys to be injected to th
 to allow him to establish a secure connection between his computer and his virtual server(s).
 
 The user can manage a set of SSH Keys that will appear in the SSK Keys list as 
-depicted in :ref:`Fig. 4 <_figure_dash_ssh_key_list>`. The user can delete the existing SSH Keys
+depicted in :ref:`Fig. 4 <figure_dash_ssh_key_list>`. The user can delete the existing SSH Keys
 from the list or add new ones using the "New SSH Key" Button on the top-right of the page.
 
 .. _figure_dash_ssh_key_list:
@@ -282,7 +282,7 @@ from the list or add new ones using the "New SSH Key" Button on the top-right of
 
    Fig 4. SSH Keys list.
 
-If the "New SSH Key" a new modal form (:ref:`Fig. 5 <_figure_dash_ssh_key_add>`) will be shown,
+If the "New SSH Key" a new modal form (:ref:`Fig. 5 <figure_dash_ssh_key_add>`) will be shown,
 enabling the user to add a new key, setting a description that will be shown in the list.
 
 .. _figure_dash_ssh_key_add:
@@ -320,7 +320,7 @@ The final tab will be the "Cloud Provider Selection" (:ref:`Fig. 8 <figure_dash_
 In this tab the user has to select: first, one of the Cloud providers that has been previously added (and not disabled) 
 in the "Cloud Credentials" page, then it has to select the base image used to deploy the VMs.
 In case of EGI Cloud Compute sites the user has two options, he can select an image from the list of images provided by the
-`EGI AppDB information system <https://appdb.egi.eu/>`_ or from the list provided directly by the Cloud site.
+`EGI FedCloudInfo information system <https://is.cloud.egi.eu>`_ or from the list provided directly by the Cloud site.
 Other providers will only show a dropdown list with the available images to use. Only in the case of AWS Cloud provider
 the user has to specify manually the AMI id of the image to use.
 
@@ -330,6 +330,20 @@ the user has to specify manually the AMI id of the image to use.
 
    Fig 8. Select Cloud Provider and Image.
 
+Furthermore, this tab will show the ammount of resources available in the selected Cloud provider.
+The user can easily check the resources available in the selected Cloud provider and if the current
+deployment will fit in the available resources. The information is shown in a set of pie charts
+showing the total resources available and the resources used by the current user. Used resources are
+shown in orange, free ones in grey, the needed resources for the deployment in green or red if they
+do not fit in the available resources.In case that the amnount of resources used by the user is too high,
+a message will be shown to the user indicating that the current deployment will not fit in the 
+available resources.
+(:ref:`Fig. 9 <_figure_dash_resources>`)
+
+.. _figure_dash_resources:
+.. figure:: images/dash_resources.png
+
+   Fig 9. Cloud resources usage.
 
 Infrastructures
 ^^^^^^^^^^^^^^^^
@@ -346,13 +360,13 @@ both columns empty.
 .. _figure_dash_inf_list:
 .. figure:: images/dash_inf_list.png
 
-   Fig 9. List of infrastructures.
+   Fig 10. List of infrastructures.
 
 
 .. _figure_dash_inf_actions:
 .. figure:: images/dash_inf_actions.png
 
-   Fig 10. List of infrastructure Actions.
+   Fig 11. List of infrastructure Actions.
 
 **List of Actions**:
 
@@ -366,7 +380,7 @@ both columns empty.
 .. _figure_dash_add_nodes:
 .. figure:: images/dash_add_nodes.png
 
-   Fig 11. Add nodes page.
+   Fig 12. Add nodes page.
 
 * Show template: This action shows the original TOSCA template submitted to create the infrastructure.
 
@@ -382,7 +396,7 @@ both columns empty.
 .. _figure_dash_outputs:
 .. figure:: images/dash_outputs.png
 
-   Fig 12. TOSCA outputs.
+   Fig 13. TOSCA outputs.
 
 * Delete: Delete this infrastructure and all the asociated resources. It also has the option to "Force" de deletion.
   In this case the infrastructure will be removed from the IM service even if some cloud resources cannot be deleted.
@@ -394,16 +408,18 @@ both columns empty.
 
 * Reconfigure: Starts the reconfiguration of the infrastructure.
 
-* Change User: Add or change the ownership of the infrastructure at IM level. Setting an valid access token of other
+* Change User: Add or change the ownership of the infrastructure at IM level. Setting an valid share token of other
   user, the infrastructure can be shared or transfered to another user. If overwrite check is set the new user will be
   the unique new owner of the infrastructure, otherwise it will be added to the list of current users. If the new user
   does not have the correct credentials to access the cloud provider where the resources were deployed the user will
-  not be able to manage the cloud resources.
+  not be able to manage the cloud resources. To get the share token the user has to go to the infrastructure list page
+  an chlick on the "Token" button. The token will be shown in a modal form and the user can copy it to the clipboard
+  and then share it with the current owner of the infrastructure.
 
 .. _figure_dash_change_user:
 .. figure:: images/dash_change_user.png
 
-   Fig 13. Change/Add User modal form.
+   Fig 14. Change/Add User modal form.
 
 **VM Info page**:
 
@@ -417,7 +433,7 @@ the SSH credentials needed to access it. Second table will show other additional
 .. _figure_dash_vm_info:
 .. figure:: images/dash_vm_info.png
 
-   Fig 14. VM Info page.
+   Fig 15. VM Info page.
 
 In case of Resizing the VM the user must provide the new size of the VM in terms of number of CPUs and ammount of memory as
 show in :ref:`Fig. 15 <figure_dash_vm_resize>`.
@@ -425,4 +441,4 @@ show in :ref:`Fig. 15 <figure_dash_vm_resize>`.
 .. _figure_dash_vm_resize:
 .. figure:: images/dash_vm_resize.png
 
-   Fig 15. VM Resize modal form.
+   Fig 16. VM Resize modal form.

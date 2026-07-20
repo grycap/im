@@ -21,12 +21,10 @@ import threading
 import time
 import tempfile
 import shutil
+import yaml
 from packaging.version import Version
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 from multiprocessing import Queue
 
 from ansible import __version__ as ansible_version
@@ -47,13 +45,13 @@ except ImportError:
 
 from IM.ansible_utils import merge_recipes
 from IM.ansible_utils.ansible_launcher import AnsibleThread
+from IM.ansible_utils.output import AnsibleOutput
 
 import IM.InfrastructureList
 from IM.LoggerMixin import LoggerMixin
 from IM.VirtualMachine import VirtualMachine
 from IM.SSH import AuthenticationException
 from IM.SSHRetry import SSHRetry
-from IM.recipe import Recipe
 from IM.config import Config
 from radl.radl import system, contextualize_item
 from IM.CtxtAgentBase import CtxtAgentBase
@@ -153,15 +151,22 @@ class ConfManager(LoggerMixin, threading.Thread):
                     if not vm.getPublicIP():
                         self.log_debug("And it does not have it assigned yet.")
                         success = False
-                        vm.update_status(self.auth)
+
+                if vm.requires_tls_certificate():
+                    self.log_debug("VM %s requests a TLS certificate." % vm.id)
+                    if not vm.get_tls_certificates():
+                        self.log_debug("And it does not have it assigned yet.")
+                        success = False
 
             if not success:
                 self.log_warn("Still waiting all the VMs to have all the requested IPs")
                 wait += Config.CONFMAMAGER_CHECK_STATE_INTERVAL
                 time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
+                vm.update_status(self.auth)
 
         if not success:
             self.inf.set_configured(False)
+            self.inf.add_cont_msg("Error waiting all the VMs to have all the requested IPs")
             self.log_warn("Error waiting all the VMs to have all the requested IPs")
         else:
             self.inf.set_configured(True)
@@ -394,12 +399,12 @@ class ConfManager(LoggerMixin, threading.Thread):
                     else:
                         self.log_info("Using ctxt_agent")
                         ctxt_agent_command = "/ctxt_agent.py "
-                    vault_export = ""
+                    export = f"export ANSIBLE_CONFIG={CtxtAgentBase.ANSIBLE_CFG_FILE} && "
                     vault_password = vm.info.systems[0].getValue("vault.password")
                     if vault_password:
-                        vault_export = "export VAULT_PASS='%s' && " % vault_password
-                    (pid, _, _) = ssh.execute("nohup sh -c \"" + vault_export + CtxtAgentBase.VENV_DIR +
-                                              "/bin/python3 " + Config.REMOTE_CONF_DIR +
+                        export += "export VAULT_PASS='%s' && " % vault_password
+                    (pid, _, _) = ssh.execute("nohup sh -c \"" + export + CtxtAgentBase.MAMBA_CMD +
+                                              "python3 " + Config.REMOTE_CONF_DIR +
                                               "/" + str(self.inf.id) + "/" + ctxt_agent_command +
                                               Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/" +
                                               "/general_info.cfg " + remote_dir + "/" + os.path.basename(conf_file) +
@@ -437,7 +442,6 @@ class ConfManager(LoggerMixin, threading.Thread):
         self.log_info("Create the ansible configuration file")
         res_filename = "hosts"
         ansible_file = tmp_dir + "/" + res_filename
-        out = open(ansible_file, 'w')
 
         # get the master node name
         if self.inf.radl.ansible_hosts:
@@ -447,23 +451,23 @@ class ConfManager(LoggerMixin, threading.Thread):
             (master_name, masterdom) = self.inf.vm_master.getRequestedName(
                 default_hostname=Config.DEFAULT_VM_NAME, default_domain=Config.DEFAULT_DOMAIN)
 
-        no_windows = ""
-        windows = ""
-        all_vars = ""
+        all_vars = {}
+        children = {}
+        windows_hosts = {}
+        no_windows_hosts = {}
         vm_group = self.inf.get_vm_list_by_system_name()
         for group in vm_group:
             vm = vm_group[group][0]
-            out.write('[' + group + ':vars]\n')
+
+            group_vars = {}
+            group_hosts = {}
 
             if vm.getOS().lower() == "windows":
-                out.write('ansible_connection=winrm\n')
-                out.write('ansible_winrm_server_cert_validation=ignore\n')
-
-            out.write('[' + group + ']\n')
+                group_vars['ansible_connection'] = 'winrm'
+                group_vars['ansible_winrm_server_cert_validation'] = 'ignore'
 
             # Set the vars with the number of nodes of each type
-            all_vars += 'IM_' + group.upper() + '_NUM_VMS=' + \
-                str(len(vm_group[group])) + '\n'
+            all_vars['IM_' + group.upper() + '_NUM_VMS'] = str(len(vm_group[group]))
 
             for vm in vm_group[group]:
                 if not vm.contextualize():
@@ -483,26 +487,24 @@ class ConfManager(LoggerMixin, threading.Thread):
                                   " is not running. It will not be included in the inventory file.")
                     continue
 
-                if vm.getOS().lower() == "windows":
-                    windows += "%s_%d\n" % (ip, vm.im_id)
-                else:
-                    no_windows += "%s_%d\n" % (ip, vm.im_id)
+                node_name = "%s_%d" % (ip, vm.im_id)
 
-                ifaces_im_vars = ''
+                if vm.getOS().lower() == "windows":
+                    windows_hosts[node_name] = {}
+                else:
+                    no_windows_hosts[node_name] = {}
+
+                node_vars = {}
                 for i in range(vm.getNumNetworkIfaces()):
                     iface_ip = vm.getIfaceIP(i)
                     if iface_ip:
-                        ifaces_im_vars += ' IM_NODE_NET_' + \
-                            str(i) + '_IP=' + iface_ip
+                        node_vars['IM_NODE_NET_' + str(i) + '_IP'] = iface_ip
                         if vm.getRequestedNameIface(i):
                             (nodename, nodedom) = vm.getRequestedNameIface(
                                 i, default_domain=Config.DEFAULT_DOMAIN)
-                            ifaces_im_vars += ' IM_NODE_NET_' + \
-                                str(i) + '_HOSTNAME=' + nodename
-                            ifaces_im_vars += ' IM_NODE_NET_' + \
-                                str(i) + '_DOMAIN=' + nodedom
-                            ifaces_im_vars += ' IM_NODE_NET_' + \
-                                str(i) + '_FQDN=' + nodename + "." + nodedom
+                            node_vars['IM_NODE_NET_' + str(i) + '_HOSTNAME'] = nodename
+                            node_vars['IM_NODE_NET_' + str(i) + '_DOMAIN'] = nodedom
+                            node_vars['IM_NODE_NET_' + str(i) + '_FQDN'] = nodename + "." + nodedom
 
                 # the master node
                 # TODO: Known issue: the master VM must set the public network
@@ -513,76 +515,73 @@ class ConfManager(LoggerMixin, threading.Thread):
                     (nodename, nodedom) = vm.getRequestedName(
                         default_domain=Config.DEFAULT_DOMAIN)
 
-                node_line = "%s_%d" % (ip, vm.im_id)
-                node_line += ' ansible_host=%s' % ip
+                node_vars['ansible_host'] = ip
                 # For compatibility with Ansible 1.X versions
-                node_line += ' ansible_ssh_host=%s' % ip
+                node_vars['ansible_ssh_host'] = ip
 
-                node_line += ' ansible_port=%d' % vm.getRemoteAccessPort()
+                node_vars['ansible_port'] = vm.getRemoteAccessPort()
                 # For compatibility with Ansible 1.X versions
-                node_line += ' ansible_ssh_port=%d' % vm.getRemoteAccessPort()
+                node_vars['ansible_ssh_port'] = vm.getRemoteAccessPort()
 
                 user = vm.getCredentialValues()[0]
                 if user:
-                    node_line += ' ansible_user=%s' % user
+                    node_vars['ansible_user'] = user
                     # For compatibility with Ansible 1.X versions
-                    node_line += ' ansible_ssh_user=%s' % user
+                    node_vars['ansible_ssh_user'] = user
                 else:
                     self.log_warn("The VM ID: " + str(vm.id) + " does not have username!!")
 
                 if self.inf.vm_master and vm.id == self.inf.vm_master.id:
-                    node_line += ' ansible_connection=local'
+                    node_vars['ansible_connection'] = 'local'
 
                 if vm.getPublicIP():
-                    node_line += ' IM_NODE_PUBLIC_IP=' + vm.getPublicIP()
+                    node_vars['IM_NODE_PUBLIC_IP'] = vm.getPublicIP()
                     if not vm.getPrivateIP():
                         # If the node only has a public IP set this variable to the public one
-                        node_line += ' IM_NODE_PRIVATE_IP=' + vm.getPublicIP()
+                        node_vars['IM_NODE_PRIVATE_IP'] = vm.getPublicIP()
                 if vm.getPrivateIP():
-                    node_line += ' IM_NODE_PRIVATE_IP=' + vm.getPrivateIP()
-                node_line += ' IM_NODE_HOSTNAME=' + nodename
-                node_line += ' IM_NODE_FQDN=' + nodename + "." + nodedom
-                node_line += ' IM_NODE_DOMAIN=' + nodedom
-                node_line += ' IM_NODE_NUM=' + str(vm.im_id)
-                node_line += ' IM_NODE_VMID=' + str(vm.id)
-                node_line += ' IM_NODE_CLOUD_TYPE=' + vm.cloud.type
+                    node_vars['IM_NODE_PRIVATE_IP'] = vm.getPrivateIP()
+                node_vars['IM_NODE_HOSTNAME'] = nodename
+                node_vars['IM_NODE_FQDN'] = nodename + "." + nodedom
+                node_vars['IM_NODE_DOMAIN'] = nodedom
+                node_vars['IM_NODE_NUM'] = str(vm.im_id)
+                node_vars['IM_NODE_VMID'] = str(vm.id)
+                node_vars['IM_NODE_CLOUD_TYPE'] = vm.cloud.type
                 if vm.cloud.server:
-                    node_line += ' IM_NODE_CLOUD_SERVER=' + vm.cloud.server
-                node_line += ifaces_im_vars
+                    node_vars['IM_NODE_CLOUD_SERVER'] = vm.cloud.server
+                if vm.get_tls_certificates():
+                    node_vars['IM_NODE_TLS_CERTIFICATES'] = vm.get_tls_certificates()
 
                 for app in vm.getInstalledApplications():
                     if app.getValue("path"):
-                        node_line += ' IM_APP_' + \
-                            app.getValue("name").upper() + \
-                            '_PATH=' + app.getValue("path")
+                        node_vars['IM_APP_' + app.getValue("name").upper() + '_PATH'] = app.getValue("path")
                     if app.getValue("version"):
-                        node_line += ' IM_APP_' + \
-                            app.getValue("name").upper() + \
-                            '_VERSION=' + app.getValue("version")
+                        node_vars['IM_APP_' + app.getValue("name").upper() + '_VERSION'] = app.getValue("version")
 
-                node_line += "\n"
-                out.write(node_line)
+                group_hosts[node_name] = node_vars
 
-            out.write("\n")
+            children[group] = {'hosts': group_hosts}
+            if group_vars:
+                children[group]['vars'] = group_vars
 
         # set the IM global variables
-        out.write('[all:vars]\n')
-        out.write(all_vars)
-        out.write('IM_MASTER_HOSTNAME=' + master_name + '\n')
-        out.write('IM_MASTER_FQDN=' + master_name + "." + masterdom + '\n')
-        out.write('IM_MASTER_DOMAIN=' + masterdom + '\n')
-        out.write('IM_INFRASTRUCTURE_ID=' + self.inf.id + '\n')
-        out.write('IM_INFRASTRUCTURE_RADL=' + self.inf.get_json_radl() + '\n')
-        out.write('IM_INFRASTRUCTURE_AUTH=' + self.inf.get_auth() + '\n\n')
+        all_vars['IM_MASTER_HOSTNAME'] = master_name
+        all_vars['IM_MASTER_FQDN'] = master_name + "." + masterdom
+        all_vars['IM_MASTER_DOMAIN'] = masterdom
+        all_vars['IM_INFRASTRUCTURE_ID'] = self.inf.id
+        all_vars['IM_INFRASTRUCTURE_RADL'] = self.inf.get_json_radl()
+        all_vars['IM_INFRASTRUCTURE_AUTH'] = self.inf.get_auth()
 
-        if windows:
-            out.write('[windows]\n' + windows + "\n")
+        if windows_hosts:
+            children['windows'] = {'hosts': windows_hosts}
 
         # create the allnowindows group to launch the "all" tasks
-        if no_windows:
-            out.write('[allnowindows]\n' + no_windows + "\n")
+        if no_windows_hosts:
+            children['allnowindows'] = {'hosts': no_windows_hosts}
 
-        out.close()
+        inventory_data = {'all': {'vars': all_vars, 'children': children}}
+        with open(ansible_file, 'w') as out:
+            yaml.dump(inventory_data, out, default_flow_style=False, sort_keys=False)
 
         return res_filename
 
@@ -650,7 +649,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                     tmp_dir + "/basic_task_all.yml")
         f = open(tmp_dir + '/basic_task_all.yml', 'a')
         f.write("\n  vars:\n")
-        f.write("    - pk_file: " + pk_file + ".pub\n")
+        f.write("      pk_file: " + pk_file + ".pub\n")
         f.write("  hosts: '{{IM_HOST}}'\n")
         f.close()
         recipe_files.append("basic_task_all.yml")
@@ -705,8 +704,6 @@ class ConfManager(LoggerMixin, threading.Thread):
         (as apps not in the configure section)
         """
         recipe_files = []
-        # Get the info about the apps from the recipes DB
-        _, recipes = Recipe.getInfoApps(vm.getAppsToInstall())
 
         conf_out = open(tmp_dir + "/main_" + group + "_task.yml", 'w')
         conf_content = self.add_ansible_header(vm.getOS().lower(), gather_facts=True)
@@ -721,29 +718,25 @@ class ConfManager(LoggerMixin, threading.Thread):
         # Generate a set of tasks to format and mount the specified disks
         conf_content += self.generate_mount_disks_tasks(vm.info.systems[0])
 
-        for app_name, recipe in recipes:
+        for req_app in vm.getAppsToInstall():
+            app_name = req_app.getValue("name")
             self.inf.add_cont_msg("App: " + app_name + " set to be installed.")
 
-            # If there are a recipe, use it
-            if recipe:
-                conf_content = merge_recipes(conf_content, recipe)
-                conf_content += "\n\n"
-            else:
-                # use the app name as the package to install
-                parts = app_name.split(".")
-                short_app_name = parts[len(parts) - 1]
-                install_app = "- tasks: \n"
-                # TODO set other packagers: pacman, zypper ...
-                install_app += "  - name: Apt install " + short_app_name + "\n"
-                install_app += "    action: apt pkg=" + short_app_name + \
-                    " state=installed update_cache=yes cache_valid_time=604800\n"
-                install_app += "    when: \"ansible_os_family == 'Debian'\"\n"
-                install_app += "    ignore_errors: yes\n"
-                install_app += "  - name: Yum install " + short_app_name + "\n"
-                install_app += "    action: yum pkg=" + short_app_name + " state=installed\n"
-                install_app += "    when: \"ansible_os_family == 'RedHat'\"\n"
-                install_app += "    ignore_errors: yes\n"
-                conf_content = merge_recipes(conf_content, install_app)
+            # use the app name as the package to install
+            parts = app_name.split(".")
+            short_app_name = parts[len(parts) - 1]
+            install_app = "- tasks: \n"
+            # TODO set other packagers: pacman, zypper ...
+            install_app += "  - name: Apt install " + short_app_name + "\n"
+            install_app += "    action: apt pkg=" + short_app_name + \
+                " state=installed update_cache=yes cache_valid_time=604800\n"
+            install_app += "    when: \"ansible_os_family == 'Debian'\"\n"
+            install_app += "    ignore_errors: yes\n"
+            install_app += "  - name: Yum install " + short_app_name + "\n"
+            install_app += "    action: yum pkg=" + short_app_name + " state=installed\n"
+            install_app += "    when: \"ansible_os_family == 'RedHat'\"\n"
+            install_app += "    ignore_errors: yes\n"
+            conf_content = merge_recipes(conf_content, install_app)
 
         conf_out.write(conf_content)
         conf_out.close()
@@ -821,9 +814,9 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         if self.inf.ansible_configured:
             # Check that remote_dir exists
-            # Also check if virtual env exists (new in version 1.18.0)
+            # Also check if mamba virtual env exists (new in version 2.0.0)
             remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
-            venv_dir = CtxtAgentBase.VENV_DIR + "/bin/"
+            venv_dir = CtxtAgentBase.MAMBA_ENV_DIR
             for rd in [remote_dir, venv_dir]:
                 try:
                     ssh = self.inf.vm_master.get_ssh(retry=True)
@@ -1254,7 +1247,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         return change_creds
 
-    def call_ansible(self, tmp_dir, inventory, playbook, ssh):
+    def call_ansible(self, tmp_dir, inventory, playbook, ssh, ansible_version=None):
         """
         Call the AnsibleThread to execute an Ansible playbook
 
@@ -1286,8 +1279,11 @@ class ConfManager(LoggerMixin, threading.Thread):
         self.log_info('Launching Ansible process.')
         result = Queue()
         extra_vars = {'IM_HOST': 'all'}
+        if ansible_version:
+            extra_vars['im_ansible_version'] = ansible_version
         # store the process to terminate it later is Ansible does not finish correctly
-        self.ansible_process = AnsibleThread(result, StringIO(), tmp_dir + "/" + playbook, 1, gen_pk_file,
+        self.ansible_process = AnsibleThread(result, AnsibleOutput.from_stream(StringIO()),
+                                             tmp_dir + "/" + playbook, 1, gen_pk_file,
                                              ssh.password, 1, tmp_dir + "/" + inventory, ssh.username,
                                              extra_vars=extra_vars)
         self.ansible_process.start()
@@ -1301,8 +1297,15 @@ class ConfManager(LoggerMixin, threading.Thread):
                     self.ansible_process.teminate()
                 except Exception:
                     self.log_exception('Problems terminating Ansible processes.')
+
+                msg = "Timeout waiting Ansible process to finish. "
+                try:
+                    _, return_code, output = result.get(timeout=10, block=False)
+                    msg += output.getvalue()
+                except Exception:
+                    self.log_exception('Error getting ansible results.')
                 self.ansible_process = None
-                return (False, "Timeout. Ansible process terminated.")
+                return (False, msg)
             else:
                 self.log_info('Waiting Ansible process to finish (%d/%d).' % (wait, Config.ANSIBLE_INSTALL_TIMEOUT))
                 time.sleep(Config.CHECK_CTXT_PROCESS_INTERVAL)
@@ -1372,6 +1375,31 @@ class ConfManager(LoggerMixin, threading.Thread):
         conf_all_out.close()
         return all_filename
 
+    def get_ansible_roles_and_collections(self, radl):
+        """
+        Add all the ansible roles and collections specified in the RADL
+        """
+        roles = []
+        collections = []
+        for s in radl.systems:
+            for req_app in s.getApplications():
+                if req_app.getValue("name").startswith("ansible.roles."):
+                    # Get the roles specified by the user in the RADL
+                    app_name = req_app.getValue("name")[14:]
+                    if req_app.getValue("version"):
+                        app_name += ",%s" % req_app.getValue("version")
+                    roles.append(app_name)
+                elif req_app.getValue("name").startswith("ansible.collections."):
+                    # Get the collections specified by the user in the RADL
+                    app_name = req_app.getValue("name")[20:]
+                    if req_app.getValue("version"):
+                        app_name += ",%s" % req_app.getValue("version")
+                    collections.append(app_name)
+                else:
+                    self.log_warn("Application " + req_app.getValue("name") +
+                                  " specified in the RADL is not supported for Ansible. ")
+        return list(set(roles)), list(set(collections))
+
     def configure_ansible(self, ssh, tmp_dir, ansible_version=None):
         """
         Install ansible in the master node
@@ -1420,28 +1448,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                         ConfManager.MASTER_YAML, tmp_dir + "/" + ConfManager.MASTER_YAML)
 
             # Add all the ansible roles and collections specified in the RADL
-            roles = []
-            collections = []
-            for s in self.inf.radl.systems:
-                for req_app in s.getApplications():
-                    if req_app.getValue("name").startswith("ansible.modules."):
-                        # Mantain it for compatibility
-                        # Get the modules specified by the user in the RADL
-                        roles.append(req_app.getValue("name")[16:])
-                    elif req_app.getValue("name").startswith("ansible.roles."):
-                        # Get the roles specified by the user in the RADL
-                        roles.append(req_app.getValue("name")[14:])
-                    elif req_app.getValue("name").startswith("ansible.collections."):
-                        # Get the collections specified by the user in the RADL
-                        collections.append(req_app.getValue("name")[20:])
-                    else:
-                        # Get the info about the apps from the recipes DB
-                        vm_roles, _ = Recipe.getInfoApps([req_app])
-                        roles.extend(vm_roles)
-
-            # avoid duplicates
-            roles = set(roles)
-            collections = set(collections)
+            roles, collections = self.get_ansible_roles_and_collections(self.inf.radl)
 
             self.inf.add_cont_msg("Creating and copying Ansible playbook files")
 
@@ -1457,8 +1464,8 @@ class ConfManager(LoggerMixin, threading.Thread):
 
                     recipe_out.write("\n    - name: Delete the %s collection\n" % galaxy_name)
                     galaxy_name = galaxy_name.replace(".", "/")
-                    recipe_out.write("      file: state=absent path=/etc/ansible/ansible_collections/%s\n" %
-                                     galaxy_name)
+                    recipe_out.write("      file: state=absent path=%s/ansible_collections/%s\n" %
+                                     (CtxtAgentBase.ANSIBLE_DIR, galaxy_name))
 
                     recipe_out.close()
 
@@ -1470,7 +1477,8 @@ class ConfManager(LoggerMixin, threading.Thread):
                     recipe_out = open(tmp_dir + "/" + ConfManager.MASTER_YAML, 'a')
 
                     recipe_out.write("\n    - name: Delete the %s role\n" % galaxy_name)
-                    recipe_out.write("      file: state=absent path=/etc/ansible/roles/%s\n" % galaxy_name)
+                    recipe_out.write("      file: state=absent path=%s/roles/%s\n" %
+                                     (CtxtAgentBase.ANSIBLE_DIR, galaxy_name))
 
                     recipe_out.close()
 
@@ -1489,15 +1497,8 @@ class ConfManager(LoggerMixin, threading.Thread):
             ver_msg = " (v. %s)" % ansible_version if ansible_version else ""
             self.inf.add_cont_msg("Configure Ansible%s in the master VM." % ver_msg)
             self.log_info("Call Ansible%s to (re)configure in the master node" % ver_msg)
-            ansible_version_env = None
-            if ansible_version:
-                # Set ansible verion env var
-                ansible_version_env = os.getenv('ANSIBLE_VERSION')
-                os.environ['ANSIBLE_VERSION'] = ansible_version
-            (success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML, ssh)
-            if ansible_version_env:
-                # restore original value
-                os.environ['ANSIBLE_VERSION'] = ansible_version_env
+            (success, msg) = self.call_ansible(tmp_dir, "inventory.cfg", ConfManager.MASTER_YAML,
+                                               ssh, ansible_version)
 
             if not success:
                 self.log_error("Error configuring master node: " + msg + "\n\n")
@@ -1516,41 +1517,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         """
         Create the configuration file needed by the contextualization agent
         """
-        # Add all the roles and collections specified in the RADL
-        roles = []
-        collections = []
-        for s in self.inf.radl.systems:
-            for req_app in s.getApplications():
-                if req_app.getValue("name").startswith("ansible.modules."):
-                    # Mantain it for compatibility
-                    # Get the modules specified by the user in the RADL
-                    app_name = req_app.getValue("name")[16:]
-                    if req_app.getValue("version"):
-                        app_name += ",%s" % req_app.getValue("version")
-                    roles.append(app_name)
-                elif req_app.getValue("name").startswith("ansible.roles."):
-                    # Get the roles specified by the user in the RADL
-                    app_name = req_app.getValue("name")[14:]
-                    if req_app.getValue("version"):
-                        app_name += ",%s" % req_app.getValue("version")
-                    roles.append(app_name)
-                elif req_app.getValue("name").startswith("ansible.collections."):
-                    # Get the collections specified by the user in the RADL
-                    app_name = req_app.getValue("name")[20:]
-                    if req_app.getValue("version"):
-                        app_name += ",%s" % req_app.getValue("version")
-                    collections.append(app_name)
-                else:
-                    # Get the info about the apps from the recipes DB
-                    vm_roles, _ = Recipe.getInfoApps([req_app])
-                    roles.extend(vm_roles)
-
-        # avoid duplicates
-        roles = list(set(roles))
-        collections = list(set(collections))
-
+        roles, collections = self.get_ansible_roles_and_collections(self.inf.radl)
         conf_data = {}
-
         conf_data['ansible_collections'] = collections
         conf_data['ansible_roles'] = roles
         conf_data['playbook_retries'] = Config.PLAYBOOK_RETRIES

@@ -23,10 +23,7 @@ import logging
 import json
 import yaml
 from mock import patch, MagicMock
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 sys.path.append("..")
 sys.path.append(".")
@@ -236,10 +233,25 @@ class TestCtxtAgent(unittest.TestCase):
         ctxt_agent = CtxtAgent("/tmp/gen_data.json")
         with open("/tmp/gen_data.json", "w+") as f:
             json.dump(self.gen_general_conf(), f)
+        inventory_data = {
+            'all': {
+                'children': {
+                    'group1': {
+                        'hosts': {
+                            "%s_%s" % (vm_data['ip'], vm_data['id']): {
+                                'ansible_host': vm_data['ip'],
+                                'ansible_ssh_host': vm_data['ip'],
+                                'ansible_port': vm_data['remote_port'],
+                                'ansible_ssh_port': vm_data['remote_port'],
+                                'IM_NODE_VMID': str(vm_data['id'])
+                            }
+                        }
+                    }
+                }
+            }
+        }
         with open("/tmp/hosts", "w+") as f:
-            f.write("%s_%s " % (vm_data['ip'], vm_data['id']))
-            f.write(" ansible_host=%s" % vm_data['ip'])
-            f.write(" ansible_ssh_host=%s \n" % vm_data['ip'])
+            yaml.dump(inventory_data, f, default_flow_style=False, sort_keys=False)
 
         vm_data['ctxt_ip'] = "10.0.0.2"
         vm_data['ctxt_port'] = 22
@@ -252,8 +264,10 @@ class TestCtxtAgent(unittest.TestCase):
                 self.assertEqual(vm['ctxt_ip'], vm_data['ctxt_ip'])
 
         with open("/tmp/hosts", "r") as f:
-            data = f.read()
-        self.assertIn(" ansible_host=%s ansible_ssh_host=%s \n" % (vm_data['ctxt_ip'], vm_data['ctxt_ip']), data)
+            inventory_data = yaml.safe_load(f)
+        host = inventory_data['all']['children']['group1']['hosts']["%s_%s" % (vm_data['ip'], vm_data['id'])]
+        self.assertEqual(host['ansible_host'], vm_data['ctxt_ip'])
+        self.assertEqual(host['ansible_ssh_host'], vm_data['ctxt_ip'])
 
     def test_95_install_ansible_roles(self):
         ctxt_agent = CtxtAgent("")
@@ -277,8 +291,8 @@ class TestCtxtAgent(unittest.TestCase):
         copy_content = yaml_data[0]['tasks'][1]['copy'][pos + 9:-2]
         self.assertEqual(copy_content, "[{src: ansible_role}, {name: hadoop, src: "
                          "'git+https://github.com/micafer/ansible-role-hadoop'}]")
-        self.assertEqual(yaml_data[0]['tasks'][2]['command'][:69],
-                         ctxt_agent.VENV_DIR + "/bin/ansible-galaxy install -c -r /tmp/galaxy_roles_")
+        self.assertEqual(yaml_data[0]['tasks'][2]['command'][:93],
+                         ctxt_agent.MAMBA_CMD + "ansible-galaxy install -c -r /tmp/galaxy_roles_")
 
         os.unlink(res)
 
@@ -301,8 +315,8 @@ class TestCtxtAgent(unittest.TestCase):
         pos = yaml_data[0]['tasks'][0]['copy'].find('content="')
         copy_content = yaml_data[0]['tasks'][0]['copy'][pos + 9:-2]
         self.assertEqual(copy_content, "{collections: [{name: ns.collection, version: '1.0'}]}")
-        self.assertEqual(yaml_data[0]['tasks'][1]['command'][:86],
-                         ctxt_agent.VENV_DIR + "/bin/ansible-galaxy collection install -c -r /tmp/galaxy_collections_")
+        self.assertEqual(yaml_data[0]['tasks'][1]['command'][:110],
+                         ctxt_agent.MAMBA_CMD + "ansible-galaxy collection install -c -r /tmp/galaxy_collections_")
 
         os.unlink(res)
 

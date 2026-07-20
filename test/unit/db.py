@@ -41,6 +41,10 @@ class TestDataBase(unittest.TestCase):
         db.execute("insert into test (id, data, date) values (%s, %s, now())", (1, "Data"))
         res = db.select("select data from test where id = %s", (1,))
         self.assertEqual(res, [("Data",)])
+        db.executemany("insert into test (id, data, date) values (%s, %s, now())",
+                       [(2, "Data"), (3, "Data2")])
+        res = db.select("select count(id) from test")
+        self.assertEqual(res, [(3,)])
         db.close()
 
     @patch('IM.db.mdb.connect')
@@ -60,6 +64,9 @@ class TestDataBase(unittest.TestCase):
         connection.cursor.return_value = cursor
         res = db.select("select data from test where id = %s", (1,))
         self.assertEqual(res, [("Data",)])
+
+        db.executemany("insert into test (id, data, date) values (%s, %s, now())",
+                       [(2, "Data"), (3, "Data2")])
 
         db.close()
 

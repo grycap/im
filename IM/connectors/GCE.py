@@ -34,10 +34,8 @@ except Exception as ex:
     print(ex)
 
 from IM.connectors.LibCloud import LibCloudCloudConnector
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from IM.connectors.exceptions import NoAuthData, NoCorrectAuthData, CloudConnectorException
+from urllib.parse import urlparse
 from IM.VirtualMachine import VirtualMachine
 from radl.radl import Feature
 from IM.config import Config
@@ -74,7 +72,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to GCE.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -94,9 +92,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 return driver
             else:
                 self.log_error("No correct auth data has been specified to GCE: username, password and project")
-                self.log_debug(auth)
-                raise Exception(
-                    "No correct auth data has been specified to GCE: username, password and project")
+                raise NoCorrectAuthData(self.type, "username, password and project")
 
     def get_dns_driver(self, auth_data):
         """
@@ -109,7 +105,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         """
         auths = auth_data.getAuthInfo(self.type)
         if not auths:
-            raise Exception("No auth data has been specified to GCE.")
+            raise NoAuthData(self.type)
         else:
             auth = auths[0]
 
@@ -124,8 +120,8 @@ class GCECloudConnector(LibCloudCloudConnector):
                 auth['password'] = auth['password'].replace('\\n', '\n')
                 lines = len(auth['password'].replace(" ", "").split())
                 if lines < 2:
-                    raise Exception("The certificate provided to the GCE plugin has an incorrect format."
-                                    " Check that it has more than one line.")
+                    raise NoCorrectAuthData("The certificate provided to the GCE plugin has an incorrect format."
+                                            " Check that it has more than one line.")
 
                 driver = cls(auth['username'], auth['password'], project=auth['project'])
 
@@ -133,9 +129,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 return driver
             else:
                 self.log_error("No correct auth data has been specified to GCE: username, password and project")
-                self.log_debug(auth)
-                raise Exception(
-                    "No correct auth data has been specified to GCE: username, password and project")
+                raise NoCorrectAuthData(self.type, "username, password and project")
 
     def concrete_system(self, radl_system, str_url, auth_data):
         url = urlparse(str_url)
@@ -394,6 +388,8 @@ class GCECloudConnector(LibCloudCloudConnector):
                 allowed = [{'IPProtocol': 'tcp', 'ports': ports['tcp']}]
                 if 'udp' in ports:
                     allowed.append({'IPProtocol': 'udp', 'ports': ports['udp']})
+                if 'icmp' in ports:
+                    allowed.append({'IPProtocol': 'icmp'})
 
                 if not source_ranges:
                     source_ranges = ['0.0.0.0/0']
@@ -451,7 +447,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 self.delete_networks(driver, inf)
             except Exception:
                 self.log_exception("Error deleting networks.")
-            raise Exception("Error creating networks: %s" % ext)
+            raise CloudConnectorException("Error creating networks: %s" % ext)
 
         return True
 
@@ -548,7 +544,7 @@ class GCECloudConnector(LibCloudCloudConnector):
         instance_type = self.get_instance_type(driver, system, region)
 
         if not instance_type:
-            raise Exception("No compatible size found")
+            raise CloudConnectorException("No compatible size found")
 
         name = self.gen_instance_name(system)
 
@@ -607,7 +603,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 args['ex_subnetwork'] = parts[1]
                 self.create_firewall(inf, parts[0], radl, driver)
             else:
-                raise Exception("Incorrect subnet value in provider_id value: %s" % net_provider_id)
+                raise CloudConnectorException("Incorrect subnet value in provider_id value: %s" % net_provider_id)
         else:
             args['ex_network'] = net_provider_id
             self.create_firewall(inf, net_provider_id, radl, driver)
@@ -620,7 +616,8 @@ class GCECloudConnector(LibCloudCloudConnector):
             fixed_ip = self.request_fixed_ip(radl)
             if fixed_ip:
                 if num_vm > 1:
-                    raise Exception("A fixed IP cannot be specified to a set of nodes (deploy is higher than 1)")
+                    raise CloudConnectorException("A fixed IP cannot be specified to a" +
+                                                  " set of nodes (deploy is higher than 1)")
 
                 args['external_ip'] = driver.ex_create_address(name="im-" + fixed_ip, region=region, address=fixed_ip)
         else:

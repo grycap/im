@@ -28,10 +28,7 @@ from IM.auth import Authentication
 from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.connectors.Kubernetes import KubernetesCloudConnector
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
+from urllib.parse import urlparse
 from mock import patch, MagicMock
 
 
@@ -73,26 +70,90 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
     def get_response(self, method, url, verify, headers, data):
         resp = MagicMock()
+        resp.status_code = 404
         parts = urlparse(url)
         url = parts[2]
+        query = parts[4]
+
+        pod_data = {
+            "metadata": {
+                "namespace": "somenamespace",
+                "name": "name",
+                "annotations": {"im.grycap.net/managed-pvcs": "cname"},
+            },
+            "status": {
+                "phase": "Running",
+                "hostIP": "158.42.1.1",
+                "podIP": "10.0.0.1"
+            },
+            "spec": {
+                "containers": [
+                    {"image": "image:1.0"}
+                ],
+                "volumes": [
+                    {"persistentVolumeClaim": {"claimName": "cname"}},
+                    {"configMap": {"name": "configmap"}},
+                    {"secret": {"secretName": "secret"}}
+                ]
+            }
+        }
 
         if method == "GET":
             if url == "/api/":
                 resp.status_code = 200
                 resp.text = '{"versions": "v1"}'
-            elif url.endswith("/pods/1"):
+            elif url.endswith("/pods") and query in ["labelSelector=name=1", "labelSelector=name=2"]:
                 resp.status_code = 200
-                resp.text = ('{"metadata": {"namespace":"somenamespace", "name": "name"}, "status": '
-                             '{"phase":"Running", "hostIP": "158.42.1.1", "podIP": "10.0.0.1"}, '
-                             '"spec": {"containers": [{"image": "image:1.0"}], '
-                             '"volumes": [{"persistentVolumeClaim": {"claimName" : "cname"}},'
-                             '{"configMap": {"name": "configmap"}}, {"secret": {"secretName": "secret"}}]}}')
-            if url == "/api/v1/namespaces/somenamespace":
+                resp.json.return_value = {"items": [pod_data]}
+            elif url == "/api/v1/namespaces/somenamespace":
                 resp.status_code = 200
                 resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Namespace',
                                           'metadata': {'name': 'somenamespace', 'labels': {'inf_id': 'infid'}}}
+            elif url == "/api/v1/namespaces/somenamespace/persistentvolumeclaims/existing.pvc":
+                resp.status_code = 200
+            elif url == "/apis/apps/v1/namespaces/somenamespace/deployments/1":
+                resp.status_code = 200
+                resp.json.return_value = {'apiVersion': 'v1', 'kind': 'Deployment',
+                                          "metadata": {
+                                              "namespace": "somenamespace",
+                                              "name": "name",
+                                              "annotations": {"im.grycap.net/managed-pvcs": "cname"},
+                                          },
+                                          'spec': {'template': pod_data}}
+            elif url == "/api/v1/namespaces/somenamespace/resourcequotas":
+                resp.status_code = 200
+                resp.json.return_value = {
+                    'items': [
+                        {
+                            'spec': {
+                                'hard': {
+                                    'limits.cpu': '10',
+                                    'limits.memory': '10Gi',
+                                    'pods': '10',
+                                    'requests.nvidia.com/gpu': '1',
+                                    'requests.storage': '20Gi',
+                                    'persistentvolumeclaims': '10',
+                                    'sc1.storageclass.storage.k8s.io/requests.storage': '20Gi',
+                                    'sc1.storageclass.storage.k8s.io/persistentvolumeclaims': '10'
+                                }
+                            },
+                            'status': {
+                                'used': {
+                                    'limits.cpu': '1',
+                                    'limits.memory': '1Gi',
+                                    'pods': '1',
+                                    'requests.nvidia.com/gpu': '0',
+                                    'requests.storage': '1Gi',
+                                    'persistentvolumeclaims': '1',
+                                    'sc1.storageclass.storage.k8s.io/requests.storage': '1Gi',
+                                    'sc1.storageclass.storage.k8s.io/persistentvolumeclaims': '1'
+                                }
+                            }
+                        }
+                    ]
+                }
         elif method == "POST":
-            if url.endswith("/pods"):
+            if url.endswith("/deployments"):
                 resp.status_code = 201
                 resp.text = '{"metadata": {"namespace":"somenamespace", "name": "name"}}'
             elif url.endswith("/services"):
@@ -108,7 +169,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             elif url.endswith("/secrets"):
                 resp.status_code = 201
         elif method == "DELETE":
-            if url.endswith("/pods/1"):
+            if url.endswith("/deployments/1"):
                 resp.status_code = 200
             elif url.endswith("/services/1"):
                 resp.status_code = 200
@@ -123,13 +184,75 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             elif "secrets" in url:
                 resp.status_code = 200
         elif method == "PATCH":
-            if url.endswith("/pods/1"):
+            if url.endswith("/deployments/1"):
                 resp.status_code = 200
 
         return resp
 
     def add_vm(self, vm):
         vm.im_id = 0
+
+    def test_15_existing_volume(self):
+        radl_data = """
+            system test (
+            cpu.count = 1 and
+            memory.size = 512m and
+            disk.0.image.url = 'docker://someimage' and
+            disk.1.image.url = 'existing.pvc' and
+            disk.1.mount_path = '/mnt'
+            )"""
+        system = radl_parse.parse_radl(radl_data).systems[0]
+        kube_cloud = self.get_kube_cloud()
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
+
+        with patch.object(kube_cloud, '_create_volume_claim') as create_claim, \
+                patch.object(kube_cloud, 'create_request') as create_request:
+            create_request.return_value.status_code = 200
+            volumes = kube_cloud._create_volumes('somenamespace', system, 'test', auth)
+
+        create_claim.assert_not_called()
+        self.assertEqual(volumes, [('test-1', 'existing.pvc', None, '/mnt', False)])
+
+        dep_data = kube_cloud._generate_dep_data(
+            'somenamespace', 'test', [], system, volumes, [], {})
+        pod_spec = dep_data['spec']['template']['spec']
+        self.assertEqual(pod_spec['containers'][0]['volumeMounts'],
+                         [{'name': 'test-1', 'mountPath': '/mnt'}])
+        self.assertEqual(pod_spec['volumes'], [{
+            'name': 'test-1',
+            'persistentVolumeClaim': {'claimName': 'existing.pvc'},
+        }])
+        self.assertNotIn('annotations', dep_data['metadata'])
+
+    def test_15_missing_existing_volume(self):
+        radl_data = """
+            system test (
+            disk.1.image.url = 'missing-pvc' and
+            disk.1.mount_path = '/mnt'
+            )"""
+        system = radl_parse.parse_radl(radl_data).systems[0]
+        kube_cloud = self.get_kube_cloud()
+        response = MagicMock(status_code=404)
+
+        with patch.object(kube_cloud, 'create_request', return_value=response), \
+                self.assertRaisesRegex(Exception, 'PersistentVolumeClaim somenamespace/missing-pvc does not exist'):
+            kube_cloud._create_volumes('somenamespace', system, 'test', MagicMock())
+
+    def test_16_do_not_delete_external_volume(self):
+        kube_cloud = self.get_kube_cloud()
+        dep_data = {
+            'metadata': {'namespace': 'somenamespace'},
+            'spec': {'template': {'spec': {'volumes': [{
+                'name': 'test-1',
+                'persistentVolumeClaim': {'claimName': 'existing.pvc'},
+            }]}}},
+        }
+
+        with patch.object(kube_cloud, '_delete_volume_claim') as delete_claim:
+            kube_cloud._delete_volume_claims(dep_data, MagicMock())
+
+        delete_claim.assert_not_called()
 
     @patch('requests.request')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
@@ -142,6 +265,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
             network net (outbound = 'yes' and outports = '38080-8080')
             system test (
             cpu.count>=1 and
+            gpu.count>=1 and
             memory.size>=512m and
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'https://ingress.domain.com/path' and
@@ -219,48 +343,60 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                          'http://server.com:8080/api/v1/namespaces/somenamespace/secrets')
         self.assertEqual(json.loads(requests.call_args_list[3][1]['data']), exp_cm)
 
-        exp_pod = {
-            "apiVersion": "v1",
-            "kind": "Pod",
+        exp_dep = {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
             "metadata": {
                 "name": "test",
                 "namespace": "somenamespace",
                 "labels": {"name": "test", "IM_INFRA_ID": "infid", "key": "invalid_"},
+                "annotations": {"im.grycap.net/managed-pvcs": "test-1"},
             },
             "spec": {
-                "containers": [
-                    {
-                        "name": "test",
-                        "command": ["/bin/bash"],
-                        "args": ["-c", "sleep 100"],
-                        "image": "someimage",
-                        "imagePullPolicy": "Always",
-                        "ports": [{"containerPort": 8080, "protocol": "TCP"}],
-                        "resources": {
-                            "limits": {"cpu": "1", "memory": "512000000"},
-                            "requests": {"cpu": "1", "memory": "512000000"},
-                        },
-                        "env": [{"name": "var", "value": "some_val"},
-                                {"name": "var2", "value": "some,val2"}],
-                        "volumeMounts": [{"name": "test-1", "mountPath": "/mnt"},
-                                         {'mountPath': '/etc/config', 'name': 'test-cm-2',
-                                          'readOnly': True, 'subPath': 'config'},
-                                         {'mountPath': '/etc/secret', 'name': 'test-cm-3',
-                                          'readOnly': True, 'subPath': 'secret'}],
+                "replicas": 1,
+                "selector": {
+                    "matchLabels": {"name": "test"},
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {"name": "test"},
+                        "annotations": {"im.grycap.net/managed-pvcs": "test-1"},
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": "test",
+                                "command": ["/bin/bash"],
+                                "args": ["-c", "sleep 100"],
+                                "image": "someimage",
+                                "imagePullPolicy": "Always",
+                                "ports": [{"containerPort": 8080, "protocol": "TCP"}],
+                                "resources": {
+                                    "limits": {"cpu": "1", "memory": "512000000", "nvidia.com/gpu": "1"},
+                                    "requests": {"cpu": "1", "memory": "512000000", "nvidia.com/gpu": "1"},
+                                },
+                                "env": [{"name": "var", "value": "some_val"},
+                                        {"name": "var2", "value": "some,val2"}],
+                                "volumeMounts": [{"name": "test-1", "mountPath": "/mnt"},
+                                                 {'mountPath': '/etc/config', 'name': 'test-cm-2',
+                                                  'readOnly': True, 'subPath': 'config'},
+                                                 {'mountPath': '/etc/secret', 'name': 'test-cm-3',
+                                                  'readOnly': True, 'subPath': 'secret'}],
+                            }
+                        ],
+                        "volumes": [
+                            {"name": "test-1", "persistentVolumeClaim": {"claimName": "test-1"}},
+                            {"name": "test-cm-2", "configMap": {"name": "test-cm-2"}},
+                            {"name": "test-cm-3", "secret": {"secretName": "test-cm-3"}},
+                        ]
                     }
-                ],
-                "restartPolicy": "OnFailure",
-                "volumes": [
-                    {"name": "test-1", "persistentVolumeClaim": {"claimName": "test-1"}},
-                    {"name": "test-cm-2", "configMap": {"name": "test-cm-2"}},
-                    {"name": "test-cm-3", "secret": {"secretName": "test-cm-3"}},
-                ],
-            },
+                }
+            }
         }
         self.maxDiff = None
         self.assertEqual(requests.call_args_list[4][0][1],
-                         'http://server.com:8080/api/v1/namespaces/somenamespace/pods')
-        self.assertEqual(json.loads(requests.call_args_list[4][1]['data']), exp_pod)
+                         'http://server.com:8080/apis/apps/v1/namespaces/somenamespace/deployments')
+        self.assertEqual(json.loads(requests.call_args_list[4][1]['data']), exp_dep)
 
         exp_svc = {
             "apiVersion": "v1",
@@ -382,7 +518,9 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         new_radl_data = """
             system test (
-            disk.0.image.url = 'docker://image:2.0'
+            disk.0.image.url = 'docker://image:2.0' and
+            cpu.count=2 and
+            memory.size=1g
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 
@@ -399,6 +537,18 @@ class TestKubernetesConnector(TestCloudConnectorBase):
 
         self.assertTrue(success, msg="ERROR: modifying VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+        exp_data = [{"op": "replace", "path": "/spec/template/spec/containers/0/image",
+                     "value": "image:2.0"},
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/cpu",
+                     "value": "2"},
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/cpu",
+                     "value": "2"},
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory",
+                     "value": "1000000000"},
+                    {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/memory",
+                     "value": "1000000000"}]
+        self.assertEqual(json.loads(requests.call_args_list[0][1]['data']), exp_data)
 
     @patch('requests.request')
     def test_60_finalize(self, requests):
@@ -425,7 +575,7 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                           'http://server.com:8080/api/v1/namespaces/somenamespace/secrets/secret'))
         self.assertEqual(requests.call_args_list[4][0],
                          ('DELETE',
-                          'http://server.com:8080/api/v1/namespaces/somenamespace/pods/1'))
+                          'http://server.com:8080/apis/apps/v1/namespaces/somenamespace/deployments/1'))
         self.assertEqual(requests.call_args_list[5][0],
                          ('DELETE',
                           'http://server.com:8080/api/v1/namespaces/somenamespace/services/1'))
@@ -440,6 +590,68 @@ class TestKubernetesConnector(TestCloudConnectorBase):
                           'http://server.com:8080/api/v1/namespaces/somenamespace'))
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('requests.request')
+    def test_60_finalize_pod(self, requests):
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
+        kube_cloud = self.get_kube_cloud()
+
+        inf = MagicMock()
+        inf.id = "infid"
+        vm = VirtualMachine(inf, "somenamespace/2", kube_cloud.cloud, "", "", kube_cloud, 1)
+
+        requests.side_effect = self.get_response
+
+        success, _ = kube_cloud.finalize(vm, True, auth)
+
+        self.assertEqual(requests.call_args_list[2][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/persistentvolumeclaims/cname'))
+        self.assertEqual(requests.call_args_list[3][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/configmaps/configmap'))
+        self.assertEqual(requests.call_args_list[4][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/secrets/secret'))
+        self.assertEqual(requests.call_args_list[5][0],
+                         ('DELETE',
+                          'http://server.com:8080/apis/apps/v1/namespaces/somenamespace/pods/2'))
+        self.assertEqual(requests.call_args_list[6][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace/services/2'))
+        self.assertEqual(requests.call_args_list[7][0],
+                         ('DELETE',
+                          'http://server.com:8080/apis/networking.k8s.io/v1/namespaces/somenamespace/ingresses/2'))
+        self.assertEqual(requests.call_args_list[8][0],
+                         ('GET',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace'))
+        self.assertEqual(requests.call_args_list[9][0],
+                         ('DELETE',
+                          'http://server.com:8080/api/v1/namespaces/somenamespace'))
+        self.assertTrue(success, msg="ERROR: finalizing VM info.")
+        self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
+
+    @patch('requests.request')
+    def test_70_quotas(self, requests):
+        auth = Authentication([{'id': 'kube', 'type': 'Kubernetes', 'namespace': 'somenamespace',
+                                'host': 'http://server.com:8080', 'token': 'token'}])
+        kube_cloud = self.get_kube_cloud()
+
+        requests.side_effect = self.get_response
+
+        quotas = kube_cloud.get_quotas(auth)
+        expected_quotas = {
+            'cores': {'limit': 10, 'used': 1},
+            'ram': {'limit': 10, 'used': 1},
+            'instances': {'limit': 10, 'used': 1},
+            'gpus': {'limit': 1, 'used': 0},
+            'volume_storage': {'limit': 20, 'used': 1},
+            'volume_storage_sc1': {'limit': 20, 'used': 1},
+            'volumes': {'limit': 10, 'used': 1},
+            'volumes_sc1': {'limit': 10, 'used': 1}
+        }
+        self.assertEqual(quotas, expected_quotas, msg="ERROR: quotas do not match expected.")
 
 
 if __name__ == '__main__':

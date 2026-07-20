@@ -22,12 +22,14 @@ import unittest
 sys.path.append(".")
 sys.path.append("..")
 from .CloudConn import TestCloudConnectorBase
+from IM.connectors.exceptions import NoCompatibleAuthData
 from IM.CloudInfo import CloudInfo
 from IM.auth import Authentication
 from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.InfrastructureInfo import InfrastructureInfo
 from IM.connectors.OpenStack import OpenStackCloudConnector
+from libcloud.compute.base import NodeState
 from mock import patch, MagicMock, call
 
 
@@ -125,11 +127,11 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(concrete[0].getValue("instance_type"), "g.small")
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
-    @patch('IM.AppDB.AppDB.get_site_id')
-    @patch('IM.AppDB.AppDB.get_site_url')
-    @patch('IM.AppDB.AppDB.get_image_id')
+    @patch('IM.FedcloudInfo.FedcloudInfo.get_site_url')
+    @patch('IM.FedcloudInfo.FedcloudInfo.get_image_id')
+    @patch('IM.FedcloudInfo.FedcloudInfo._get_site_name')
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
-    def test_15_concrete_appdb(self, get_driver, get_image_id, get_site_url, get_site_id):
+    def test_15_concrete_egi(self, get_driver, get_site_name, get_image_id, get_site_url):
         radl_data = """
             network net ()
             system test (
@@ -139,7 +141,7 @@ class TestOSTConnector(TestCloudConnectorBase):
             net_interface.0.connection = 'net' and
             net_interface.0.dns_name = 'test' and
             disk.0.os.name = 'linux' and
-            disk.0.image.url = 'appdb://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu' and
+            disk.0.image.url = 'egi://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu' and
             disk.0.os.credentials.username = 'user'
             )"""
         radl = radl_parse.parse_radl(radl_data)
@@ -162,8 +164,8 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.list_sizes.return_value = [node_size]
 
         get_site_url.return_value = "https://server.com:5000"
-        get_site_id.return_value = "8016G0"
         get_image_id.return_value = "imageid1"
+        get_site_name.return_value = "CESNET-MetaCloud"
         concrete = ost_cloud.concreteSystem(radl_system, auth)
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
@@ -183,9 +185,10 @@ class TestOSTConnector(TestCloudConnectorBase):
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
     @patch('IM.InfrastructureList.InfrastructureList.save_data')
-    @patch('IM.AppDB.AppDB.get_image_data')
+    @patch('IM.FedcloudInfo.FedcloudInfo.get_image_data')
     def test_20_launch(self, get_image_data, save_data, get_driver):
         radl_data = """
+            description desc (name = 'SimpleRADL')
             network net1 (outbound = 'yes' and provider_id = 'public' and
                           outports = '8080,9000:9100' and sg_name= 'test')
             network net2 (dnsserver='1.1.1.1' and create = 'yes')
@@ -292,7 +295,10 @@ class TestOSTConnector(TestCloudConnectorBase):
         ]
         self.assertEqual(driver.create_node.call_args_list[0][1]['ex_blockdevicemappings'], mappings)
         self.assertEqual(driver.ex_create_subnet.call_args_list[0][0][2], "10.0.1.0/24")
-        self.assertEqual(driver.ex_create_security_group_rule.call_args_list[8][0][1:], ('tcp', 22, 22, '0.0.0.0/0'))
+        self.assertEqual(driver.ex_create_security_group_rule.call_args_list[6][0][1:], ('tcp', 22, 22, '0.0.0.0/0'))
+        self.assertEqual(driver.ex_create_security_group.call_args_list[0][0][0], 'im-%s-net2' % inf.id)
+        sg_desc = "Security group created by the IM for Inf: SimpleRADL"
+        self.assertEqual(driver.ex_create_security_group.call_args_list[0][0][1], sg_desc)
 
         # test with proxy auth data
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'proxy': 'proxy',
@@ -307,7 +313,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertTrue(success, msg="ERROR: launching a VM.")
 
         get_image_data.return_value = "https://cloud.recas.ba.infn.it:5000", "image_id2", ""
-        radl.systems[0].setValue('disk.0.image.url', 'appdb://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu')
+        radl.systems[0].setValue('disk.0.image.url', 'egi://CESNET-MetaCloud/egi.ubuntu.16.04?fedcloud.egi.eu')
         res = ost_cloud.launch(inf, radl, radl, 1, auth)
         success, _ = res[0]
         self.assertTrue(success, msg="ERROR: launching a VM.")
@@ -368,7 +374,6 @@ class TestOSTConnector(TestCloudConnectorBase):
             cpu.count=1 and
             memory.size=512m and
             net_interface.0.connection = 'net' and
-            net_interface.0.dns_name = 'dydns:secret@test.domain.com' and
             net_interface.1.connection = 'net1' and
             disk.0.os.name = 'linux' and
             disk.0.size=10GB and
@@ -403,7 +408,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small', 'volumes_attached': [{'id': 'vol0'}, {'id': 'vol1'}],
                       'addresses': {'os-lan': [{'addr': '10.0.0.1', 'OS-EXT-IPS:type': 'fixed'},
                                                {'addr': 'fd8c:8d88:f133:71::24d', 'OS-EXT-IPS:type': 'fixed'}],
@@ -505,7 +510,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         # the node has a IPv6 IP
         node = MagicMock()
         node.id = "2"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small'}
         node.public_ips = ['8.8.8.8', '2001:630:12:581:f816:3eff:fe92:2146']
         node.private_ips = ['10.0.0.1']
@@ -517,10 +522,6 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ip"), "8.8.8.8")
         self.assertEqual(vm.info.systems[0].getValue("net_interface.0.ipv6"), "2001:630:12:581:f816:3eff:fe92:2146")
 
-        url = 'https://nsupdate.fedcloud.eu/nic/update?hostname=test.domain.com&myip=8.8.8.8'
-        self.assertEqual(request.call_args_list[0][0][0], url)
-        auth = "Basic dGVzdC5kb21haW4uY29tOnNlY3JldA=="
-        self.assertEqual(request.call_args_list[0][1]['headers']['Authorization'], auth)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
@@ -537,7 +538,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small'}
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
@@ -565,7 +566,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small'}
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
@@ -593,7 +594,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small'}
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
@@ -608,8 +609,7 @@ class TestOSTConnector(TestCloudConnectorBase):
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
     @patch('libcloud.compute.drivers.openstack.OpenStackNodeDriver')
-    @patch('IM.connectors.OpenStack.OpenStackCloudConnector.add_elastic_ip_from_pool')
-    def test_55_alter(self, add_elastic_ip_from_pool, get_driver):
+    def test_55_alter(self, get_driver):
         radl_data = """
             network net ()
             system test (
@@ -640,13 +640,14 @@ class TestOSTConnector(TestCloudConnectorBase):
         inf.id = "infid"
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
         vm.volumes = []
+        vm.floating_ips = []
 
         driver = MagicMock()
         get_driver.return_value = driver
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small', 'vm_state': 'resized'}
         node.public_ips = []
         node.private_ips = ['10.0.0.1']
@@ -698,11 +699,21 @@ class TestOSTConnector(TestCloudConnectorBase):
             )"""
         new_radl = radl_parse.parse_radl(new_radl_data)
 
-        add_elastic_ip_from_pool.return_value = True, ""
+        pool = MagicMock()
+        pool.name = "pool1"
+        driver.ex_list_floating_ip_pools.return_value = [pool]
+        fip = MagicMock()
+        fip.ip_address = '8.8.8.8'
+        pool.create_floating_ip.return_value = fip
+        p1 = MagicMock()
+        p1.id = 'port1'
+        p2 = MagicMock()
+        p2.id = 'port2'
+        driver.ex_get_node_ports.return_value = [p1, p2]
 
         success, _ = ost_cloud.alterVM(vm, new_radl, auth)
         self.assertTrue(success, msg="ERROR: modifying VM info.")
-        self.assertEqual(add_elastic_ip_from_pool.call_args_list[0][0], (vm, node, None, 'pool1'))
+        self.assertEqual(driver.ex_attach_floating_ip_to_node.call_args_list[0][0], (node, fip, p1.id))
 
         radl_data = """
             network net (outbound = 'yes' and provider_id = 'pool1')
@@ -720,6 +731,7 @@ class TestOSTConnector(TestCloudConnectorBase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
+        vm.floating_ips = []
 
         new_radl_data = """
             network net ()
@@ -815,7 +827,7 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         node = MagicMock()
         node.id = "1"
-        node.state = "running"
+        node.state = NodeState.RUNNING
         node.extra = {'flavorId': 'small'}
         node.public_ips = ['158.42.1.1']
         node.private_ips = ['10.0.0.1']
@@ -838,10 +850,10 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         sg1 = MagicMock()
         sg1.name = "im-infid-private"
-        sg1.description = "Security group created by the IM"
+        sg1.description = "Security group created by the IM for Inf: test"
         sg2 = MagicMock()
         sg2.name = "im-infid-public"
-        sg2.description = "Security group created by the IM"
+        sg2.description = "Security group created by the IM for Inf: test"
         sg3 = MagicMock()
         sg3.name = "im-infid"
         sg3.description = ""
@@ -878,7 +890,6 @@ class TestOSTConnector(TestCloudConnectorBase):
         driver.ex_list_ports.return_value = [port]
 
         vm.volumes = ['volid']
-        vm.dns_entries = [('dydns:secret@test', 'domain.com.', '8.8.8.8')]
         success, _ = ost_cloud.finalize(vm, True, auth)
 
         self.assertTrue(success, msg="ERROR: finalizing VM info.")
@@ -886,9 +897,8 @@ class TestOSTConnector(TestCloudConnectorBase):
 
         self.assertEqual(node.destroy.call_args_list, [call()])
         self.assertEqual(driver.detach_volume.call_args_list[0][0][0], volume)
-        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[0][0][0].name, "im-infid")
-        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[1][0][0].name, "im-infid-public")
-        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[2][0][0].name, "im-infid-private")
+        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[0][0][0].name, "im-infid-public")
+        self.assertEqual(driver.ex_remove_security_group_from_node.call_args_list[1][0][0].name, "im-infid-private")
         self.assertEqual(driver.ex_del_router_subnet.call_args_list[0][0][0], router)
         self.assertEqual(driver.ex_del_router_subnet.call_args_list[0][0][1].id, "subnet1")
         self.assertEqual(driver.ex_delete_network.call_args_list[0][0][0], net1)
@@ -1105,10 +1115,8 @@ class TestOSTConnector(TestCloudConnectorBase):
         ost_cloud.cloud.extra['username'] = 'idp'
         ost_cloud.cloud.extra['domain'] = 'project'
 
-        with self.assertRaises(Exception) as ex:
+        with self.assertRaises(NoCompatibleAuthData):
             ost_cloud.get_driver(auth)
-        self.assertEqual('No compatible OpenStack auth data has been specified.',
-                         str(ex.exception))
 
         auth = Authentication([{'id': 'ost', 'type': 'OpenStack', 'username': 'user',
                                 'password': 'pass', 'tenant': 'tenant', 'host': 'https://server.com:5000'},

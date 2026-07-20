@@ -11,7 +11,7 @@ Installation
 Prerequisites
 ^^^^^^^^^^^^^
 
-The :program:`im_client` needs at least Python 2.4 to run.
+The :program:`im_client` needs at least Python 3.7 to run.
 
 It is also required to install the RADL parser (`https://github.com/grycap/radl <https://github.com/grycap/radl>`_), 
 available in pip as the 'RADL' package. It is also required the Python Requests library (`http://docs.python-requests.org/ <http://docs.python-requests.org/>`_) 
@@ -43,14 +43,6 @@ You only have to call the install command of the pip tool with the IM-client pac
 
 	$ pip install IM-client
 
-From source
-+++++++++++
-
-Download de source code from the Github repo: `https://github.com/grycap/im-client/releases <https://github.com/grycap/im-client/releases>`_.
-Then you only need to install the tar-gziped file to any directoy::
-
-	$ tar xvzf IM-client-X.XX.tar.gz
-
 Configuration
 ^^^^^^^^^^^^^
 
@@ -59,8 +51,6 @@ in the current directory or a file ".im_client.cfg" in their home directory. In 
 user can specify the following parameters::
 
 	[im_client]
-	# only set one of the urls
-	#xmlrpc_url=http://localhost:8899
 	restapi_url=http://localhost:8800
 	auth_file=auth.dat
 	xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
@@ -72,14 +62,9 @@ Invocation
 
 The :program:`im_client` is called like this::
 
-   $ im_client.py [-u|--xmlrpc-url <url>] [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
+   $ im_client [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
 
 .. program:: im_client
-
-.. option:: -u|--xmlrpc-url url
-
-   URL to the XML-RPC service.
-   This option or the ` -r` one must be specified.
    
 .. option:: -r|--rest-url url
 
@@ -198,10 +183,43 @@ The :program:`im_client` is called like this::
       Reboot the specified virtual machine ``vmId`` associated to the infrastructure with ID
       infrastructure with ID ``infId``.
 
-   ``sshvm infId vmId [show_only]``
+   ``sshvm infId vmId [show_only] [command]``
       Connect with SSH with the specified virtual machine ``vmId`` associated to the infrastructure with ID
+      infrastructure with ID ``infId``. In case that the specified VM does not have public IP the client will
+      try to connect using the virtual machine with ID ``0`` as SSH proxy. The ``show_only`` parameter is
+      optional and is a flag to specify if ssh command will only be shown in stdout instead of executed. The
+      command parameter is optional and enables the execution of a particular command in the VM.
+
+   ``ssh infId [show_only] [command]``
+      Connect with SSH with the specified virtual machine with ID ``0`` associated to the infrastructure with ID
       infrastructure with ID ``infId``. The ``show_only`` parameter is optional and is a flag to specify if ssh
-      command will only be shown in stdout instead of executed.
+      command will only be shown in stdout instead of executed. The command parameter is optional and enables
+      the execution of a particular command in the VM.
+
+   ``get <infId> <show_only> <src> <dst>``
+      Copy with SCP from the virtual machine with ID ``0`` associated to infrastructure with ID ``infId``.
+      The ``show_only`` parameter is a flag to specify if scp command will only be shown in stdout instead
+      of executed. The ``scr`` parameneter is the path of the file in the remote VM, ``dst`` is the path on
+      the local machine.
+
+   ``getvm <infId> <vmId> <show_only> <src> <dst>``
+      Copy with SCP from the specified virtual machine ``vmId`` associated to infrastructure with ID ``infId``.
+      In case that the specified VM does not have public IP the client will try to connect using the virtual
+      machine with ID ``0`` as SSH proxy. The ``show_only`` parameter is a flag to specify if ssh command wil
+      only be shown in stdout instead of executed. The ``scr`` parameneter is the path of the file in the remote
+      VM, ``dst`` is the path on the local machine.
+
+   ``put <infId> <show_only> <src> <dst>``
+      Copy with SCP to the virtual machine with ID ``0`` associated to infrastructure with ID ``infId``. The 
+      ``show_only`` parameter is a flag to specify if ssh command will only be shown in stdout instead of executed.
+      The ``scr`` parameneter is the path of the file in the local file, ``dst`` is the path on the remote VM.
+
+   ``putvm <infId> <vmId> <show_only> <src> <dst>``
+      Copy with SCP to the specified virtual machine ``vmId`` associated to infrastructure with ID ``infId``. In case
+      that the specified VM does not have public IP the client will try to connect using the virtual machine with ID
+      ``0`` as SSH proxy. The ``show_only`` parameter is a flag to specify if ssh command will only be shown in stdout
+      instead of executed. The ``scr`` parameneter is the path of the file in the local file, ``dst`` is the path on
+      the remote VM.
 
    ``export infId delete``
       Export the data of the infrastructure with ID ``infId``. The ``delete`` parameter is optional
@@ -293,11 +311,35 @@ appear in a value)(from version 1.6.6)::
    id = id_value ; type = value_of_type ; username = value_of_username ; password = 'some;"password'
    id = id_value ; type = value_of_type ; username = value_of_username ; password = "some;'password"
 
+The authorization file can be also set in JSON format (from version 1.19.1)::
+
+   [
+      {
+         "type": "InfrastructureManager",
+         "username": "user",
+         "password": "pass"
+      },
+      {
+         "id": "one",
+         "type": "OpenNebula",
+         "host": "server:2633",
+         "username": "user",
+         "password": "pass"
+      },
+      {
+         "id": "gce",
+         "type": "GCE",
+         "username": "user",
+         "password": "some\npass",
+         "project": "project"
+      }
+   ]
+
 The available keys are:
 
 * ``type`` indicates the service that refers the credential. The services
-  supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,, ``FogBow``, 
-  ``OpenStack``, ``OCCI``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``,
+  supported are ``InfrastructureManager``, ``VMRC``, ``OpenNebula``, ``EC2``,
+  ``OpenStack``, ``LibCloud``, ``Docker``, ``GCE``, ``Azure``, ``CloudStack``,
   ``Kubernetes``, ``vSphere``, ``Linode``, ``Orange``, ``EGI``, ``Vault`` and ``Lambda``.
 
 * ``username`` indicates the user name associated to the credential. In EC2 and Lambda
@@ -319,10 +361,10 @@ The available keys are:
   
 * ``proxy`` indicates the content of the proxy file associated to the credential.
   To refer to a file you must use the function "file(/tmp/proxyfile.pem)" as shown in the example.
-  This field is used in the OCCI and OpenStack plugins. 
+  This field is used in the OpenStack plugin. 
   
 * ``project`` indicates the project name associated to the credential.
-  This field is only used in the GCE or OCCI (from version 1.6.3) plugins.
+  This field is only used in the GCE plugin.
   
 * ``public_key`` indicates the content of the public key file associated to the credential.
   To refer to a file you must use the function "file(cert.pem)" as shown in the example.
@@ -350,7 +392,7 @@ The available keys are:
   plugin check the documentation of the Azure python SDK:
   `here <https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-authenticate?view=azure-python>`_
 
-* ``token`` indicates the OpenID token associated to the credential. This field is used in the EGI, OCCI plugins
+* ``token`` indicates the OpenID token associated to the credential. This field is used in the EGI plugin
   and also to authenticate with the InfrastructureManager. To refer to the output of a command you must
   use the function "command(command)" as shown in the examples. It can be also used in the EC2 connector
   to specify the security token associated with temporary credentials issued by STS.
@@ -493,7 +535,7 @@ From IM version 1.10.2 the EGI connector is available and you can also use this 
    id = egi; type = EGI; host = CESGA; vo = vo.access.egi.eu; token = egi_aai_token_value
 
 In this case the information needed to access the OpenStack API of the EGI FedCloud site will be obtained from
-`AppDB REST API <https://appdb.egi.eu/rest/1.0>`_. This connector is recommended for non advanced users. If you
+`FedCloudInfo API <https://is.cloud.egi.eu>`_. This connector is recommended for non advanced users. If you
 can get the data to access the OpenStack API directly it is recommened to use it.
 
 There are several ways to get the EGI AAI token:
@@ -527,9 +569,10 @@ Examples
 
 An example of the auth file::
 
-   # InfrastructureManager auth
-   type = InfrastructureManager; username = user; password: pass
-   type = InfrastructureManager: token = access_token_value
+   # InfrastructureManager auth data
+   type = InfrastructureManager; username = user; password = pass
+   # InfrastructureManager auth data with OIDC token
+   type = InfrastructureManager; token = access_token_value
    # Having at least one of the two lines above is mandatory for all auth files.
    # The lines below are concrete examples for each infrastructure. Please add only the ones that are relevant to you.
    # Vault auth
@@ -544,10 +587,6 @@ An example of the auth file::
    id = ost; type = OpenStack; host = https://ostserver:5000; username = egi.eu; tenant = openid; password = command(oidc-token OIDC_ACCOUNT); auth_version = 3.x_oidc_access_token; domain = project_name_or_id
    #  OpenStack site using OpenID authentication
    id = ost; type = OpenStack; host = https://ostserver:5000; username = indentity_provider; tenant = oidc; password = access_token_value; auth_version = 3.x_oidc_access_token
-   # IM auth data
-   id = im; type = InfrastructureManager; username = user; password = pass
-   # IM auth data with OIDC token
-   id = im; type = InfrastructureManager; token = access_token_value
    # VMRC auth data
    id = vmrc; type = VMRC; host = http://server:8080/vmrc; username = user; password = pass
    # EC2 auth data
@@ -558,10 +597,6 @@ An example of the auth file::
    id = docker; type = Docker; host = http://host:2375; public_key = file(/tmp/cert.pem); private_key = file(/tmp/key.pem)
    # Docker site without SSL security
    id = docker; type = Docker; host = http://host:2375
-   # OCCI VOMS site auth data
-   id = occi; type = OCCI; proxy = file(/tmp/proxy.pem); host = https://server.com:11443
-   # OCCI OIDC site auth data
-   id = occi; type = OCCI; token = token; host = https://server.com:11443
    # Azure site userpass auth data (old method)
    id = azure_upo; type = Azure; subscription_id = subscription-id; username = user@domain.com; password = pass
    # Azure site userpass auth data
@@ -570,8 +605,6 @@ An example of the auth file::
    id = azure_sc; type = Azure; subscription_id = subscription-id; client_id=clientid; secret=client_secret; tenant=tenant_id
    # Kubernetes site auth data
    id = kub; type = Kubernetes; host = http://server:8080; token = auth_token
-   # FogBow auth data
-   id = fog; type = FogBow; host = http://server:8182; proxy = file(/tmp/proxy.pem)
    # vSphere site auth data
    id = vsphere; type = vSphere; host = http://server; username = user; password = pass
    # CloudStack site auth data
@@ -592,3 +625,295 @@ An example of the auth file::
 IM Server does not store the credentials used in the creation of
 infrastructures. Then the user has to provide them in every call of
 :program:`im_client`.
+
+Python library
+---------------
+
+The IMClient can also be used as a Python library to access IM (since version 1.7.0) programatically.
+The following example shows how to use the IMClient to create and destroy an infrastructure::
+
+   from imclient import IMClient
+
+   auth = IMClient.read_auth_data("/path/auth.dat")
+   client = IMClient.init_client("https://im.egi.eu/im", auth)
+   inf_desc = """
+      network public (outbound = 'yes')
+
+      system node (
+      cpu.count>=2 and
+      memory.size>=4g and
+      net_interface.0.connection = 'public' and
+      disk.0.os.name='linux' and
+      disk.0.image.url = 'egi://SCAI/egi.ubuntu.20.04?vo.access.egi.eu'
+      )
+
+      configure wn (
+      @begin
+      ---
+      - tasks:
+         - debug: msg="Configured!"
+      @end
+      )
+
+      deploy node 1
+   """
+   success, inf_id = client.create(inf_desc)
+   ...
+   success, err = client.destroy(inf_id)
+
+The IMClient class has the following methods:
+
+.. confval:: def init_client(im_url, auth_data, rest=True, ssl_verify=False):
+
+   Create and initialize the IMClient class
+
+   Arguments:
+      - im_url(string): URL to the IM API (REST or XML-RPC).
+      - auth_data(`dict` of str objects): Authentication data to access cloud provider (as returned by `read_auth_data` function).
+      - rest(boolean): Flag to specify the type of API to use (REST or XML-RPC). Default `True`.
+      - ssl_verify(boolean): Flag to specify if ssl certificates must be validated. Default `False`.
+
+   Returns(`imclient.IMClient`):
+      A client ready to interact with an IM instance.
+
+.. confval:: def read_auth_data(filename):
+
+   Read an IM auth data file.
+
+   Arguments:
+      - filename(string): path to the IM auth file.
+
+   Returns(`list` of `dict` of str objects):
+      Authentication data to access cloud provider and the IM. One entry per line, each line splitted in a dictionary of pairs key/value.
+
+
+.. confval:: def create(self, inf_desc, desc_type="radl", asyncr=False):
+
+   Create an infrastructure
+
+   Arguments:
+      - inf_desc(string): Infrastructure description in RADL (plain or JSON) or TOSCA.
+      - desc_type(string): Infrastructure description type ("radl", "json" or "yaml")
+      - asyncr(boolean): Flag to specify if the creation call will be asynchronous. Default `False`.
+
+   Returns:
+      A tuple with the operation success (boolean) and the infrastructure ID in case of successor the error message otherwise.
+
+.. confval:: def removeresource(self, inf_id, vm_list, context=None):
+
+   Remove resources from an infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_list(list of strings): List of VM IDs to delete.
+      - context(boolean): Flag to disable the contextualization at the end.
+
+   Returns:
+      A tuple with the operation success (boolean) and the list of deleted VM IDs in case of successor the error message otherwise.
+
+.. confval:: def addresource(self, inf_id, inf_desc, desc_type="radl", context=None):
+
+   Add resources into an infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - inf_desc(string): Infrastructure description in RADL (plain or JSON) or TOSCA.
+      - desc_type(string): Infrastructure description type ("radl", "json" or "yaml")
+      - context(boolean): Flag to disable the contextualization at the end.
+
+   Returns:
+      A tuple with the operation success (boolean) and the list of added VM IDs in case of success or the error message otherwise.
+
+.. confval:: def alter(self, inf_id, vm_id, inf_desc):
+
+   Modifies the features of a VM
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_id(string): VM ID.
+      - inf_desc(string): Infrastructure description in RADL (plain).
+
+   Returns:
+      A tuple with the operation success (boolean) and the RADL of the modified VM in case of success or the error message otherwise.
+
+.. confval:: def reconfigure(self, inf_id, inf_desc, desc_type="radl", vm_list=None):
+
+   Reconfigure the infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - inf_desc(string): Infrastructure description in RADL (plain).
+      - vm_list(list of strings): Optional list of VM IDs to reconfigure (default all).
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def get_infra_property(self, inf_id, prop):
+
+   Get an infrastructure property.
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - prop(string): Property to get. Valid values: "radl", "contmsg", "state", "outputs"
+
+   Returns:
+      A tuple with the operation success (boolean) and the value of the prop in case of success or the error message otherwise.
+
+.. confval:: def getvminfo(self, inf_id, vm_id, prop=None, system_name=None):
+
+   Get VM info.
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_id(string): VM ID.
+      - prop(string): Optional RADL property to get.
+      - system_name(string): Optional system name to filter the VMs.
+
+   Returns:
+      A tuple with the operation success (boolean) and the value of the prop in case of success or the error message otherwise.
+
+.. confval:: def getinfo(self, inf_id, prop=None, system_name=None):
+
+   Get infrastructure info.
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - prop(string): Optional RADL property to get.
+      - system_name(string): Optional system name to filter the VMs.
+
+   Returns:
+      A tuple with the operation success (boolean) and the value of the prop in case of success or the error message otherwise.
+
+.. confval:: def destroy(self, inf_id, asyncr=False):
+
+   Destroy an infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - asyncr(boolean): Flag to specify if the deletion call will be asynchronous. Default `False`.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def list_infras(self, flt=None):
+
+   Get the list of user infrastructures
+
+   Arguments:
+      - flt(string): Optional filter (as regular expression) to filter the infrastructures.
+
+   Returns:
+      A tuple with the operation success (boolean) and the list of infrastructure IDs in case of success or the error message otherwise.
+
+.. confval:: def start_infra(self, inf_id):
+
+   Start an infrastructure (previously stopped)
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def stop_infra(self, inf_id):
+
+   Stop an infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def start_vm(self, inf_id, vm_id):
+
+   Start an VM (previously stopped)
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_id(string): VM ID.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def stop_vm(self, inf_id, vm_id):
+
+   Stop an VM
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_id(string): VM ID.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def reboot_vm(self, inf_id, vm_id):
+
+   Reboot an VM
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - vm_id(string): VM ID.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
+
+.. confval:: def getversion(self):
+
+   Get IM server version
+
+   Returns:
+      A tuple with the operation success (boolean) and the version string in case of success or the error message otherwise.
+
+.. confval:: def export_data(self, inf_id, delete=None):
+
+   Export infrastructure data
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - delete(boolean): Flag to specify if the infrastructure will be deleted after exporting the data. Default `False`.
+   
+   Returns:
+      A tuple with the operation success (boolean) and the json data of the infrastructure in case of success or the error message otherwise.
+
+.. confval:: def import_data(self, data):
+
+   Import infrastructure data
+
+   Arguments:
+      - data(string): Json data with the Infrastructure info.
+
+   Returns:
+      A tuple with the operation success (boolean) and the ID of the imported infrastructure in case of success or the error message otherwise.
+
+.. confval:: def get_cloud_images(self, cloud_id):
+
+   Get Cloud provider images
+
+   Arguments:
+      - cloud_id(string): ID of the cloud provider (as defined in the auth data).
+
+   Returns:
+      A tuple with the operation success (boolean) and the requested data in case of success or the error message otherwise.
+
+.. confval:: def get_cloud_quotas(self, cloud_id):
+
+   Get Cloud provider quotas
+
+   Arguments:
+      - cloud_id(string): ID of the cloud provider (as defined in the auth data).
+
+   Returns:
+      A tuple with the operation success (boolean) and the requested data in case of success or the error message otherwise.
+
+.. confval:: def change_auth(self, inf_id, new_auth_data, overwrite=None):
+
+   Change ownership of an infrastructure
+
+   Arguments:
+      - inf_id(string): Infrastructure ID.
+      - new_auth_data(string): New Infrastructure Manager auth data to set.
+      - overwrite(boolean): Flag to specify if the auth data will be overwrited. Default `False`.
+
+   Returns:
+      A tuple with the operation success (boolean) and an empty string in case of success or the error message otherwise.
