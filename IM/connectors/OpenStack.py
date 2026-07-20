@@ -1660,19 +1660,24 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
             self.log_exception("Error getting security groups.")
             return None
 
+    @staticmethod
+    def get_ports(outport):
+        if outport.get_protocol() == "icmp":
+            from_port = None
+            to_port = None
+        elif outport.is_range():
+            from_port = outport.get_port_init()
+            to_port = outport.get_port_end()
+        else:
+            from_port = outport.get_remote_port()
+            to_port = outport.get_remote_port()
+        
+        return from_port, to_port
+
     def add_security_group_rules(self, driver, outports, sg):
         """Add the security group rules to the security group"""
         for outport in outports:
-            if outport.get_protocol() == "icmp":
-                from_port = None
-                to_port = None
-            elif outport.is_range():
-                from_port = outport.get_port_init()
-                to_port = outport.get_port_end()
-            else:
-                from_port = outport.get_remote_port()
-                to_port = outport.get_remote_port()
-
+            from_port, to_port = self.get_ports(outport)
             try:
                 driver.ex_create_security_group_rule(sg, outport.get_protocol(),
                                                      from_port,
@@ -2007,11 +2012,8 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 # For each rule in the SG, check if it is in the old_outports and remove it
                 for outport in old_outports:
                     protocol = outport.get_protocol()
-                    if outport.is_range():
-                        to_port = outport.get_port_end()
-                        from_port = outport.get_port_init()
-                    else:
-                        to_port = from_port = outport.get_remote_port()
+                    from_port, to_port = self.get_ports(outport)
+
                     if rule.from_port == from_port and rule.to_port == to_port and rule.ip_protocol == protocol:
                         try:
                             driver.ex_delete_security_group_rule(rule)
