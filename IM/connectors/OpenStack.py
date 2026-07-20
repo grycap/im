@@ -1671,7 +1671,7 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
         else:
             from_port = outport.get_remote_port()
             to_port = outport.get_remote_port()
-        
+
         return from_port, to_port
 
     def add_security_group_rules(self, driver, outports, sg):
