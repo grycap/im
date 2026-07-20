@@ -767,6 +767,7 @@ class TestOSTConnector(TestCloudConnectorBase):
             )"""
         radl = radl_parse.parse_radl(radl_data)
         vm = VirtualMachine(inf, "1", ost_cloud.cloud, radl, radl, ost_cloud, 1)
+        vm.floating_ips = []
 
         new_radl_data = """
             network net (outbound = 'yes' and outports = '8081')
