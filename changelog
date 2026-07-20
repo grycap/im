@@ -829,5 +829,7 @@ IM 2.0.0:
     * Remove FogBow Connector.
     * Remove SINGLE_SITE configuration support.
     * Remove OpenNebula TTS support.
-    * Move from additional_dns_names to dns.*.name
-    * Move Ansible inventory to YAML
+    * Move from additional_dns_names to dns.*.name.
+    * Move Ansible inventory to YAML.
+    * Add EGI DyDNS TLS generation support.
+    * Add UpCloud connector.
