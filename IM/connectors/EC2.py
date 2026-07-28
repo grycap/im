@@ -17,6 +17,7 @@
 import time
 import requests
 import re
+import uuid
 from netaddr import IPNetwork, IPAddress, spanning_cidr
 
 try:
@@ -1348,7 +1349,10 @@ class EC2CloudConnector(CloudConnector):
 
             if not zone:
                 self.log_info("Creating DNS zone %s" % domain)
-                zone = conn.create_hosted_zone(domain)
+                zone = conn.create_hosted_zone(
+                    Name=domain,
+                    CallerReference=str(uuid.uuid4())
+                )['HostedZone']
             else:
                 self.log_info("DNS zone %s exists. Do not create." % domain)
 
