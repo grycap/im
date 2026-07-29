@@ -820,7 +820,6 @@ class CloudConnector(LoggerMixin):
         else:
             return False
 
-
     def manage_dns_entries(self, op, vm, auth_data, extra_args=None):
         """
         Add/Delete the required entries in a DNS service
