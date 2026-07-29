@@ -22,8 +22,8 @@ msrest
 msrestazure
 azure-common
 azure-mgmt-storage
-azure-mgmt-compute
-azure-mgmt-network
+azure-mgmt-compute < 38.0.0
+azure-mgmt-network < 31.0.0
 azure-mgmt-resource
 azure-mgmt-dns
 azure-identity
