@@ -779,6 +779,48 @@ class CloudConnector(LoggerMixin):
         """
         raise NotImplementedError("Should have implemented this")
 
+    def _manage_dns_entries_with_dydns(self, op, vm, entry, auth_data):
+        hostname = entry[0]
+        domain = entry[1]
+        ip = entry[2]
+        im_auth = auth_data.getAuthInfo("InfrastructureManager")
+
+        # Check if the domain is one of the DyDNS domains, if so use DyDNS connector to add the entry
+        # only if IM credentials uses token auth or the hostname is a DyDNS hostname (starts with "dydns")
+        if im_auth and im_auth[0].get("token") or (hostname.startswith("dydns:") and "@" in hostname):
+            try:
+                from IM.connectors.EGI import EGICloudConnector
+                if im_auth and im_auth[0].get("token"):
+                    egi_domain = str(domain[:-1] if domain.endswith(".") else domain)
+                    _, egi_domain, _ = EGICloudConnector._get_wildcard_host_domain(hostname, egi_domain)
+                    found, _ = EGICloudConnector._get_domains(im_auth[0].get("token"), egi_domain)
+                else:
+                    found = domain
+            except Exception as dyex:
+                self.log_exception("Error checking DyDNS domains: %s" % str(dyex))
+                found = None
+
+            if found:
+                self.log_debug("Domain %s found in DyDNS domains. Using DyDNS connector." % domain)
+                if op == "add" and entry not in vm.dns_entries:
+                    success = EGICloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
+                    if success:
+                        vm.dns_entries.append(entry)
+                elif op == "del":
+                    success = EGICloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
+                    if success and entry in vm.dns_entries:
+                        vm.dns_entries.remove(entry)
+
+                if not success:
+                    raise Exception("Error managing DyDNS entry for %s.%s." % (hostname, domain))
+
+                return True
+            else:
+                return False
+        else:
+            return False
+
+
     def manage_dns_entries(self, op, vm, auth_data, extra_args=None):
         """
         Add/Delete the required entries in a DNS service
@@ -807,20 +849,25 @@ class CloudConnector(LoggerMixin):
                     hostname = entry[0]
                     domain = entry[1]
                     ip = entry[2]
-                    try:
-                        if op == "add" and entry not in vm.dns_entries:
-                            success = self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if success:
-                                vm.dns_entries.append(entry)
-                        elif op == "del":
-                            success = self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
-                            if success and entry in vm.dns_entries:
-                                vm.dns_entries.remove(entry)
-                    except NotImplementedError as niex:
-                        # Use DyDNS as back up for all providers if IM credentials uses token auth
-                        success = self.back_up_dns_entries(op, vm, auth_data, hostname, domain, ip, entry)
-                        if not success:
-                            raise niex
+
+                    # First check if the domain is one of the DyDNS domains,
+                    # if so use DyDNS connector to add the entry
+                    success = self._manage_dns_entries_with_dydns(op, vm, entry, auth_data)
+                    if not success:
+                        try:
+                            if op == "add" and entry not in vm.dns_entries:
+                                success = self.add_dns_entry(hostname, domain, ip, auth_data, extra_args)
+                                if success:
+                                    vm.dns_entries.append(entry)
+                            elif op == "del":
+                                success = self.del_dns_entry(hostname, domain, ip, auth_data, extra_args)
+                                if success and entry in vm.dns_entries:
+                                    vm.dns_entries.remove(entry)
+                        except NotImplementedError as niex:
+                            # Use DyDNS as back up for all providers if IM credentials uses token auth
+                            success = self.back_up_dns_entries(op, vm, auth_data, hostname, domain, ip, entry)
+                            if not success:
+                                raise niex
 
             if tls_entries:
                 for entry in tls_entries:
@@ -862,23 +909,10 @@ class CloudConnector(LoggerMixin):
             return False
 
     def back_up_dns_entries(self, op, vm, auth_data, hostname, domain, ip, entry):
-        im_auth = auth_data.getAuthInfo("InfrastructureManager")
         success = False
 
-        # Use DyDNS as back up for all providers if IM credentials uses token auth
-        if im_auth and im_auth[0].get("token") or (hostname.startswith("dydns:") and "@" in hostname):
-            from IM.connectors.EGI import EGICloudConnector
-            if op == "add" and entry not in vm.dns_entries:
-                success = EGICloudConnector.add_dns_entry(self, hostname, domain, ip, auth_data)
-                if success:
-                    vm.dns_entries.append(entry)
-            elif op == "del":
-                success = EGICloudConnector.del_dns_entry(self, hostname, domain, ip, auth_data)
-                if success and entry in vm.dns_entries:
-                    vm.dns_entries.remove(entry)
-
         # In other cases check if EC2 credetials anre set and try to use Route53
-        if not success and auth_data.getAuthInfo("EC2"):
+        if auth_data.getAuthInfo("EC2"):
             from IM.connectors.EC2 import EC2CloudConnector
             # Maintain to enable addition of OSCAR clusters
             if op == "add" and entry not in vm.dns_entries:
