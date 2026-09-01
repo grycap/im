@@ -586,6 +586,15 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(conf['vars']['tls_cert_1_2'],
                          "{{ hostvars[groups['server'][0]]['IM_NODE_TLS_CERTIFICATES']['cert1'] }}")
 
+    def test_interface_string_input_yaml_escaping(self):
+        value = 'password"with\\special\ncharacters'
+        serialized_value = Tosca._serialize_interface_input(value)
+        recipe = "---\n- vars:\n    password: %s\n" % serialized_value
+
+        parsed_recipe = yaml.safe_load(recipe)
+
+        self.assertEqual(parsed_recipe[0]['vars']['password'], value)
+
 
 if __name__ == "__main__":
     unittest.main()

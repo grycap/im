@@ -880,6 +880,16 @@ class Tosca:
 
         return res
 
+    @staticmethod
+    def _serialize_interface_input(value):
+        if isinstance(value, str) and not value.startswith("|"):
+            # JSON strings are valid YAML scalars and correctly escape quotes,
+            # backslashes and control characters.
+            value = json.dumps(value)
+        else:
+            value = str(value)
+        return value.replace("\n", "\\n")
+
     def _gen_configure_from_interfaces(self, node, compute, interfaces):
         if not interfaces:
             return None
@@ -968,11 +978,7 @@ class Tosca:
                 if script_path.endswith(".yaml") or script_path.endswith(".yml"):
                     if env:
                         for var_name, var_value in env.items():
-                            if isinstance(var_value, str) and not var_value.startswith("|"):
-                                var_value = '"%s"' % var_value
-                            else:
-                                var_value = str(var_value)
-                            var_value = var_value.replace("\n", "\\n")
+                            var_value = self._serialize_interface_input(var_value)
                             variables += '    %s: %s ' % (var_name, var_value) + "\n"
                         variables += "\n"
 
