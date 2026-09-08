@@ -264,8 +264,12 @@ POST ``http://imserver.com/infrastructures/<infId>``
    :fail response: 401, 403, 404, 400, 415
 
    Add the resources specified in the body contents (in TOSCA, RADL plain or in JSON formats)
-   to the infrastructure with ID ``infId``. 
-   Using RADL the RADL restrictions are the same as in :ref:`RPC-XML AddResource <addresource-xmlrpc>`.
+   to the infrastructure with ID ``infId``.
+
+   When using RADL, the ``deploy`` instructions must refer to systems defined in the
+   submitted document. New systems are added to the infrastructure, while definitions
+   of systems that already exist are ignored; an existing system only needs a reference
+   in the submitted RADL.
    
    Using TOSCA as input this method can be used to add or remove resources depending on the number of
    resources specified in the new TOSCA document sent. If new nodes are added in the body compared with the
@@ -318,10 +322,10 @@ PUT ``http://imserver.com/infrastructures/<infId>/reconfigure``
 
    Perform the ``reconfigure`` action in all the virtual machines in the
    the infrastructure with ID ``infID``. It updates the configuration 
-   of the infrastructure as indicated in the body contents (in plain RADL or in JSON formats). 
-   The RADL restrictions are the same as in :ref:`RPC-XML Reconfigure <reconfigure-xmlrpc>`. If no
-   RADL are specified, the contextualization process is stated again.
-   The ``vm_list`` parameter is optional and is a coma separated list of
+   of the infrastructure as indicated in the body contents (in plain RADL or in JSON formats).
+   Only the configuration sections from the submitted RADL are used to update the
+   infrastructure. If no RADL is specified, the contextualization process is started again.
+   The ``vm_list`` parameter is optional and is a comma-separated list of
    IDs of the VMs to reconfigure. If not specified all the VMs will be reconfigured. 
    If the operation has been performed successfully the return value is an empty string.
 
@@ -346,8 +350,7 @@ GET ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    Return information about the virtual machine with ID ``vmId`` associated to
    the infrastructure with ID ``infId``. The returned string is in RADL format,
    either in plain RADL or in JSON formats.
-   See more the details of the output in :ref:`GetVMInfo <GetVMInfo-xmlrpc>`.
-   The result is JSON format has the following format::
+   The result in JSON format has the following structure::
    
     {
       "radl": "<radl_in_json>"
@@ -361,11 +364,10 @@ PUT ``http://imserver.com/infrastructures/<infId>/vms/<vmId>``
    :fail response: 401, 403, 404, 400, 415
 
    Change the features of the virtual machine with ID ``vmId`` in the
-   infrastructure with with ID ``infId``, specified by the RADL ``radl``.
-   Return then information about the nodified virtual machine. The returned string is in RADL format,
+   infrastructure with ID ``infId``, as specified by the RADL ``radl``.
+   It then returns information about the modified virtual machine. The returned string is in RADL format,
    either in plain RADL or in JSON formats.
-   See more the details of the output in :ref:`GetVMInfo <GetVMInfo-xmlrpc>`.
-   The result is JSON format has the following format::
+   The result in JSON format has the following structure::
  
     {
       "radl": "<radl_in_json>"
