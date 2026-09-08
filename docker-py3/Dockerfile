@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y python3-setupto
      pip3 install --no-cache-dir --break-system-packages msrest msrestazure azure-common azure-mgmt-storage "azure-mgmt-compute<38.0.0" "azure-mgmt-network<31.0.0" azure-mgmt-resource azure-mgmt-dns azure-identity && \
      pip3 install --no-cache-dir --break-system-packages pyOpenSSL pymongo ansible==12.3.0 && \
      pip3 install --no-cache-dir --break-system-packages git+https://github.com/micafer/tosca-parser@im && \
-     pip3 install --no-cache-dir --break-system-packages IM==${VERSION} && \
+     pip3 install --no-cache-dir --break-system-packages IM==${VERSION} "typing_extensions==4.15.0" && \
      apt-get purge -y python3-pip python3-setuptools python3-pkg-resources git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 
