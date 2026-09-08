@@ -834,3 +834,4 @@ IM 2.0.0:
     * Add EGI DyDNS TLS generation support.
     * Add UpCloud connector.
     * Fix error parse error with special caracters in TOSCA.
+    * REST API moved from Flask to FastAPI.
