@@ -1,7 +1,7 @@
 # Dockerfile to create a container with the IM service
 FROM ubuntu:26.04
 
-ENV VERSION=1.19.1
+ENV VERSION=2.0.0
 
 LABEL maintainer="Miguel Caballer <micafer1@upv.es>"
 LABEL version="${VERSION}"

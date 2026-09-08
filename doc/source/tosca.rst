@@ -439,7 +439,7 @@ Random values
 
 The special string ``random(N)`` generates a random string of length N with
 alphanumeric characters. It can be used to define passwords or any other random
-string input value (from version 1.19.2).
+string input value (from version 2.0.0).
 
 .. code-block:: yaml
 
