@@ -877,4 +877,4 @@ the comparators (``<=`` or ``>=``) so it is expressed using the ``_min`` and ``_
 example in ``cpu.count_min`` and ``memory.size_min``. Also the JSON format does not use units in the amount of
 memory or disk size, so all these quantities are expresed in bytes.
 
-Currently this format is only supported in the REST API (not in the native XML-RPC one).
+This format is supported by the REST API.

@@ -14,8 +14,8 @@ cloud-agnostic. In addition **it integrates a contextualization system** to
 enable the installation and configuration of all the user required applications
 providing the user with a fully functional infrastructure.
 
-It is a service that features a **web-based GUI, a XML-RPC API, a REST API and
-a command-line application**.
+It is a service that features a **web-based GUI, a REST API and a command-line
+application**.
 
 IM has been developed by the `Grid and High Performance Computing Group (GRyCAP) <http://www.grycap.upv.es>`_ at 
 the `Instituto de Instrumentación para Imagen Molecular (I3M) <http://www.i3m.upv.es>`_ 

@@ -18,7 +18,6 @@
 
 import unittest
 import os
-import shutil
 
 from IM.auth import Authentication
 

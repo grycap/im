@@ -3,7 +3,8 @@
 IM Command-line Interface (CLI)
 ===============================
 
-The :program:`im_client` is a CLI client that uses XML-RPC or REST APIs of IM Server.
+The :program:`im_client` is a CLI client that uses the REST API of IM 2.0.0 and later,
+and can also use the XML-RPC API of older IM Server versions.
 
 Installation
 -------------
@@ -19,8 +20,9 @@ available as 'python-requests' in O.S. packages or 'requests' in pip.
 
 Optional packages
 ^^^^^^^^^^^^^^^^^
-In case of using the SSL secured version of the XMLRPC API the SpringPython framework 
-(`http://springpython.webfactional.com/ <http://springpython.webfactional.com/>`_) must be installed.
+When connecting to an older IM Server through its SSL-secured XML-RPC API, the
+SpringPython framework (`http://springpython.webfactional.com/ <http://springpython.webfactional.com/>`_)
+must be installed.
 
 Installing
 ^^^^^^^^^^
@@ -50,10 +52,12 @@ To avoid typing the parameters in all the client calls. The user can define a co
 in the current directory or a file ".im_client.cfg" in their home directory. In the config file the 
 user can specify the following parameters::
 
-	[im_client]
-	restapi_url=http://localhost:8800
-	auth_file=auth.dat
-	xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
+   [im_client]
+   # Set only one of the following URLs:
+   # xmlrpc_url=http://localhost:8899  # IM Server versions earlier than 2.0.0
+   restapi_url=http://localhost:8800
+   auth_file=auth.dat
+   xmlrpc_ssl_ca_certs=/tmp/pki/ca-chain.pem
 
 .. _inv-client:
 
@@ -62,14 +66,19 @@ Invocation
 
 The :program:`im_client` is called like this::
 
-   $ im_client [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
+   $ im_client [-u|--xmlrpc-url <url>] [-r|--restapi-url <url>] [-v|--verify-ssl] [-a|--auth_file <filename>] operation op_parameters
 
 .. program:: im_client
+
+.. option:: -u|--xmlrpc-url url
+
+   URL to the XML-RPC service of an IM Server version earlier than 2.0.0.
+   This option or the `-r` one must be specified.
    
 .. option:: -r|--rest-url url
 
    URL to the REST API on the IM service.
-   This option or the ` -u` one must be specified.
+   This option or the `-u` one must be specified.
 
 .. option:: -v|--verify-ssl
 
@@ -668,9 +677,9 @@ The IMClient class has the following methods:
    Create and initialize the IMClient class
 
    Arguments:
-      - im_url(string): URL to the IM API (REST or XML-RPC).
+      - im_url(string): URL to the IM REST API or to the XML-RPC API of an older IM Server.
       - auth_data(`dict` of str objects): Authentication data to access cloud provider (as returned by `read_auth_data` function).
-      - rest(boolean): Flag to specify the type of API to use (REST or XML-RPC). Default `True`.
+      - rest(boolean): Flag to use REST (`True`) or XML-RPC (`False`). XML-RPC is only available in older IM Server versions. Default `True`.
       - ssl_verify(boolean): Flag to specify if ssl certificates must be validated. Default `False`.
 
    Returns(`imclient.IMClient`):
