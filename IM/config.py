@@ -66,7 +66,6 @@ class Config:
     LOG_LEVEL = "INFO"
     CONTEXTUALIZATION_DIR = IM_PATH + '/../contextualization'
     RECIPES_DIR = CONTEXTUALIZATION_DIR + '/AnsibleRecipes'
-    RECIPES_DB_FILE = CONTEXTUALIZATION_DIR + '/recipes_ansible.db'
     MAX_CONTEXTUALIZATION_TIME = 7200
     MAX_SIMULTANEOUS_LAUNCHES = 1
     DATA_DB = '/etc/im/inf.dat'
