@@ -105,9 +105,8 @@ class TestAsyncClient(unittest.IsolatedAsyncioTestCase):
         transport, recorded = self.get_transport()
         desc = "description desc (name = 'test')\nsystem node ()"
         async with AsyncIMClient.init_client(IM_URL, AUTH, transport=transport) as client:
-            success, inf_id = await client.create(desc, "yaml")
+            inf_id = await client.create(desc, "yaml")
 
-        self.assertTrue(success)
         self.assertEqual(inf_id, "inf1")
         self.assertEqual(recorded[0].content.decode(), desc)
         self.assertEqual(recorded[0].headers["Content-Type"], "text/yaml")
@@ -119,11 +118,20 @@ class TestAsyncClient(unittest.IsolatedAsyncioTestCase):
         """
         transport, recorded = self.get_transport()
         async with AsyncIMClient.init_client(IM_URL, AUTH, transport=transport) as client:
-            success, inf_id = await client.create('{"description": "test"}', "json")
+            inf_id = await client.create('{"description": "test"}', "json")
 
-        self.assertTrue(success)
         self.assertEqual(inf_id, "inf1")
         self.assertEqual(recorded[0].headers["Content-Type"], "application/json")
+
+    async def test_create_async_param(self):
+        """
+        Test that the asyncr flag is passed as the REST "async" query parameter.
+        """
+        transport, recorded = self.get_transport()
+        async with AsyncIMClient.init_client(IM_URL, AUTH, transport=transport) as client:
+            await client.create("system node ()", "yaml", asyncr=True)
+
+        self.assertEqual(recorded[0].url.params["async"], "yes")
 
     async def test_get_state(self):
         """
@@ -131,9 +139,8 @@ class TestAsyncClient(unittest.IsolatedAsyncioTestCase):
         """
         transport, recorded = self.get_transport()
         async with AsyncIMClient.init_client(IM_URL, AUTH, transport=transport) as client:
-            success, value = await client.get_infra_property("infid", "state")
+            value = await client.get_infra_property("infid", "state")
 
-        self.assertTrue(success)
         self.assertEqual(value, {"state": "running", "vm_states": {"vm1": "running"}})
         self.assertEqual(recorded[0].headers["Accept"], "application/json")
 
@@ -143,9 +150,8 @@ class TestAsyncClient(unittest.IsolatedAsyncioTestCase):
         """
         transport, _ = self.get_transport()
         async with AsyncIMClient.init_client(IM_URL, AUTH, transport=transport) as client:
-            success, value = await client.get_infra_property("infid", "outputs")
+            value = await client.get_infra_property("infid", "outputs")
 
-        self.assertTrue(success)
         self.assertEqual(value, {"output1": "value1", "output2": "value2"})
 
     async def test_destroy(self):
@@ -154,26 +160,25 @@ class TestAsyncClient(unittest.IsolatedAsyncioTestCase):
         """
         transport, recorded = self.get_transport()
         async with AsyncIMClient.init_client(IM_URL, AUTH, transport=transport) as client:
-            success, _ = await client.destroy("infid")
+            await client.destroy("infid")
 
-        self.assertTrue(success)
         self.assertEqual(recorded[0].method, "DELETE")
         self.assertEqual(recorded[0].url.path, "/im/infrastructures/infid")
 
-    async def test_non_200(self):
+    async def test_http_error_raises(self):
         """
-        Test that a non-200 response is reported as (False, error).
+        Test that a non-2xx response raises HTTPStatusError (same convention as the sync client).
         """
         transport, _ = self.get_transport()
         async with AsyncIMClient.init_client(IM_URL, AUTH, transport=transport) as client:
-            success, error = await client.get_infra_property("unknown", "outputs")
+            with self.assertRaises(httpx.HTTPStatusError) as cm:
+                await client.get_infra_property("unknown", "outputs")
 
-        self.assertFalse(success)
-        self.assertIn("404", str(error))
+        self.assertIn("404", str(cm.exception))
 
     async def test_timeout_applied(self):
         """
-        Test that the configured timeout is applied and that a timeout is reported as (False, error).
+        Test that the configured timeout is applied and that a timeout raises TransportError.
         """
         def handler(request):
             raise httpx.ConnectTimeout("timed out")
@@ -181,10 +186,8 @@ class TestAsyncClient(unittest.IsolatedAsyncioTestCase):
         async with AsyncIMClient.init_client(IM_URL, AUTH, timeout=5.0,
                                              transport=httpx.MockTransport(handler)) as client:
             self.assertEqual(client._client.timeout.connect, 5.0)
-            success, error = await client.create("system node ()")
-
-        self.assertFalse(success)
-        self.assertIn("timed out", str(error))
+            with self.assertRaises(httpx.TimeoutException):
+                await client.create("system node ()")
 
     async def test_wait(self):
         """
@@ -192,10 +195,30 @@ class TestAsyncClient(unittest.IsolatedAsyncioTestCase):
         """
         transport, _ = self.get_transport()
         async with AsyncIMClient.init_client(IM_URL, AUTH, transport=transport) as client:
-            success, result = await client.wait("inf1", poll_interval=0)
+            result = await client.wait("inf1", poll_interval=0)
 
-        self.assertTrue(success)
         self.assertEqual(result, "The infrastructure is in state: configured")
+
+    async def test_wait_failure(self):
+        """
+        Test that wait raises RuntimeError on a final non-configured state.
+        """
+        def handler(request):
+            return httpx.Response(200, json={"state": {"state": "failed", "vm_states": {}}})
+
+        async with AsyncIMClient.init_client(IM_URL, AUTH,
+                                             transport=httpx.MockTransport(handler)) as client:
+            with self.assertRaises(RuntimeError):
+                await client.wait("infid", poll_interval=0)
+
+    async def test_wait_timeout(self):
+        """
+        Test that wait raises TimeoutError when max_time is exceeded.
+        """
+        async with AsyncIMClient.init_client(IM_URL, AUTH,
+                                             transport=httpx.MockTransport(lambda r: None)) as client:
+            with self.assertRaises(TimeoutError):
+                await client.wait("infid", max_time=0, poll_interval=0)
 
     async def test_create_wait_outputs(self):
         """
@@ -203,9 +226,8 @@ class TestAsyncClient(unittest.IsolatedAsyncioTestCase):
         """
         transport, _ = self.get_transport()
         async with AsyncIMClient.init_client(IM_URL, AUTH, transport=transport) as client:
-            success, outputs = await client.create_wait_outputs("system node ()", poll_interval=0)
+            outputs = await client.create_wait_outputs("system node ()", "yaml", poll_interval=0)
 
-        self.assertTrue(success)
         self.assertEqual(outputs, {"infid": "inf1", "output1": "value1", "output2": "value2"})
 
     async def test_aclose(self):

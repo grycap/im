@@ -19,7 +19,7 @@
 import asyncio
 import os
 from optparse import Values
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
@@ -40,8 +40,10 @@ class AsyncIMClient:
     :py:class:`httpx.AsyncClient`, reusing a single connection across calls. Unlike the synchronous
     client it applies a configurable per-request timeout.
 
-    The infrastructure operations return ``(success, result)`` tuples instead of raising exceptions:
-    ``success`` is a boolean and ``result`` is either the requested value or the error message.
+    Error handling follows the same convention as the synchronous client: failures raise
+    exceptions (:py:class:`httpx.HTTPStatusError` for HTTP errors, :py:class:`httpx.TransportError`
+    for network errors) instead of returning ``(success, result)`` tuples, so callers can
+    inspect the full response on failure.
     """
 
     def __init__(self, options: Values, auth_data: Union[str, List[Dict[str, str]], None],
@@ -91,70 +93,76 @@ class AsyncIMClient:
         """
         await self._client.aclose()
 
-    async def create(self, inf_desc: str, desc_type: DescTypes = "yaml") -> Tuple[bool, Any]:
+    async def create(self, inf_desc: str, desc_type: DescTypes = "radl", asyncr: bool = False,
+                     dry_run: bool = False) -> Any:
         """
         Create an infrastructure.
 
         Arguments:
            - inf_desc(string): Infrastructure description in RADL (plain or JSON) or TOSCA.
            - desc_type(string): Infrastructure description type ("radl", "json", "yaml" or "yml").
-        Returns(tuple): ``(True, inf_id)`` with the ID of the created infrastructure or
-                        ``(False, error)`` if the creation fails.
+           - asyncr(boolean): Flag to specify if the creation call will be asynchronous.
+                              Default `False`.
+           - dry_run(boolean): Flag to specify if the creation call will be a dry run (i.e.,
+                               no actual creation). Default `False`.
+        Returns: The ID of the created infrastructure.
+        Raises: :py:class:`httpx.HTTPStatusError` if the creation fails.
         """
         headers = {"Authorization": self.rest_auth_data}
         if desc_type == "json":
             headers["Content-Type"] = "application/json"
-        elif desc_type in "yaml":
+        elif desc_type in ("yaml", "yml"):
             headers["Content-Type"] = "text/yaml"
         url = "%s/infrastructures" % self.options.restapi
-        try:
-            resp = await self._client.post(url, headers=headers, content=str(inf_desc))
-            resp.raise_for_status()
-        except Exception as e:
-            return False, str(e)
-        return True, os.path.basename(resp.text)
+        params = {}
+        if asyncr:
+            params["async"] = "yes"
+        if dry_run:
+            params["dry_run"] = "yes"
+        resp = await self._client.post(url, headers=headers, params=params, content=str(inf_desc))
+        resp.raise_for_status()
+        if dry_run:
+            return resp.json()
+        else:
+            return os.path.basename(resp.text)
 
-    async def get_infra_property(self, inf_id: str, prop: str) -> Tuple[bool, Any]:
+    async def get_infra_property(self, inf_id: str, prop: str) -> Any:
         """
         Get an infrastructure property.
 
         Arguments:
            - inf_id(string): Infrastructure ID.
            - prop(string): Property to get. Valid values: "radl", "contmsg", "state", "outputs".
-        Returns(tuple): ``(True, value)`` with the value of the property or ``(False, error)`` if
-                        the operation fails.
+        Returns: The value of the property.
+        Raises: :py:class:`httpx.HTTPStatusError` if the operation fails.
         """
         headers = {"Authorization": self.rest_auth_data, "Accept": "application/json"}
         url = "%s/infrastructures/%s/%s" % (self.options.restapi, inf_id, prop)
-        try:
-            resp = await self._client.get(url, headers=headers)
-            resp.raise_for_status()
-            return True, resp.json()[prop]
-        except Exception as e:
-            return False, str(e)
+        resp = await self._client.get(url, headers=headers)
+        resp.raise_for_status()
+        return resp.json()[prop]
 
-    async def destroy(self, inf_id: str) -> Tuple[bool, Any]:
+    async def destroy(self, inf_id: str, asyncr: bool = False) -> None:
         """
         Destroy an infrastructure.
 
         Arguments:
            - inf_id(string): Infrastructure ID.
-        Returns(tuple): ``(True, result)`` if the infrastructure was destroyed or ``(False, error)``
-                        if the deletion fails.
+           - asyncr(boolean): Flag to specify if the deletion call will be asynchronous.
+                              Default `False`.
+        Raises: :py:class:`httpx.HTTPStatusError` if the deletion fails.
         """
         headers = {"Authorization": self.rest_auth_data}
         url = "%s/infrastructures/%s" % (self.options.restapi, inf_id)
         params = {}
         if self.options.force:
             params["force"] = "yes"
-        try:
-            resp = await self._client.delete(url, headers=headers, params=params)
-            resp.raise_for_status()
-        except Exception as e:
-            return False, str(e)
-        return True, resp.text
+        if asyncr:
+            params["async"] = "yes"
+        resp = await self._client.delete(url, headers=headers, params=params)
+        resp.raise_for_status()
 
-    async def wait(self, inf_id: str, max_time: int = 36000, poll_interval: int = 30) -> Tuple[bool, Any]:
+    async def wait(self, inf_id: str, max_time: int = 36000, poll_interval: int = 30) -> str:
         """
         Wait until an infrastructure is configured or fails.
 
@@ -162,20 +170,18 @@ class AsyncIMClient:
            - inf_id(string): Infrastructure ID.
            - max_time(int): Maximum time to wait in seconds. Default 36000 (10h).
            - poll_interval(int): Time in seconds between state queries. Default 30.
-        Returns(tuple): ``(True, message)`` if the infrastructure is configured or
-                        ``(False, error)`` on timeout or failure.
+        Returns(string): Final state message on success.
+        Raises: :py:class:`TimeoutError` on timeout, :py:class:`RuntimeError` if the
+                infrastructure reaches a final non-configured state.
         """
         unknown_count = 0
         waited = 0
         state = "pending"
         while state in PENDING_STATES and unknown_count < 3 and waited < max_time:
-            success, res = await self.get_infra_property(inf_id, "state")
-            if success:
-                try:
-                    state = res["state"]
-                except (TypeError, KeyError):
-                    state = "unknown"
-            else:
+            try:
+                res = await self.get_infra_property(inf_id, "state")
+                state = res["state"]
+            except Exception:
                 state = "unknown"
 
             if state == "unknown":
@@ -186,14 +192,14 @@ class AsyncIMClient:
                 waited += poll_interval
 
         if state == "configured":
-            return True, "The infrastructure is in state: %s" % state
+            return "The infrastructure is in state: %s" % state
         elif waited >= max_time:
-            return False, "Timeout waiting."
+            raise TimeoutError("Timeout waiting.")
         else:
-            return False, "The infrastructure is in state: %s" % state
+            raise RuntimeError("The infrastructure is in state: %s" % state)
 
-    async def create_wait_outputs(self, inf_desc: str, desc_type: DescTypes = "yaml",
-                                  max_time: int = 36000, poll_interval: int = 30) -> Tuple[bool, Any]:
+    async def create_wait_outputs(self, inf_desc: str, desc_type: DescTypes = "radl",
+                                  max_time: int = 36000, poll_interval: int = 30) -> Dict[str, Any]:
         """
         Create an infrastructure, wait until it is configured and return its outputs.
 
@@ -202,20 +208,12 @@ class AsyncIMClient:
            - desc_type(string): Infrastructure description type ("radl", "json", "yaml" or "yml").
            - max_time(int): Maximum time to wait in seconds. Default 36000 (10h).
            - poll_interval(int): Time in seconds between state queries. Default 30.
-        Returns(tuple): ``(True, outputs)`` with the infrastructure outputs (including the
-                        ``infid`` key) or ``(False, error)`` if any step fails.
+        Returns(dict): The infrastructure outputs (including the ``infid`` key).
+        Raises: :py:class:`httpx.HTTPStatusError` if any HTTP step fails,
+                :py:class:`TimeoutError` on wait timeout, :py:class:`RuntimeError` on wait failure.
         """
-        success, inf_id = await self.create(inf_desc, desc_type)
-        if not success:
-            return False, inf_id
-
-        success, res = await self.wait(inf_id, max_time, poll_interval)
-        if not success:
-            return False, res
-
-        success, outputs = await self.get_infra_property(inf_id, "outputs")
-        if not success:
-            return False, outputs
-
+        inf_id = await self.create(inf_desc, desc_type)
+        await self.wait(inf_id, max_time, poll_interval)
+        outputs = await self.get_infra_property(inf_id, "outputs")
         outputs["infid"] = inf_id
-        return True, outputs
+        return outputs
