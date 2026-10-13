@@ -129,7 +129,7 @@
       pip:
         name: virtualenv
         executable: pip3
-        extra_args: "{{ extra_args }}"
+        extra_args: "{{ extra_args }} --ignore-installed"
 
     - name: Create Ansible virtualenv
       command:
