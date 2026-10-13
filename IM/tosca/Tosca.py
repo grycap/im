@@ -2045,7 +2045,8 @@ class Tosca:
                     size, unit = Tosca._get_size_and_unit(full_size)
 
                     if size or volume_id or snapshot_id:
-                        disks.append((size, unit, location, device, count, fs_type, volume_id, snapshot_id, vol_type, auto_delete))
+                        disks.append((size, unit, location, device, count, fs_type, volume_id,
+                                      snapshot_id, vol_type, auto_delete))
                         count += 1
                     else:
                         Tosca.logger.debug("Attached item without size or volume id, ignored.")
