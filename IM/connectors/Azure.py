@@ -738,6 +738,9 @@ class AzureCloudConnector(CloudConnector):
                 })
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                delete_option = DeleteOptions.DELETE
+                if system.getValue("disk." + str(cont) + ".auto_delete") == "no":
+                    delete_option = DeleteOptions.DETACH
                 device_letter = chr(ord('c') + cont - 1)
                 system.setValue(f"disk.{cont}.device", f"/dev/sd{device_letter}")
                 self.log_info("Adding a %s GB disk." % disk_size)
@@ -746,7 +749,7 @@ class AzureCloudConnector(CloudConnector):
                     'disk_size_gb': disk_size,
                     'lun': cont - 1,
                     'create_option': DiskCreateOption.EMPTY,
-                    'delete_option': DeleteOptions.DELETE
+                    'delete_option': delete_option
                 })
             cont += 1
 

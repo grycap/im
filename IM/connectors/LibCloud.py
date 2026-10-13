@@ -541,11 +541,12 @@ class LibCloudCloudConnector(CloudConnector):
                         location = self.get_node_location(node)
                         volume = node.driver.create_volume(int(disk_size), volume_name, location=location)
                         success = self.wait_volume(volume)
-                        if success:
+                        if not success:
+                            raise CloudConnectorException("Error waiting the volume ID %s." % volume.id)
+                        if vm.info.systems[0].getValue(
+                                "disk." + str(cont) + ".auto_delete") != "no":
                             # Add the volume to the VM to remove it later
                             vm.volumes.append(volume.id)
-                        else:
-                            raise CloudConnectorException("Error waiting the volume ID %s." % volume.id)
 
                     if success:
                         self.log_debug("Attach the volume ID " + str(volume.id))

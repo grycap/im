@@ -1948,7 +1948,7 @@ class Tosca:
         # Find associated BlockStorages
         disks = self._get_attached_disks(node)
 
-        for size, unit, location, device, num, fstype, vol_id, _, vol_type in disks:
+        for size, unit, location, device, num, fstype, vol_id, _, vol_type, auto_delete in disks:
             if vol_id:
                 res.setValue('disk.%d.image.url' % num, vol_id)
             else:
@@ -1961,6 +1961,8 @@ class Tosca:
             if location:
                 res.setValue('disk.%d.mount_path' % num, location)
                 res.setValue('disk.%d.fstype' % num, fstype)
+            if auto_delete is not None:
+                res.setValue('disk.%d.auto_delete' % num, 'yes' if auto_delete else 'no')
 
         self._add_ansible_roles(node, nodetemplates, res)
 
@@ -2039,10 +2041,11 @@ class Tosca:
                     full_size = self._final_function_result(trgt.get_property_value('size'), trgt)
                     volume_id = self._final_function_result(trgt.get_property_value('volume_id'), trgt)
                     snapshot_id = self._final_function_result(trgt.get_property_value('snapshot_id'), trgt)
+                    auto_delete = self._final_function_result(trgt.get_property_value('auto_delete'), trgt)
                     size, unit = Tosca._get_size_and_unit(full_size)
 
                     if size or volume_id or snapshot_id:
-                        disks.append((size, unit, location, device, count, fs_type, volume_id, snapshot_id, vol_type))
+                        disks.append((size, unit, location, device, count, fs_type, volume_id, snapshot_id, vol_type, auto_delete))
                         count += 1
                     else:
                         Tosca.logger.debug("Attached item without size or volume id, ignored.")

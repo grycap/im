@@ -481,7 +481,9 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                     success = self.wait_volume(volume)
                     if success:
                         # Add the volume to the VM to remove it later
-                        vm.volumes.append(volume.id)
+                        if vm.info.systems[0].getValue(
+                                "disk." + str(cont) + ".auto_delete") != "no":
+                            vm.volumes.append(volume.id)
                         self.log_debug("Attach the volume ID " + str(volume.id))
                         volume.attach(node, disk_device)
                         # wait the volume to be attached

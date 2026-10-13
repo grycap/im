@@ -1242,13 +1242,16 @@ class OpenStackCloudConnector(LibCloudCloudConnector):
                 }
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                disk_delete = True
+                if system.getValue("disk." + str(cont) + ".auto_delete") == "no":
+                    disk_delete = False
 
                 disk = {
                     'boot_index': cont,
                     'source_type': "blank",
                     'guest_format': disk_fstype,
                     'destination_type': "volume",
-                    'delete_on_termination': True,
+                    'delete_on_termination': disk_delete,
                     'volume_size': disk_size
                 }
                 if disk_type == "ephemeral":

@@ -745,10 +745,19 @@ class EC2CloudConnector(CloudConnector):
 
                 volumes = self.get_volumes(conn, vm)
                 for device, (size, snapshot_id, _, disk_type) in volumes.items():
+                    auto_delete = True
+                    cont = 1
+                    while system.getValue("disk." + str(cont) + ".device"):
+                        disk_device = system.getValue("disk." + str(cont) + ".device")
+                        if device[-1] == disk_device[-1]:
+                            auto_delete = system.getValue(
+                                "disk." + str(cont) + ".auto_delete") != "no"
+                            break
+                        cont += 1
                     bd = {
                         'DeviceName': device,
                         'Ebs': {
-                            'DeleteOnTermination': True,
+                            'DeleteOnTermination': auto_delete,
                         }
                     }
                     if size:

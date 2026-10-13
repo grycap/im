@@ -149,6 +149,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
                 }
             else:
                 disk_size = system.getFeature("disk." + str(cont) + ".size").getValue('G')
+                disk_delete = system.getValue("disk." + str(cont) + ".auto_delete") != "no"
                 # Min size is 10 GB
                 if disk_size < 10:
                     disk_size = 10
@@ -157,7 +158,7 @@ class OrangeCloudConnector(OpenStackCloudConnector):
                     'boot_index': -1,
                     'source_type': "blank",
                     'destination_type': "volume",
-                    'delete_on_termination': True,
+                    'delete_on_termination': disk_delete,
                     'volume_size': disk_size
                 }
 
