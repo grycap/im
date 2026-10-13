@@ -548,7 +548,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
             try:
                 orig_system = vm.info.systems[0]
                 if "volumes" not in vm.__dict__:
-                    vm.volumes = [volume.id for volume in self.get_node_volumes(node)]
+                    vm.volumes = []
 
                 cont = 1
                 while (orig_system.getValue("disk." + str(cont) + ".image.url") or
