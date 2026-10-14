@@ -2026,6 +2026,7 @@ class Tosca:
                 # set a default device
                 device = None
                 fs_type = "ext4"
+                auto_delete = None
 
                 for prop in props:
                     value = self._final_function_result(prop.value, node)
@@ -2035,13 +2036,14 @@ class Tosca:
                         device = value
                     elif prop.name == "fs_type":
                         fs_type = value
+                    elif prop.name == "auto_delete":
+                        auto_delete = value
 
                 if trgt.type_definition.type.endswith(".BlockStorage"):
                     vol_type = self._final_function_result(trgt.get_property_value('type'), trgt)
                     full_size = self._final_function_result(trgt.get_property_value('size'), trgt)
                     volume_id = self._final_function_result(trgt.get_property_value('volume_id'), trgt)
                     snapshot_id = self._final_function_result(trgt.get_property_value('snapshot_id'), trgt)
-                    auto_delete = self._final_function_result(trgt.get_property_value('auto_delete'), trgt)
                     size, unit = Tosca._get_size_and_unit(full_size)
 
                     if size or volume_id or snapshot_id:
