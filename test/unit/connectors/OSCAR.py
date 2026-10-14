@@ -78,6 +78,39 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.assertEqual(len(concrete), 1)
         self.assertNotIn("ERROR", self.log.getvalue(), msg="ERROR found in log: %s" % self.log.getvalue())
 
+    def test_15_kserve_service_json(self):
+        radl_system = radl_parse.parse_radl("system test (name = 'model')").systems[0]
+        radl_system.setValue("kserve.type", "huggingfaceserver")
+        radl_system.setValue("kserve.runtime_image", "registry/model:latest")
+        radl_system.setValue("kserve.model_format", " huggingface ")
+        radl_system.setValue("kserve.api_version", "v1")
+        radl_system.setValue("disk.0.image.url", "hf://models/example")
+        radl_system.setValue("cpu.count", 2)
+        radl_system.setValue("memory.size", 2, "Gi")
+        radl_system.setValue("gpu.count", 1)
+        radl_system.setValue("args", ["--model", "example"])
+        radl_system.setValue("environment.variables", ["TOKEN:secret"])
+
+        service = OSCARCloudConnector._get_service_json(radl_system)
+
+        self.assertEqual(service, {
+            "name": "model",
+            "kserve": {
+                "type": "huggingfaceserver",
+                "huggingfaceserver": {
+                    "runtime_image": "registry/model:latest",
+                    "model_format": " huggingface ",
+                    "api_version": "v1"
+                },
+                "storage_uri": "hf://models/example",
+                "cpu": "2",
+                "memory": "2048Mi",
+                "enable_gpu": True,
+                "args": ["--model", "example"],
+                "env": {"TOKEN": "secret"}
+            }
+        })
+
     @staticmethod
     def get_response(method, url, verify=False, headers=None, data=None):
         resp = MagicMock()

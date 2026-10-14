@@ -311,6 +311,77 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(radl.deploys[0].id, "plants")
         self.assertEqual(radl.deploys[0].vm_number, 1)
 
+    def test_tosca_oscar_kserve_service_json(self):
+        """Test TOSCA OSCAR KServe service JSON translation"""
+        tosca = Tosca.__new__(Tosca)
+        properties = {
+            'name': 'model',
+            'type': 'huggingfaceserver',
+            'runtime_image': 'registry/model:latest',
+            'model_format': 'huggingface',
+            'api_version': 'v1',
+            'cpu': 2,
+            'memory': '2Gi',
+            'enable_gpu': True,
+            'args': ['--model', 'example'],
+            'env_variables': {'TOKEN': 'secret'}
+        }
+        node = MagicMock()
+        node_properties = []
+        for prop_name, value in properties.items():
+            prop = MagicMock()
+            prop.name = prop_name
+            prop.value = value
+            node_properties.append(prop)
+        node.get_properties_objects.return_value = node_properties
+
+        service = tosca._get_oscar_service_json(node)
+
+        self.assertEqual(service, {
+            'name': 'model',
+            'type': 'huggingfaceserver',
+            'kserve': {
+                'type': 'huggingfaceserver',
+                'huggingfaceserver': {
+                    'runtime_image': 'registry/model:latest',
+                    'model_format': 'huggingface',
+                    'api_version': 'v1'
+                },
+                'env': {'TOKEN': 'secret'},
+                'cpu': '2',
+                'memory': '2048Mi',
+                'enable_gpu': True,
+                'args': ['--model', 'example']
+            }
+        })
+
+    def test_tosca_oscar_kserve_system_properties(self):
+        """Test TOSCA KServe properties are mapped to RADL features"""
+        tosca = Tosca.__new__(Tosca)
+        node = MagicMock()
+        node.name = 'model'
+        node.requirements = None
+        properties = {
+            'kserve.type': 'huggingfaceserver',
+            'kserve.runtime_image': 'registry/model:latest',
+            'kserve.model_format': 'huggingface',
+            'kserve.api_version': 'v1'
+        }
+        node_properties = []
+        for prop_name, value in properties.items():
+            prop = MagicMock()
+            prop.name = prop_name
+            prop.value = value
+            node_properties.append(prop)
+        node.get_properties_objects.return_value = node_properties
+
+        radl_system = tosca._gen_oscar_system(node)
+
+        self.assertEqual(radl_system.getValue('kserve.type'), 'huggingfaceserver')
+        self.assertEqual(radl_system.getValue('kserve.runtime_image'), 'registry/model:latest')
+        self.assertEqual(radl_system.getValue('kserve.model_format'), 'huggingface')
+        self.assertEqual(radl_system.getValue('kserve.api_version'), 'v1')
+
     def test_tosca_oscar_get_attribute(self):
         """Test TOSCA OSCAR get_attributes function"""
         tosca_data = read_file_as_string('../files/tosca_oscar.yml')

@@ -2163,7 +2163,11 @@ class Tosca:
             'cpu': 'cpu.count',
             'image': 'disk.0.image.url',
             'script': 'script',
-            'image_pull_secrets': 'image_pull_secrets'
+            'image_pull_secrets': 'image_pull_secrets',
+            'kserve.type': 'type',
+            'kserve.runtime_image': 'runtime_image',
+            'kserve.model_format': 'model_format',
+            'kserve.api_version': 'api_version'
         }
 
         for prop in node.get_properties_objects():
@@ -2232,35 +2236,62 @@ class Tosca:
         """Get the OSCAR service json"""
         res = {}
 
+        props = {}
+        service_type = "standard"
         for prop in node.get_properties_objects():
             value = self._final_function_result(prop.value, node)
             if value not in [None, [], {}]:
-                if prop.name in ['name', 'script', 'alpine', 'input', 'output', 'storage_providers', 'enable_gpu']:
-                    res[prop.name] = value
-                elif prop.name == 'cpu':
-                    res['cpu'] = "%g" % value
-                elif prop.name == 'memory':
-                    if not value.endswith("B"):
-                        value += "B"
-                    res[prop.name] = "%dMi" % ScalarUnit_Size(value).get_num_from_scalar_unit('MiB')
-                elif prop.name == 'image':
-                    if value.startswith('oscar://'):
-                        url_image = urlparse(value)
-                        if url_image.path:
-                            res["image"] = url_image.path[1:]
-                    elif value.startswith('docker://'):
-                        res["image"] = value[9:]
-                    else:
-                        res["image"] = value
-                elif prop.name == 'env_variables':
-                    res['environment'] = {'Variables': value}
-                elif prop.name == 'image_pull_secrets':
-                    if not isinstance(value, list):
-                        value = [value]
-                    res['image_pull_secrets'] = value
+                if prop.name == 'type':
+                    service_type = value
+                    res['type'] = value
                 else:
-                    # this should never happen
-                    Tosca.logger.warning("Property %s not expected. Ignoring." % prop.name)
+                    props[prop.name] = value
+
+        if props.get('name'):
+            res['name'] = props['name']
+
+        if service_type == "standard":
+            for name in ['script', 'alpine', 'input', 'output', 'storage_providers', 'enable_gpu']:
+                if name in props:
+                    res[name] = props[name]
+            if props.get('cpu'):
+                res['cpu'] = "%g" % props['cpu']
+            if props.get('memory'):
+                if not props['memory'].endswith("B"):
+                    props['memory'] += "B"
+                res['memory'] = "%dMi" % ScalarUnit_Size(props['memory']).get_num_from_scalar_unit('MiB')
+            if props.get('image'):
+                if props['image'].startswith('oscar://'):
+                    url_image = urlparse(props['image'])
+                    if url_image.path:
+                        res["image"] = url_image.path[1:]
+                elif props['image'].startswith('docker://'):
+                    res["image"] = props['image'][9:]
+                else:
+                    res["image"] = props['image']
+            if props.get('env_variables'):
+                res['environment'] = {'Variables': props['env_variables']}
+            if props.get('image_pull_secrets'):
+                if not isinstance(props['image_pull_secrets'], list):
+                    props['image_pull_secrets'] = [props['image_pull_secrets']]
+                res['image_pull_secrets'] = props['image_pull_secrets']
+        else:
+            res['kserve'] = {'type': service_type, service_type: {}}
+            if props.get('env_variables'):
+                res['kserve']['env'] = props['env_variables']
+            if props.get('cpu'):
+                res['kserve']['cpu'] = "%g" % props['cpu']
+            if props.get('memory'):
+                if not props['memory'].endswith("B"):
+                    props['memory'] += "B"
+                res['kserve']['memory'] = "%dMi" % ScalarUnit_Size(props['memory']).get_num_from_scalar_unit('MiB')
+            if props.get('enable_gpu'):
+                res['kserve']['enable_gpu'] = props['enable_gpu']
+            if props.get('args'):
+                res['kserve']['args'] = props['args']
+            for name in ['runtime_image', 'model_format', 'api_version']:
+                if props.get(name):
+                    res['kserve'][service_type][name] = props[name]
 
         return res
 
