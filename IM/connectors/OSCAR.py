@@ -176,7 +176,7 @@ class OSCARCloudConnector(CloudConnector):
                 else:
                     raise CloudConnectorException("Invalid image protocol: oscar, docker or empty are supported.")
                 service["image"] = image
-        
+
             if env_vars:
                 service["environment"] = {"Variables": env_vars}
 
@@ -199,7 +199,6 @@ class OSCARCloudConnector(CloudConnector):
                 service["kserve"]["args"] = radl_system.getValue("args")
             if env_vars:
                 service["kserve"]["env"] = env_vars
-
 
         return service
 
