@@ -324,7 +324,7 @@ class TestTosca(unittest.TestCase):
             'memory': '2Gi',
             'enable_gpu': True,
             'args': ['--model', 'example'],
-            'env_variables': {'TOKEN': 'token'},
+            'env_variables': {'VAR': 'value'},
             'input': [{'storage_provider': 'minio.default', 'path': 'models/input'}],
             'output': [{'storage_provider': 'minio.default', 'path': 'models/output'}]
         }
@@ -348,7 +348,7 @@ class TestTosca(unittest.TestCase):
                     'model_format': 'huggingface',
                     'api_version': 'v1'
                 },
-                'env': {'TOKEN': 'token'},
+                'env': {'VAR': 'value'},
                 'cpu': '2',
                 'memory': '2048Mi',
                 'enable_gpu': True,

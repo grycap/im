@@ -90,7 +90,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
         radl_system.setValue("memory.size", 2, "Gi")
         radl_system.setValue("gpu.count", 1)
         radl_system.setValue("args", ["--model", "example"])
-        radl_system.setValue("environment.variables", ["TOKEN:token"])
+        radl_system.setValue("environment.variables", ["VAR:value"])
 
         service = OSCARCloudConnector._get_service_json(radl_system)
 
@@ -108,7 +108,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                 "memory": "2048Mi",
                 "enable_gpu": True,
                 "args": ["--model", "example"],
-                "env": {"TOKEN": "token"}
+                "env": {"VAR": "value"}
             }
         })
 
