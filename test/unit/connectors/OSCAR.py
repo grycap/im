@@ -108,7 +108,7 @@ class TestOSCARConnector(TestCloudConnectorBase):
                 "memory": "2048Mi",
                 "enable_gpu": True,
                 "args": ["--model", "example"],
-                "env": {"TOKEN": "secret"}
+                "env": {"TOKEN": "token"}
             }
         })
 
