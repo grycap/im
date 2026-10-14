@@ -2280,6 +2280,8 @@ class Tosca:
                 res['image_pull_secrets'] = props['image_pull_secrets']
         else:
             res['kserve'] = {'type': service_type, service_type: {}}
+            if props.get('image'):
+                res['kserve']['storage_uri'] = props['image']
             if props.get('env_variables'):
                 res['kserve']['env'] = props['env_variables']
             if props.get('cpu'):
