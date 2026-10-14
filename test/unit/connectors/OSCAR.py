@@ -28,6 +28,7 @@ from IM.auth import Authentication
 from radl import radl_parse
 from IM.VirtualMachine import VirtualMachine
 from IM.connectors.OSCAR import OSCARCloudConnector
+from IM.connectors.exceptions import CloudConnectorException
 from urllib.parse import urlparse
 from mock import patch, MagicMock
 
@@ -80,9 +81,9 @@ class TestOSCARConnector(TestCloudConnectorBase):
 
     def test_15_kserve_service_json(self):
         radl_system = radl_parse.parse_radl("system test (name = 'model')").systems[0]
-        radl_system.setValue("kserve.type", "huggingfaceserver")
+        radl_system.setValue("kserve.type", "inference")
         radl_system.setValue("kserve.runtime_image", "registry/model:latest")
-        radl_system.setValue("kserve.model_format", " huggingface ")
+        radl_system.setValue("kserve.model_format", "huggingface")
         radl_system.setValue("kserve.api_version", "v1")
         radl_system.setValue("disk.0.image.url", "hf://models/example")
         radl_system.setValue("cpu.count", 2)
@@ -96,10 +97,10 @@ class TestOSCARConnector(TestCloudConnectorBase):
         self.assertEqual(service, {
             "name": "model",
             "kserve": {
-                "type": "huggingfaceserver",
-                "huggingfaceserver": {
+                "type": "inference",
+                "inference": {
                     "runtime_image": "registry/model:latest",
-                    "model_format": " huggingface ",
+                    "model_format": "huggingface",
                     "api_version": "v1"
                 },
                 "storage_uri": "hf://models/example",
@@ -110,6 +111,10 @@ class TestOSCARConnector(TestCloudConnectorBase):
                 "env": {"TOKEN": "secret"}
             }
         })
+
+        radl_system.setValue("kserve.type", "huggingfaceserver")
+        with self.assertRaises(CloudConnectorException):
+            OSCARCloudConnector._get_service_json(radl_system)
 
     @staticmethod
     def get_response(method, url, verify=False, headers=None, data=None):

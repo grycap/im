@@ -132,6 +132,9 @@ class OSCARCloudConnector(CloudConnector):
         service_type = "standard"
         if radl_system.getValue("kserve.type"):
             service_type = radl_system.getValue("kserve.type")
+            if service_type not in ["inference", "llm_inference"]:
+                raise CloudConnectorException("Invalid kserve.type '%s'. Only 'inference' and "
+                                              "'llm_inference' are supported." % service_type)
 
         if radl_system.getValue("name"):
             service["name"] = radl_system.getValue("name")

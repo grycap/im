@@ -316,7 +316,7 @@ class TestTosca(unittest.TestCase):
         tosca = Tosca.__new__(Tosca)
         properties = {
             'name': 'model',
-            'type': 'huggingfaceserver',
+            'type': 'inference',
             'runtime_image': 'registry/model:latest',
             'model_format': 'huggingface',
             'api_version': 'v1',
@@ -324,7 +324,9 @@ class TestTosca(unittest.TestCase):
             'memory': '2Gi',
             'enable_gpu': True,
             'args': ['--model', 'example'],
-            'env_variables': {'TOKEN': 'secret'}
+            'env_variables': {'TOKEN': 'secret'},
+            'input': [{'storage_provider': 'minio.default', 'path': 'models/input'}],
+            'output': [{'storage_provider': 'minio.default', 'path': 'models/output'}]
         }
         node = MagicMock()
         node_properties = []
@@ -339,10 +341,9 @@ class TestTosca(unittest.TestCase):
 
         self.assertEqual(service, {
             'name': 'model',
-            'type': 'huggingfaceserver',
             'kserve': {
-                'type': 'huggingfaceserver',
-                'huggingfaceserver': {
+                'type': 'inference',
+                'inference': {
                     'runtime_image': 'registry/model:latest',
                     'model_format': 'huggingface',
                     'api_version': 'v1'
@@ -352,7 +353,9 @@ class TestTosca(unittest.TestCase):
                 'memory': '2048Mi',
                 'enable_gpu': True,
                 'args': ['--model', 'example']
-            }
+            },
+            'input': [{'storage_provider': 'minio.default', 'path': 'models/input'}],
+            'output': [{'storage_provider': 'minio.default', 'path': 'models/output'}]
         })
 
     def test_tosca_oscar_kserve_system_properties(self):
@@ -362,10 +365,10 @@ class TestTosca(unittest.TestCase):
         node.name = 'model'
         node.requirements = None
         properties = {
-            'kserve.type': 'huggingfaceserver',
-            'kserve.runtime_image': 'registry/model:latest',
-            'kserve.model_format': 'huggingface',
-            'kserve.api_version': 'v1'
+            'type': 'inference',
+            'runtime_image': 'registry/model:latest',
+            'model_format': 'huggingface',
+            'api_version': 'v1'
         }
         node_properties = []
         for prop_name, value in properties.items():
@@ -377,7 +380,7 @@ class TestTosca(unittest.TestCase):
 
         radl_system = tosca._gen_oscar_system(node)
 
-        self.assertEqual(radl_system.getValue('kserve.type'), 'huggingfaceserver')
+        self.assertEqual(radl_system.getValue('kserve.type'), 'inference')
         self.assertEqual(radl_system.getValue('kserve.runtime_image'), 'registry/model:latest')
         self.assertEqual(radl_system.getValue('kserve.model_format'), 'huggingface')
         self.assertEqual(radl_system.getValue('kserve.api_version'), 'v1')

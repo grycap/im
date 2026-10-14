@@ -2164,10 +2164,10 @@ class Tosca:
             'image': 'disk.0.image.url',
             'script': 'script',
             'image_pull_secrets': 'image_pull_secrets',
-            'kserve.type': 'type',
-            'kserve.runtime_image': 'runtime_image',
-            'kserve.model_format': 'model_format',
-            'kserve.api_version': 'api_version'
+            'type': 'kserve.type',
+            'runtime_image': 'kserve.runtime_image',
+            'model_format': 'kserve.model_format',
+            'api_version': 'kserve.api_version'
         }
 
         for prop in node.get_properties_objects():
@@ -2243,15 +2243,18 @@ class Tosca:
             if value not in [None, [], {}]:
                 if prop.name == 'type':
                     service_type = value
-                    res['type'] = value
                 else:
                     props[prop.name] = value
 
         if props.get('name'):
             res['name'] = props['name']
+        if props.get('input'):
+            res['input'] = props['input']
+        if props.get('output'):
+            res['output'] = props['output']
 
         if service_type == "standard":
-            for name in ['script', 'alpine', 'input', 'output', 'storage_providers', 'enable_gpu']:
+            for name in ['script', 'alpine', 'storage_providers', 'enable_gpu']:
                 if name in props:
                     res[name] = props[name]
             if props.get('cpu'):
