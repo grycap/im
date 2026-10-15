@@ -395,6 +395,9 @@ machine.  The supported features are:
 
 ``disk.<diskId>.auto_delete = 'yes|no'``
    Set if the disk should be deleted when the VM is terminated.
+   Only applies to data disks created by the IM. The default value is ``yes``.
+   In case of using a disk with a source image this field is ignored and the disk
+   will not be deleted when the VM is terminated.
 
 ``disk.0.free_size = <positive integer value>B|K|M|G``
    Set the free space available in boot disk.
