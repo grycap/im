@@ -2453,7 +2453,10 @@ class Tosca:
                 value = int(ScalarUnit_Size(props['mem_size']).get_num_from_scalar_unit('B'))
                 res.setValue("memory.size", value, 'B')
             if 'volumes' in props:
-                for num, size, mount_path, volume_id in self._gen_k8s_volumes(node, nodetemplates, props['volumes'], cont):
+                for num, size, mount_path, volume_id in self._gen_k8s_volumes(node,
+                                                                              nodetemplates,
+                                                                              props['volumes'],
+                                                                              cont):
                     if volume_id:
                         res.setValue('disk.%d.image.url' % num, volume_id)
                     if size:
