@@ -385,6 +385,32 @@ class TestTosca(unittest.TestCase):
         self.assertEqual(radl_system.getValue('kserve.model_format'), 'huggingface')
         self.assertEqual(radl_system.getValue('kserve.api_version'), 'v1')
 
+    def test_tosca_oscar_kserve_system_cpu_memory(self):
+        """Test TOSCA KServe cpu/memory are mapped to kserve RADL features, not generic ones"""
+        tosca = Tosca.__new__(Tosca)
+        node = MagicMock()
+        node.name = 'model'
+        node.requirements = None
+        properties = {
+            'type': 'inference',
+            'cpu': 2,
+            'memory': '2Gi'
+        }
+        node_properties = []
+        for prop_name, value in properties.items():
+            prop = MagicMock()
+            prop.name = prop_name
+            prop.value = value
+            node_properties.append(prop)
+        node.get_properties_objects.return_value = node_properties
+
+        radl_system = tosca._gen_oscar_system(node)
+
+        self.assertEqual(radl_system.getValue('kserve.cpu'), '2')
+        self.assertEqual(radl_system.getValue('kserve.memory'), '2048Mi')
+        self.assertIsNone(radl_system.getValue('cpu.count'))
+        self.assertIsNone(radl_system.getValue('memory.size'))
+
     def test_tosca_oscar_get_attribute(self):
         """Test TOSCA OSCAR get_attributes function"""
         tosca_data = read_file_as_string('../files/tosca_oscar.yml')

@@ -213,8 +213,8 @@ class Tosca:
                             Tosca.logger.warning("Unknown tyoe of token %s. Ignoring." % token_type)
                 radl.ansible_hosts = [ansible_host]
             elif root_type == "tosca.nodes.aisprint.FaaS.Function":
-                min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(node)
-                num_instances = self._get_num_instances(count, default_instances, min_instances)
+                _, _, default_instances, count, removal_list = self._get_scalable_properties(node)
+                num_instances = self._get_num_instances(count, default_instances)
                 if num_instances not in [0, 1]:
                     raise Exception("Scalability values of %s only allows 0 or 1." % root_type)
 
@@ -370,7 +370,7 @@ class Tosca:
         return all_removal_list, self._complete_radl_networks(radl)
 
     @staticmethod
-    def _get_num_instances(count, default_instances, min_instances):
+    def _get_num_instances(count, default_instances, min_instances=None):
         # we must check the correct number of instances to deploy
         if count is not None:
             num_instances = count
@@ -2158,9 +2158,19 @@ class Tosca:
         """Generate the system for an OSCAR function."""
         res = system(node.name)
 
+        props = {}
+        for prop in node.get_properties_objects():
+            value = self._final_function_result(prop.value, node)
+            if value not in [None, [], {}]:
+                props[prop.name] = value
+
+        # The 'type' property determines whether cpu/memory must be set as
+        # generic system features (standard functions) or as kserve
+        # properties (inference services).
+        service_type = props.get('type', 'standard')
+
         property_map = {
             'name': 'name',
-            'cpu': 'cpu.count',
             'image': 'disk.0.image.url',
             'script': 'script',
             'image_pull_secrets': 'image_pull_secrets',
@@ -2169,66 +2179,79 @@ class Tosca:
             'model_format': 'kserve.model_format',
             'api_version': 'kserve.api_version'
         }
+        for name, radl_name in property_map.items():
+            if name in props:
+                res.setValue(radl_name, props[name])
 
-        for prop in node.get_properties_objects():
-            value = self._final_function_result(prop.value, node)
-            if value not in [None, [], {}]:
-                if prop.name in property_map:
-                    res.setValue(property_map[prop.name], value)
-                elif prop.name == 'alpine':
-                    res.setValue('alpine', 1 if value else 0)
-                elif prop.name == 'enable_gpu':
-                    if value:
-                        res.setValue('gpu.count', 1)
-                elif prop.name == 'enable_sgx':
-                    if value:
-                        res.setValue('cpu.sgx', 1)
-                elif prop.name == 'memory':
-                    if not value.endswith("B"):
-                        value += "B"
-                    value = int(ScalarUnit_Size(value).get_num_from_scalar_unit('B'))
-                    res.setValue("memory.size", value, 'B')
-                elif prop.name == 'env_variables':
-                    variables = ["%s:%s" % (k, v) for k, v in value.items()]
-                    res.setValue("environment.variables", variables)
-                elif prop.name in ['input', 'output']:
-                    for num, elem in enumerate(value):
-                        res.setValue("%s.%d.provider" % (prop.name, num), elem.get("storage_provider"))
-                        res.setValue("%s.%d.path" % (prop.name, num), elem.get("path"))
-                        if elem.get("suffix"):
-                            res.setValue("%s.%d.suffix" % (prop.name, num), elem.get("suffix"))
-                        if elem.get("prefix"):
-                            res.setValue("%s.%d.prefix" % (prop.name, num), elem.get("prefix"))
-                elif prop.name == 'storage_providers':
-                    cont = {"minio": 0, "s3": 0, "onedata": 0}
+        if 'cpu' in props:
+            if service_type == "standard":
+                res.setValue('cpu.count', props['cpu'])
+            else:
+                res.setValue('kserve.cpu', "%g" % props['cpu'])
 
-                    for provider_type in ["minio", "s3", "onedata"]:
-                        if provider_type in value:
-                            for prov_id, provider in value[provider_type].items():
-                                provider_pref = "%s.%d" % (provider_type, cont[provider_type])
-                                cont[provider_type] += 1
-                                res.setValue("%s.id" % provider_pref, prov_id)
+        if 'memory' in props:
+            value = props['memory']
+            if not value.endswith("B"):
+                value += "B"
+            if service_type == "standard":
+                res.setValue("memory.size", int(ScalarUnit_Size(value).get_num_from_scalar_unit('B')), 'B')
+            else:
+                mem_mi = int(ScalarUnit_Size(value).get_num_from_scalar_unit('MiB'))
+                res.setValue('kserve.memory', "%dMi" % mem_mi)
 
-                                for elem in ['access_key', 'secret_key', 'region', 'endpoint',
-                                             'verify', 'oneprovider_host', 'token', 'space']:
-                                    if provider.get(elem):
-                                        res.setValue("%s.%s" % (provider_pref, elem), provider.get(elem))
-                elif prop.name == 'exposed':
-                    for elem in ["min_scale", "max_scale", "port", "cpu_threshold"]:
-                        if elem in value:
-                            res.setValue("expose.%s" % elem, value)
-                else:
-                    # this should never happen
-                    Tosca.logger.warning("Property %s not expected. Ignoring." % prop.name)
+        for item in ['alpine', 'enable_gpu', 'enable_sgx']:
+            if props.get(item):
+                res.setValue(item, True)
 
-            if node.requirements:
-                deps = []
-                for r, n in node.relationships.items():
-                    if Tosca._is_derived_from(r, [r.DEPENDSON]):
-                        node_compute = self._find_host_node(n, self.tosca.nodetemplates)
-                        deps.append(node_compute.name)
-                if deps:
-                    res.setValue('dependencies', deps)
+        if props.get('env_variables'):
+            variables = ["%s:%s" % (k, v) for k, v in props['env_variables'].items()]
+            res.setValue("environment.variables", variables)
+
+        for io_name in ['input', 'output']:
+            if props.get(io_name):
+                for num, elem in enumerate(props[io_name]):
+                    res.setValue("%s.%d.provider" % (io_name, num), elem.get("storage_provider"))
+                    res.setValue("%s.%d.path" % (io_name, num), elem.get("path"))
+                    if elem.get("suffix"):
+                        res.setValue("%s.%d.suffix" % (io_name, num), elem.get("suffix"))
+                    if elem.get("prefix"):
+                        res.setValue("%s.%d.prefix" % (io_name, num), elem.get("prefix"))
+
+        if props.get('storage_providers'):
+            cont = {"minio": 0, "s3": 0, "onedata": 0}
+
+            for provider_type in ["minio", "s3", "onedata"]:
+                if provider_type in props['storage_providers']:
+                    for prov_id, provider in props['storage_providers'][provider_type].items():
+                        provider_pref = "%s.%d" % (provider_type, cont[provider_type])
+                        cont[provider_type] += 1
+                        res.setValue("%s.id" % provider_pref, prov_id)
+
+                        for elem in ['access_key', 'secret_key', 'region', 'endpoint',
+                                     'verify', 'oneprovider_host', 'token', 'space']:
+                            if provider.get(elem):
+                                res.setValue("%s.%s" % (provider_pref, elem), provider.get(elem))
+
+        if props.get('exposed'):
+            for elem in ["port", "cpu_threshold"]:
+                if elem in props['exposed']:
+                    res.setValue("expose.%s" % elem, props['exposed'][elem])
+
+        known_props = set(property_map) | {'cpu', 'memory', 'alpine', 'enable_gpu', 'enable_sgx',
+                                           'env_variables', 'input', 'output', 'storage_providers', 'exposed'}
+        for name in props:
+            if name not in known_props:
+                # this should never happen
+                Tosca.logger.warning("Property %s not expected. Ignoring." % name)
+
+        if node.requirements:
+            deps = []
+            for r, n in node.relationships.items():
+                if Tosca._is_derived_from(r, [r.DEPENDSON]):
+                    node_compute = self._find_host_node(n, self.tosca.nodetemplates)
+                    deps.append(node_compute.name)
+            if deps:
+                res.setValue('dependencies', deps)
 
         return res
 
@@ -2253,8 +2276,10 @@ class Tosca:
         if props.get('output'):
             res['output'] = props['output']
 
+        min_scale, max_scale, _, _, _ = self._get_scalable_properties(node)
+
         if service_type == "standard":
-            for name in ['script', 'alpine', 'storage_providers', 'enable_gpu']:
+            for name in ['script', 'alpine', 'storage_providers', 'enable_gpu', 'exposed']:
                 if name in props:
                     res[name] = props[name]
             if props.get('cpu'):
@@ -2297,6 +2322,10 @@ class Tosca:
             for name in ['runtime_image', 'model_format', 'api_version']:
                 if props.get(name):
                     res['kserve'][service_type][name] = props[name]
+            if min_scale is not None:
+                res['kserve']['min_scale'] = min_scale
+            if max_scale is not None:
+                res['kserve']['max_scale'] = max_scale
 
         return res
 
