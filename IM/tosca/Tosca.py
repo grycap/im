@@ -2283,11 +2283,13 @@ class Tosca:
             res['input'] = props['input']
         if props.get('output'):
             res['output'] = props['output']
+        if props.get('script'):
+            res['script'] = props['script']
 
         min_scale, max_scale, _, _, _ = self._get_scalable_properties(node)
 
         if service_type == "standard":
-            for name in ['script', 'alpine', 'storage_providers', 'enable_gpu']:
+            for name in ['alpine', 'storage_providers', 'enable_gpu']:
                 if name in props:
                     res[name] = props[name]
             if props.get('cpu'):

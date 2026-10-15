@@ -39,15 +39,9 @@ class OSCARCloudConnector(CloudConnector):
         CloudConnector.__init__(self, cloud_info, inf)
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = urlparse(str_url)
-        protocol = url[0]
-        src_host = url[1].split(':')[0]
-
-        # protocol should be oscar, docker, or empty in case of using a single image string
-        # but the system must have the name and script properties
-        if ((radl_system.getValue('name') and radl_system.getValue('script')) and
-                (not radl_system.getValue('provider.type') or radl_system.getValue('provider.type') == "oscar") and
-                ((protocol == "oscar" and self.cloud.server == src_host) or protocol in ["docker", ""])):
+        # The system must have the name and script properties
+        if ((radl_system.getValue('name') and radl_system.getValue('script') is not None) and
+                (not radl_system.getValue('provider.type') or radl_system.getValue('provider.type') == "oscar")):
             res_system = radl_system.clone()
             res_system.setValue('disk.0.os.credentials.username', 'oscar')
             return res_system
@@ -138,6 +132,8 @@ class OSCARCloudConnector(CloudConnector):
 
         if radl_system.getValue("name"):
             service["name"] = radl_system.getValue("name")
+        if radl_system.getValue("script"):
+            service["script"] = radl_system.getValue("script")
 
         env_vars = OSCARCloudConnector._get_env_variables(radl_system)
 
@@ -150,8 +146,6 @@ class OSCARCloudConnector(CloudConnector):
                 service["enable_gpu"] = True
             if radl_system.getValue("cpu.sgx"):
                 service["enable_sgx"] = True
-            if radl_system.getValue("script"):
-                service["script"] = radl_system.getValue("script")
             if radl_system.getValue("alpine"):
                 service["alpine"] = True
             if radl_system.getValue("image_pull_secrets"):
