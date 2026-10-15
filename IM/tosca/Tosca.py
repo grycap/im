@@ -766,19 +766,12 @@ class Tosca:
         removal_list = []
         scalable = node.get_capability("scalable")
         if scalable:
-            for prop in scalable.get_properties_objects():
-                if prop.value is not None:
-                    final_value = self._final_function_result(prop.value, node)
-                    if prop.name == "count":
-                        count = final_value
-                    elif prop.name == "max_instances":
-                        max_instances = final_value
-                    elif prop.name == "min_instances":
-                        min_instances = final_value
-                    elif prop.name == "default_instances":
-                        default_instances = final_value
-                    elif prop.name == "removal_list":
-                        removal_list = final_value
+            props = self._get_properties(scalable, node)
+            count = props.get("count")
+            max_instances = props.get("max_instances")
+            min_instances = props.get("min_instances")
+            default_instances = props.get("default_instances")
+            removal_list = props.get("removal_list", [])
 
         return min_instances, max_instances, default_instances, count, removal_list
 
@@ -1863,19 +1856,19 @@ class Tosca:
 
         res.setValue("instance_name", node.name)
 
-        for prop in node.get_properties_objects():
-            if prop.name == "tags" and prop.value:
-                if isinstance(prop.value, dict):
-                    instance_tags = ""
-                    for k, v in prop.value.items():
-                        if instance_tags != "":
-                            instance_tags += ","
-                        instance_tags += "%s=%s" % (k, v)
-                    res.setValue("instance_tags", instance_tags)
-                else:
-                    raise Exception("tags property must be a dictionary.")
-            elif prop.name == "instance_name" and prop.value:
-                res.setValue("instance_name", prop.value)
+        props = self._get_properties(node)
+        if props.get("tags"):
+            if isinstance(props["tags"], dict):
+                instance_tags = ""
+                for k, v in props["tags"].items():
+                    if instance_tags != "":
+                        instance_tags += ","
+                    instance_tags += "%s=%s" % (k, v)
+                res.setValue("instance_tags", instance_tags)
+            else:
+                raise Exception("tags property must be a dictionary.")
+        if props.get("instance_name"):
+            res.setValue("instance_name", props["instance_name"])
 
         property_map = {
             'architecture': 'cpu.arch',
@@ -1900,19 +1893,21 @@ class Tosca:
 
         for cap_type in ['os', 'host']:
             if node.get_capability(cap_type):
-                for prop in node.get_capability(cap_type).get_properties_objects():
-                    name = property_map.get(prop.name, None)
-                    if name and prop.value is not None:
+                cap_props = self._get_properties(node.get_capability(cap_type), node)
+
+                for prop_name in property_map.keys():
+                    if prop_name in cap_props:
+                        name = property_map[prop_name]
+                        value = cap_props[prop_name]
                         unit = None
-                        value = self._final_function_result(prop.value, node)
-                        if prop.name in ['disk_size', 'mem_size']:
+                        if prop_name in ['disk_size', 'mem_size']:
                             value, unit = Tosca._get_size_and_unit(value)
-                        elif prop.name == "version":
+                        elif prop_name == "version":
                             value = str(value)
-                        elif prop.name == "image":
+                        elif prop_name == "image":
                             if value.find("://") == -1:
                                 value = "docker://%s" % value
-                        elif prop.name == "credential":
+                        elif prop_name == "credential":
                             token_type, token = self._get_credential_values(value)
                             if token:
                                 if token_type == "password":
@@ -1930,7 +1925,7 @@ class Tosca:
                                 raise Exception("User must be specified in the image credentials.")
                             name = "disk.0.os.credentials.username"
                             value = value['user']
-                        elif prop.name in ["preemtible_instance", "sgx"]:
+                        elif prop_name in ["preemtible_instance", "sgx"]:
                             value = 'yes' if value else 'no'
 
                         operator, new_value = self._get_operator(value)
@@ -2016,7 +2011,7 @@ class Tosca:
             rel_tpl = Tosca._get_relationship_template(rel, src, trgt)
             # TODO: ver root_type
             if rel.type.endswith("AttachesTo"):
-                props = rel_tpl.get_properties_objects()
+                props = self._get_properties(rel_tpl, node)
 
                 vol_type = None
                 size = None
@@ -2025,14 +2020,9 @@ class Tosca:
                 device = None
                 fs_type = "ext4"
 
-                for prop in props:
-                    value = self._final_function_result(prop.value, node)
-                    if prop.name == "location":
-                        location = value
-                    elif prop.name == "device":
-                        device = value
-                    elif prop.name == "fs_type":
-                        fs_type = value
+                location = props.get("location")
+                device = props.get("device")
+                fs_type = props.get("fs_type", fs_type)
 
                 if trgt.type_definition.type.endswith(".BlockStorage"):
                     vol_type = self._final_function_result(trgt.get_property_value('type'), trgt)
@@ -2154,16 +2144,26 @@ class Tosca:
 
         return yaml1
 
+    def _get_properties(self, node, context=None):
+        """
+        Get the properties of a node, capability or relationship as a dict.
+
+        The optional context is used to resolve TOSCA functions when the
+        property owner is not the node itself.
+        """
+        props = {}
+        for prop in node.get_properties_objects():
+            value = self._final_function_result(prop.value, context or node)
+            if value not in [None, [], {}]:
+                props[prop.name] = value
+        return props
+
     def _gen_oscar_system(self, node):
         """Generate the system for an OSCAR function."""
         res = system(node.name)
 
-        props = {}
-        for prop in node.get_properties_objects():
-            value = self._final_function_result(prop.value, node)
-            if value not in [None, [], {}]:
-                props[prop.name] = value
-
+        min_scale, max_scale, _, _, _ = self._get_scalable_properties(node)
+        props = self._get_properties(node)
         # The 'type' property determines whether cpu/memory must be set as
         # generic system features (standard functions) or as kserve
         # properties (inference services).
@@ -2199,9 +2199,12 @@ class Tosca:
                 mem_mi = int(ScalarUnit_Size(value).get_num_from_scalar_unit('MiB'))
                 res.setValue('kserve.memory', "%dMi" % mem_mi)
 
-        for item in ['alpine', 'enable_gpu', 'enable_sgx']:
-            if props.get(item):
-                res.setValue(item, True)
+        if props.get('enable_gpu') is not None:
+            res.setValue('gpu.count', 1 if props['enable_gpu'] else 0)
+        if props.get('enable_sgx') is not None:
+            res.setValue('cpu.sgx', 1 if props['enable_sgx'] else 0)
+        if props.get('alpine') is not None:
+            res.setValue('alpine', 1 if props['alpine'] else 0)
 
         if props.get('env_variables'):
             variables = ["%s:%s" % (k, v) for k, v in props['env_variables'].items()]
@@ -2232,10 +2235,19 @@ class Tosca:
                             if provider.get(elem):
                                 res.setValue("%s.%s" % (provider_pref, elem), provider.get(elem))
 
-        if props.get('exposed'):
+        if service_type == "standard" and props.get('exposed'):
+            if max_scale is not None:
+                res.setValue("expose.max_scale", max_scale)
+            if min_scale is not None:
+                res.setValue("expose.min_scale", min_scale)
             for elem in ["port", "cpu_threshold"]:
                 if elem in props['exposed']:
                     res.setValue("expose.%s" % elem, props['exposed'][elem])
+        elif service_type != "standard":
+            if max_scale is not None:
+                res.setValue("kserve.max_scale", max_scale)
+            if min_scale is not None:
+                res.setValue("kserve.min_scale", min_scale)
 
         known_props = set(property_map) | {'cpu', 'memory', 'alpine', 'enable_gpu', 'enable_sgx',
                                            'env_variables', 'input', 'output', 'storage_providers', 'exposed'}
@@ -2259,15 +2271,11 @@ class Tosca:
         """Get the OSCAR service json"""
         res = {}
 
-        props = {}
-        service_type = "standard"
-        for prop in node.get_properties_objects():
-            value = self._final_function_result(prop.value, node)
-            if value not in [None, [], {}]:
-                if prop.name == 'type':
-                    service_type = value
-                else:
-                    props[prop.name] = value
+        props = self._get_properties(node)
+        # The 'type' property determines whether cpu/memory must be set as
+        # generic system features (standard functions) or as kserve
+        # properties (inference services).
+        service_type = props.get('type', 'standard')
 
         if props.get('name'):
             res['name'] = props['name']
@@ -2279,7 +2287,7 @@ class Tosca:
         min_scale, max_scale, _, _, _ = self._get_scalable_properties(node)
 
         if service_type == "standard":
-            for name in ['script', 'alpine', 'storage_providers', 'enable_gpu', 'exposed']:
+            for name in ['script', 'alpine', 'storage_providers', 'enable_gpu']:
                 if name in props:
                     res[name] = props[name]
             if props.get('cpu'):
@@ -2303,6 +2311,15 @@ class Tosca:
                 if not isinstance(props['image_pull_secrets'], list):
                     props['image_pull_secrets'] = [props['image_pull_secrets']]
                 res['image_pull_secrets'] = props['image_pull_secrets']
+            if props.get('exposed'):
+                res['expose'] = {}
+                if max_scale is not None:
+                    res['expose']['max_scale'] = max_scale
+                if min_scale is not None:
+                    res['expose']['min_scale'] = min_scale
+                for elem in ["port", "cpu_threshold"]:
+                    if elem in props['exposed']:
+                        res['expose'][elem] = props['exposed'][elem]
         else:
             res['kserve'] = {'type': service_type, service_type: {}}
             if props.get('image'):
@@ -2408,61 +2425,57 @@ class Tosca:
 
         res.setValue("disk.0.image.url", "docker://%s" % image)
 
-        for prop in node.get_properties_objects():
-            value = self._final_function_result(prop.value, node)
-            if value not in [None, [], {}]:
-                if prop.name == "environment":
-                    variables = ""
-                    for k, v in value.items():
-                        if variables != "":
-                            variables += ","
-                        if ',' in v:
-                            v = '"%s"' % v
-                        variables += "%s=%s" % (k, v)
-                    res.setValue("environment.variables", variables)
-                elif prop.name == "command":
-                    res.setValue("command", value)
+        props = self._get_properties(node)
+        if 'environment' in props:
+            variables = ""
+            for k, v in props['environment'].items():
+                if variables != "":
+                    variables += ","
+                if ',' in v:
+                    v = '"%s"' % v
+                variables += "%s=%s" % (k, v)
+            res.setValue("environment.variables", variables)
+        if 'command' in props:
+            res.setValue("command", props['command'])
 
         runtime = self._find_host_node(node, nodetemplates, node_type="tosca.nodes.Container.Runtime.Docker")
 
         if runtime:
             # Get the properties of the runtime
-            for prop in runtime.get_capability('host').get_properties_objects():
-                value = self._final_function_result(prop.value, node)
-                if value not in [None, [], {}]:
-                    if prop.name == "num_cpus":
-                        res.setValue('cpu.count', float(value))
-                    elif prop.name == "num_gpus":
-                        res.setValue('gpu.count', int(value))
-                    elif prop.name == "mem_size":
-                        if not value.endswith("B"):
-                            value += "B"
-                        value = int(ScalarUnit_Size(value).get_num_from_scalar_unit('B'))
-                        res.setValue("memory.size", value, 'B')
-                    elif prop.name == 'volumes':
-                        for num, size, mount_path, volume_id in self._gen_k8s_volumes(node, nodetemplates, value, cont):
-                            if volume_id:
-                                res.setValue('disk.%d.image.url' % num, volume_id)
-                            if size:
-                                res.setValue('disk.%d.size' % num, size, 'B')
-                            if mount_path:
-                                res.setValue('disk.%d.mount_path' % num, mount_path)
-                    elif prop.name == 'publish_ports':
-                        # Asume that publish_ports must be published as NodePort
-                        pub = network("%s_pub" % res.name)
-                        pub.setValue("outbound", "yes")
-                        pub.setValue("outports", self._format_outports(value, False))
-                        nets.append(pub)
-                        res.setValue("net_interface.0.connection", "%s_pub" % res.name)
-                        if value and value[0] and 'endpoint' in value[0]:
-                            res.setValue("net_interface.0.dns_name", value[0]['endpoint'])
-                            res.setValue("net_interface.0.dns.0.name", value[0]['endpoint'])
-                    elif prop.name == 'expose_ports':
-                        # Asume that publish_ports must be published as ClusterIP
-                        priv = network("%s_priv" % res.name)
-                        priv.setValue("outbound", "no")
-                        priv.setValue("outports", self._format_outports(value))
-                        nets.append(priv)
-                        res.setValue("net_interface.0.connection", "%s_priv" % res.name)
+            props = self._get_properties(runtime.get_capability('host'), node)
+            if 'num_cpus' in props:
+                res.setValue('cpu.count', float(props['num_cpus']))
+            if 'num_gpus' in props:
+                res.setValue('gpu.count', int(props['num_gpus']))
+            if 'mem_size' in props:
+                if not props['mem_size'].endswith("B"):
+                    props['mem_size'] += "B"
+                value = int(ScalarUnit_Size(props['mem_size']).get_num_from_scalar_unit('B'))
+                res.setValue("memory.size", value, 'B')
+            if 'volumes' in props:
+                for num, size, mount_path, volume_id in self._gen_k8s_volumes(node, nodetemplates, props['volumes'], cont):
+                    if volume_id:
+                        res.setValue('disk.%d.image.url' % num, volume_id)
+                    if size:
+                        res.setValue('disk.%d.size' % num, size, 'B')
+                    if mount_path:
+                        res.setValue('disk.%d.mount_path' % num, mount_path)
+            if 'publish_ports' in props:
+                # Asume that publish_ports must be published as NodePort
+                pub = network("%s_pub" % res.name)
+                pub.setValue("outbound", "yes")
+                pub.setValue("outports", self._format_outports(props['publish_ports'], False))
+                nets.append(pub)
+                res.setValue("net_interface.0.connection", "%s_pub" % res.name)
+                if props['publish_ports'] and props['publish_ports'][0] and 'endpoint' in props['publish_ports'][0]:
+                    res.setValue("net_interface.0.dns_name", props['publish_ports'][0]['endpoint'])
+                    res.setValue("net_interface.0.dns.0.name", props['publish_ports'][0]['endpoint'])
+            if 'expose_ports' in props:
+                # Asume that publish_ports must be published as ClusterIP
+                priv = network("%s_priv" % res.name)
+                priv.setValue("outbound", "no")
+                priv.setValue("outports", self._format_outports(props['expose_ports']))
+                nets.append(priv)
+                res.setValue("net_interface.0.connection", "%s_priv" % res.name)
 
         return res, nets

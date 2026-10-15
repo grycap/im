@@ -411,6 +411,74 @@ class TestTosca(unittest.TestCase):
         self.assertIsNone(radl_system.getValue('cpu.count'))
         self.assertIsNone(radl_system.getValue('memory.size'))
 
+    def test_tosca_oscar_exposed_scaling(self):
+        """Test OSCAR scaling properties are added to exposed standard services."""
+        tosca = Tosca.__new__(Tosca)
+        node = MagicMock()
+        node.name = 'service'
+        node.requirements = None
+
+        exposed = MagicMock()
+        exposed.name = 'exposed'
+        exposed.value = {'port': 8080, 'cpu_threshold': 70}
+        node.get_properties_objects.return_value = [exposed]
+
+        min_instances = MagicMock()
+        min_instances.name = 'min_instances'
+        min_instances.value = 0
+        max_instances = MagicMock()
+        max_instances.name = 'max_instances'
+        max_instances.value = 5
+        scalable = MagicMock()
+        scalable.get_properties_objects.return_value = [min_instances, max_instances]
+        node.get_capability.side_effect = lambda name: scalable if name == 'scalable' else None
+
+        radl_system = tosca._gen_oscar_system(node)
+        service = tosca._get_oscar_service_json(node)
+
+        self.assertEqual(radl_system.getValue('expose.min_scale'), 0)
+        self.assertEqual(radl_system.getValue('expose.max_scale'), 5)
+        self.assertEqual(radl_system.getValue('expose.port'), 8080)
+        self.assertEqual(radl_system.getValue('expose.cpu_threshold'), 70)
+        self.assertIsNone(radl_system.getValue('kserve.min_scale'))
+        self.assertEqual(service['expose'], {
+            'min_scale': 0,
+            'max_scale': 5,
+            'port': 8080,
+            'cpu_threshold': 70
+        })
+
+    def test_tosca_oscar_kserve_scaling(self):
+        """Test OSCAR scaling properties are added to KServe services."""
+        tosca = Tosca.__new__(Tosca)
+        node = MagicMock()
+        node.name = 'model'
+        node.requirements = None
+
+        service_type = MagicMock()
+        service_type.name = 'type'
+        service_type.value = 'inference'
+        node.get_properties_objects.return_value = [service_type]
+
+        min_instances = MagicMock()
+        min_instances.name = 'min_instances'
+        min_instances.value = 1
+        max_instances = MagicMock()
+        max_instances.name = 'max_instances'
+        max_instances.value = 4
+        scalable = MagicMock()
+        scalable.get_properties_objects.return_value = [min_instances, max_instances]
+        node.get_capability.side_effect = lambda name: scalable if name == 'scalable' else None
+
+        radl_system = tosca._gen_oscar_system(node)
+        service = tosca._get_oscar_service_json(node)
+
+        self.assertEqual(radl_system.getValue('kserve.min_scale'), 1)
+        self.assertEqual(radl_system.getValue('kserve.max_scale'), 4)
+        self.assertIsNone(radl_system.getValue('expose.min_scale'))
+        self.assertEqual(service['kserve']['min_scale'], 1)
+        self.assertEqual(service['kserve']['max_scale'], 4)
+
     def test_tosca_oscar_get_attribute(self):
         """Test TOSCA OSCAR get_attributes function"""
         tosca_data = read_file_as_string('../files/tosca_oscar.yml')
