@@ -39,15 +39,9 @@ class OSCARCloudConnector(CloudConnector):
         CloudConnector.__init__(self, cloud_info, inf)
 
     def concrete_system(self, radl_system, str_url, auth_data):
-        url = urlparse(str_url)
-        protocol = url[0]
-        src_host = url[1].split(':')[0]
-
-        # protocol should be oscar, docker, or empty in case of using a single image string
-        # but the system must have the name and script properties
-        if ((radl_system.getValue('name') and radl_system.getValue('script')) and
-                (not radl_system.getValue('provider.type') or radl_system.getValue('provider.type') == "oscar") and
-                ((protocol == "oscar" and self.cloud.server == src_host) or protocol in ["docker", ""])):
+        # The system must have the name and script properties
+        if ((radl_system.getValue('name') and radl_system.getValue('script') is not None) and
+                (not radl_system.getValue('provider.type') or radl_system.getValue('provider.type') == "oscar")):
             res_system = radl_system.clone()
             res_system.setValue('disk.0.os.credentials.username', 'oscar')
             return res_system
@@ -129,51 +123,79 @@ class OSCARCloudConnector(CloudConnector):
     def _get_service_json(radl_system):
         service = {}
 
+        service_type = "standard"
+        if radl_system.getValue("kserve.type"):
+            service_type = radl_system.getValue("kserve.type")
+            if service_type not in ["inference", "llm_inference"]:
+                raise CloudConnectorException("Invalid kserve.type '%s'. Only 'inference' and "
+                                              "'llm_inference' are supported." % service_type)
+
         if radl_system.getValue("name"):
             service["name"] = radl_system.getValue("name")
-        if radl_system.getValue("memory.size"):
-            service["memory"] = "%dMi" % radl_system.getFeature('memory.size').getValue('Mi')
-        if radl_system.getValue("cpu.count"):
-            service["cpu"] = "%g" % radl_system.getValue("cpu.count")
-        if radl_system.getValue("gpu.count"):
-            service["enable_gpu"] = True
-        if radl_system.getValue("cpu.sgx"):
-            service["enable_sgx"] = True
         if radl_system.getValue("script"):
             service["script"] = radl_system.getValue("script")
-        if radl_system.getValue("alpine"):
-            service["alpine"] = True
-        if radl_system.getValue("image_pull_secrets"):
-            secrets = radl_system.getValue("image_pull_secrets")
-            if not isinstance(secrets, list):
-                secrets = [secrets]
-            service["image_pull_secrets"] = secrets
-
-        expose = {}
-        for elem in ["min_scale", "max_scale", "port", "cpu_threshold"]:
-            if radl_system.getValue("expose.%s" % elem):
-                expose[elem] = radl_system.getValue("expose.%s" % elem)
-        if expose:
-            service["expose"] = expose
-
-        if radl_system.getValue("disk.0.image.url"):
-            url_image = urlparse(radl_system.getValue("disk.0.image.url"))
-            image = ""
-            if url_image.scheme == "docker":
-                image = "%s%s" % (url_image[1], url_image[2])
-            elif url_image.scheme == "":
-                image = url_image[2]
-            elif url_image.scheme == "oscar":
-                image = url_image[2][1:]
-            else:
-                raise CloudConnectorException("Invalid image protocol: oscar, docker or empty are supported.")
-            service["image"] = image
 
         env_vars = OSCARCloudConnector._get_env_variables(radl_system)
-        if env_vars:
-            service["environment"] = {"Variables": env_vars}
 
-        OSCARCloudConnector._get_storage_info(radl_system, service)
+        if service_type == "standard":
+            if radl_system.getValue("memory.size"):
+                service["memory"] = "%dMi" % radl_system.getFeature('memory.size').getValue('Mi')
+            if radl_system.getValue("cpu.count"):
+                service["cpu"] = "%g" % radl_system.getValue("cpu.count")
+            if radl_system.getValue("gpu.count"):
+                service["enable_gpu"] = True
+            if radl_system.getValue("cpu.sgx"):
+                service["enable_sgx"] = True
+            if radl_system.getValue("alpine"):
+                service["alpine"] = True
+            if radl_system.getValue("image_pull_secrets"):
+                secrets = radl_system.getValue("image_pull_secrets")
+                if not isinstance(secrets, list):
+                    secrets = [secrets]
+                service["image_pull_secrets"] = secrets
+
+            expose = {}
+            for elem in ["min_scale", "max_scale", "port", "cpu_threshold"]:
+                if radl_system.getValue("expose.%s" % elem):
+                    expose[elem] = radl_system.getValue("expose.%s" % elem)
+            if expose:
+                service["expose"] = expose
+
+            if radl_system.getValue("disk.0.image.url"):
+                url_image = urlparse(radl_system.getValue("disk.0.image.url"))
+                image = ""
+                if url_image.scheme == "docker":
+                    image = "%s%s" % (url_image[1], url_image[2])
+                elif url_image.scheme == "":
+                    image = url_image[2]
+                elif url_image.scheme == "oscar":
+                    image = url_image[2][1:]
+                else:
+                    raise CloudConnectorException("Invalid image protocol: oscar, docker or empty are supported.")
+                service["image"] = image
+
+            if env_vars:
+                service["environment"] = {"Variables": env_vars}
+
+            OSCARCloudConnector._get_storage_info(radl_system, service)
+        else:
+            service["kserve"] = {"type": service_type, service_type: {}}
+            for name in ['runtime_image', 'model_format', 'api_version']:
+                if radl_system.getValue("kserve.%s" % name):
+                    service['kserve'][service_type][name] = radl_system.getValue("kserve.%s" % name)
+
+            if radl_system.getValue("disk.0.image.url"):
+                service["kserve"]["storage_uri"] = radl_system.getValue("disk.0.image.url")
+            if radl_system.getValue("cpu.count"):
+                service["kserve"]["cpu"] = "%g" % radl_system.getValue("cpu.count")
+            if radl_system.getValue("memory.size"):
+                service["kserve"]["memory"] = "%dMi" % radl_system.getFeature('memory.size').getValue('Mi')
+            if radl_system.getValue("gpu.count"):
+                service["kserve"]["enable_gpu"] = True
+            if radl_system.getValue("args"):
+                service["kserve"]["args"] = radl_system.getValue("args")
+            if env_vars:
+                service["kserve"]["env"] = env_vars
 
         return service
 
