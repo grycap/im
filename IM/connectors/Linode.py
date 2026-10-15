@@ -491,8 +491,7 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 cont = 1
                 while vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
                     volume = self.create_volume(node, vm.info.systems[0], vm.info.systems[0], cont)
-                    if vm.info.systems[0].getValue(
-                            "disk." + str(cont) + ".auto_delete") != "no":
+                    if vm.info.systems[0].getValue("disk." + str(cont) + ".auto_delete") != "no":
                         vm.volumes.append(volume.id)
                     cont += 1
             return True

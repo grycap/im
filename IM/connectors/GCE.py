@@ -512,8 +512,7 @@ class GCECloudConnector(LibCloudCloudConnector):
                 disk['autoDelete'] = False
             else:
                 disk_size = radl.systems[0].getFeature("disk." + str(cont) + ".size").getValue('G')
-                disk['autoDelete'] = radl.systems[0].getValue(
-                    "disk." + str(cont) + ".auto_delete") != "no"
+                disk['autoDelete'] = radl.systems[0].getValue("disk." + str(cont) + ".auto_delete") != "no"
                 disk['initializeParams'] = {'diskName': "im-%s-%s" % (inf.id, str(cont)),
                                             'diskSizeGb': str(disk_size),
                                             'diskType': driver.ex_get_disktype(disk_type,
