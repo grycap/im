@@ -543,8 +543,7 @@ class LibCloudCloudConnector(CloudConnector):
                         success = self.wait_volume(volume)
                         if not success:
                             raise CloudConnectorException("Error waiting the volume ID %s." % volume.id)
-                        if vm.info.systems[0].getValue(
-                                "disk." + str(cont) + ".auto_delete") != "no":
+                        if vm.info.systems[0].getValue("disk." + str(cont) + ".auto_delete") != "no":
                             # Add the volume to the VM to remove it later
                             vm.volumes.append(volume.id)
 
