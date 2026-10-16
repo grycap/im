@@ -75,7 +75,7 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                 protocol = self.cloud.protocol
                 if not protocol:
                     protocol = "http"
-                port = "" if self.cloud.port == -1 else ":" % self.cloud.port
+                port = "" if self.cloud.port == -1 else ":%d" % self.cloud.port
                 url = protocol + "://" + self.cloud.server + port + self.cloud.path
 
                 Driver = get_driver(Provider.CLOUDSTACK)
@@ -481,7 +481,8 @@ class CloudStackCloudConnector(LibCloudCloudConnector):
                     success = self.wait_volume(volume)
                     if success:
                         # Add the volume to the VM to remove it later
-                        vm.volumes.append(volume.id)
+                        if vm.info.systems[0].getValue("disk." + str(cont) + ".auto_delete") != "no":
+                            vm.volumes.append(volume.id)
                         self.log_debug("Attach the volume ID " + str(volume.id))
                         volume.attach(node, disk_device)
                         # wait the volume to be attached

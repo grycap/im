@@ -394,7 +394,8 @@ class UpCloudCloudConnector(CloudConnector):
                     "type": "disk",
                     "address": address,
                 }
-                created_addresses.append(address)
+                if system.getValue("disk.%d.auto_delete" % spec["index"]) != "no":
+                    created_addresses.append(address)
 
             system.setValue("disk.%d.device" % spec["index"],
                             self.device_from_upcloud(address))

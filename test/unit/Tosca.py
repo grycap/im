@@ -91,6 +91,7 @@ class TestTosca(unittest.TestCase):
             self.assertEqual(lrms_server.getValue("disk.1.mount_path"), "/mnt/disk3")
         if lrms_server.getValue("disk.2.size") == 10000000000:
             self.assertEqual(lrms_server.getValue("disk.2.mount_path"), "/mnt/disk2")
+            self.assertEqual(lrms_server.getValue("disk.2.auto_delete"), "no")
         else:
             self.assertEqual(lrms_server.getValue("disk.2.size"), 20000000000)
             self.assertEqual(lrms_server.getValue("disk.2.mount_path"), "/mnt/disk3")

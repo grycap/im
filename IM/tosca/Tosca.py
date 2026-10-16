@@ -1948,7 +1948,7 @@ class Tosca:
         # Find associated BlockStorages
         disks = self._get_attached_disks(node)
 
-        for size, unit, location, device, num, fstype, vol_id, _, vol_type in disks:
+        for size, unit, location, device, num, fstype, vol_id, _, vol_type, auto_delete in disks:
             if vol_id:
                 res.setValue('disk.%d.image.url' % num, vol_id)
             else:
@@ -1961,6 +1961,8 @@ class Tosca:
             if location:
                 res.setValue('disk.%d.mount_path' % num, location)
                 res.setValue('disk.%d.fstype' % num, fstype)
+            if auto_delete is not None:
+                res.setValue('disk.%d.auto_delete' % num, 'yes' if auto_delete else 'no')
 
         self._add_ansible_roles(node, nodetemplates, res)
 
@@ -2024,6 +2026,7 @@ class Tosca:
                 # set a default device
                 device = None
                 fs_type = "ext4"
+                auto_delete = None
 
                 for prop in props:
                     value = self._final_function_result(prop.value, node)
@@ -2033,6 +2036,8 @@ class Tosca:
                         device = value
                     elif prop.name == "fs_type":
                         fs_type = value
+                    elif prop.name == "auto_delete":
+                        auto_delete = value
 
                 if trgt.type_definition.type.endswith(".BlockStorage"):
                     vol_type = self._final_function_result(trgt.get_property_value('type'), trgt)
@@ -2042,7 +2047,8 @@ class Tosca:
                     size, unit = Tosca._get_size_and_unit(full_size)
 
                     if size or volume_id or snapshot_id:
-                        disks.append((size, unit, location, device, count, fs_type, volume_id, snapshot_id, vol_type))
+                        disks.append((size, unit, location, device, count, fs_type, volume_id,
+                                      snapshot_id, vol_type, auto_delete))
                         count += 1
                     else:
                         Tosca.logger.debug("Attached item without size or volume id, ignored.")
