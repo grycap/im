@@ -315,8 +315,17 @@ class TestCtxtAgent(unittest.TestCase):
         pos = yaml_data[0]['tasks'][0]['copy'].find('content="')
         copy_content = yaml_data[0]['tasks'][0]['copy'][pos + 9:-2]
         self.assertEqual(copy_content, "{collections: [{name: ns.collection, version: '1.0'}]}")
-        self.assertEqual(yaml_data[0]['tasks'][1]['command'][:110],
-                         ctxt_agent.MAMBA_CMD + "ansible-galaxy collection install -c -r /tmp/galaxy_collections_")
+        self.assertEqual(yaml_data[0]['tasks'][1]['command'][:113],
+                         ctxt_agent.MAMBA_CMD + "ansible-galaxy collection install -c -U -r /tmp/galaxy_collections_")
+
+        requirements_file = (ctxt_agent.ANSIBLE_DIR +
+                             "/ansible_collections/ns/collection/requirements.txt")
+        self.assertEqual(yaml_data[0]['tasks'][2]['stat']['path'], requirements_file)
+        self.assertEqual(yaml_data[0]['tasks'][2]['register'], "collection_requirements_ns_collection")
+        self.assertEqual(yaml_data[0]['tasks'][3]['command'],
+                         ctxt_agent.MAMBA_CMD + "python -m pip install -r " + requirements_file)
+        self.assertEqual(yaml_data[0]['tasks'][3]['when'],
+                         "collection_requirements_ns_collection.stat.exists")
 
         os.unlink(res)
 

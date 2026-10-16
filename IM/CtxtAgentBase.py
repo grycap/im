@@ -520,7 +520,7 @@ class CtxtAgentBase:
                 task["name"] = "Create YAML file to install the collections with ansible-galaxy"
                 yaml_data[0]['tasks'].append(task)
 
-                task = {"command": self.MAMBA_CMD + "ansible-galaxy collection install -c -r %s" % filename}
+                task = {"command": self.MAMBA_CMD + "ansible-galaxy collection install -c -U -r %s" % filename}
                 task["name"] = "Install galaxy collections"
                 task["become"] = "yes"
                 task["register"] = "collections_install"
@@ -531,6 +531,24 @@ class CtxtAgentBase:
                 task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"},
                                        {"ANSIBLE_CONFIG": self.ANSIBLE_CFG_FILE}]
                 yaml_data[0]['tasks'].append(task)
+
+                # Check and install requirements.txt for each collection
+                for collection in galaxy_collections:
+                    collection_name = collection["name"]
+                    requirements_file = (self.ANSIBLE_DIR + "/ansible_collections/" +
+                                         collection_name.replace(".", "/") + "/requirements.txt")
+                    register_name = "collection_requirements_" + collection_name.replace(".", "_")
+                    task = {"stat": {"path": requirements_file}}
+                    task["name"] = "Check requirements for collection %s" % collection_name
+                    task["register"] = register_name
+                    yaml_data[0]['tasks'].append(task)
+
+                    task = {"command": self.MAMBA_CMD + "python -m pip install -r " + requirements_file}
+                    task["name"] = "Install requirements for collection %s" % collection_name
+                    task["when"] = register_name + ".stat.exists"
+                    task["environment"] = [{"PATH": "{{ ansible_env.PATH }}:/usr/local/bin"},
+                                           {"ANSIBLE_CONFIG": self.ANSIBLE_CFG_FILE}]
+                    yaml_data[0]['tasks'].append(task)
 
             # and then add roles
             galaxy_dependencies = []
