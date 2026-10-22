@@ -38,6 +38,9 @@ class Tosca:
     def __init__(self, yaml_str, verify=True, tosca_repo=None, auth=None):
         self.id = str(uuid1())
         self.tosca_repo = tosca_repo
+        self.cloud_ids = []
+        if auth:
+            self.cloud_ids = auth.getCloudIDs()
         self.cache_session = requests_cache.CachedSession('tosca_cache', cache_control=True, expire_after=3600)
         Tosca.logger.debug("TOSCA: %s" % yaml_str)
         try:
@@ -90,14 +93,33 @@ class Tosca:
                 for node in node_list:
                     if node.name == sys_name:
                         if policy.properties and prop in policy.properties:
-                            Tosca.logger.debug("Set %s: %s to system: %s." % (prop,
-                                                                              policy.properties[prop],
-                                                                              sys_name))
-                            return policy.properties[prop]
+                            value = self._resolve_cloud_id(policy.properties[prop])
+
+                            if value not in self.cloud_ids:
+                                Tosca.logger.warning("Cloud ID %s is not in the list of available cloud IDs: %s. "
+                                                        "Ignoring it." % (value, self.cloud_ids))
+                            Tosca.logger.debug("Set %s: %s to system: %s." % (prop, value, sys_name))
+                            return value
             else:
                 Tosca.logger.warning("Policy %s not supported. Ignoring it." % policy.type_definition.type)
 
         return None
+
+    def _resolve_cloud_id(self, cloud_id):
+        """Resolve cloud_id(N) to the Nth cloud ID from the auth data."""
+        if not isinstance(cloud_id, str):
+            return cloud_id
+
+        match = re.fullmatch(r"cloud_id\((\d+)\)", cloud_id)
+        if not match:
+            return cloud_id
+
+        index = int(match.group(1))
+        try:
+            return self.cloud_ids[index]
+        except IndexError:
+            raise ValueError("Invalid cloud ID index %d: only %d cloud IDs are available" %
+                             (index, len(self.cloud_ids)))
 
     def _get_tosca_from_repo(self, input_yaml):
         if ('tosca_definitions_version' not in input_yaml or
