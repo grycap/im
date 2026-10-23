@@ -546,6 +546,17 @@ class TestTosca(unittest.TestCase):
         outputs = tosca.get_outputs(MagicMock())
         self.assertEqual(outputs, {'some_pass': 'aaaaaaaa', 'user_token': 'access_token'})
 
+    def test_resolve_cloud_id(self):
+        """Test cloud ID references to the auth data."""
+        tosca = Tosca.__new__(Tosca)
+        tosca.cloud_ids = ["cloud0", "cloud1"]
+
+        self.assertEqual(tosca._resolve_cloud_id("cloud_id(0)"), "cloud0")
+        self.assertEqual(tosca._resolve_cloud_id("cloud_id(1)"), "cloud1")
+        self.assertEqual(tosca._resolve_cloud_id("literal_cloud"), "literal_cloud")
+        with self.assertRaisesRegex(ValueError, "Invalid cloud ID index 2"):
+            tosca._resolve_cloud_id("cloud_id(2)")
+
     def test_tosca_tls(self):
         """Test TOSCA RADL translation with DNS and TLS in net interfaces"""
         tosca_data = read_file_as_string('../files/tosca_tls.yml')
