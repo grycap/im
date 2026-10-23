@@ -273,7 +273,8 @@ IM enables the definition of the specific cloud provider where the Compute nodes
 For example, in the following code we assume that we have defined three compute nodes (compute_one, compute_two and compute_three).
 We can create a placement group with two of them (compute_one and compute_two) and then set a placement policy with a cloud_id
 (that must be defined in the :ref:`auth-file`), and create a second placement policy where we can set a different cloud provider
-and, optionally, an availability zone.
+and, optionally, an availability zone. Finally (since version 2.1.0) we can also set a placement policy using the cloud_id of the
+first cloud provider, but using the special function ``cloud_id(N)`` to get the N-th cloud_id defined in the auth-file.
 
 .. code-block:: yaml
 
@@ -287,13 +288,22 @@ and, optionally, an availability zone.
     policies:
       - deploy_group_on_cloudid:
           type: tosca.policies.indigo.Placement
-          properties: { cloud_id: cloudid1 }
+          properties:
+            cloud_id: cloudid1
           targets: [ my_placement_group ]
 
       - deploy_on_cloudid:
           type: tosca.policies.indigo.Placement
-          properties: { cloud_id: cloudid2, availability_zone: some_zone }
+          properties:
+            cloud_id: cloudid2
+            availability_zone: some_zone
           targets: [ compute_three ]
+
+      - deploy_on_cloudid_by_number:
+          type: tosca.policies.indigo.Placement
+          properties:
+            cloud_id: cloud_id(0)
+          targets: [ compute_four ]
 
     ...
 
