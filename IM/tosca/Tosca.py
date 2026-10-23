@@ -97,7 +97,7 @@ class Tosca:
 
                             if value not in self.cloud_ids:
                                 Tosca.logger.warning("Cloud ID %s is not in the list of available cloud IDs: %s. "
-                                                        "Ignoring it." % (value, self.cloud_ids))
+                                                     "Ignoring it." % (value, self.cloud_ids))
                             Tosca.logger.debug("Set %s: %s to system: %s." % (prop, value, sys_name))
                             return value
             else:
