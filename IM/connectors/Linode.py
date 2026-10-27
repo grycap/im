@@ -415,6 +415,12 @@ class LinodeCloudConnector(LibCloudCloudConnector):
 
         if node:
             volumes = self.get_node_volumes(node)
+            # New VMs record the volumes to delete when they are created.
+            # Fall back to the previous behaviour for serialized legacy VMs.
+            if "volumes" in vm.__dict__:
+                volume_ids_to_delete = set(vm.volumes)
+            else:
+                volume_ids_to_delete = {volume.id for volume in volumes}
 
             for volume in volumes:
                 self.log_debug("Detaching volume id: %s" % volume.id)
@@ -422,6 +428,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 volume.extra['linode_id'] = None
 
             for volume in volumes:
+                if volume.id not in volume_ids_to_delete:
+                    continue
                 self.log_debug("Deleting volume id: %s" % volume.id)
                 cont = 0
                 deleted = False
@@ -479,9 +487,12 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 volumes = self.get_node_volumes(node)
                 if volumes:
                     return True
+                vm.volumes = []
                 cont = 1
                 while vm.info.systems[0].getValue("disk." + str(cont) + ".size"):
-                    self.create_volume(node, vm.info.systems[0], vm.info.systems[0], cont)
+                    volume = self.create_volume(node, vm.info.systems[0], vm.info.systems[0], cont)
+                    if vm.info.systems[0].getValue("disk." + str(cont) + ".auto_delete") != "no":
+                        vm.volumes.append(volume.id)
                     cont += 1
             return True
         except Exception:
@@ -535,6 +546,8 @@ class LinodeCloudConnector(LibCloudCloudConnector):
         if node:
             try:
                 orig_system = vm.info.systems[0]
+                if "volumes" not in vm.__dict__:
+                    vm.volumes = []
 
                 cont = 1
                 while (orig_system.getValue("disk." + str(cont) + ".image.url") or
@@ -544,7 +557,9 @@ class LinodeCloudConnector(LibCloudCloudConnector):
                 system = radl.systems[0]
 
                 while system.getValue("disk." + str(cont) + ".size"):
-                    self.create_volume(node, system, orig_system, cont)
+                    volume = self.create_volume(node, system, orig_system, cont)
+                    if system.getValue("disk." + str(cont) + ".auto_delete") != "no":
+                        vm.volumes.append(volume.id)
                     cont += 1
                 return (True, "")
             except Exception as ex:

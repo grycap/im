@@ -744,11 +744,11 @@ class EC2CloudConnector(CloudConnector):
                     bdm[0]['Ebs']['VolumeSize'] = size
 
                 volumes = self.get_volumes(conn, vm)
-                for device, (size, snapshot_id, _, disk_type) in volumes.items():
+                for device, (size, snapshot_id, _, disk_type, auto_delete) in volumes.items():
                     bd = {
                         'DeviceName': device,
                         'Ebs': {
-                            'DeleteOnTermination': True,
+                            'DeleteOnTermination': auto_delete,
                         }
                     }
                     if size:
@@ -947,6 +947,7 @@ class EC2CloudConnector(CloudConnector):
             # Allways use sd as the device prefix
             # https://docs.aws.amazon.com/es_es/AWSEC2/latest/UserGuide/device_naming.html
             disk_device = "sd%s" % disk_device[-1]
+            auto_delete = vm.info.systems[0].getValue("disk." + str(cont) + ".auto_delete") != "no"
 
             disk_size = None
             snapshot_id = None
@@ -979,7 +980,7 @@ class EC2CloudConnector(CloudConnector):
                 disk_type = "standard"
                 vm.info.systems[0].setValue("disk." + str(cont) + ".type", disk_type)
 
-            res["/dev/" + disk_device] = (disk_size, snapshot_id, volume_id, disk_type)
+            res["/dev/" + disk_device] = (disk_size, snapshot_id, volume_id, disk_type, auto_delete)
             cont += 1
 
         return res

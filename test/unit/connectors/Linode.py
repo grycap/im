@@ -369,6 +369,7 @@ class TestLinodeConnector(TestCloudConnectorBase):
 
         success, _ = linode_cloud.alterVM(vm, new_radl, auth)
         self.assertEqual(vm.info.systems[0].getValue("disk.1.device"), 'deviceid')
+        self.assertEqual(vm.volumes, ['volid'])
         self.assertTrue(success, msg="ERROR: modifying VM info.")
 
     @patch('libcloud.compute.drivers.linode.LinodeNodeDriver')

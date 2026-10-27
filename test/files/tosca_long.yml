@@ -117,6 +117,7 @@ topology_template:
               type: AttachesTo
               properties:
                 location: /mnt/disk2
+                auto_delete: false
         - local_storage:
             node: my_storage3
             relationship:

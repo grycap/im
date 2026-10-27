@@ -253,3 +253,17 @@ class Authentication:
                 else:
                     del self.auth_list[num]
                     return
+
+    def getCloudIDs(self):
+        """
+        Get the list of cloud ids from the auth data
+
+        Returns: a list with all the cloud ids
+        """
+        cloud_ids = []
+        for auth in self.auth_list:
+            if 'id' in auth and auth['id'] and 'type' in auth and auth['type'] not in ['InfrastructureManager',
+                                                                                       'VMRC',
+                                                                                       'EGIIS']:
+                cloud_ids.append(auth['id'])
+        return cloud_ids

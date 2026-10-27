@@ -91,6 +91,7 @@ class TestTosca(unittest.TestCase):
             self.assertEqual(lrms_server.getValue("disk.1.mount_path"), "/mnt/disk3")
         if lrms_server.getValue("disk.2.size") == 10000000000:
             self.assertEqual(lrms_server.getValue("disk.2.mount_path"), "/mnt/disk2")
+            self.assertEqual(lrms_server.getValue("disk.2.auto_delete"), "no")
         else:
             self.assertEqual(lrms_server.getValue("disk.2.size"), 20000000000)
             self.assertEqual(lrms_server.getValue("disk.2.mount_path"), "/mnt/disk3")
@@ -544,6 +545,17 @@ class TestTosca(unittest.TestCase):
         tosca = Tosca(tosca_data, auth=auth)
         outputs = tosca.get_outputs(MagicMock())
         self.assertEqual(outputs, {'some_pass': 'aaaaaaaa', 'user_token': 'access_token'})
+
+    def test_resolve_cloud_id(self):
+        """Test cloud ID references to the auth data."""
+        tosca = Tosca.__new__(Tosca)
+        tosca.cloud_ids = ["cloud0", "cloud1"]
+
+        self.assertEqual(tosca._resolve_cloud_id("cloud_id(0)"), "cloud0")
+        self.assertEqual(tosca._resolve_cloud_id("cloud_id(1)"), "cloud1")
+        self.assertEqual(tosca._resolve_cloud_id("literal_cloud"), "literal_cloud")
+        with self.assertRaisesRegex(ValueError, "Invalid cloud ID index 2"):
+            tosca._resolve_cloud_id("cloud_id(2)")
 
     def test_tosca_tls(self):
         """Test TOSCA RADL translation with DNS and TLS in net interfaces"""
