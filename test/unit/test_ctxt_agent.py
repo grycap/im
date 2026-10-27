@@ -321,7 +321,7 @@ class TestCtxtAgent(unittest.TestCase):
         requirements_file = (ctxt_agent.ANSIBLE_DIR +
                              "/ansible_collections/ns/collection/requirements.txt")
         self.assertEqual(yaml_data[0]['tasks'][2]['stat']['path'], requirements_file)
-        self.assertEqual(yaml_data[0]['tasks'][2]['register'], "collection_requirements_ns_collection")
+        self.assertEqual(yaml_data[0]['tasks'][2]['register'], "collection_requirements_0")
         self.assertEqual(yaml_data[0]['tasks'][3]['command'],
                          ctxt_agent.MAMBA_CMD + "python -m pip install -r " + requirements_file)
         self.assertEqual(yaml_data[0]['tasks'][3]['when'],
