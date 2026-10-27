@@ -325,7 +325,7 @@ class TestCtxtAgent(unittest.TestCase):
         self.assertEqual(yaml_data[0]['tasks'][3]['command'],
                          ctxt_agent.MAMBA_CMD + "python -m pip install -r " + requirements_file)
         self.assertEqual(yaml_data[0]['tasks'][3]['when'],
-                         "collection_requirements_ns_collection.stat.exists")
+                         "collection_requirements_0.stat.exists")
 
         os.unlink(res)
 
