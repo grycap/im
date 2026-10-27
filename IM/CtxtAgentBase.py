@@ -533,11 +533,15 @@ class CtxtAgentBase:
                 yaml_data[0]['tasks'].append(task)
 
                 # Check and install requirements.txt for each collection
-                for collection in galaxy_collections:
+                for collection_idx, collection in enumerate(galaxy_collections):
                     collection_name = collection["name"]
+                    if collection_name.startswith("git"):
+                        # Skip git collections, they don't have requirements.txt
+                        continue
                     requirements_file = (self.ANSIBLE_DIR + "/ansible_collections/" +
                                          collection_name.replace(".", "/") + "/requirements.txt")
-                    register_name = "collection_requirements_" + collection_name.replace(".", "_")
+                    # Do not derive Ansible variable names from user-provided refs/URLs.
+                    register_name = "collection_requirements_%d" % collection_idx
                     task = {"stat": {"path": requirements_file}}
                     task["name"] = "Check requirements for collection %s" % collection_name
                     task["register"] = register_name

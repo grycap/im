@@ -321,12 +321,30 @@ class TestCtxtAgent(unittest.TestCase):
         requirements_file = (ctxt_agent.ANSIBLE_DIR +
                              "/ansible_collections/ns/collection/requirements.txt")
         self.assertEqual(yaml_data[0]['tasks'][2]['stat']['path'], requirements_file)
-        self.assertEqual(yaml_data[0]['tasks'][2]['register'], "collection_requirements_ns_collection")
+        self.assertEqual(yaml_data[0]['tasks'][2]['register'], "collection_requirements_0")
         self.assertEqual(yaml_data[0]['tasks'][3]['command'],
                          ctxt_agent.MAMBA_CMD + "python -m pip install -r " + requirements_file)
         self.assertEqual(yaml_data[0]['tasks'][3]['when'],
-                         "collection_requirements_ns_collection.stat.exists")
+                         "collection_requirements_0.stat.exists")
 
+        os.unlink(res)
+
+    def test_100_install_git_ansible_collection(self):
+        ctxt_agent = CtxtAgent("")
+        ctxt_agent.logger = self.logger
+        general_conf_data = self.gen_general_conf()
+        general_conf_data['ansible_collections'] = [
+            "git+https://github.com/grycap/ansible-collection-dataset"]
+
+        with open("/tmp/playbook.yaml", 'w') as f:
+            f.write("- tasks: []")
+
+        res = ctxt_agent.install_ansible_roles(general_conf_data, "/tmp/playbook.yaml")
+        with open(res, 'r') as f:
+            yaml_data = yaml.safe_load(f)
+
+        self.assertEqual(len(yaml_data[0]['tasks']), 2)
+        self.assertEqual(yaml_data[0]['tasks'][1]['register'], "collections_install")
         os.unlink(res)
 
 
