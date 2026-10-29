@@ -23,6 +23,7 @@ import unittest
 import sys
 import json
 import base64
+import tempfile
 import yaml
 from datetime import datetime
 from mock import Mock, patch, MagicMock
@@ -46,6 +47,7 @@ from IM.CloudInfo import CloudInfo
 from IM.connectors.CloudConnector import CloudConnector
 from IM.SSH import SSH
 from IM.InfrastructureInfo import InfrastructureInfo
+from IM.ConfManager import ConfManager
 
 
 def read_file_as_string(file_name):
@@ -697,6 +699,377 @@ class TestIM(unittest.TestCase):
         self.assertIn("ansible.roles.micafer.hadoop1", inf.radl.systems[0].getValue("disk.0.applications"))
 
         IM.DestroyInfrastructure(infId, auth0)
+
+    def test_upgrade_executor_orders_nodes_stops_on_failure_and_retries(self):
+        """Exercise the real monitor/queue loop, not just its planned steps."""
+        from queue import Empty
+        for fail_front in (True, False):
+            inf = InfrastructureInfo()
+            inf.radl = parse_radl("""
+system front (cpu.count>=1)
+system worker (cpu.count>=1)
+upgrade front_os (@begin\n---\n- hosts: all\n@end)
+upgrade worker_os (@begin\n---\n- hosts: all\n@end)
+contextualize (
+ system front upgrade front_os step 1
+ system worker upgrade worker_os step 2 sequential
+)
+""")
+            manager = ConfManager(inf, None)
+            events = []
+            front_item, worker_item = list(inf.radl.contextualize.items)
+            vms = []
+            for vm_id in (1, 2, 3):
+                vm = Mock(spec=VirtualMachine)
+                vm.inf = inf
+                vm.id = str(vm_id)
+                vm.im_id = vm_id
+                vm.destroy = False
+                vm.ctxt_pid = None
+                vm.configured = None
+                vm.cont_out = ''
+                vm.is_configured.side_effect = lambda vm=vm: vm.configured
+                vms.append(vm)
+            inf.track_upgrade_steps(front_item, {(4, 1)})
+            inf.track_upgrade_steps(worker_item, {(5, 2), (6, 3)})
+            inf.add_ctxt_tasks([(step, 0, vm, ['upgrade']) for step, vm in zip((4, 5, 6), vms)])
+
+            def launch(vm, tasks):
+                events.append(('start', vm.im_id))
+                checks = iter((True, False))
+
+                def running():
+                    active = next(checks)
+                    if not active:
+                        vm.ctxt_pid = None
+                        vm.configured = not (fail_front and vm.im_id == 1)
+                        events.append(('finish', vm.im_id))
+                    return active
+                vm.is_ctxt_process_running.side_effect = running
+
+            manager.launch_ctxt_agent = launch
+            def thread_factory(*args, **kwargs):
+                thread = Mock()
+                thread.is_alive.return_value = False
+                thread.start.side_effect = lambda: kwargs['target'](*kwargs.get('args', ()))
+                return thread
+
+            queue_get = inf.ctxt_tasks.get
+            def get_task():
+                try:
+                    return queue_get(block=False)
+                except Empty:
+                    manager._stop_thread = True
+                    return (-10, 0, None, None)
+            inf.ctxt_tasks.get = get_task
+            with patch('IM.ConfManager.threading.Thread', side_effect=thread_factory), \
+                    patch('IM.ConfManager.time.sleep'), \
+                    patch('IM.InfrastructureList.InfrastructureList.save_data'):
+                manager.run()
+            if fail_front:
+                self.assertEqual(events, [('start', 1), ('finish', 1)])
+                self.assertFalse(vms[1].configured)
+                self.assertFalse(vms[2].configured)
+                self.assertIn(front_item, inf.radl.contextualize.items)
+                self.assertIn(worker_item, inf.radl.contextualize.items)
+            else:
+                self.assertEqual(events, [('start', 1), ('finish', 1), ('start', 2),
+                                          ('finish', 2), ('start', 3), ('finish', 3)])
+                self.assertIsNone(inf.radl.contextualize.items)
+            self.assertFalse(manager.contextualization_active)
+
+    def test_upgrade_failure_barrier_includes_non_sequential_frontend(self):
+        inf = InfrastructureInfo()
+        manager = ConfManager(inf, None)
+        vm = Mock(spec=VirtualMachine)
+        vm.im_id = 1
+        vm.configured = False
+        vm.is_ctxt_process_running.return_value = False
+        with patch("IM.InfrastructureList.InfrastructureList.save_data"):
+            manager.check_running_pids({4: [vm]})
+        self.assertIn(4, manager.failed_steps)
+
+    def test_consuming_upgrade_restores_default_configuration(self):
+        inf = InfrastructureInfo()
+        inf.radl = parse_radl("""
+system worker (cpu.count>=1)
+configure worker (@begin\n---\n- hosts: all\n@end)
+upgrade os (@begin\n---\n- hosts: all\n@end)
+contextualize (system worker upgrade os)
+""")
+        item_id = next(iter(inf.radl.contextualize.items))
+        inf.track_upgrade_steps(item_id, {(4, 1)})
+        with patch("IM.InfrastructureList.InfrastructureList.save_data"):
+            inf.complete_upgrade_step(4, 1, True)
+        self.assertIsNone(inf.radl.contextualize.items)
+        self.assertIsNotNone(inf.radl.get_configure_by_name("worker"))
+
+    def test_upgrade_preserves_explicit_normal_policy_after_reload(self):
+        inf = InfrastructureInfo()
+        inf.radl = parse_radl("""
+system worker (cpu.count>=1)
+configure custom (@begin\n---\n- hosts: all\n@end)
+contextualize (system worker configure custom step 3)
+""")
+        request = parse_radl("""
+system worker (cpu.count>=1)
+upgrade os (@begin\n---\n- hosts: all\n@end)
+contextualize (system worker upgrade os)
+""")
+        inf.set_contextualize(request.contextualize)
+        inf = InfrastructureInfo.deserialize(inf.serialize())
+        item_id = next(iter(inf.radl.contextualize.items))
+        inf.track_upgrade_steps(item_id, {(4, 1)})
+        with patch("IM.InfrastructureList.InfrastructureList.save_data"):
+            inf.complete_upgrade_step(4, 1, True)
+        normal = next(iter(inf.radl.contextualize.items.values()))
+        self.assertEqual(normal.configure, "custom")
+        self.assertEqual(normal.num, 3)
+        self.assertFalse(normal.upgrade)
+
+    def test_upgrade_restores_disabled_or_default_policy_with_options(self):
+        for disabled in (True, False):
+            inf = InfrastructureInfo()
+            inf.radl = parse_radl("""
+system worker (cpu.count>=1)
+configure worker (@begin\n---\n- hosts: all\n@end)
+upgrade os (@begin\n---\n- hosts: all\n@end)
+contextualize (option ansible_version = '2.9')
+""")
+            if not disabled:
+                inf.radl.contextualize.items = None
+            request = parse_radl('contextualize (system worker upgrade os)')
+            inf.set_contextualize(request.contextualize)
+            inf = InfrastructureInfo.deserialize(inf.serialize())
+            item_id = next(iter(inf.radl.contextualize.items))
+            inf.track_upgrade_steps(item_id, {(4, 1)})
+            with patch('IM.InfrastructureList.InfrastructureList.save_data'):
+                inf.complete_upgrade_step(4, 1, True)
+            self.assertEqual(inf.radl.contextualize.items, {} if disabled else None)
+            self.assertEqual(inf.radl.contextualize.options['ansible_version'].value, '2.9')
+
+    def test_contextualize_cannot_replace_active_upgrade(self):
+        inf = InfrastructureInfo()
+        inf.radl = parse_radl("""
+system worker (cpu.count>=1)
+upgrade os (@begin\n---\n- hosts: all\n@end)
+contextualize (system worker upgrade os)
+""")
+        inf.cm = Mock()
+        inf.cm.contextualization_active = True
+        inf.cm.is_alive.return_value = True
+        inf.upgrade_execution_targets = {('worker', 'os', True): {1}}
+        old_radl = str(inf.radl)
+        with self.assertRaisesRegex(Exception, "contextualization.*progress"):
+            inf.Contextualize(Mock())
+        self.assertEqual(str(inf.radl), old_radl)
+        self.assertTrue(inf.upgrade_execution_targets)
+        replacement = "configure other (@begin\n---\n- hosts: all\n@end)"
+        with patch.object(IM, 'check_auth_data', return_value=Mock()), \
+                patch.object(IM, 'get_infrastructure', return_value=inf):
+            with self.assertRaisesRegex(Exception, 'contextualization.*progress'):
+                IM.Reconfigure(inf.id, replacement, Mock())
+            with self.assertRaisesRegex(Exception, 'contextualization.*progress'):
+                IM.AddResource(inf.id, '', Mock())
+            with self.assertRaisesRegex(Exception, 'contextualization.*progress'):
+                IM.RemoveResource(inf.id, [1], Mock())
+        self.assertIsNone(inf.radl.get_configure_by_name('other'))
+        self.assertEqual(str(inf.radl), old_radl)
+        # Even after consuming the last selection, the old monitor must drain
+        # before another execution can reuse the same VM/step keys.
+        inf.radl.contextualize.items = None
+        inf.upgrade_execution_targets = {}
+        inf.cm.upgrade_active = True
+        with self.assertRaisesRegex(Exception, 'contextualization.*progress'):
+            inf.check_contextualization_available()
+        inf.cm.contextualization_active = False
+        inf.check_contextualization_available()
+
+    def test_upgrade_only_node_can_be_selected_as_master(self):
+        inf = InfrastructureInfo()
+        inf.radl = parse_radl("""
+system worker (cpu.count>=1)
+upgrade os (@begin\n---\n- hosts: all\n@end)
+contextualize (system worker upgrade os)
+""")
+        vm = Mock()
+        vm.destroy = False
+        vm.deleting = False
+        vm.contextualize.return_value = False
+        vm.info.systems = inf.radl.systems
+        vm.getOS.return_value = 'linux'
+        vm.hasPublicNet.return_value = True
+        inf.vm_list = [vm]
+        inf.select_vm_master()
+        self.assertIs(inf.vm_master, vm)
+
+    def test_upgrade_playbook_generator_uses_upgrade_recipe(self):
+        """Upgrade playbooks use a separate RADL recipe and filename."""
+        radl = parse_radl("""
+system worker (cpu.count>=1)
+configure worker (@begin\n---\n- tasks:\n  - debug: msg=normal\n@end)
+upgrade worker_os (@begin\n---\n- tasks:\n  - debug: msg=upgrade\n@end)
+contextualize (system worker upgrade worker_os sequential)
+""")
+        inf = Mock()
+        inf.radl = radl
+        manager = ConfManager(inf, None)
+        vm = Mock()
+        vm.getOS.return_value = "linux"
+        vm.info.systems = [Mock()]
+        vm.info.systems[0].name = "worker"
+        vm.info.systems[0].getValue.return_value = None
+        vm.contextualize.return_value = False
+        self.assertTrue(manager.vm_needs_contextualization(vm))
+        item = list(radl.contextualize.items.values())[0]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            names = manager.generate_playbook(vm, item, tmp_dir)
+            self.assertEqual(names[0], "upgrade_worker_os_worker_task.yml")
+            with open(os.path.join(tmp_dir, names[0])) as playbook:
+                content = playbook.read()
+            self.assertIn("msg=upgrade", content)
+            self.assertNotIn("msg=normal", content)
+        self.assertIn("msg=normal", radl.get_configure_by_name("worker").recipes)
+
+    def test_sequential_upgrade_schedules_one_vm_per_step(self):
+        """Sequential upgrades use ordered, non-overlapping IM steps."""
+        radl = parse_radl("""
+system worker (cpu.count>=1)
+configure worker (@begin\n---\n- hosts: all\n@end)
+upgrade worker_os (@begin\n---\n- hosts: all\n@end)
+contextualize (
+  system worker upgrade worker_os sequential
+  system worker configure worker step 2
+)
+""")
+        inf = InfrastructureInfo()
+        inf.radl = radl
+        inf.cm = Mock()
+        inf.cm.is_alive.return_value = True
+        inf.add_ctxt_tasks = Mock()
+        worker_system = radl.get_system_by_name("worker")
+        for vm_id in (3, 1, 2):
+            vm = Mock()
+            vm.destroy = False
+            vm.im_id = vm_id
+            vm.info.systems = [worker_system]
+            vm.getRequestedSystem.return_value = worker_system
+            vm.contextualize.return_value = True
+            inf.vm_list.append(vm)
+
+        inf.Contextualize(Mock())
+        planned = inf.add_ctxt_tasks.call_args.args[0]
+        upgrade_steps = sorted(step for step, _, _, task_list in planned
+                               if any(task.startswith("upgrade_worker_os_worker") for task in task_list))
+        normal_steps = [step for step, _, _, task_list in planned
+                        if any(task == "worker_worker" for task in task_list)]
+        self.assertEqual(len(upgrade_steps), 3)
+        self.assertEqual(len(set(upgrade_steps)), 3)
+        self.assertEqual(len(normal_steps), 3)
+        self.assertGreater(min(normal_steps), max(upgrade_steps))
+
+    def test_upgrade_request_is_consumed_only_after_all_target_vms_succeed(self):
+        """A failed or incomplete upgrade remains explicitly retryable."""
+        radl = parse_radl("""
+system worker (cpu.count>=1)
+upgrade worker_os (@begin\n---\n- hosts: all\n@end)
+contextualize (system worker upgrade worker_os sequential)
+""")
+        inf = InfrastructureInfo()
+        inf.radl = radl
+        item_id = list(radl.contextualize.items)[0]
+        inf.track_upgrade_steps(item_id, {(4, 1), (5, 2)})
+
+        with patch("IM.InfrastructureList.InfrastructureList.save_data"):
+            inf.complete_upgrade_step(4, 1, True)
+            self.assertIn(item_id, inf.radl.contextualize.items)
+            inf.complete_upgrade_step(5, 2, False)
+            self.assertIn(item_id, inf.radl.contextualize.items)
+
+            inf.track_upgrade_steps(item_id, {(4, 1), (5, 2)})
+            inf.complete_upgrade_step(4, 1, True)
+            inf.complete_upgrade_step(5, 2, True)
+        self.assertNotIn(item_id, inf.radl.contextualize.items or {})
+
+    def test_multiple_upgrade_selections_can_share_one_vm_step(self):
+        """One VM completion resolves every upgrade recipe in that task batch."""
+        radl = parse_radl("""
+system worker (cpu.count>=1)
+upgrade os_update (@begin\n---\n- hosts: all\n@end)
+upgrade app_update (@begin\n---\n- hosts: all\n@end)
+contextualize (
+ system worker upgrade os_update
+ system worker upgrade app_update
+)
+""")
+        inf = InfrastructureInfo()
+        inf.radl = radl
+        item_ids = list(radl.contextualize.items)
+        for item_id in item_ids:
+            inf.track_upgrade_steps(item_id, {(4, 1)})
+
+        with patch("IM.InfrastructureList.InfrastructureList.save_data"):
+            inf.complete_upgrade_step(4, 1, True)
+
+        self.assertIsNone(radl.contextualize.items)
+
+    def test_conf_manager_reports_terminal_upgrade_result(self):
+        """The task monitor reports VM completion to upgrade lifecycle tracking."""
+        inf = Mock()
+        inf.id = "test-infrastructure"
+        inf.sequential_upgrade_steps = set()
+        manager = ConfManager(inf, None)
+        vm = Mock(spec=VirtualMachine)
+        vm.is_ctxt_process_running.return_value = False
+        vm.configured = True
+        vm.im_id = 17
+
+        with patch("IM.InfrastructureList.InfrastructureList.save_data"):
+            manager.check_running_pids({6: [vm]})
+
+        inf.complete_upgrade_step.assert_called_once_with(6, 17, True)
+
+    def test_frontend_upgrade_step_precedes_sequential_worker_upgrades(self):
+        """Explicit RADL steps preserve frontend-before-worker upgrade order."""
+        radl = parse_radl("""
+system front (cpu.count>=1)
+system wn (cpu.count>=1)
+configure front (@begin\n---\n- hosts: all\n@end)
+configure wn (@begin\n---\n- hosts: all\n@end)
+upgrade front_upgrade (@begin\n---\n- hosts: all\n@end)
+upgrade wn_upgrade (@begin\n---\n- hosts: all\n@end)
+contextualize (
+  system front upgrade front_upgrade step 1
+  system wn upgrade wn_upgrade step 2 sequential
+)
+""")
+        inf = InfrastructureInfo()
+        inf.radl = radl
+        inf.cm = Mock()
+        inf.cm.is_alive.return_value = True
+        inf.cm.failed_steps = {99}
+        inf.add_ctxt_tasks = Mock()
+        for vm_id, system_name in ((1, "front"), (3, "wn"), (2, "wn")):
+            vm = Mock()
+            vm.destroy = False
+            vm.im_id = vm_id
+            vm.info.systems = [radl.get_system_by_name(system_name)]
+            vm.getRequestedSystem.return_value = vm.info.systems[0]
+            vm.contextualize.return_value = True
+            inf.vm_list.append(vm)
+
+        inf.Contextualize(Mock())
+        self.assertEqual(inf.cm.failed_steps, set())
+        planned = inf.add_ctxt_tasks.call_args.args[0]
+        front_steps = [step for step, _, _, task_list in planned
+                       if "upgrade_front_upgrade_front" in task_list]
+        worker_steps = sorted(step for step, _, _, task_list in planned
+                              if "upgrade_wn_upgrade_wn" in task_list)
+        self.assertEqual(len(front_steps), 1)
+        self.assertEqual(len(worker_steps), 2)
+        self.assertLess(front_steps[0], min(worker_steps))
+        self.assertEqual(len(set(worker_steps)), 2)
 
     def test_inf_removeresources(self):
         """Deploy 4 VMs and remove 2"""

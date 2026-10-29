@@ -233,6 +233,70 @@ to be installed and used in the playbooks.
 
     ...
 
+Upgrade operations
+^^^^^^^^^^^^^^^^^^
+
+The GRyCAP custom types define ``tosca.interfaces.grycap.Upgrade`` with an
+``upgrade`` operation. IM translates that operation into a RADL ``upgrade``
+recipe, separate from the node's normal ``Standard.configure`` recipe. The
+upgrade playbook is supplied as the operation implementation, using the same
+Ansible playbook artifact mechanism as other TOSCA operations. The normal
+configure recipe remains available for initial configuration and for nodes
+added later.
+
+Import the custom types and attach the upgrade interface to the node type or
+node template. For example::
+
+   tosca_definitions_version: tosca_simple_yaml_1_0
+   imports:
+     - indigo_custom_types: https://raw.githubusercontent.com/grycap/tosca/main/custom_types.yaml
+
+   node_types:
+     example.nodes.KubernetesWorker:
+       derived_from: tosca.nodes.Compute
+       properties:
+         upgrade_sequential:
+           type: boolean
+           required: false
+           default: false
+       interfaces:
+         Upgrade:
+           type: tosca.interfaces.grycap.Upgrade
+           upgrade:
+             implementation: https://example.org/playbooks/upgrade-worker.yml
+             inputs:
+               sequential: { get_property: [ SELF, upgrade_sequential ] }
+
+   topology_template:
+     node_templates:
+       frontend:
+         type: tosca.nodes.Compute
+         capabilities:
+           host:
+             properties:
+               num_cpus: 2
+       worker:
+         type: example.nodes.KubernetesWorker
+         capabilities:
+           host:
+             properties:
+               num_cpus: 2
+         requirements:
+           - dependency:
+               node: frontend
+               relationship:
+                 type: tosca.relationships.DependsOn
+
+The IM generates an upgrade recipe and contextualization entry for each node
+that declares this operation. The dependency graph determines the contextualize
+``step``: in this example, the frontend dependency is upgraded before the
+worker. The ``sequential`` operation input is a boolean. It can be mapped from a node
+property with ``get_property`` as shown above; when true, the IM adds RADL's
+``sequential`` modifier so multiple instances of the same system are upgraded
+one at a time. Dependency ordering through ``step`` remains independent of
+this per-system sequencing. The playbook URL above is illustrative and must be
+replaced with a reachable Ansible playbook.
+
 Storage
 ^^^^^^^
 

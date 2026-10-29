@@ -1,0 +1,115 @@
+network public (outbound = 'yes')
+network private ()
+
+system front (
+cpu.arch='x86_64' and
+cpu.count>=2 and
+memory.size>=2g and
+net_interface.0.connection='private' and
+net_interface.0.dns_name='kubeserver' and
+net_interface.1.connection='public' and
+net_interface.1.dns_name='kubeserverpublic' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version>='20.04' and
+disk.0.applications contains (name='ansible.roles.grycap.kubernetes') and
+disk.0.applications contains (name='ansible.roles.grycap.nfs')
+)
+
+system wn (
+cpu.arch='x86_64' and
+cpu.count>=2 and
+memory.size>=2g and
+net_interface.0.connection='private' and
+net_interface.0.dns_name='wn-1' and
+disk.0.os.name='linux' and
+disk.0.os.flavour='ubuntu' and
+disk.0.os.version>='20.04'
+)
+
+configure front (
+@begin
+---
+- pre_tasks:
+    - name: Create directory for the NFS persistent volume
+      file:
+        path: /pv
+        state: directory
+        mode: '0755'
+    - name: Create Kubernetes authentication directory
+      file:
+        path: /etc/kubernetes/pki
+        state: directory
+        mode: '0755'
+    - name: Create Kubernetes authentication file
+      copy:
+        content: 'sometoken,kubeuser,100,"users,system:masters"'
+        dest: /etc/kubernetes/pki/auth
+        mode: '0600'
+  roles:
+    - role: grycap.nfs
+      nfs_mode: front
+      nfs_exports:
+        - path: /pv
+          export: 'wn-*.localdomain(fsid=0,rw,async,no_root_squash,no_subtree_check,insecure)'
+    - role: grycap.kubernetes
+      kube_version: __SOURCE_VERSION__
+      kube_type_of_node: front
+      kube_server: kubeserver
+      kube_apiserver_options:
+        - option: --insecure-port
+          value: '8080'
+        - option: --token-auth-file
+          value: /etc/kubernetes/pki/auth
+@end
+)
+
+configure verify_cluster (
+@begin
+---
+- tasks:
+    - name: Read Kubernetes nodes and their kubelet versions
+      command: kubectl get nodes -o json
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: kubernetes_nodes
+      changed_when: false
+    - name: Assert that all nodes are Ready at the configured Kubernetes version
+      assert:
+        that:
+          - item.status.nodeInfo.kubeletVersion == 'v__SOURCE_VERSION__'
+          - "item.status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0"
+        fail_msg: "Node {{ item.metadata.name }} is not Ready at Kubernetes __SOURCE_VERSION__"
+      loop: "{{ (kubernetes_nodes.stdout | from_json).items }}"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+    - name: Assert that exactly two cluster nodes were verified
+      assert:
+        that: (kubernetes_nodes.stdout | from_json).items | length == 2
+    - name: Mark the configured cluster as verified
+      debug:
+        msg: K8S_NORMAL_CONFIG_ALL_NODES_VERIFIED___SOURCE_VERSION_UNDERSCORES__
+@end
+)
+
+configure wn (
+@begin
+---
+- roles:
+    - role: grycap.nfs
+      nfs_mode: wn
+    - role: grycap.kubernetes
+      kube_version: __SOURCE_VERSION__
+      kube_type_of_node: wn
+      kube_server: kubeserver
+@end
+)
+
+contextualize 5400 (
+  system front configure front step 1
+  system wn configure wn step 2
+  system front configure verify_cluster step 3
+)
+
+deploy front 1
+deploy wn 1

@@ -17,7 +17,7 @@ from toscaparser.functions import Function, is_function, get_function, GetAttrib
 from toscaparser.elements.scalarunit import ScalarUnit_Size
 from toscaparser.imports import ImportsLoader
 from IM.ansible_utils import merge_recipes
-from radl.radl import (system, deploy, network, Feature, Features, configure,
+from radl.radl import (system, deploy, network, Feature, Features, configure, upgrade,
                        contextualize_item, RADL, contextualize, ansible, description)
 
 
@@ -360,15 +360,23 @@ class Tosca:
                         Tosca.logger.warning(
                             "Node %s has not compute node to host in." % node.name)
 
-                interfaces = Tosca._get_interfaces(node)
+                interfaces = Tosca._get_interfaces(node, interface_names=['Standard', 'Configure', 'Upgrade'],
+                                                   steps=['create', 'configure', 'start', 'stop', 'delete', 'upgrade'])
                 interfaces.update(Tosca._get_relationships_interfaces(relationships, node))
 
+                upgrade_interface = {'upgrade': interfaces['upgrade']} if 'upgrade' in interfaces else {}
                 conf = self._gen_configure_from_interfaces(node, compute, interfaces)
+                upg = self._gen_configure_from_interfaces(node, compute, upgrade_interface, is_upgrade=True)
+                level = Tosca._get_dependency_level(node)
                 if conf:
-                    level = Tosca._get_dependency_level(node)
                     radl.configures.append(conf)
                     if compute:
                         cont_items.append(contextualize_item(compute.name, conf.name, level))
+                if upg:
+                    radl.upgrades.append(upg)
+                    if compute:
+                        cont_items.append(contextualize_item(compute.name, upg.name, level, upgrade=True,
+                                                             sequential=getattr(upg, 'sequential', False)))
 
         if cont_items:
             radl.contextualize = contextualize(cont_items)
@@ -912,7 +920,7 @@ class Tosca:
             value = str(value)
         return value.replace("\n", "\\n")
 
-    def _gen_configure_from_interfaces(self, node, compute, interfaces):
+    def _gen_configure_from_interfaces(self, node, compute, interfaces, is_upgrade=False):
         if not interfaces:
             return None
         if not compute:
@@ -922,11 +930,13 @@ class Tosca:
         variables = ""
         tasks = ""
         recipe_list = []
+        sequential = False
         remote_artifacts_path = "/tmp"  # nosec
         # Take the interfaces in correct order
-        for name in ['create', 'pre_configure_source', 'pre_configure_target', 'configure_rel',
-                     'configure', 'post_configure_source', 'post_configure_target', 'start',
-                     'add_target', 'add_source', 'target_changed', 'remove_target']:
+        interface_order = ['upgrade'] if is_upgrade else ['create', 'pre_configure_source', 'pre_configure_target',
+                     'configure_rel', 'configure', 'post_configure_source', 'post_configure_target', 'start',
+                     'add_target', 'add_source', 'target_changed', 'remove_target']
+        for name in interface_order:
             interface = interfaces.get(name, None)
             if interface:
                 if interface.node_template:
@@ -946,6 +956,13 @@ class Tosca:
                                 artifacts.append(artifact_uri)
                         else:
                             val = self._final_function_result(param_value, node)
+
+                        if is_upgrade and name == 'upgrade' and param_name == 'sequential':
+                            if isinstance(val, str):
+                                sequential = val.strip().lower() in ('true', 'yes', '1')
+                            else:
+                                sequential = bool(val)
+                            continue
 
                         if val is not None:
                             env[param_name] = val
@@ -1029,7 +1046,7 @@ class Tosca:
                 name = name + "_" + compute.name
             if node.name != orig_node.name:
                 name = name + "_" + orig_node.name
-            name = name + "_conf"
+            name += "_upgrade" if is_upgrade else "_conf"
             if variables:
                 recipes = "---\n- vars:\n" + variables + "\n"
                 recipes += "  "
@@ -1043,7 +1060,10 @@ class Tosca:
             for recipe in recipe_list:
                 recipes = merge_recipes(recipes, recipe)
 
-            return configure(name, recipes)
+            result = upgrade(name, recipes) if is_upgrade else configure(name, recipes)
+            if is_upgrade:
+                result.sequential = sequential
+            return result
         else:
             return None
 
@@ -2126,21 +2146,49 @@ class Tosca:
         for interface in node.interfaces:
             interfaces[interface.name] = interface
 
+        def merge_operation(base, override):
+            if not isinstance(override, dict):
+                override = {'implementation': override}
+            result = copy.deepcopy(base)
+            for key, value in override.items():
+                if key in ('inputs', 'outputs'):
+                    result.setdefault(key, {}).update(copy.deepcopy(value))
+                else:
+                    result[key] = copy.deepcopy(value)
+            return result
+
+        # Apply base types first, then derived types and template overrides.
+        hierarchy = []
         node_type = node.type_definition
-
-        while True:
+        while node_type is not None:
+            hierarchy.append(node_type)
+            node_type = node_type.parent_type
+        operation_values = {}
+        operation_owners = {}
+        for node_type in reversed(hierarchy):
             for interface_name in interface_names:
-                if node_type.interfaces and interface_name in node_type.interfaces:
-                    for name, elems in node_type.interfaces[interface_name].items():
-                        if name in steps:
-                            if name not in interfaces:
-                                interfaces[name] = InterfacesDef(node_type, interface_name, name=name,
-                                                                 value=elems, node_template=node)
+                definition = (node_type.interfaces or {}).get(interface_name, {})
+                for name, value in definition.items():
+                    if name not in steps:
+                        continue
+                    operation_values[name] = merge_operation(operation_values.get(name, {}), value)
+                    if definition.get('type') or name not in operation_owners:
+                        operation_owners[name] = (node_type, interface_name)
 
-            if node_type.parent_type is not None:
-                node_type = node_type.parent_type
+        for name, value in operation_values.items():
+            if name in interfaces:
+                interface = copy.copy(interfaces[name])
+                value = merge_operation(value, interface.value or {})
+                interface.value = value
+                interface.implementation = value.get('implementation')
+                interface.inputs = value.get('inputs')
+                interface.outputs = value.get('outputs')
+                interfaces[name] = interface
             else:
-                return interfaces
+                owner, interface_name = operation_owners[name]
+                interfaces[name] = InterfacesDef(owner, interface_name, name=name,
+                                                 value=value, node_template=node)
+        return interfaces
 
     def get_outputs(self, inf_info):
         """

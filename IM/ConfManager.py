@@ -74,6 +74,9 @@ class ConfManager(LoggerMixin, threading.Thread):
         self.max_ctxt_time = max_ctxt_time
         self._stop_thread = False
         self.ansible_process = None
+        self.failed_steps = set()
+        self.contextualization_active = True
+        self.upgrade_active = False
         self.logger = logging.getLogger('ConfManager')
 
     def check_running_pids(self, vms_configuring):
@@ -96,8 +99,12 @@ class ConfManager(LoggerMixin, threading.Thread):
                             self.log_info("Configuration process of VM %s success." % vm.im_id)
                         elif vm.configured is False:
                             self.log_info("Configuration process of VM %s failed." % vm.im_id)
+                            self.failed_steps.add(step)
+                        if vm.configured is not None:
+                            self.inf.complete_upgrade_step(step, vm.im_id, bool(vm.configured))
                         else:
                             self.log_warn("Configuration process of VM %s in unfinished state." % vm.im_id)
+                            self.failed_steps.add(step)
                         # Force to save the data to store the log data ()
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
                 else:
@@ -115,10 +122,20 @@ class ConfManager(LoggerMixin, threading.Thread):
                             self.log_info("Configuration process of master node failed.")
                         else:
                             self.log_warn("Configuration process of master node in unfinished state.")
+                        if vm.configured is False:
+                            self.failed_steps.add(step)
                         # Force to save the data to store the log data
                         IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
 
         return res
+
+    def vm_needs_contextualization(self, vm):
+        """Return whether normal configuration or an upgrade targets the VM."""
+        if vm.contextualize():
+            return True
+        system_name = vm.info.systems[0].name
+        return any(item.upgrade and item.system == system_name
+                   for item in (self.inf.radl.contextualize.items or {}).values())
 
     def stop(self):
         self._stop_thread = True
@@ -138,7 +155,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         while not success and wait < timeout and not self._stop_thread:
             success = True
             for vm in self.inf.get_vm_list():
-                if not vm.contextualize():
+                if not self.vm_needs_contextualization(vm):
                     continue
                 # If the VM is not in a "running" state, ignore it
                 if vm.state in VirtualMachine.NOT_RUNNING_STATES:
@@ -188,7 +205,7 @@ class ConfManager(LoggerMixin, threading.Thread):
         while not success and wait < timeout and not self._stop_thread:
             success = True
             for vm in self.inf.get_vm_list():
-                if not vm.contextualize():
+                if not self.vm_needs_contextualization(vm):
                     continue
                 if vm.hasPublicNet():
                     ip = vm.getPublicIP()
@@ -280,6 +297,12 @@ class ConfManager(LoggerMixin, threading.Thread):
                 time.sleep(Config.CONFMAMAGER_CHECK_STATE_INTERVAL)
                 continue
 
+            if self.inf.ctxt_tasks.empty() and not vms_configuring:
+                with self.inf._contextualization_lock:
+                    # Recheck under the request lock before exposing idle.
+                    if self.inf.ctxt_tasks.empty():
+                        self.contextualization_active = False
+                        last_step = None
             (step, prio, vm, tasks) = self.inf.ctxt_tasks.get()
 
             # stop the thread if the stop method has been called
@@ -289,9 +312,12 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             # if this task is from a next step
             if last_step is not None and last_step < step:
-                if vm.is_configured() is False:
+                if self.failed_steps:
                     self.log_debug("Configuration process of step " + str(last_step) +
                                    " failed, ignoring tasks of later steps.")
+                    if isinstance(vm, VirtualMachine):
+                        vm.configured = False
+                        vm.cont_out += "\nContextualization skipped after a previous step failed.\n"
                 else:
                     # Add the task again to the queue only if the last step was OK
                     self.inf.add_ctxt_tasks([(step, prio, vm, tasks)])
@@ -456,6 +482,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         windows_hosts = {}
         no_windows_hosts = {}
         vm_group = self.inf.get_vm_list_by_system_name()
+        upgrade_systems = {item.system for item in (self.inf.radl.contextualize.items or {}).values()
+                           if item.upgrade}
         for group in vm_group:
             vm = vm_group[group][0]
 
@@ -470,7 +498,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             all_vars['IM_' + group.upper() + '_NUM_VMS'] = str(len(vm_group[group]))
 
             for vm in vm_group[group]:
-                if not vm.contextualize():
+                if not self.vm_needs_contextualization(vm):
                     continue
                 # first try to use the public IP
                 ip = vm.getPublicIP()
@@ -599,7 +627,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             for vm in vm_group[group]:
                 # first try to use the public IP
-                if not vm.contextualize():
+                if not self.vm_needs_contextualization(vm):
                     continue
                 ip = vm.getPublicIP()
                 if not ip:
@@ -770,9 +798,11 @@ class ConfManager(LoggerMixin, threading.Thread):
         """
         recipe_files = []
 
-        conf_filename = tmp_dir + "/" + ctxt_elem.configure + "_" + ctxt_elem.system + "_task.yml"
+        playbook_name = ctxt_elem.get_playbook_name()
+        conf_filename = tmp_dir + "/" + playbook_name + "_task.yml"
         if not os.path.isfile(conf_filename):
-            configure = self.inf.radl.get_configure_by_name(ctxt_elem.configure)
+            configure = (self.inf.radl.get_upgrade_by_name(ctxt_elem.configure) if ctxt_elem.upgrade
+                         else self.inf.radl.get_configure_by_name(ctxt_elem.configure))
             conf_content = self.add_ansible_header(vm.getOS().lower())
             vault_password = vm.info.systems[0].getValue("vault.password")
             if vault_password:
@@ -789,12 +819,12 @@ class ConfManager(LoggerMixin, threading.Thread):
             conf_out = open(conf_filename, 'w')
             conf_out.write(str(conf_content))
             conf_out.close()
-            recipe_files.append(ctxt_elem.configure + "_" + ctxt_elem.system + "_task.yml")
+            recipe_files.append(playbook_name + "_task.yml")
 
             # create the "all" to enable this playbook to see the facts of all
             # the nodes
             all_filename = self.create_all_recipe(
-                tmp_dir, ctxt_elem.configure + "_" + ctxt_elem.system + "_task")
+                tmp_dir, playbook_name + "_task")
             recipe_files.append(all_filename)
             # all_windows_filename =  self.create_all_recipe(tmp_dir, ctxt_elem.configure + "_" +
             #                                               ctxt_elem.system + "_task", "windows", "_all_win.yml")
@@ -1053,7 +1083,6 @@ class ConfManager(LoggerMixin, threading.Thread):
             # get the contextualize steps specified in the RADL, or use the
             # default value
             contextualizes = self.inf.radl.contextualize.get_contextualize_items_by_step({1: ctxts})
-
             # create the files for the configure sections that appears in the contextualization steps
             # and add the ansible information and roles
             for ctxt_num in contextualizes.keys():
