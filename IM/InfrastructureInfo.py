@@ -532,8 +532,8 @@ class InfrastructureInfo:
             return self.configured
 
     def vm_has_upgrade(self, vm):
-        return any(item.upgrade and item.system == vm.info.systems[0].name
-                   and item.get_ctxt_tool() == 'Ansible'
+        return any(item.upgrade and item.system == vm.info.systems[0].name and
+                   item.get_ctxt_tool() == 'Ansible'
                    for item in (self.radl.contextualize.items or {}).values())
 
     def check_contextualization_available(self, incoming=None):
@@ -805,7 +805,6 @@ class InfrastructureInfo:
                                 tasks[step].append(ctxt_elem.get_playbook_name())
                                 if ctxt_elem.upgrade:
                                     upgrade_step_pairs.setdefault(ctxt_elem.getId(), set()).add((step, vm.im_id))
-
 
                 for step in tasks.keys():
                     priority = 0

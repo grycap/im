@@ -933,9 +933,10 @@ class Tosca:
         sequential = False
         remote_artifacts_path = "/tmp"  # nosec
         # Take the interfaces in correct order
-        interface_order = ['upgrade'] if is_upgrade else ['create', 'pre_configure_source', 'pre_configure_target',
-                     'configure_rel', 'configure', 'post_configure_source', 'post_configure_target', 'start',
-                     'add_target', 'add_source', 'target_changed', 'remove_target']
+        interface_order = ['upgrade'] if is_upgrade else [
+            'create', 'pre_configure_source', 'pre_configure_target', 'configure_rel', 'configure',
+            'post_configure_source', 'post_configure_target', 'start', 'add_target', 'add_source',
+            'target_changed', 'remove_target']
         for name in interface_order:
             interface = interfaces.get(name, None)
             if interface:

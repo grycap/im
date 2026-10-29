@@ -748,6 +748,7 @@ contextualize (
                 vm.is_ctxt_process_running.side_effect = running
 
             manager.launch_ctxt_agent = launch
+
             def thread_factory(*args, **kwargs):
                 thread = Mock()
                 thread.is_alive.return_value = False
@@ -755,6 +756,7 @@ contextualize (
                 return thread
 
             queue_get = inf.ctxt_tasks.get
+
             def get_task():
                 try:
                     return queue_get(block=False)
