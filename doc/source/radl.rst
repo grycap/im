@@ -563,8 +563,7 @@ later; an upgrade recipe does not replace it::
    configure worker (
    @begin
    ---
-   - hosts: all
-     tasks:
+   - tasks:
        - name: Apply the normal worker configuration
          ...
    @end
@@ -573,8 +572,7 @@ later; an upgrade recipe does not replace it::
    upgrade worker_upgrade (
    @begin
    ---
-   - hosts: all
-     tasks:
+   - tasks:
        - name: Upgrade the worker software
          ...
    @end
@@ -743,8 +741,7 @@ before its worker nodes::
    upgrade front_upgrade (
    @begin
    ---
-   - hosts: all
-     tasks:
+   - tasks:
        - name: Upgrade the Kubernetes front-end
          ...
    @end
@@ -753,8 +750,7 @@ before its worker nodes::
    upgrade worker_upgrade (
    @begin
    ---
-   - hosts: all
-     tasks:
+   - tasks:
        - name: Upgrade a Kubernetes worker
          ...
    @end
