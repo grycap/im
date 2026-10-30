@@ -47,6 +47,16 @@ class TestTosca(unittest.TestCase):
     def __init__(self, *args):
         unittest.TestCase.__init__(self, *args)
 
+    def test_interface_script_uses_private_ansible_temp_directory(self):
+        """Generated script tasks stage files under Ansible's private temp dir."""
+        tosca = Tosca.__new__(Tosca)
+        _, recipe = tosca._get_interface_recipe("upgrade", "upgrade.sh", "#!/bin/sh\nexit 0", {})
+
+        self.assertIn("{{ ansible_env.HOME }}/.ansible/tmp", recipe)
+        self.assertIn("state=directory mode=0700", recipe)
+        self.assertNotIn("dest=/tmp/", recipe)
+        self.assertNotIn("shell: /tmp/", recipe)
+
     def test_tosca_upgrade_interface_to_radl(self):
         """Upgrade interface operations become separate RADL upgrade recipes."""
         template = """

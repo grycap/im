@@ -32,6 +32,7 @@ class Tosca:
     ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/artifacts"
     ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/grycap/tosca/main/artifacts/"
     GET_TIMEOUT = 20
+    ANSIBLE_REMOTE_TMP = "{{ ansible_env.HOME }}/.ansible/tmp"
 
     logger = logging.getLogger('InfrastructureManager')
 
@@ -929,7 +930,7 @@ class Tosca:
                 value = self._get_artifact_uri(param_value, node)
                 if value:
                     artifacts.append(value)
-                    value = "/tmp/" + os.path.basename(value)
+                    value = Tosca.ANSIBLE_REMOTE_TMP + "/" + os.path.basename(value)
             else:
                 value = self._final_function_result(param_value, node)
 
@@ -984,11 +985,13 @@ class Tosca:
             return variables, self._remove_recipe_header(script_content)
 
         recipe = "- tasks:\n"
+        recipe += "  - name: Ensure Ansible temporary directory exists\n"
+        recipe += "    file: path='" + Tosca.ANSIBLE_REMOTE_TMP + "' state=directory mode=0700\n"
         recipe += "  - name: Copy contents of script of interface " + name + "\n"
-        recipe += "    copy: dest=/tmp/" + os.path.basename(script_path) + " content='" + \
-            script_content + "' mode=0755\n"
+        script_dest = Tosca.ANSIBLE_REMOTE_TMP + "/" + os.path.basename(script_path)
+        recipe += "    copy: dest='" + script_dest + "' content='" + script_content + "' mode=0755\n"
         recipe += "  - name: " + name + "\n"
-        recipe += "    shell: /tmp/" + os.path.basename(script_path) + "\n"
+        recipe += "    shell: '" + script_dest + "'\n"
         if env:
             recipe += "    environment:\n"
             recipe += ''.join("      %s: %s\n" % (key, value) for key, value in env.items())
@@ -1020,8 +1023,12 @@ class Tosca:
                 interface, node, interface_name, is_upgrade)
             sequential = input_sequential or sequential
             interface_label = node.name + "_" + interface.name
-            tasks += ''.join("  - name: Download artifact %s\n    get_url: dest=/tmp/%s url='%s'\n" %
-                             (artifact, os.path.basename(artifact), artifact) for artifact in artifacts)
+            if artifacts:
+                tasks += "  - name: Ensure Ansible temporary directory exists\n"
+                tasks += "    file: path='" + Tosca.ANSIBLE_REMOTE_TMP + "' state=directory mode=0700\n"
+            tasks += ''.join("  - name: Download artifact %s\n    get_url: dest='%s/%s' url='%s'\n" %
+                             (artifact, Tosca.ANSIBLE_REMOTE_TMP, os.path.basename(artifact), artifact)
+                             for artifact in artifacts)
             script_path, script_content = self._load_interface_implementation(node, interface)
             interface_variables, recipe = self._get_interface_recipe(
                 interface_label, script_path, script_content, env)
