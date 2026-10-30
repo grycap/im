@@ -12,10 +12,11 @@ RUN apt-get update && apt-get install --no-install-recommends -y patch wget pyth
 
 # Install IM
 RUN apt-get update && apt-get install --no-install-recommends -y python3-setuptools python3-pip python3-packaging python3-typing-extensions python3-jaraco.functools git && \
-     pip3 install --break-system-packages msrest msrestazure azure-common azure-mgmt-storage "azure-mgmt-compute<38.0.0" "azure-mgmt-network<31.0.0" azure-mgmt-resource azure-mgmt-dns azure-identity && \
-     pip3 install --break-system-packages pyOpenSSL pymongo ansible==12.3.0&& \
+     pip3 install --no-cache-dir  --break-system-packages msrest msrestazure azure-common azure-mgmt-storage "azure-mgmt-compute<38.0.0" "azure-mgmt-network<31.0.0" azure-mgmt-resource azure-mgmt-dns azure-identity && \
+     pip3 install --no-cache-dir  --break-system-packages pyOpenSSL pymongo ansible==12.3.0&& \
      pip3 install --no-cache-dir --break-system-packages git+https://github.com/micafer/tosca-parser@im && \
-     pip3 install --break-system-packages git+https://github.com/grycap/im@$BRANCH "typing_extensions==4.15.0" && \
+     pip3 install --no-cache-dir --break-system-packages git+https://github.com/grycap/radl@devel && \
+     pip3 install --no-cache-dir  --break-system-packages git+https://github.com/grycap/im@$BRANCH "typing_extensions==4.15.0" && \
      apt-get purge -y python3-pip python3-setuptools python3-pkg-resources git && \
      apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && rm -rf ~/.cache/
 

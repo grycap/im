@@ -34,9 +34,12 @@ An RADL document has the next general structure::
 
    configure <configure_id> (<Ansible recipes>)
 
+   upgrade <upgrade_id> (<Ansible recipes>)
+
    contextualize [max_time] (
      option <option_name> = <value>
      system <system_id> configure <configure_id> [step <num>]
+     system <system_id> upgrade <upgrade_id> [step <num>] [sequential]
      ...
    )
 
@@ -52,7 +55,7 @@ The ``name`` field is a predefined but optional field used to assign a name to t
    )
 
 
-The keywords ``ansible``, ``network``, ``system`` and ``configure`` assign some *features*
+The ``ansible``, ``network``, ``system``, ``configure`` and ``upgrade`` keywords assign some *features*
 or *recipes* to an identity ``<id>``. The features are a list of constrains
 separated by ``and``, and a constrain is formed by
 ``<feature name> <operator> <value>``. For instance::
@@ -551,6 +554,34 @@ enclosed between the tags ``@begin`` and ``@end``, like that::
    @end
    )
 
+Since IM version 2.1.0, an ``upgrade`` element can define a separate, one-shot
+Ansible recipe for upgrading software on already deployed nodes. It uses the
+same embedded ``@begin``/``@end`` format as ``configure``. Keep the ordinary
+``configure`` recipe for initial configuration and for configuring nodes added
+later; an upgrade recipe does not replace it::
+
+   configure worker (
+   @begin
+   ---
+   - tasks:
+       - name: Apply the normal worker configuration
+         ...
+   @end
+   )
+
+   upgrade worker_upgrade (
+   @begin
+   ---
+   - tasks:
+       - name: Upgrade the worker software
+         ...
+   @end
+   )
+
+The upgrade recipe is selected explicitly in ``contextualize`` as described
+below. Upgrade recipes currently require Ansible; Cloud-Init is not supported
+for this operation because it targets already deployed nodes.
+
 In the Ansible case, to easy some contextualization tasks, IM publishes a set 
 of variables that can be accessed by the recipes and have information about 
 the virtual machine.
@@ -684,6 +715,7 @@ The contextualize section has the next structure::
    contextualize <max_context_time> (
       option <option_name> = <value>
       system <system_id> configure <configure_id> [step <num>] [with (Ansible|cloud_init)]
+      system <system_id> upgrade <upgrade_id> [step <num>] [sequential]
       ...
    )
 
@@ -696,9 +728,70 @@ in the "master" VM that will be used to configure all the VMs of the infrastruct
 
    option ansible_version = '2.6.20'
 
-Each line inside the contextualize section enables to specify which configure section ``configure_id``
-will be applied in the nodes of type ``system_id``. Optionally a step number can be specified to set
-the execution order. For example::
+Each line inside the contextualize section selects a recipe for nodes of type
+``system_id``. A ``configure`` line selects the normal configuration recipe;
+an ``upgrade`` line selects the one-shot upgrade recipe. Optionally, ``step``
+sets the execution order. For an upgrade, ``sequential`` makes the IM execute
+the recipe on matching nodes one at a time, waiting for each node's execution
+to finish before starting the next. Sequential upgrades of the same system are
+ordered by VM ID. If an upgrade in a step fails, later steps are not run. This
+is useful for clustered services, such as upgrading a Kubernetes front-end
+before its worker nodes::
+
+   upgrade front_upgrade (
+   @begin
+   ---
+   - tasks:
+       - name: Upgrade the Kubernetes front-end
+         ...
+   @end
+   )
+
+   upgrade worker_upgrade (
+   @begin
+   ---
+   - tasks:
+       - name: Upgrade a Kubernetes worker
+         ...
+   @end
+   )
+
+   contextualize 3600 (
+      system front upgrade front_upgrade step 1
+      system worker upgrade worker_upgrade step 2 sequential
+   )
+
+The front-end upgrade runs in step 1. The worker upgrade runs sequentially in
+step 2, one worker at a time. The normal ``configure`` recipes remain
+independent and continue to be used for ordinary contextualization, including
+when nodes are added. The IM consumes the contextualize upgrade request only
+after every targeted node has completed successfully. If playbook generation,
+execution, or any node fails or is interrupted, the request remains in RADL so
+it can be explicitly retried. The upgrade recipe itself remains available after
+success; only the one-shot contextualize selection is consumed.
+
+An upgrade-only request temporarily replaces the execution plan, not the normal
+configuration policy. After its last selection succeeds, the previous normal
+``contextualize`` policy is restored, including explicit step ordering. If no
+explicit policy existed, the default configuration is enabled again rather
+than leaving an empty ``contextualize ()`` block. An explicitly disabled normal
+policy remains disabled. When a request also contains normal configuration
+selections, those selections form the normal policy retained afterwards.
+If the new application version needs different normal ``configure`` recipes,
+include their replacements in the upgrade request; the IM does not rewrite
+playbooks automatically.
+
+While a contextualization involving upgrades is active, another reconfigure,
+resource addition, or resource removal is rejected before changing the
+infrastructure. Wait for the current execution to finish before submitting the
+next request. This prevents results from an earlier execution being attributed
+to a new upgrade. Any failed step, including a non-sequential front-end step,
+prevents subsequent steps from starting.
+
+This support requires RADL version 1.3.6 or newer, together with IM 2.1.0.
+
+For normal configuration, a step number likewise specifies execution order.
+For example::
 
    system nodeA (
       ...
@@ -876,8 +969,8 @@ using JSON syntax to describe the objects. This is a complete example of the JSO
    ]
 
 The RADL JSON document is described as a list of objects. Each main object has a field named ``class`` that
-described the type of RADL object (ansible, network, system, configure, contextualize or deploy). In case of
-ansible, network, system and configure, the must also have and ``id`` field. Then the other fields correspond
+describes the type of RADL object (ansible, network, system, configure, upgrade, contextualize or deploy). In case of
+ansible, network, system, configure and upgrade, they must also have an ``id`` field. Then the other fields correspond
 to the features described in the RADL object. A particularity of the JSON format is that it does not uses
 the comparators (``<=`` or ``>=``) so it is expressed using the ``_min`` and ``_max`` suffixes as show in the
 example in ``cpu.count_min`` and ``memory.size_min``. Also the JSON format does not use units in the amount of

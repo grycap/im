@@ -44,8 +44,269 @@ def read_file_as_string(file_name):
 
 class TestTosca(unittest.TestCase):
 
+    def convert_upgrade_template(self, template):
+        """Translate an upgrade template using a canned Ansible playbook."""
+        tosca = Tosca(template, verify=False)
+        response = MagicMock()
+        response.text = "---\n- hosts: all\n  tasks:\n  - debug: msg=upgrade\n"
+        response.status_code = 200
+        tosca.cache_session.get = MagicMock(return_value=response)
+        return tosca, tosca.to_radl()[1]
+
     def __init__(self, *args):
         unittest.TestCase.__init__(self, *args)
+
+    def test_interface_script_uses_private_ansible_temp_directory(self):
+        """Generated script tasks stage files under Ansible's private temp dir."""
+        tosca = Tosca.__new__(Tosca)
+        _, recipe = tosca._get_interface_recipe("upgrade", "upgrade.sh", "#!/bin/sh\nexit 0", {})
+
+        self.assertIn("{{ ansible_env.HOME }}/.ansible/tmp", recipe)
+        self.assertIn("state=directory mode=0700", recipe)
+        self.assertNotIn("dest=/tmp/", recipe)
+        self.assertNotIn("shell: /tmp/", recipe)
+
+    def test_tosca_upgrade_interface_to_radl(self):
+        """Upgrade interface operations become separate RADL upgrade recipes."""
+        template = """
+tosca_definitions_version: tosca_simple_yaml_1_0
+interface_types:
+  tosca.interfaces.grycap.Upgrade:
+    derived_from: tosca.interfaces.Root
+    operations:
+      upgrade:
+        description: Upgrade the application using an Ansible playbook
+node_types:
+  test.nodes.Compute:
+    derived_from: tosca.nodes.Compute
+    interfaces:
+      Upgrade:
+        type: tosca.interfaces.grycap.Upgrade
+        upgrade:
+          implementation: https://example.org/upgrade.yml
+topology_template:
+  node_templates:
+    worker:
+      type: test.nodes.Compute
+      capabilities:
+        host:
+          properties:
+            num_cpus: 1
+      requirements: []
+"""
+        _, radl = self.convert_upgrade_template(template)
+
+        self.assertEqual(len(radl.upgrades), 1)
+        self.assertEqual(radl.upgrades[0].name, "worker_upgrade")
+        self.assertIn("msg=upgrade", radl.upgrades[0].recipes)
+        item = next(iter(radl.contextualize.items.values()))
+        self.assertTrue(item.upgrade)
+        self.assertEqual(item.configure, radl.upgrades[0].name)
+        self.assertEqual(radl.configures, [])
+
+    def test_tosca_upgrade_sequential_input(self):
+        """The Upgrade sequential input maps from a node property to RADL."""
+        template = """
+tosca_definitions_version: tosca_simple_yaml_1_0
+interface_types:
+  tosca.interfaces.grycap.Upgrade:
+    derived_from: tosca.interfaces.Root
+    operations:
+      upgrade:
+        inputs:
+          sequential:
+            type: boolean
+            required: false
+            default: false
+node_types:
+  test.nodes.Compute:
+    derived_from: tosca.nodes.Compute
+    properties:
+      upgrade_sequential:
+        type: boolean
+        default: true
+        required: false
+    interfaces:
+      Upgrade:
+        type: tosca.interfaces.grycap.Upgrade
+        upgrade:
+          implementation: https://example.org/upgrade.yml
+          inputs:
+            sequential: { get_property: [ SELF, upgrade_sequential ] }
+topology_template:
+  node_templates:
+    worker:
+      type: test.nodes.Compute
+      capabilities:
+        host:
+          properties:
+            num_cpus: 1
+      requirements: []
+"""
+        _, radl = self.convert_upgrade_template(template)
+
+        item = next(iter(radl.contextualize.items.values()))
+        self.assertTrue(item.upgrade)
+        self.assertTrue(item.sequential)
+        self.assertNotIn('sequential:', radl.upgrades[0].recipes)
+
+    def test_tosca_upgrade_inherited_sequential_survives_implementation_override(self):
+        """Template implementation overrides preserve inherited operation inputs."""
+        template = """
+tosca_definitions_version: tosca_simple_yaml_1_0
+interface_types:
+  tosca.interfaces.grycap.Upgrade:
+    derived_from: tosca.interfaces.Root
+    operations:
+      upgrade:
+        inputs:
+          sequential:
+            type: boolean
+            required: false
+            default: false
+node_types:
+  test.nodes.Base:
+    derived_from: tosca.nodes.Compute
+    interfaces:
+      Upgrade:
+        type: tosca.interfaces.grycap.Upgrade
+        upgrade:
+          implementation: https://example.org/base.yml
+          inputs:
+            sequential: true
+  test.nodes.Child:
+    derived_from: test.nodes.Base
+    interfaces:
+      Upgrade:
+        upgrade:
+          implementation: https://example.org/child.yml
+topology_template:
+  node_templates:
+    worker:
+      type: test.nodes.Child
+      capabilities:
+        host:
+          properties:
+            num_cpus: 1
+      requirements: []
+"""
+        tosca, radl = self.convert_upgrade_template(template)
+        item = next(iter(radl.contextualize.items.values()))
+        self.assertTrue(item.sequential)
+        self.assertTrue(item.upgrade)
+        self.assertEqual(tosca.cache_session.get.call_args.args[0], "https://example.org/child.yml")
+        # A node-template override must merge in the same way as a derived type.
+        template = template.replace('type: test.nodes.Child', 'type: test.nodes.Base')
+        template = template.replace('      requirements: []', '''      requirements: []
+      interfaces:
+        Upgrade:
+          upgrade:
+            implementation: https://example.org/template.yml''')
+        tosca, radl = self.convert_upgrade_template(template)
+        self.assertTrue(next(iter(radl.contextualize.items.values())).sequential)
+        self.assertEqual(tosca.cache_session.get.call_args.args[0], "https://example.org/template.yml")
+
+    def test_tosca_upgrade_inherited_implementation_survives_inputs_override(self):
+        """Template input overrides preserve inherited operation implementation."""
+        template = """
+tosca_definitions_version: tosca_simple_yaml_1_0
+interface_types:
+  tosca.interfaces.grycap.Upgrade:
+    derived_from: tosca.interfaces.Root
+    operations:
+      upgrade:
+        inputs:
+          sequential:
+            type: boolean
+            required: false
+            default: false
+node_types:
+  test.nodes.Base:
+    derived_from: tosca.nodes.Compute
+    interfaces:
+      Upgrade:
+        type: tosca.interfaces.grycap.Upgrade
+        upgrade:
+          implementation: https://example.org/base.yml
+          inputs:
+            sequential: false
+  test.nodes.Child:
+    derived_from: test.nodes.Base
+    interfaces:
+      Upgrade:
+        upgrade:
+          inputs:
+            sequential: true
+topology_template:
+  node_templates:
+    worker:
+      type: test.nodes.Child
+      capabilities:
+        host:
+          properties:
+            num_cpus: 1
+      requirements: []
+"""
+        tosca, radl = self.convert_upgrade_template(template)
+        item = next(iter(radl.contextualize.items.values()))
+        self.assertTrue(item.sequential)
+        self.assertEqual(tosca.cache_session.get.call_args.args[0], "https://example.org/base.yml")
+        template = template.replace('type: test.nodes.Child', 'type: test.nodes.Base')
+        template = template.replace('      requirements: []', '''      requirements: []
+      interfaces:
+        Upgrade:
+          upgrade:
+            inputs:
+              sequential: true''')
+        tosca, radl = self.convert_upgrade_template(template)
+        self.assertTrue(next(iter(radl.contextualize.items.values())).sequential)
+        self.assertEqual(tosca.cache_session.get.call_args.args[0], "https://example.org/base.yml")
+
+    def test_tosca_upgrade_dependency_levels(self):
+        """Upgrade contextualization follows TOSCA dependency levels."""
+        template = """
+tosca_definitions_version: tosca_simple_yaml_1_0
+interface_types:
+  tosca.interfaces.grycap.Upgrade:
+    derived_from: tosca.interfaces.Root
+    operations:
+      upgrade:
+        description: Upgrade the application using an Ansible playbook
+node_types:
+  test.nodes.Compute:
+    derived_from: tosca.nodes.Compute
+    interfaces:
+      Upgrade:
+        type: tosca.interfaces.grycap.Upgrade
+        upgrade:
+          implementation: https://example.org/upgrade.yml
+topology_template:
+  node_templates:
+    frontend:
+      type: test.nodes.Compute
+      capabilities:
+        host:
+          properties:
+            num_cpus: 1
+      requirements: []
+    worker:
+      type: test.nodes.Compute
+      capabilities:
+        host:
+          properties:
+            num_cpus: 1
+      requirements:
+        - dependency:
+            node: frontend
+            relationship:
+              type: tosca.relationships.DependsOn
+"""
+        _, radl = self.convert_upgrade_template(template)
+
+        self.assertEqual(len(radl.upgrades), 2)
+        items = {item.system: item for item in radl.contextualize.items.values() if item.upgrade}
+        self.assertEqual(items["frontend"].num, 1)
+        self.assertEqual(items["worker"].num, 2)
 
     def test_tosca_to_radl(self):
         """Test TOSCA RADL translation"""

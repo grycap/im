@@ -17,7 +17,7 @@ from toscaparser.functions import Function, is_function, get_function, GetAttrib
 from toscaparser.elements.scalarunit import ScalarUnit_Size
 from toscaparser.imports import ImportsLoader
 from IM.ansible_utils import merge_recipes
-from radl.radl import (system, deploy, network, Feature, Features, configure,
+from radl.radl import (system, deploy, network, Feature, Features, configure, upgrade,
                        contextualize_item, RADL, contextualize, ansible, description)
 
 
@@ -32,6 +32,7 @@ class Tosca:
     ARTIFACTS_PATH = os.path.dirname(os.path.realpath(__file__)) + "/tosca-types/artifacts"
     ARTIFACTS_REMOTE_REPO = "https://raw.githubusercontent.com/grycap/tosca/main/artifacts/"
     GET_TIMEOUT = 20
+    ANSIBLE_REMOTE_TMP = "{{ ansible_env.HOME }}/.ansible/tmp"
 
     logger = logging.getLogger('InfrastructureManager')
 
@@ -360,15 +361,23 @@ class Tosca:
                         Tosca.logger.warning(
                             "Node %s has not compute node to host in." % node.name)
 
-                interfaces = Tosca._get_interfaces(node)
+                interfaces = Tosca._get_interfaces(node, interface_names=['Standard', 'Configure', 'Upgrade'],
+                                                   steps=['create', 'configure', 'start', 'stop', 'delete', 'upgrade'])
                 interfaces.update(Tosca._get_relationships_interfaces(relationships, node))
 
+                upgrade_interface = {'upgrade': interfaces['upgrade']} if 'upgrade' in interfaces else {}
                 conf = self._gen_configure_from_interfaces(node, compute, interfaces)
+                upg = self._gen_configure_from_interfaces(node, compute, upgrade_interface, is_upgrade=True)
+                level = Tosca._get_dependency_level(node)
                 if conf:
-                    level = Tosca._get_dependency_level(node)
                     radl.configures.append(conf)
                     if compute:
                         cont_items.append(contextualize_item(compute.name, conf.name, level))
+                if upg:
+                    radl.upgrades.append(upg)
+                    if compute:
+                        cont_items.append(contextualize_item(compute.name, upg.name, level, upgrade=True,
+                                                             sequential=getattr(upg, 'sequential', False)))
 
         if cont_items:
             radl.contextualize = contextualize(cont_items)
@@ -912,7 +921,83 @@ class Tosca:
             value = str(value)
         return value.replace("\n", "\\n")
 
-    def _gen_configure_from_interfaces(self, node, compute, interfaces):
+    def _get_interface_inputs(self, interface, node, interface_name, is_upgrade):
+        env = {}
+        artifacts = []
+        sequential = False
+        for param_name, param_value in (interface.inputs or {}).items():
+            if self._is_artifact(param_value):
+                value = self._get_artifact_uri(param_value, node)
+                if value:
+                    artifacts.append(value)
+                    value = Tosca.ANSIBLE_REMOTE_TMP + "/" + os.path.basename(value)
+            else:
+                value = self._final_function_result(param_value, node)
+
+            if is_upgrade and interface_name == 'upgrade' and param_name == 'sequential':
+                sequential = (value.strip().lower() in ('true', 'yes', '1')
+                              if isinstance(value, str) else bool(value))
+            elif value is None:
+                raise Exception("input value for %s in interface %s of node %s not valid" % (
+                    param_name, interface_name, node.name))
+            else:
+                env[param_name] = value
+        return env, artifacts, sequential
+
+    def _load_interface_implementation(self, node, interface):
+        implementation = self._get_implementation_url(node, interface.implementation)
+        parsed_url = urlparse(implementation)
+        if parsed_url[0] in ('http', 'https', 'ftp'):
+            script_path = parsed_url[2]
+            try:
+                response = self.cache_session.get(implementation, timeout=self.GET_TIMEOUT)
+                if response.status_code != 200:
+                    raise Exception(response.reason + "\n" + response.text)
+                return script_path, response.text
+            except Exception as ex:
+                raise Exception("Error downloading the implementation script '%s': %s" % (
+                    implementation, str(ex)))
+
+        script_path = parsed_url[2] if parsed_url[0] == 'file' else os.path.join(
+            Tosca.ARTIFACTS_PATH, implementation)
+        if os.path.isfile(script_path):
+            with open(script_path) as script_file:
+                return script_path, script_file.read()
+
+        try:
+            response = self.cache_session.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation,
+                                              timeout=self.GET_TIMEOUT)
+            if response.status_code != 200:
+                raise Exception(response.reason + "\n" + response.text)
+            return script_path, response.text
+        except Exception:
+            raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' "
+                            "or in the artifacts remote url '%s'." % (implementation,
+                                                                      Tosca.ARTIFACTS_PATH,
+                                                                      Tosca.ARTIFACTS_REMOTE_REPO))
+
+    def _get_interface_recipe(self, name, script_path, script_content, env):
+        if script_path.endswith((".yaml", ".yml")):
+            variables = ''.join('    %s: %s \n' % (key, self._serialize_interface_input(value))
+                                for key, value in env.items())
+            if variables:
+                variables += "\n"
+            return variables, self._remove_recipe_header(script_content)
+
+        recipe = "- tasks:\n"
+        recipe += "  - name: Ensure Ansible temporary directory exists\n"
+        recipe += "    file: path='" + Tosca.ANSIBLE_REMOTE_TMP + "' state=directory mode=0700\n"
+        recipe += "  - name: Copy contents of script of interface " + name + "\n"
+        script_dest = Tosca.ANSIBLE_REMOTE_TMP + "/" + os.path.basename(script_path)
+        recipe += "    copy: dest='" + script_dest + "' content='" + script_content + "' mode=0755\n"
+        recipe += "  - name: " + name + "\n"
+        recipe += "    shell: '" + script_dest + "'\n"
+        if env:
+            recipe += "    environment:\n"
+            recipe += ''.join("      %s: %s\n" % (key, value) for key, value in env.items())
+        return "", recipe
+
+    def _gen_configure_from_interfaces(self, node, compute, interfaces, is_upgrade=False):
         if not interfaces:
             return None
         if not compute:
@@ -921,131 +1006,52 @@ class Tosca:
 
         variables = ""
         tasks = ""
-        recipe_list = []
-        remote_artifacts_path = "/tmp"  # nosec
-        # Take the interfaces in correct order
-        for name in ['create', 'pre_configure_source', 'pre_configure_target', 'configure_rel',
-                     'configure', 'post_configure_source', 'post_configure_target', 'start',
-                     'add_target', 'add_source', 'target_changed', 'remove_target']:
-            interface = interfaces.get(name, None)
-            if interface:
-                if interface.node_template:
-                    orig_node = node
-                    node = interface.node_template
-                artifacts = []
-                # Get the inputs
-                env = {}
-                if interface.inputs:
-                    for param_name, param_value in interface.inputs.items():
-                        val = None
+        recipes = []
+        sequential = False
+        original_node = node
+        interface_order = ['upgrade'] if is_upgrade else [
+            'create', 'pre_configure_source', 'pre_configure_target', 'configure_rel', 'configure',
+            'post_configure_source', 'post_configure_target', 'start', 'add_target', 'add_source',
+            'target_changed', 'remove_target']
+        for interface_name in interface_order:
+            interface = interfaces.get(interface_name)
+            if not interface:
+                continue
+            if interface.node_template:
+                original_node, node = node, interface.node_template
+            env, artifacts, input_sequential = self._get_interface_inputs(
+                interface, node, interface_name, is_upgrade)
+            sequential = input_sequential or sequential
+            interface_label = node.name + "_" + interface.name
+            if artifacts:
+                tasks += "  - name: Ensure Ansible temporary directory exists\n"
+                tasks += "    file: path='" + Tosca.ANSIBLE_REMOTE_TMP + "' state=directory mode=0700\n"
+            tasks += ''.join("  - name: Download artifact %s\n    get_url: dest='%s/%s' url='%s'\n" %
+                             (artifact, Tosca.ANSIBLE_REMOTE_TMP, os.path.basename(artifact), artifact)
+                             for artifact in artifacts)
+            script_path, script_content = self._load_interface_implementation(node, interface)
+            interface_variables, recipe = self._get_interface_recipe(
+                interface_label, script_path, script_content, env)
+            variables += interface_variables
+            recipes.append(recipe)
 
-                        if self._is_artifact(param_value):
-                            artifact_uri = self._get_artifact_uri(param_value, node)
-                            if artifact_uri:
-                                val = remote_artifacts_path + "/" + os.path.basename(artifact_uri)
-                                artifacts.append(artifact_uri)
-                        else:
-                            val = self._final_function_result(param_value, node)
-
-                        if val is not None:
-                            env[param_name] = val
-                        else:
-                            raise Exception("input value for %s in interface %s of node %s not valid" % (
-                                param_name, name, node.name))
-
-                name = node.name + "_" + interface.name
-
-                # if there are artifacts to download
-                if artifacts:
-                    for artifact in artifacts:
-                        tasks += "  - name: Download artifact " + artifact + "\n"
-                        tasks += "    get_url: dest=" + remote_artifacts_path + "/" + \
-                            os.path.basename(artifact) + " url='" + artifact + "'\n"
-
-                implementation = self._get_implementation_url(node, interface.implementation)
-                implementation_url = urlparse(implementation)
-
-                if implementation_url[0] in ['http', 'https', 'ftp']:
-                    script_path = implementation_url[2]
-                    try:
-                        resp = self.cache_session.get(implementation, timeout=self.GET_TIMEOUT)
-                        script_content = resp.text
-                        if resp.status_code != 200:
-                            raise Exception(resp.reason + "\n" + resp.text)
-                    except Exception as ex:
-                        raise Exception("Error downloading the implementation script '%s': %s" % (
-                            implementation, str(ex)))
-                else:
-                    if implementation_url[0] == 'file':
-                        script_path = implementation_url[2]
-                    else:
-                        script_path = os.path.join(Tosca.ARTIFACTS_PATH, implementation)
-                    if os.path.isfile(script_path):
-                        f = open(script_path)
-                        script_content = f.read()
-                        f.close()
-                    else:
-                        try:
-                            resp = self.cache_session.get(Tosca.ARTIFACTS_REMOTE_REPO + implementation,
-                                                          timeout=self.GET_TIMEOUT)
-                            script_content = resp.text
-                            if resp.status_code != 200:
-                                raise Exception(resp.reason + "\n" + resp.text)
-                        except Exception:
-                            raise Exception("Implementation file: '%s' is not located in the artifacts folder '%s' "
-                                            "or in the artifacts remote url '%s'." % (implementation,
-                                                                                      Tosca.ARTIFACTS_PATH,
-                                                                                      Tosca.ARTIFACTS_REMOTE_REPO))
-
-                if script_path.endswith(".yaml") or script_path.endswith(".yml"):
-                    if env:
-                        for var_name, var_value in env.items():
-                            var_value = self._serialize_interface_input(var_value)
-                            variables += '    %s: %s ' % (var_name, var_value) + "\n"
-                        variables += "\n"
-
-                    script_content = self._remove_recipe_header(script_content)
-                    recipe_list.append(script_content)
-                else:
-                    recipe = "- tasks:\n"
-                    recipe += "  - name: Copy contents of script of interface " + name + "\n"
-                    recipe += "    copy: dest=/tmp/" + \
-                        os.path.basename(script_path) + " content='" + \
-                        script_content + "' mode=0755\n"
-
-                    recipe += "  - name: " + name + "\n"
-                    recipe += "    shell: /tmp/" + \
-                        os.path.basename(script_path) + "\n"
-                    if env:
-                        recipe += "    environment:\n"
-                        for var_name, var_value in env.items():
-                            recipe += "      %s: %s\n" % (var_name, var_value)
-
-                    recipe_list.append(recipe)
-
-        if tasks or recipe_list:
-            name = node.name
-            if node.name != compute.name:
-                name = name + "_" + compute.name
-            if node.name != orig_node.name:
-                name = name + "_" + orig_node.name
-            name = name + "_conf"
-            if variables:
-                recipes = "---\n- vars:\n" + variables + "\n"
-                recipes += "  "
-            else:
-                recipes = "- "
-
-            if tasks:
-                recipes += "tasks:\n" + tasks + "\n"
-
-            # Merge the main recipe with the other yaml files
-            for recipe in recipe_list:
-                recipes = merge_recipes(recipes, recipe)
-
-            return configure(name, recipes)
-        else:
+        if not tasks and not recipes:
             return None
+        name = node.name
+        if node.name != compute.name:
+            name += "_" + compute.name
+        if node.name != original_node.name:
+            name += "_" + original_node.name
+        name += "_upgrade" if is_upgrade else "_conf"
+        output = "---\n- vars:\n" + variables + "\n  " if variables else "- "
+        if tasks:
+            output += "tasks:\n" + tasks + "\n"
+        for recipe in recipes:
+            output = merge_recipes(output, recipe)
+        result = upgrade(name, output) if is_upgrade else configure(name, output)
+        if is_upgrade:
+            result.sequential = sequential
+        return result
 
     @staticmethod
     def _remove_recipe_header(script_content):
@@ -2126,21 +2132,49 @@ class Tosca:
         for interface in node.interfaces:
             interfaces[interface.name] = interface
 
+        def merge_operation(base, override):
+            if not isinstance(override, dict):
+                override = {'implementation': override}
+            result = copy.deepcopy(base)
+            for key, value in override.items():
+                if key in ('inputs', 'outputs'):
+                    result.setdefault(key, {}).update(copy.deepcopy(value))
+                else:
+                    result[key] = copy.deepcopy(value)
+            return result
+
+        # Apply base types first, then derived types and template overrides.
+        hierarchy = []
         node_type = node.type_definition
-
-        while True:
+        while node_type is not None:
+            hierarchy.append(node_type)
+            node_type = node_type.parent_type
+        operation_values = {}
+        operation_owners = {}
+        for node_type in reversed(hierarchy):
             for interface_name in interface_names:
-                if node_type.interfaces and interface_name in node_type.interfaces:
-                    for name, elems in node_type.interfaces[interface_name].items():
-                        if name in steps:
-                            if name not in interfaces:
-                                interfaces[name] = InterfacesDef(node_type, interface_name, name=name,
-                                                                 value=elems, node_template=node)
+                definition = (node_type.interfaces or {}).get(interface_name, {})
+                for name, value in definition.items():
+                    if name not in steps:
+                        continue
+                    operation_values[name] = merge_operation(operation_values.get(name, {}), value)
+                    if definition.get('type') or name not in operation_owners:
+                        operation_owners[name] = (node_type, interface_name)
 
-            if node_type.parent_type is not None:
-                node_type = node_type.parent_type
+        for name, value in operation_values.items():
+            if name in interfaces:
+                interface = copy.copy(interfaces[name])
+                value = merge_operation(value, interface.value or {})
+                interface.value = value
+                interface.implementation = value.get('implementation')
+                interface.inputs = value.get('inputs')
+                interface.outputs = value.get('outputs')
+                interfaces[name] = interface
             else:
-                return interfaces
+                owner, interface_name = operation_owners[name]
+                interfaces[name] = InterfacesDef(owner, interface_name, name=name,
+                                                 value=value, node_template=node)
+        return interfaces
 
     def get_outputs(self, inf_info):
         """

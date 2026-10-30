@@ -1,0 +1,55 @@
+upgrade front_upgrade (
+@begin
+---
+- roles:
+    - role: grycap.kubernetes
+      kube_version: __TARGET_VERSION__
+      kube_type_of_node: front
+      kube_server: kubeserver
+@end
+)
+
+upgrade wn_upgrade (
+@begin
+---
+- roles:
+    - role: grycap.kubernetes
+      kube_version: __TARGET_VERSION__
+      kube_type_of_node: wn
+      kube_server: kubeserver
+@end
+)
+
+upgrade verify_cluster (
+@begin
+---
+- tasks:
+    - name: Read Kubernetes nodes and their kubelet versions
+      command: kubectl get nodes -o json
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      register: kubernetes_nodes
+      changed_when: false
+    - name: Assert that the frontend and worker are both on the target version
+      assert:
+        that:
+          - item.status.nodeInfo.kubeletVersion == 'v__TARGET_VERSION__'
+          - "item.status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0"
+        fail_msg: "Node {{ item.metadata.name }} has not reached Kubernetes __TARGET_VERSION__ and Ready status"
+      loop: "{{ (kubernetes_nodes.stdout | from_json).items }}"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+    - name: Assert that exactly two cluster nodes were verified
+      assert:
+        that: (kubernetes_nodes.stdout | from_json).items | length == 2
+    - name: Mark the complete cluster upgrade as verified
+      debug:
+        msg: K8S_UPGRADE_ALL_NODES_VERIFIED___TARGET_VERSION_UNDERSCORES__
+@end
+)
+
+contextualize 5400 (
+  system front upgrade front_upgrade step 1
+  system wn upgrade wn_upgrade step 2 sequential
+  system front upgrade verify_cluster step 3
+)

@@ -72,6 +72,8 @@ class InfrastructureInfo:
 
     def __init__(self):
         self._lock = threading.Lock()
+        self._contextualization_lock = threading.RLock()
+        self.upgrade_normal_contextualize = None
         """Threading Lock to avoid concurrency problems."""
         self.id = str(uuid1())
         """Infrastructure unique ID. """
@@ -97,6 +99,14 @@ class InfrastructureInfo:
         """Contextualization output message"""
         self.ctxt_tasks = PriorityQueue()
         """List of contextualization tasks"""
+        self.sequential_upgrade_steps = set()
+        """Transient contextualization steps that must stop on a node failure."""
+        self.upgrade_step_items = {}
+        """Map (step, VM id) to the one-shot RADL upgrade selection."""
+        self.upgrade_execution_targets = {}
+        """VMs that must complete successfully before consuming each selection."""
+        self.upgrade_execution_results = {}
+        """Terminal results for the current upgrade execution."""
         self.ansible_configured = None
         """Flag to specify that ansible is configured successfully in the master node of this inf."""
         self.configured = None
@@ -122,7 +132,12 @@ class InfrastructureInfo:
         # Quit the ConfManager object and the lock to the data to be stored
         del odict['cm']
         del odict['_lock']
+        del odict['_contextualization_lock']
         del odict['ctxt_tasks']
+        del odict['sequential_upgrade_steps']
+        del odict['upgrade_step_items']
+        del odict['upgrade_execution_targets']
+        del odict['upgrade_execution_results']
         del odict['conf_threads']
         del odict['adding']
         del odict['deleting']
@@ -351,6 +366,7 @@ class InfrastructureInfo:
 
         with self._lock:
             original_radl = self.radl.clone()
+            original_normal_contextualize = self.upgrade_normal_contextualize
             # Add the description field
             if radl.description:
                 self.radl.add(radl.description.clone(), "replace")
@@ -360,13 +376,13 @@ class InfrastructureInfo:
                     InfrastructureInfo.logger.warning("Ignoring the redefinition of %s %s" % (type(s), s.getId()))
 
             # Add or update configures and systems
-            for s in radl.configures + radl.systems:
+            for s in radl.configures + radl.upgrades + radl.systems:
                 if self.radl.get(s) and warn:
                     InfrastructureInfo.logger.warning("(Re)definition of %s %s" % (type(s), s.getId()))
                 self.radl.add(s.clone(), "replace")
 
-            # Append contextualize
-            self.radl.add(radl.contextualize)
+            # Append contextualize, retaining the ordinary policy for upgrades.
+            self.set_contextualize(radl.contextualize)
 
             if radl.deploys:
                 # Overwrite to create only the last deploys
@@ -387,6 +403,7 @@ class InfrastructureInfo:
         except Exception as ex:
             # If something is not correct restore the original one and raise the error
             self.radl = original_radl
+            self.upgrade_normal_contextualize = original_normal_contextualize
             raise (ex)
 
     def complete_radl(self, radl):
@@ -477,7 +494,7 @@ class InfrastructureInfo:
         max_vms_connected = -1
         for vm in self.get_vm_list():
             vms_connected = -1
-            if (vm.contextualize() and vm.getOS() and vm.getOS().lower() == 'linux' and
+            if ((vm.contextualize() or self.vm_has_upgrade(vm)) and vm.getOS() and vm.getOS().lower() == 'linux' and
                     (vm.hasPublicNet() or vm.getProxyHost())):
                 # check that is connected with other VMs
                 vms_connected = 0
@@ -513,6 +530,94 @@ class InfrastructureInfo:
         else:
             # Otherwise return the value of configured
             return self.configured
+
+    def vm_has_upgrade(self, vm):
+        return any(item.upgrade and item.system == vm.info.systems[0].name and
+                   item.get_ctxt_tool() == 'Ansible'
+                   for item in (self.radl.contextualize.items or {}).values())
+
+    def check_contextualization_available(self, incoming=None):
+        """Do not replace a live execution involving upgrades.
+
+        Ordinary reconfigure retains its historical restart semantics.
+        Upgrade results must never be attributed to a subsequent request.
+        Callers hold _contextualization_lock through planning/RADL updates.
+        """
+        has_upgrade = any(item.upgrade for item in (self.radl.contextualize.items or {}).values())
+        if incoming is not None:
+            has_upgrade = has_upgrade or any(item.upgrade for item in (incoming.items or {}).values())
+        has_upgrade = has_upgrade or bool(self.upgrade_execution_targets)
+        has_upgrade = has_upgrade or (self.cm is not None and getattr(self.cm, 'upgrade_active', False) is True)
+        if has_upgrade and self.cm and self.cm.is_alive() and self.cm.contextualization_active is True:
+            raise IncorrectStateException('A contextualization involving upgrades is already in progress.')
+
+    def set_contextualize(self, value):
+        """Remember the normal policy while an upgrade-only plan is active."""
+        items = value.items or {}
+        if any(item.upgrade for item in items.values()):
+            normal_items = [item for item in items.values() if not item.upgrade]
+            if normal_items:
+                normal = value.clone()
+                normal.items = {item.getId(): item for item in normal_items}
+                self.upgrade_normal_contextualize = {'radl': str(normal), 'default_items': normal.items is None}
+            elif self.upgrade_normal_contextualize is None:
+                current = self.radl.contextualize.clone()
+                if current.items:
+                    current.items = {key: item for key, item in current.items.items() if not item.upgrade}
+                    if not current.items:
+                        current.items = None
+                self.upgrade_normal_contextualize = {'radl': str(current), 'default_items': current.items is None}
+            execution = self.radl.contextualize.clone()
+            execution.update(value)
+            execution.items = value.clone().items
+            self.radl.contextualize = execution
+            return
+        elif value.items is not None:
+            self.upgrade_normal_contextualize = None
+        self.radl.add(value)
+
+    def track_upgrade_steps(self, item_id, step_vm_pairs):
+        """Track VM tasks for one-shot upgrade selection consumption."""
+        targets = {vm_id for _, vm_id in step_vm_pairs}
+        if not targets:
+            return
+        self.upgrade_execution_targets[item_id] = targets
+        self.upgrade_execution_results[item_id] = {}
+        for step, vm_id in step_vm_pairs:
+            self.upgrade_step_items.setdefault((step, vm_id), set()).add(item_id)
+
+    def complete_upgrade_step(self, step, vm_id, success):
+        """Record a VM upgrade result and consume selections only on full success."""
+        import IM.InfrastructureList
+        item_ids = self.upgrade_step_items.pop((step, vm_id), set())
+        for item_id in item_ids:
+            results = self.upgrade_execution_results.setdefault(item_id, {})
+            results[vm_id] = bool(success)
+            targets = self.upgrade_execution_targets.get(item_id, set())
+            if targets and all(results.get(target) is True for target in targets):
+                if self.radl.contextualize.items:
+                    self.radl.contextualize.items.pop(item_id, None)
+                    if not self.radl.contextualize.items:
+                        if self.upgrade_normal_contextualize is not None:
+                            normal = self.upgrade_normal_contextualize
+                            self.radl.contextualize = parse_radl(normal['radl']).contextualize
+                            if normal['default_items']:
+                                self.radl.contextualize.items = None
+                        else:
+                            self.radl.contextualize.items = None
+                    if not any(item.upgrade for item in (self.radl.contextualize.items or {}).values()):
+                        self.upgrade_normal_contextualize = None
+                self.upgrade_execution_targets.pop(item_id, None)
+                self.upgrade_execution_results.pop(item_id, None)
+                IM.InfrastructureList.InfrastructureList.save_data(self.id)
+            elif any(result is False for result in results.values()):
+                # A failed request remains in RADL for an explicit retry.
+                self.upgrade_execution_targets.pop(item_id, None)
+                self.upgrade_execution_results.pop(item_id, None)
+                for key, tracked_ids in list(self.upgrade_step_items.items()):
+                    tracked_ids.discard(item_id)
+                    if not tracked_ids:
+                        self.upgrade_step_items.pop(key, None)
 
     def reset_ctxt_tasks(self):
         with self._lock:
@@ -555,6 +660,11 @@ class InfrastructureInfo:
         - auth(Authentication): parsed authentication tokens.
         - vm_list(list of int): List of VM ids to reconfigure. If None all VMs will be reconfigured.
         """
+        with self._contextualization_lock:
+            self.check_contextualization_available()
+            return self._contextualize(auth, vm_list)
+
+    def _contextualize(self, auth, vm_list=None):
         ctxt = True
 
         # If the user has specified an empty contextualize it means that he
@@ -571,6 +681,10 @@ class InfrastructureInfo:
                         break
 
         ctxt_task = []
+        self.sequential_upgrade_steps = set()
+        self.upgrade_step_items = {}
+        self.upgrade_execution_targets = {}
+        self.upgrade_execution_results = {}
         max_ctxt_time = self.radl.contextualize.max_time
         if not max_ctxt_time:
             max_ctxt_time = Config.MAX_CONTEXTUALIZATION_TIME
@@ -586,7 +700,10 @@ class InfrastructureInfo:
             if vm.contextualize():
                 all_configure_disabled = False
 
-        if all_configure_disabled:
+        has_ansible_upgrade = bool(self.radl.contextualize.items and any(
+            item.upgrade and item.get_ctxt_tool() == "Ansible"
+            for item in self.radl.contextualize.items.values()))
+        if all_configure_disabled and not has_ansible_upgrade:
             ctxt = False
 
         if not ctxt:
@@ -616,8 +733,29 @@ class InfrastructureInfo:
             ctxt_task.append((-1, 0, self, ['generate_playbooks_and_hosts']))
 
             use_dist = len(self.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST
+            eligible_vms = [vm for vm in self.get_vm_list()
+                            if not vm_list or vm.im_id in vm_list]
+            # Sequential upgrades occupy one contextualization step per VM.
+            # Shift later RADL steps so they cannot overlap the upgrade batch.
+            step_shifts = {}
+            shift = 0
+            for ctxt_num in sorted(contextualizes):
+                step_shifts[ctxt_num] = shift
+                max_extra_steps = 0
+                for ctxt_elem in contextualizes[ctxt_num]:
+                    if ctxt_elem.upgrade and ctxt_elem.sequential:
+                        count = sum(1 for candidate in eligible_vms
+                                    if candidate.info.systems[0].name == ctxt_elem.system)
+                        max_extra_steps = max(max_extra_steps, max(0, count - 1))
+                shift += max_extra_steps
+
+            upgrade_step_pairs = {}
             for cont, vm in enumerate(self.get_vm_list()):
-                if not vm.contextualize():
+                vm_system_name = vm.info.systems[0].name
+                has_upgrade = (not vm_list or vm.im_id in vm_list) and any(
+                    item.upgrade and item.system == vm_system_name and item.get_ctxt_tool() == "Ansible"
+                    for items in contextualizes.values() for item in items)
+                if not vm.contextualize() and not has_upgrade:
                     vm.configured = True
                     vm.cont_out = "Contextualization disabled"
                     continue
@@ -653,20 +791,33 @@ class InfrastructureInfo:
                     # Then add the configure sections
                     for ctxt_num in contextualizes.keys():
                         for ctxt_elem in contextualizes[ctxt_num]:
-                            step = ctxt_num + init_steps
-                            if ctxt_elem.system == vm.info.systems[0].name and ctxt_elem.get_ctxt_tool() == "Ansible":
+                            step = ctxt_num + init_steps + step_shifts.get(ctxt_num, 0)
+                            if ctxt_elem.system == vm_system_name and ctxt_elem.get_ctxt_tool() == "Ansible":
+                                if ctxt_elem.upgrade and ctxt_elem.sequential:
+                                    same_type_vms = sorted(
+                                        [candidate for candidate in eligible_vms
+                                         if candidate.info.systems[0].name == ctxt_elem.system],
+                                        key=lambda candidate: candidate.im_id)
+                                    step += same_type_vms.index(vm)
+                                    self.sequential_upgrade_steps.add(step)
                                 if step not in tasks:
                                     tasks[step] = []
-                                tasks[step].append(ctxt_elem.configure + "_" + ctxt_elem.system)
+                                tasks[step].append(ctxt_elem.get_playbook_name())
+                                if ctxt_elem.upgrade:
+                                    upgrade_step_pairs.setdefault(ctxt_elem.getId(), set()).add((step, vm.im_id))
 
                 for step in tasks.keys():
                     priority = 0
                     ctxt_task.append((step, priority, vm, tasks[step]))
 
+            for item_id, step_vm_pairs in upgrade_step_pairs.items():
+                self.track_upgrade_steps(item_id, step_vm_pairs)
+
         self.add_ctxt_tasks(ctxt_task)
 
         if self.cm is None or not self.cm.is_alive():
             self.cm = IM.ConfManager.ConfManager(self, auth, max_ctxt_time)
+            self.cm.upgrade_active = bool(self.upgrade_execution_targets)
             self.cm.start()
         else:
             # update the ConfManager reference to the inf object
@@ -674,8 +825,10 @@ class InfrastructureInfo:
             # update the ConfManager auth
             self.cm.auth = auth
             self.cm.init_time = time.time()
-            # restart the failed step
-            self.cm.failed_step = []
+            # Start a fresh failure barrier for this contextualization request.
+            self.cm.failed_steps = set()
+            self.cm.contextualization_active = True
+            self.cm.upgrade_active = bool(self.upgrade_execution_targets)
 
     def _is_authorized(self, self_im_auth, auth):
         """
