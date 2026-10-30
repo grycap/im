@@ -716,6 +716,7 @@ contextualize (
 )
 """)
             manager = ConfManager(inf, None)
+            manager.upgrade_active = True
             events = []
             front_item, worker_item = list(inf.radl.contextualize.items)
             vms = []
