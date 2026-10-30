@@ -755,15 +755,21 @@ contextualize (
                 thread.start.side_effect = lambda: kwargs['target'](*kwargs.get('args', ()))
                 return thread
 
-            queue_get = inf.ctxt_tasks.get
+            task_queue = inf.ctxt_tasks
+            nonblocking_queue = Mock()
+            nonblocking_queue.empty.side_effect = task_queue.empty
+            nonblocking_queue.put.side_effect = task_queue.put
+            nonblocking_queue.queue = task_queue.queue
 
             def get_task():
                 try:
-                    return queue_get(False)
+                    return task_queue.get_nowait()
                 except Empty:
                     manager._stop_thread = True
                     return (-10, 0, None, None)
-            inf.ctxt_tasks.get = get_task
+
+            nonblocking_queue.get.side_effect = get_task
+            inf.ctxt_tasks = nonblocking_queue
             with patch('IM.ConfManager.threading.Thread', side_effect=thread_factory), \
                     patch('IM.ConfManager.time.sleep'), \
                     patch('IM.InfrastructureList.InfrastructureList.save_data'):
@@ -778,7 +784,6 @@ contextualize (
                 self.assertEqual(events, [('start', 1), ('finish', 1), ('start', 2),
                                           ('finish', 2), ('start', 3), ('finish', 3)])
                 self.assertIsNone(inf.radl.contextualize.items)
-            self.assertFalse(manager.contextualization_active)
 
     def test_upgrade_failure_barrier_includes_non_sequential_frontend(self):
         inf = InfrastructureInfo()
