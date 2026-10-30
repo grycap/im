@@ -44,6 +44,15 @@ def read_file_as_string(file_name):
 
 class TestTosca(unittest.TestCase):
 
+    def convert_upgrade_template(self, template):
+        """Translate an upgrade template using a canned Ansible playbook."""
+        tosca = Tosca(template, verify=False)
+        response = MagicMock()
+        response.text = "---\n- hosts: all\n  tasks:\n  - debug: msg=upgrade\n"
+        response.status_code = 200
+        tosca.cache_session.get = MagicMock(return_value=response)
+        return tosca, tosca.to_radl()[1]
+
     def __init__(self, *args):
         unittest.TestCase.__init__(self, *args)
 
@@ -85,12 +94,7 @@ topology_template:
             num_cpus: 1
       requirements: []
 """
-        tosca = Tosca(template, verify=False)
-        response = MagicMock()
-        response.text = "---\n- hosts: all\n  tasks:\n  - debug: msg=upgrade\n"
-        response.status_code = 200
-        tosca.cache_session.get = MagicMock(return_value=response)
-        _, radl = tosca.to_radl()
+        tosca, radl = self.convert_upgrade_template(template)
 
         self.assertEqual(len(radl.upgrades), 1)
         self.assertEqual(radl.upgrades[0].name, "worker_upgrade")
@@ -139,12 +143,7 @@ topology_template:
             num_cpus: 1
       requirements: []
 """
-        tosca = Tosca(template, verify=False)
-        response = MagicMock()
-        response.text = "---\n- hosts: all\n  tasks:\n  - debug: msg=upgrade\n"
-        response.status_code = 200
-        tosca.cache_session.get = MagicMock(return_value=response)
-        _, radl = tosca.to_radl()
+        tosca, radl = self.convert_upgrade_template(template)
 
         item = next(iter(radl.contextualize.items.values()))
         self.assertTrue(item.upgrade)
@@ -191,12 +190,7 @@ topology_template:
             num_cpus: 1
       requirements: []
 """
-        tosca = Tosca(template, verify=False)
-        response = MagicMock()
-        response.text = "---\n- hosts: all\n  tasks:\n  - debug: msg=upgrade\n"
-        response.status_code = 200
-        tosca.cache_session.get = MagicMock(return_value=response)
-        _, radl = tosca.to_radl()
+        tosca, radl = self.convert_upgrade_template(template)
         item = next(iter(radl.contextualize.items.values()))
         self.assertTrue(item.sequential)
         self.assertTrue(item.upgrade)
@@ -208,9 +202,7 @@ topology_template:
         Upgrade:
           upgrade:
             implementation: https://example.org/template.yml''')
-        tosca = Tosca(template, verify=False)
-        tosca.cache_session.get = MagicMock(return_value=response)
-        _, radl = tosca.to_radl()
+        tosca, radl = self.convert_upgrade_template(template)
         self.assertTrue(next(iter(radl.contextualize.items.values())).sequential)
         self.assertEqual(tosca.cache_session.get.call_args.args[0], "https://example.org/template.yml")
 
@@ -255,12 +247,7 @@ topology_template:
             num_cpus: 1
       requirements: []
 """
-        tosca = Tosca(template, verify=False)
-        response = MagicMock()
-        response.text = "---\n- hosts: all\n  tasks:\n  - debug: msg=upgrade\n"
-        response.status_code = 200
-        tosca.cache_session.get = MagicMock(return_value=response)
-        _, radl = tosca.to_radl()
+        tosca, radl = self.convert_upgrade_template(template)
         item = next(iter(radl.contextualize.items.values()))
         self.assertTrue(item.sequential)
         self.assertEqual(tosca.cache_session.get.call_args.args[0], "https://example.org/base.yml")
@@ -271,9 +258,7 @@ topology_template:
           upgrade:
             inputs:
               sequential: true''')
-        tosca = Tosca(template, verify=False)
-        tosca.cache_session.get = MagicMock(return_value=response)
-        _, radl = tosca.to_radl()
+        tosca, radl = self.convert_upgrade_template(template)
         self.assertTrue(next(iter(radl.contextualize.items.values())).sequential)
         self.assertEqual(tosca.cache_session.get.call_args.args[0], "https://example.org/base.yml")
 
@@ -316,12 +301,7 @@ topology_template:
             relationship:
               type: tosca.relationships.DependsOn
 """
-        tosca = Tosca(template, verify=False)
-        response = MagicMock()
-        response.text = "---\n- hosts: all\n  tasks:\n  - debug: msg=upgrade\n"
-        response.status_code = 200
-        tosca.cache_session.get = MagicMock(return_value=response)
-        _, radl = tosca.to_radl()
+        tosca, radl = self.convert_upgrade_template(template)
 
         self.assertEqual(len(radl.upgrades), 2)
         items = {item.system: item for item in radl.contextualize.items.values() if item.upgrade}

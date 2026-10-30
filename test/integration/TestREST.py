@@ -74,6 +74,18 @@ class TestIM(unittest.TestCase):
             vm_ids.append(vm_path.rsplit('/', 1)[-1])
         return vm_ids
 
+    def _wait_for_contmsg_marker(self, inf_id, marker, timeout, failure_message):
+        deadline = time.monotonic() + timeout
+        last_message = ""
+        while time.monotonic() < deadline:
+            response = self.create_request("GET", "/infrastructures/%s/contmsg" % inf_id)
+            self.assertEqual(response.status_code, 200, response.text)
+            last_message = response.text
+            if marker in last_message:
+                return
+            time.sleep(5)
+        self.fail("%s %s:\n%s" % (failure_message, marker, last_message))
+
     @classmethod
     def tearDownClass(cls):
         # Assure that the infrastructure is destroyed
@@ -461,18 +473,8 @@ class TestIM(unittest.TestCase):
                             msg="Timed out waiting for a Kubernetes node to enter RUNNING during upgrade.")
 
             marker = "K8S_UPGRADE_ALL_NODES_VERIFIED_%s" % k8s_upgrade_to.replace(".", "_")
-            deadline = time.monotonic() + timeout
-            last_message = ""
-            while time.monotonic() < deadline:
-                response = self.create_request("GET", "/infrastructures/%s/contmsg" % inf_id)
-                self.assertEqual(response.status_code, 200, response.text)
-                last_message = response.text
-                if marker in last_message:
-                    break
-                time.sleep(5)
-            else:
-                self.fail("Timed out waiting for cluster upgrade verification %s:\n%s" %
-                          (marker, last_message))
+            self._wait_for_contmsg_marker(
+                inf_id, marker, timeout, "Timed out waiting for cluster upgrade verification")
             all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, timeout,
                                                  vm_ids=vm_ids)
             self.assertTrue(all_configured,
@@ -490,18 +492,8 @@ class TestIM(unittest.TestCase):
             self.assertTrue(reconfigured,
                             msg="Timed out waiting for normal Kubernetes reconfiguration.")
             normal_marker = "K8S_NORMAL_CONFIG_ALL_NODES_VERIFIED_%s" % k8s_upgrade_to.replace(".", "_")
-            deadline = time.monotonic() + timeout
-            last_message = ""
-            while time.monotonic() < deadline:
-                response = self.create_request("GET", "/infrastructures/%s/contmsg" % inf_id)
-                self.assertEqual(response.status_code, 200, response.text)
-                last_message = response.text
-                if normal_marker in last_message:
-                    break
-                time.sleep(5)
-            else:
-                self.fail("Timed out verifying Kubernetes versions after normal reconfiguration %s:\n%s" %
-                          (normal_marker, last_message))
+            self._wait_for_contmsg_marker(
+                inf_id, normal_marker, timeout, "Timed out verifying Kubernetes versions after normal reconfiguration")
             reconfigured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, timeout,
                                                vm_ids=vm_ids)
             self.assertTrue(reconfigured,
