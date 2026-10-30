@@ -94,7 +94,7 @@ topology_template:
             num_cpus: 1
       requirements: []
 """
-        tosca, radl = self.convert_upgrade_template(template)
+        _, radl = self.convert_upgrade_template(template)
 
         self.assertEqual(len(radl.upgrades), 1)
         self.assertEqual(radl.upgrades[0].name, "worker_upgrade")
