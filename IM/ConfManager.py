@@ -482,8 +482,6 @@ class ConfManager(LoggerMixin, threading.Thread):
         windows_hosts = {}
         no_windows_hosts = {}
         vm_group = self.inf.get_vm_list_by_system_name()
-        upgrade_systems = {item.system for item in (self.inf.radl.contextualize.items or {}).values()
-                           if item.upgrade}
         for group in vm_group:
             vm = vm_group[group][0]
 

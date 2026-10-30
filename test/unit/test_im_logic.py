@@ -759,7 +759,7 @@ contextualize (
 
             def get_task():
                 try:
-                    return queue_get(block=False)
+                    return queue_get(False)
                 except Empty:
                     manager._stop_thread = True
                     return (-10, 0, None, None)
