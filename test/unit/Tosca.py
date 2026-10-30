@@ -143,7 +143,7 @@ topology_template:
             num_cpus: 1
       requirements: []
 """
-        tosca, radl = self.convert_upgrade_template(template)
+        _, radl = self.convert_upgrade_template(template)
 
         item = next(iter(radl.contextualize.items.values()))
         self.assertTrue(item.upgrade)
@@ -301,7 +301,7 @@ topology_template:
             relationship:
               type: tosca.relationships.DependsOn
 """
-        tosca, radl = self.convert_upgrade_template(template)
+        _, radl = self.convert_upgrade_template(template)
 
         self.assertEqual(len(radl.upgrades), 2)
         items = {item.system: item for item in radl.contextualize.items.values() if item.upgrade}
