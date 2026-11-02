@@ -36,11 +36,6 @@ configure front (
         path: /pv
         state: directory
         mode: '0755'
-    - name: Create Kubernetes authentication directory
-      file:
-        path: /etc/kubernetes/pki
-        state: directory
-        mode: '0755'
     - name: Create Kubernetes authentication file
       copy:
         content: 'sometoken,kubeuser,100,"users,system:masters"'
@@ -57,8 +52,8 @@ configure front (
       kube_type_of_node: front
       kube_server: kubeserver
       kube_apiserver_options:
-        - option: --insecure-port
-          value: '8080'
+        - option: --service-node-port-range
+          value: '80-32767'
         - option: --token-auth-file
           value: /etc/kubernetes/pki/auth
 @end
