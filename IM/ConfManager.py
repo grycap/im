@@ -312,7 +312,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
             # if this task is from a next step
             if last_step is not None and last_step < step:
-                if self.failed_steps:
+                if self.failed_steps and self.upgrade_active:
                     self.log_debug("Configuration process of step " + str(last_step) +
                                    " failed, ignoring tasks of later steps.")
                     if isinstance(vm, VirtualMachine):

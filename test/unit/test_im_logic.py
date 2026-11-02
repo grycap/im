@@ -703,7 +703,7 @@ class TestIM(unittest.TestCase):
     def test_upgrade_executor_orders_nodes_stops_on_failure_and_retries(self):
         """Exercise the real monitor/queue loop, not just its planned steps."""
         from queue import Empty
-        for fail_front in (True, False):
+        for fail_front, upgrade_active in ((True, True), (False, True), (True, False)):
             inf = InfrastructureInfo()
             inf.radl = parse_radl("""
 system front (cpu.count>=1)
@@ -716,7 +716,7 @@ contextualize (
 )
 """)
             manager = ConfManager(inf, None)
-            manager.upgrade_active = True
+            manager.upgrade_active = upgrade_active
             events = []
             front_item, worker_item = list(inf.radl.contextualize.items)
             vms = []
@@ -775,7 +775,7 @@ contextualize (
                     patch('IM.ConfManager.time.sleep'), \
                     patch('IM.InfrastructureList.InfrastructureList.save_data'):
                 manager.run()
-            if fail_front:
+            if fail_front and upgrade_active:
                 self.assertEqual(events, [('start', 1), ('finish', 1)])
                 self.assertFalse(vms[1].configured)
                 self.assertFalse(vms[2].configured)
@@ -784,7 +784,12 @@ contextualize (
             else:
                 self.assertEqual(events, [('start', 1), ('finish', 1), ('start', 2),
                                           ('finish', 2), ('start', 3), ('finish', 3)])
-                self.assertIsNone(inf.radl.contextualize.items)
+                if fail_front:
+                    self.assertFalse(vms[0].configured)
+                    self.assertIn(front_item, inf.radl.contextualize.items)
+                    self.assertNotIn(worker_item, inf.radl.contextualize.items)
+                else:
+                    self.assertIsNone(inf.radl.contextualize.items)
 
     def test_upgrade_failure_barrier_includes_non_sequential_frontend(self):
         inf = InfrastructureInfo()
@@ -1389,7 +1394,9 @@ configure step2 (
         time.sleep(20)
 
         state = IM.GetInfrastructureState(infId, auth0)
-        self.assertEqual(state["state"], "unconfigured")
+        # Initial contextualization is asynchronous: it may not have started
+        # yet, or may already be running, but must not be considered configured.
+        self.assertIn(state["state"], ("unconfigured", "running"))
 
         IM.Reconfigure(infId, "", auth0)
 
