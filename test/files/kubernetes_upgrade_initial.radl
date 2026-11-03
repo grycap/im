@@ -32,6 +32,12 @@ configure front (
         path: /pv
         state: directory
         mode: '0755'
+    - name: Create auth file dir
+      file:
+        path: /etc/kubernetes/pki
+        state: directory
+        mode: 755
+        recurse: yes
     - name: Create Kubernetes authentication file
       copy:
         content: 'sometoken,kubeuser,100,"users,system:masters"'
