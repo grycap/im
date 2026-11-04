@@ -153,6 +153,7 @@ class TestTosca(unittest.TestCase):
         self.assertEqual('192.168.0.0/16,vr1_compute', net1.getValue("router"))
         self.assertEqual('yes', net1.getValue("create"))
         self.assertEqual('192.168.10.0/24', net1.getValue("cidr"))
+        self.assertEqual('existing-security-group', net1.getValue("sg_name"))
         self.assertEqual('username@proxy.host.com', net1.getValue("proxy_host"))
         proxy_key = """-----BEGIN RSA PRIVATE KEY-----\naaa\n-----END RSA PRIVATE KEY-----\n"""
         self.assertEqual(proxy_key, net1.getValue("proxy_key"))

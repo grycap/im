@@ -1743,6 +1743,7 @@ class Tosca:
         network_name = self._final_function_result(node.get_property_value('network_name'), node)
         network_cidr = self._final_function_result(node.get_property_value('cidr'), node)
         network_router = self._final_function_result(node.get_property_value('gateway_ip'), node)
+        security_group_name = self._final_function_result(node.get_property_value('sg_name'), node)
         proxy_host = self._final_function_result(node.get_property_value('proxy_host'), node)
         proxy_credential = self._final_function_result(node.get_property_value('proxy_credential'), node)
 
@@ -1760,6 +1761,9 @@ class Tosca:
 
         if network_router:
             res.setValue("router", network_router)
+
+        if security_group_name:
+            res.setValue("sg_name", security_group_name)
 
         if proxy_host:
             host = proxy_host

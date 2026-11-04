@@ -61,6 +61,7 @@ topology_template:
         cidr: '192.168.10.0/24'
         gateway_ip: '192.168.0.0/16,vr1_compute'
         network_type: private
+        sg_name: existing-security-group
         proxy_host: proxy.host.com
         proxy_credential:
           user: username
