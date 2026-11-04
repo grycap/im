@@ -77,12 +77,12 @@ configure verify_cluster (
           - item.status.nodeInfo.kubeletVersion == 'v__SOURCE_VERSION__'
           - "item.status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0"
         fail_msg: "Node {{ item.metadata.name }} is not Ready at Kubernetes __SOURCE_VERSION__"
-      loop: "{{ (kubernetes_nodes.stdout | from_json).items }}"
+      loop: "{{ (kubernetes_nodes.stdout | from_json)['items'] }}"
       loop_control:
         label: "{{ item.metadata.name }}"
     - name: Assert that exactly two cluster nodes were verified
       assert:
-        that: (kubernetes_nodes.stdout | from_json).items | length == 2
+        that: (kubernetes_nodes.stdout | from_json)['items'] | length == 2
     - name: Mark the configured cluster as verified
       debug:
         msg: K8S_NORMAL_CONFIG_ALL_NODES_VERIFIED___SOURCE_VERSION_UNDERSCORES__
