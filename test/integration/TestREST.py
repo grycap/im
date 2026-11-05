@@ -86,6 +86,22 @@ class TestIM(unittest.TestCase):
             time.sleep(5)
         self.fail("%s %s:\n%s" % (failure_message, marker, last_message))
 
+    def _request_reconfigure_when_idle(self, inf_id, body, timeout=300):
+        """Retry a reconfigure rejected only because the prior run is finishing."""
+        deadline = time.monotonic() + timeout
+        path = "/infrastructures/%s/reconfigure" % inf_id
+        while True:
+            response = self.create_request("PUT", path, body=body)
+            if response.status_code == 200:
+                return response
+            busy_upgrade = (response.status_code == 400 and
+                            "A contextualization involving upgrades is already in progress" in response.text)
+            if not busy_upgrade:
+                return response
+            if time.monotonic() >= deadline:
+                return response
+            time.sleep(5)
+
     @classmethod
     def tearDownClass(cls):
         # Assure that the infrastructure is destroyed
@@ -570,8 +586,7 @@ class TestIM(unittest.TestCase):
             self.assertTrue(all_configured,
                             msg="Timed out waiting for Kubernetes nodes to configure.")
 
-            response = self.create_request("PUT", "/infrastructures/%s/reconfigure" % inf_id,
-                                           body=upgrade_radl)
+            response = self._request_reconfigure_when_idle(inf_id, upgrade_radl)
             self.assertEqual(response.status_code, 200,
                              "Could not request Kubernetes upgrade: %s" % response.text)
 
@@ -590,8 +605,7 @@ class TestIM(unittest.TestCase):
 
             # No new RADL: exercise the configure recipes and policy left by
             # the upgrade, rather than masking a broken restore with a new plan.
-            response = self.create_request("PUT", "/infrastructures/%s/reconfigure" % inf_id,
-                                           body="")
+            response = self._request_reconfigure_when_idle(inf_id, "")
             self.assertEqual(response.status_code, 200,
                              "Could not request normal Kubernetes reconfiguration: %s" % response.text)
 
