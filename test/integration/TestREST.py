@@ -423,85 +423,6 @@ class TestIM(unittest.TestCase):
         self.assertIn("RECONFIGURERADL", cont_out,
                       msg="Incorrect contextualization message: " + cont_out)
 
-    def test_27_kubernetes_upgrade(self):
-        """Deploy one frontend and worker, upgrade in order, and verify both nodes."""
-        inf_id = None
-        k8s_upgrade_from = "1.35.9"
-        k8s_upgrade_to = "1.36.6"
-        timeout = 5400
-        initial_template = read_file_as_string("../files/kubernetes_upgrade_initial.radl")
-        initial_radl = initial_template.replace("__SOURCE_VERSION_UNDERSCORES__",
-                                                k8s_upgrade_from.replace(".", "_"))
-        initial_radl = initial_radl.replace("__SOURCE_VERSION__", k8s_upgrade_from)
-        normal_radl = initial_template.replace("__SOURCE_VERSION_UNDERSCORES__",
-                                               k8s_upgrade_to.replace(".", "_"))
-        normal_radl = normal_radl.replace("__SOURCE_VERSION__", k8s_upgrade_to)
-        upgrade_radl = read_file_as_string("../files/kubernetes_upgrade.radl")
-        upgrade_radl = upgrade_radl.replace("__TARGET_VERSION_UNDERSCORES__",
-                                            k8s_upgrade_to.replace(".", "_"))
-        upgrade_radl = upgrade_radl.replace("__TARGET_VERSION__", k8s_upgrade_to)
-        # Install the target-version configure recipes with the upgrade request.
-        # Its contextualize block remains upgrade-only; the saved normal policy
-        # must be restored automatically when the upgrade completes.
-        target_recipes = radl_parse.parse_radl(normal_radl).configures
-        upgrade_radl = "\n".join(str(recipe) for recipe in target_recipes) + "\n" + upgrade_radl
-
-        try:
-            response = self.create_request("POST", "/infrastructures", body=initial_radl)
-            self.assertEqual(response.status_code, 200,
-                             "Could not create Kubernetes test infrastructure: %s" % response.text)
-            inf_id = urlparse(response.text).path.rstrip("/").split("/")[-1]
-
-            info = self.create_request("GET", "/infrastructures/%s" % inf_id)
-            self.assertEqual(info.status_code, 200, info.text)
-            vm_ids = self._extract_vm_ids(info.text)
-            self.assertEqual(len(vm_ids), 2,
-                             "Kubernetes test infrastructure must have one frontend and one worker")
-            all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, timeout,
-                                                 vm_ids=vm_ids)
-            self.assertTrue(all_configured,
-                            msg="Timed out waiting for Kubernetes nodes to configure.")
-
-            response = self.create_request("PUT", "/infrastructures/%s/reconfigure" % inf_id,
-                                           body=upgrade_radl)
-            self.assertEqual(response.status_code, 200,
-                             "Could not request Kubernetes upgrade: %s" % response.text)
-
-            saw_running = self.wait_inf_state(inf_id, VirtualMachine.RUNNING, timeout,
-                                              vm_ids=vm_ids, any_vm=True)
-            self.assertTrue(saw_running,
-                            msg="Timed out waiting for a Kubernetes node to enter RUNNING during upgrade.")
-
-            marker = "K8S_UPGRADE_ALL_NODES_VERIFIED_%s" % k8s_upgrade_to.replace(".", "_")
-            self._wait_for_contmsg_marker(
-                inf_id, marker, timeout, "Timed out waiting for cluster upgrade verification")
-            all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, timeout,
-                                                 vm_ids=vm_ids)
-            self.assertTrue(all_configured,
-                            msg="Timed out waiting for upgraded Kubernetes nodes to return to CONFIGURED.")
-
-            # No new RADL: exercise the configure recipes and policy left by
-            # the upgrade, rather than masking a broken restore with a new plan.
-            response = self.create_request("PUT", "/infrastructures/%s/reconfigure" % inf_id,
-                                           body="")
-            self.assertEqual(response.status_code, 200,
-                             "Could not request normal Kubernetes reconfiguration: %s" % response.text)
-
-            reconfigured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, timeout,
-                                               vm_ids=vm_ids)
-            self.assertTrue(reconfigured,
-                            msg="Timed out waiting for normal Kubernetes reconfiguration.")
-            normal_marker = "K8S_NORMAL_CONFIG_ALL_NODES_VERIFIED_%s" % k8s_upgrade_to.replace(".", "_")
-            self._wait_for_contmsg_marker(
-                inf_id, normal_marker, timeout, "Timed out verifying Kubernetes versions after normal reconfiguration")
-            reconfigured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, timeout,
-                                               vm_ids=vm_ids)
-            self.assertTrue(reconfigured,
-                            msg="Timed out waiting for nodes after post-reconfiguration version verification.")
-        finally:
-            if inf_id:
-                self.create_request("DELETE", "/infrastructures/%s" % inf_id)
-
     def test_30_stop(self):
         """
         Test StopInfrastructure function
@@ -609,6 +530,85 @@ class TestIM(unittest.TestCase):
         """
         resp = self.create_request("DELETE", "/infrastructures/%s" % self.inf_id)
         self.assertEqual(resp.status_code, 200, msg="ERROR calling DestroyInfrastructure: " + resp.text)
+
+    def test_55_kubernetes_upgrade(self):
+        """Deploy one frontend and worker, upgrade in order, and verify both nodes."""
+        inf_id = None
+        k8s_upgrade_from = "1.35.9"
+        k8s_upgrade_to = "1.36.6"
+        timeout = 5400
+        initial_template = read_file_as_string("../files/kubernetes_upgrade_initial.radl")
+        initial_radl = initial_template.replace("__SOURCE_VERSION_UNDERSCORES__",
+                                                k8s_upgrade_from.replace(".", "_"))
+        initial_radl = initial_radl.replace("__SOURCE_VERSION__", k8s_upgrade_from)
+        normal_radl = initial_template.replace("__SOURCE_VERSION_UNDERSCORES__",
+                                               k8s_upgrade_to.replace(".", "_"))
+        normal_radl = normal_radl.replace("__SOURCE_VERSION__", k8s_upgrade_to)
+        upgrade_radl = read_file_as_string("../files/kubernetes_upgrade.radl")
+        upgrade_radl = upgrade_radl.replace("__TARGET_VERSION_UNDERSCORES__",
+                                            k8s_upgrade_to.replace(".", "_"))
+        upgrade_radl = upgrade_radl.replace("__TARGET_VERSION__", k8s_upgrade_to)
+        # Install the target-version configure recipes with the upgrade request.
+        # Its contextualize block remains upgrade-only; the saved normal policy
+        # must be restored automatically when the upgrade completes.
+        target_recipes = radl_parse.parse_radl(normal_radl).configures
+        upgrade_radl = "\n".join(str(recipe) for recipe in target_recipes) + "\n" + upgrade_radl
+
+        try:
+            response = self.create_request("POST", "/infrastructures", body=initial_radl)
+            self.assertEqual(response.status_code, 200,
+                             "Could not create Kubernetes test infrastructure: %s" % response.text)
+            inf_id = urlparse(response.text).path.rstrip("/").split("/")[-1]
+
+            info = self.create_request("GET", "/infrastructures/%s" % inf_id)
+            self.assertEqual(info.status_code, 200, info.text)
+            vm_ids = self._extract_vm_ids(info.text)
+            self.assertEqual(len(vm_ids), 2,
+                             "Kubernetes test infrastructure must have one frontend and one worker")
+            all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, timeout,
+                                                 vm_ids=vm_ids)
+            self.assertTrue(all_configured,
+                            msg="Timed out waiting for Kubernetes nodes to configure.")
+
+            response = self.create_request("PUT", "/infrastructures/%s/reconfigure" % inf_id,
+                                           body=upgrade_radl)
+            self.assertEqual(response.status_code, 200,
+                             "Could not request Kubernetes upgrade: %s" % response.text)
+
+            saw_running = self.wait_inf_state(inf_id, VirtualMachine.RUNNING, timeout,
+                                              vm_ids=vm_ids, any_vm=True)
+            self.assertTrue(saw_running,
+                            msg="Timed out waiting for a Kubernetes node to enter RUNNING during upgrade.")
+
+            marker = "K8S_UPGRADE_ALL_NODES_VERIFIED_%s" % k8s_upgrade_to.replace(".", "_")
+            self._wait_for_contmsg_marker(
+                inf_id, marker, timeout, "Timed out waiting for cluster upgrade verification")
+            all_configured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, timeout,
+                                                 vm_ids=vm_ids)
+            self.assertTrue(all_configured,
+                            msg="Timed out waiting for upgraded Kubernetes nodes to return to CONFIGURED.")
+
+            # No new RADL: exercise the configure recipes and policy left by
+            # the upgrade, rather than masking a broken restore with a new plan.
+            response = self.create_request("PUT", "/infrastructures/%s/reconfigure" % inf_id,
+                                           body="")
+            self.assertEqual(response.status_code, 200,
+                             "Could not request normal Kubernetes reconfiguration: %s" % response.text)
+
+            reconfigured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, timeout,
+                                               vm_ids=vm_ids)
+            self.assertTrue(reconfigured,
+                            msg="Timed out waiting for normal Kubernetes reconfiguration.")
+            normal_marker = "K8S_NORMAL_CONFIG_ALL_NODES_VERIFIED_%s" % k8s_upgrade_to.replace(".", "_")
+            self._wait_for_contmsg_marker(
+                inf_id, normal_marker, timeout, "Timed out verifying Kubernetes versions after normal reconfiguration")
+            reconfigured = self.wait_inf_state(inf_id, VirtualMachine.CONFIGURED, timeout,
+                                               vm_ids=vm_ids)
+            self.assertTrue(reconfigured,
+                            msg="Timed out waiting for nodes after post-reconfiguration version verification.")
+        finally:
+            if inf_id:
+                self.create_request("DELETE", "/infrastructures/%s" % inf_id)
 
     def test_60_create_no_context(self):
         """
