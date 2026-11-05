@@ -1,22 +1,58 @@
 upgrade front_upgrade (
 @begin
 ---
-- roles:
+- pre_tasks:
+    - name: Allow Kubernetes packages to be upgraded
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: install
+      loop:
+        - kubeadm
+        - kubelet
+        - kubectl
+  roles:
     - role: grycap.kubernetes
       kube_version: __TARGET_VERSION__
       kube_type_of_node: front
       kube_server: kubeserver
+  post_tasks:
+    - name: Hold Kubernetes packages after upgrade
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubeadm
+        - kubelet
+        - kubectl
 @end
 )
 
 upgrade wn_upgrade (
 @begin
 ---
-- roles:
+- pre_tasks:
+    - name: Allow Kubernetes packages to be upgraded
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: install
+      loop:
+        - kubeadm
+        - kubelet
+        - kubectl
+  roles:
     - role: grycap.kubernetes
       kube_version: __TARGET_VERSION__
       kube_type_of_node: wn
       kube_server: kubeserver
+  post_tasks:
+    - name: Hold Kubernetes packages after upgrade
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubeadm
+        - kubelet
+        - kubectl
 @end
 )
 
