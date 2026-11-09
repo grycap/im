@@ -10,11 +10,66 @@ upgrade front_upgrade (
         - kubeadm
         - kubelet
         - kubectl
-  roles:
-    - role: grycap.kubernetes
-      kube_version: __TARGET_VERSION__
-      kube_type_of_node: front
-      kube_server: kubeserver
+  tasks:
+    - name: Add target Kubernetes repository key
+      get_url:
+        url: "https://pkgs.k8s.io/core:/stable:/v{{ '__TARGET_VERSION__'.split('.')[0] }}.{{ '__TARGET_VERSION__'.split('.')[1] }}/deb/Release.key"
+        dest: /etc/apt/trusted.gpg.d/kubernetes.asc
+        mode: '0644'
+    - name: Add target Kubernetes repository
+      apt_repository:
+        repo: "deb https://pkgs.k8s.io/core:/stable:/v{{ '__TARGET_VERSION__'.split('.')[0] }}.{{ '__TARGET_VERSION__'.split('.')[1] }}/deb/ /"
+        state: present
+        update_cache: yes
+    - name: Install target kubeadm version on the control plane
+      apt:
+        name: "kubeadm=__TARGET_VERSION__*"
+        state: present
+        update_cache: yes
+    - name: Read current Kubernetes API version
+      command: kubectl version --output=json
+      register: api_version
+      changed_when: false
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+    - name: Check Kubernetes control-plane upgrade plan
+      command: kubeadm upgrade plan
+      when: (api_version.stdout | from_json).serverVersion.gitVersion != 'v__TARGET_VERSION__'
+    - name: Upgrade Kubernetes control plane
+      command: kubeadm upgrade apply v__TARGET_VERSION__ --yes
+      when: (api_version.stdout | from_json).serverVersion.gitVersion != 'v__TARGET_VERSION__'
+    - name: Read control-plane kubelet version
+      command: kubectl get node {{ ansible_fqdn }} -o jsonpath={.status.nodeInfo.kubeletVersion}
+      register: kubelet_version
+      changed_when: false
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+    - name: Upgrade control-plane kubelet
+      block:
+        - name: Drain control-plane node
+          command: kubectl drain {{ ansible_fqdn }} --ignore-daemonsets --delete-emptydir-data --timeout=10m
+          environment:
+            KUBECONFIG: /etc/kubernetes/admin.conf
+        - name: Install target kubelet and kubectl versions
+          apt:
+            name:
+              - "kubelet=__TARGET_VERSION__*"
+              - "kubectl=__TARGET_VERSION__*"
+            state: present
+            update_cache: yes
+        - name: Reload systemd after kubelet package upgrade
+          systemd:
+            daemon_reload: yes
+        - name: Restart kubelet
+          service:
+            name: kubelet
+            state: restarted
+      always:
+        - name: Uncordon control-plane node
+          command: kubectl uncordon {{ ansible_fqdn }}
+          environment:
+            KUBECONFIG: /etc/kubernetes/admin.conf
+      when: kubelet_version.stdout != 'v__TARGET_VERSION__'
   post_tasks:
     - name: Hold Kubernetes packages after upgrade
       dpkg_selections:
@@ -30,7 +85,9 @@ upgrade front_upgrade (
 upgrade wn_upgrade (
 @begin
 ---
-- pre_tasks:
+- vars:
+    kube_server: kubeserver
+  pre_tasks:
     - name: Allow Kubernetes packages to be upgraded
       dpkg_selections:
         name: "{{ item }}"
@@ -39,11 +96,69 @@ upgrade wn_upgrade (
         - kubeadm
         - kubelet
         - kubectl
-  roles:
-    - role: grycap.kubernetes
-      kube_version: __TARGET_VERSION__
-      kube_type_of_node: wn
-      kube_server: kubeserver
+  tasks:
+    - name: Add target Kubernetes repository key
+      get_url:
+        url: "https://pkgs.k8s.io/core:/stable:/v{{ '__TARGET_VERSION__'.split('.')[0] }}.{{ '__TARGET_VERSION__'.split('.')[1] }}/deb/Release.key"
+        dest: /etc/apt/trusted.gpg.d/kubernetes.asc
+        mode: '0644'
+    - name: Add target Kubernetes repository
+      apt_repository:
+        repo: "deb https://pkgs.k8s.io/core:/stable:/v{{ '__TARGET_VERSION__'.split('.')[0] }}.{{ '__TARGET_VERSION__'.split('.')[1] }}/deb/ /"
+        state: present
+        update_cache: yes
+    - name: Wait for control plane to reach target version
+      command: kubectl version --output=json
+      delegate_to: "{{ kube_server }}"
+      register: api_version
+      changed_when: false
+      retries: 270
+      delay: 10
+      until: (api_version.stdout | from_json).serverVersion.gitVersion == 'v__TARGET_VERSION__'
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+    - name: Read worker kubelet version from the control plane
+      command: kubectl get node {{ hostvars[inventory_hostname].ansible_fqdn }} -o jsonpath={.status.nodeInfo.kubeletVersion}
+      delegate_to: "{{ kube_server }}"
+      register: kubelet_version
+      changed_when: false
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+    - name: Upgrade worker node
+      block:
+        - name: Install target kubeadm and kubectl versions
+          apt:
+            name:
+              - "kubeadm=__TARGET_VERSION__*"
+              - "kubectl=__TARGET_VERSION__*"
+            state: present
+            update_cache: yes
+        - name: Apply kubeadm worker-node upgrade
+          command: kubeadm upgrade node
+        - name: Drain worker node
+          command: kubectl drain {{ hostvars[inventory_hostname].ansible_fqdn }} --ignore-daemonsets --delete-emptydir-data --timeout=10m
+          delegate_to: "{{ kube_server }}"
+          environment:
+            KUBECONFIG: /etc/kubernetes/admin.conf
+        - name: Install target kubelet version
+          apt:
+            name: "kubelet=__TARGET_VERSION__*"
+            state: present
+            update_cache: yes
+        - name: Reload systemd after kubelet package upgrade
+          systemd:
+            daemon_reload: yes
+        - name: Restart kubelet
+          service:
+            name: kubelet
+            state: restarted
+      always:
+        - name: Uncordon worker node
+          command: kubectl uncordon {{ hostvars[inventory_hostname].ansible_fqdn }}
+          delegate_to: "{{ kube_server }}"
+          environment:
+            KUBECONFIG: /etc/kubernetes/admin.conf
+      when: kubelet_version.stdout != 'v__TARGET_VERSION__'
   post_tasks:
     - name: Hold Kubernetes packages after upgrade
       dpkg_selections:
