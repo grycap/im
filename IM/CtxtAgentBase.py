@@ -494,24 +494,17 @@ class CtxtAgentBase:
             with open(playbook) as f:
                 yaml_data = yaml.safe_load(f)
 
-            # Git is needed by ansible-galaxy for Git-sourced collections and roles.
-            needs_git = any(
-                item and item.startswith("git")
-                for key in ("ansible_collections", "ansible_roles")
-                for item in general_conf_data.get(key, [])
-            )
-            if needs_git:
-                task = {"package": "name=git state=present"}
-                task["name"] = "Install git"
-                task["become"] = "yes"
-                yaml_data[0]['tasks'].append(task)
-
+            collections_needs_git = False
             # First add collections
             galaxy_collections = []
             if 'ansible_collections' in general_conf_data and general_conf_data['ansible_collections']:
                 for galaxy_name in general_conf_data['ansible_collections']:
                     if galaxy_name:
                         self.logger.debug("Install %s collection with ansible-galaxy.", galaxy_name)
+
+                        # Git is needed by ansible-galaxy for Git-sourced collections and roles.
+                        if galaxy_name.startswith("git"):
+                            collections_needs_git = True
 
                         parts = galaxy_name.split(",")
                         if len(parts) > 1:
@@ -524,6 +517,12 @@ class CtxtAgentBase:
                         galaxy_collections.append(dep)
 
             if galaxy_collections:
+                if collections_needs_git:
+                    task = {"package": "name=git state=present"}
+                    task["name"] = "Install git"
+                    task["become"] = "yes"
+                    yaml_data[0]['tasks'].append(task)
+
                 now = str(int(time.time() * 100))
                 filename = "/tmp/galaxy_collections_%s.yml" % now  # nosec
                 yaml_deps = yaml.safe_dump({"collections": galaxy_collections}, default_flow_style=True)
@@ -567,14 +566,16 @@ class CtxtAgentBase:
                     yaml_data[0]['tasks'].append(task)
 
             # and then add roles
+            roles_needs_git = False
             galaxy_dependencies = []
             if 'ansible_roles' in general_conf_data and general_conf_data['ansible_roles']:
                 for galaxy_name in general_conf_data['ansible_roles']:
                     if galaxy_name:
                         self.logger.debug("Install %s with ansible-galaxy.", galaxy_name)
 
-                        if galaxy_name.startswith("git"):
-                            needs_git = True
+                        # Git is needed by ansible-galaxy for Git-sourced roles.
+                        if not collections_needs_git and galaxy_name.startswith("git"):
+                            roles_needs_git = True
 
                         parts = galaxy_name.split("|")
                         if len(parts) > 1:
@@ -593,13 +594,13 @@ class CtxtAgentBase:
 
                         galaxy_dependencies.append(dep)
 
-            if needs_git:
-                task = {"package": "name=git state=present"}
-                task["name"] = "Install git"
-                task["become"] = "yes"
-                yaml_data[0]['tasks'].append(task)
-
             if galaxy_dependencies:
+                if roles_needs_git:
+                    task = {"package": "name=git state=present"}
+                    task["name"] = "Install git"
+                    task["become"] = "yes"
+                    yaml_data[0]['tasks'].append(task)
+
                 now = str(int(time.time() * 100))
                 filename = "/tmp/galaxy_roles_%s.yml" % now  # nosec
                 yaml_deps = yaml.safe_dump(galaxy_dependencies, default_flow_style=True)
