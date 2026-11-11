@@ -494,6 +494,18 @@ class CtxtAgentBase:
             with open(playbook) as f:
                 yaml_data = yaml.safe_load(f)
 
+            # Git is needed by ansible-galaxy for Git-sourced collections and roles.
+            needs_git = any(
+                item and item.startswith("git")
+                for key in ("ansible_collections", "ansible_roles")
+                for item in general_conf_data.get(key, [])
+            )
+            if needs_git:
+                task = {"package": "name=git state=present"}
+                task["name"] = "Install git"
+                task["become"] = "yes"
+                yaml_data[0]['tasks'].append(task)
+
             # First add collections
             galaxy_collections = []
             if 'ansible_collections' in general_conf_data and general_conf_data['ansible_collections']:
@@ -556,7 +568,6 @@ class CtxtAgentBase:
 
             # and then add roles
             galaxy_dependencies = []
-            needs_git = False
             if 'ansible_roles' in general_conf_data and general_conf_data['ansible_roles']:
                 for galaxy_name in general_conf_data['ansible_roles']:
                     if galaxy_name:
