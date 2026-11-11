@@ -343,8 +343,12 @@ class TestCtxtAgent(unittest.TestCase):
         with open(res, 'r') as f:
             yaml_data = yaml.safe_load(f)
 
-        self.assertEqual(len(yaml_data[0]['tasks']), 2)
-        self.assertEqual(yaml_data[0]['tasks'][1]['register'], "collections_install")
+        self.assertEqual(yaml_data[0]['tasks'][0]['package'], "name=git state=present")
+        self.assertEqual(yaml_data[0]['tasks'][0]['name'], "Install git")
+        self.assertEqual(yaml_data[0]['tasks'][1]['name'],
+                         "Create YAML file to install the collections with ansible-galaxy")
+        self.assertEqual(yaml_data[0]['tasks'][2]['register'], "collections_install")
+        self.assertEqual(len(yaml_data[0]['tasks']), 3)
         os.unlink(res)
 
 
