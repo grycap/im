@@ -259,6 +259,19 @@ class TestTosca(unittest.TestCase):
         self.assertEqual('password', node.getValue("disk.0.os.credentials.password"))
         self.assertEqual('username', node.getValue("disk.0.os.credentials.username"))
 
+    def test_tosca_multiple_ansible_host(self):
+        """Test TOSCA RADL translation with multiple Ansible hosts"""
+        tosca_data = read_file_as_string('../files/tosca_multiple_ansible_host.yaml')
+        tosca = Tosca(tosca_data)
+        _, radl = tosca.to_radl()
+        radl = parse_radl(str(radl))
+        self.assertEqual(2, len(radl.ansible_hosts))
+        by_id = {a.getId(): a for a in radl.ansible_hosts}
+        self.assertEqual('host_a_ip', by_id['host_a'].getValue("host"))
+        self.assertEqual('cloud-a', by_id['host_a'].getValue("cloud_id"))
+        self.assertEqual('host_b_ip', by_id['host_b'].getValue("host"))
+        self.assertIsNone(by_id['host_b'].getValue("cloud_id"))
+
     def test_tosca_oscar(self):
         """Test TOSCA RADL translation with OSCAR functions"""
         tosca_data = read_file_as_string('../files/tosca_oscar_host.yml')

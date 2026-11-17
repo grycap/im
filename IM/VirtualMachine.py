@@ -1074,10 +1074,23 @@ class VirtualMachine(LoggerMixin):
     def get_ansible_host(self):
         ansible_host = None
         if self.requested_radl.ansible_hosts:
-            ansible_host = self.requested_radl.ansible_hosts[0]
-            if self.requested_radl.systems[0].getValue("ansible_host"):
-                ansible_host = self.requested_radl.get_ansible_by_id(
-                    self.requested_radl.systems[0].getValue("ansible_host"))
+            # If the system defines an ansible_host, use it
+            system_ansible_host = self.requested_radl.systems[0].getValue("ansible_host")
+            if system_ansible_host:
+                ansible_host = self.requested_radl.get_ansible_by_id(system_ansible_host)
+            else:
+                # Use the ansible_host of the cloud of this VM if defined
+                for host in self.requested_radl.ansible_hosts:
+                    host_cloud = host.getValue("cloud_id")
+                    if host_cloud and host_cloud == self.cloud.id:
+                        ansible_host = host
+                        break
+                # Otherwise use the first global ansible_host (without cloud_id)
+                if not ansible_host:
+                    for host in self.requested_radl.ansible_hosts:
+                        if not host.getValue("cloud_id"):
+                            ansible_host = host
+                            break
 
         return ansible_host
 

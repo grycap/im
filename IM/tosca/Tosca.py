@@ -214,13 +214,16 @@ class Tosca:
                 # These elements are processed in other parts
                 pass
             elif root_type == "tosca.nodes.im.AnsibleHost":
-                # Only allow 1 ansible_host per document
-                ansible_host = ansible("ansible_host", None)
+                ansible_host = ansible(node.name, None)
                 node_props = node.get_properties()
                 if node_props and "host" in node_props:
                     host = self._final_function_result(node_props["host"].value, node)
                     if host:
                         ansible_host.setValue("host", host)
+                if node_props and "cloud_id" in node_props:
+                    cloud_id = self._final_function_result(node_props["cloud_id"].value, node)
+                    if cloud_id:
+                        ansible_host.setValue("cloud_id", str(cloud_id))
                 if node_props and "credential" in node_props:
                     credentials = self._final_function_result(node_props["credential"].value, node)
                     if 'user' in credentials:
@@ -233,7 +236,7 @@ class Tosca:
                             ansible_host.setValue("credentials.private_key", token)
                         else:
                             Tosca.logger.warning("Unknown tyoe of token %s. Ignoring." % token_type)
-                radl.ansible_hosts = [ansible_host]
+                radl.ansible_hosts.append(ansible_host)
             elif root_type == "tosca.nodes.aisprint.FaaS.Function":
                 min_instances, _, default_instances, count, removal_list = self._get_scalable_properties(node)
                 num_instances = self._get_num_instances(count, default_instances, min_instances)

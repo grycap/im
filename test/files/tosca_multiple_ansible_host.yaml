@@ -1,0 +1,55 @@
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+imports:
+  - grycap_custom_types: https://raw.githubusercontent.com/grycap/tosca/main/custom_types.yaml
+
+topology_template:
+
+  node_templates:
+
+    host_a:
+      type: tosca.nodes.im.AnsibleHost
+      properties:
+        host: host_a_ip
+        cloud_id: cloud-a
+        credential:
+          token_type: password # or private_key
+          user: username
+          token: password # or the private_key
+
+    host_b:
+      type: tosca.nodes.im.AnsibleHost
+      properties:
+        host: host_b_ip
+        credential:
+          token_type: password # or private_key
+          user: username
+          token: password # or the private_key
+
+    simple_node:
+      type: tosca.nodes.indigo.Compute
+      capabilities:
+        endpoint:
+          properties:
+            ports:
+              ssh_port:
+                protocol: tcp
+                source: 22
+        host:
+          properties:
+            num_cpus: 1
+            mem_size: 1 GB
+        os:
+          properties:
+            image: 'one://ramses.i3m.upv.es/1593'
+            type: linux
+            credential:
+              token_type: password # or private_key
+              user: username
+              token: password # or the private_key
+
+  outputs:
+    node_ip:
+      value: { get_attribute: [ simple_node, public_address, 0 ] }
+    node_creds:
+      value: { get_attribute: [ simple_node, endpoint, credential, 0 ] }

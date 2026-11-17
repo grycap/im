@@ -435,18 +435,54 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         return pid
 
-    def generate_inventory(self, tmp_dir):
+    def get_ansible_host_vms(self):
+        """
+        Associate each Ansible host with the list of VMs that will be
+        configured by it.
+
+        Returns a tuple with:
+        - a dict mapping the Ansible host id to the list of VMs that resolve to
+          that host
+        - the list of VMs that do not resolve to any Ansible host (they are
+          configured through the IM-managed master, if any)
+
+        In a multi-cloud deployment with per-cloud Ansible hosts this scopes
+        the contextualization of each host to the VMs that are actually
+        configured through it (typically the VMs of its own cloud), so the
+        contextualization agent running on a host does not wait for VMs that
+        are not reachable from that host.
+        """
+        host_vm_map = {}
+        master_vms = []
+        for vm in self.inf.get_vm_list():
+            ansible_host = vm.get_ansible_host()
+            if ansible_host:
+                if ansible_host.getId() not in host_vm_map:
+                    host_vm_map[ansible_host.getId()] = []
+                host_vm_map[ansible_host.getId()].append(vm)
+            else:
+                master_vms.append(vm)
+        return host_vm_map, master_vms
+
+    def generate_inventory(self, tmp_dir, ansible_host=None, vm_list=None):
         """
         Generate the ansible inventory file
+
+        If ``ansible_host`` is provided, the master name in the inventory is
+        taken from that host. If ``vm_list`` is provided, only those VMs are
+        included in the inventory; otherwise all the VMs of the infrastructure
+        are included. In a multi-cloud deployment with per-cloud Ansible hosts,
+        the inventory of each host is scoped to the VMs of its own cloud so the
+        contextualization agent does not wait for VMs that are not reachable
+        from that host.
         """
         self.log_info("Create the ansible configuration file")
         res_filename = "hosts"
         ansible_file = tmp_dir + "/" + res_filename
 
         # get the master node name
-        if self.inf.radl.ansible_hosts:
-            (master_name, masterdom) = (
-                self.inf.radl.ansible_hosts[0].getHost(), "")
+        if ansible_host:
+            (master_name, masterdom) = (ansible_host.getHost(), "")
         else:
             (master_name, masterdom) = self.inf.vm_master.getRequestedName(
                 default_hostname=Config.DEFAULT_VM_NAME, default_domain=Config.DEFAULT_DOMAIN)
@@ -455,7 +491,19 @@ class ConfManager(LoggerMixin, threading.Thread):
         children = {}
         windows_hosts = {}
         no_windows_hosts = {}
-        vm_group = self.inf.get_vm_list_by_system_name()
+        # Group the VMs by system name. By default all the VMs of the
+        # infrastructure are included. When a scoped vm_list is passed (per-cloud
+        # Ansible host in a multi-cloud deployment) only those VMs are used.
+        if vm_list is None:
+            vm_group = self.inf.get_vm_list_by_system_name()
+        else:
+            vm_group = {}
+            for vm in vm_list:
+                sys_name = vm.getRequestedSystem().name
+                if sys_name in vm_group:
+                    vm_group[sys_name].append(vm)
+                else:
+                    vm_group[sys_name] = [vm]
         for group in vm_group:
             vm = vm_group[group][0]
 
@@ -812,7 +860,13 @@ class ConfManager(LoggerMixin, threading.Thread):
         success = True
         tmp_dir = None
 
-        if self.inf.ansible_configured:
+        # In a multi-cloud deployment some of the VMs can be configured
+        # through Ansible hosts while the rest are configured through the
+        # master. The master must be configured (ansible installed and agent
+        # files copied) only if there are VMs that are configured through it.
+        _, master_vms = self.get_ansible_host_vms()
+
+        if self.inf.vm_master and self.inf.ansible_configured:
             # Check that remote_dir exists
             # Also check if virtual env exists (new in version 1.18.0)
             remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
@@ -840,7 +894,11 @@ class ConfManager(LoggerMixin, threading.Thread):
                 try:
                     self.log_info("Start the contextualization process.")
 
-                    if self.inf.radl.ansible_hosts:
+                    # When there are Ansible hosts, ansible is installed in the
+                    # hosts (not in the master). In a mixed case, some of the
+                    # VMs are configured through the master, so ansible must be
+                    # installed in the master as well.
+                    if self.inf.radl.ansible_hosts and not master_vms:
                         configured_ok = True
                     else:
                         if not self.inf.vm_master:
@@ -887,21 +945,31 @@ class ConfManager(LoggerMixin, threading.Thread):
                         files.append((Config.CONTEXTUALIZATION_DIR + "/ansible_install.sh",
                                       remote_dir + "/ansible_install.sh"))
 
+                        # Copy the agent files to the Ansible hosts. In a mixed
+                        # case (some of the VMs are configured through the
+                        # hosts and some through the master) they are copied to
+                        # the hosts and to the master.
                         if self.inf.radl.ansible_hosts:
                             for ansible_host in self.inf.radl.ansible_hosts:
                                 (user, passwd, private_key) = ansible_host.getCredentialValues()
-                                ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
-                                ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o755)
-                                ssh.sftp_mkdir(remote_dir, 0o700)
-                                ssh.sftp_mkdir(remote_dir + "/IM")
-                                ssh.sftp_put_files(files)
+                                host_ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+                                host_ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o755)
+                                host_ssh.sftp_mkdir(remote_dir, 0o700)
+                                host_ssh.sftp_mkdir(remote_dir + "/IM")
+                                host_ssh.sftp_put_files(files)
                                 # Copy the utils helper files
-                                ssh.sftp_mkdir(remote_dir + "/utils")
-                                ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "//utils")
+                                host_ssh.sftp_mkdir(remote_dir + "/utils")
+                                host_ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "//utils")
                                 # Copy the ansible_utils files
-                                ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
-                                ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
-                        else:
+                                host_ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
+                                host_ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils",
+                                                      remote_dir + "/IM/ansible_utils")
+                                host_ssh.close()
+
+                        # Copy the agent files to the master when some of the
+                        # VMs are configured through it (no Ansible hosts at
+                        # all, or a mixed case)
+                        if master_vms:
                             ssh.sftp_mkdir(remote_dir, 0o700)
                             ssh.sftp_mkdir(remote_dir + "/IM")
                             ssh.sftp_put_files(files)
@@ -941,11 +1009,21 @@ class ConfManager(LoggerMixin, threading.Thread):
         """
             - Select the master VM
             - Wait it to boot and has the SSH port open
+
+        When there are Ansible hosts, the IM does not need to wait for the
+        master to configure the VMs that are configured through the hosts. But
+        in a mixed case (some VMs configured through Ansible hosts and other
+        VMs through a master, e.g. a multi-cloud deployment where only some of
+        the clouds define an Ansible host), the master is still needed for the
+        remaining VMs, so it must be selected and waited.
         """
         if self.inf.radl.ansible_hosts:
-            self.log_info("Usign ansible host: " + self.inf.radl.ansible_hosts[0].getHost())
-            self.inf.set_configured(True)
-            return True
+            self.log_info("Using ansible hosts: " +
+                          ", ".join(host.getHost() for host in self.inf.radl.ansible_hosts))
+            _, master_vms = self.get_ansible_host_vms()
+            if not master_vms:
+                self.inf.set_configured(True)
+                return True
 
         # First assure that ansible is installed in the master
         if not self.inf.vm_master or self.inf.vm_master.destroy:
@@ -1063,28 +1141,51 @@ class ConfManager(LoggerMixin, threading.Thread):
                         filenames.extend(self.generate_playbook(vm, ctxt_elem, tmp_dir))
 
             filenames.append(self.generate_etc_hosts(tmp_dir))
-            filenames.append(self.generate_inventory(tmp_dir))
 
             conf_file = "general_info.cfg"
-            self.create_general_conf_file(tmp_dir + "/" + conf_file, self.inf.get_vm_list())
-            filenames.append(conf_file)
-
-            recipe_files = []
-            for f in filenames:
-                recipe_files.append((tmp_dir + "/" + f, remote_dir + "/" + f))
 
             self.inf.add_cont_msg("Copying YAML, hosts and inventory files.")
             self.log_info("Copying YAML files.")
-            if self.inf.radl.ansible_hosts:
-                for ansible_host in self.inf.radl.ansible_hosts:
-                    (user, passwd, private_key) = ansible_host.getCredentialValues()
-                    ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
-                    ssh.sftp_mkdir(remote_dir)
-                    ssh.sftp_put_files(recipe_files)
-            else:
-                ssh = self.inf.vm_master.get_ssh(retry=True)
+
+            # Get the VMs that will be configured through each Ansible host
+            # and the ones configured through the master (if any). In a
+            # multi-cloud deployment with per-cloud Ansible hosts each host
+            # only sees the VMs that are configured through it (typically the
+            # VMs of its own cloud), so the contextualization agent running
+            # on a host does not wait for VMs that are not reachable from it.
+            host_vm_map, master_vms = self.get_ansible_host_vms()
+
+            def upload_files(file_list, ssh):
+                recipe_files = []
+                for f in file_list:
+                    recipe_files.append((tmp_dir + "/" + f, remote_dir + "/" + f))
                 ssh.sftp_mkdir(remote_dir)
                 ssh.sftp_put_files(recipe_files)
+
+            if self.inf.radl.ansible_hosts:
+                for ansible_host in self.inf.radl.ansible_hosts:
+                    host_vms = host_vm_map.get(ansible_host.getId(), [])
+                    # Generate the inventory and the general conf file scoped
+                    # to the VMs that are configured through this Ansible host
+                    file_list = list(filenames)
+                    file_list.append(self.generate_inventory(tmp_dir, ansible_host, host_vms))
+                    self.create_general_conf_file(tmp_dir + "/" + conf_file, host_vms)
+                    file_list.append(conf_file)
+                    (user, passwd, private_key) = ansible_host.getCredentialValues()
+                    ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+                    upload_files(file_list, ssh)
+
+            if not self.inf.radl.ansible_hosts or master_vms:
+                # Generate the inventory and the general conf file scoped to
+                # the VMs that are configured through the master. When there
+                # are no Ansible hosts at all this is the whole infrastructure
+                # (the original behaviour).
+                file_list = list(filenames)
+                file_list.append(self.generate_inventory(tmp_dir, None, master_vms))
+                self.create_general_conf_file(tmp_dir + "/" + conf_file, master_vms)
+                file_list.append(conf_file)
+                ssh = self.inf.vm_master.get_ssh(retry=True)
+                upload_files(file_list, ssh)
 
             self.inf.set_configured(True)
         except Exception as ex:
