@@ -814,7 +814,7 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         if self.inf.ansible_configured:
             # Check that remote_dir exists
-            # Also check if virtual env exists (new in version 1.18.0)
+            # Also check if mamba virtual env exists (new in version 2.0.0)
             remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
             venv_dir = CtxtAgentBase.MAMBA_ENV_DIR
             for rd in [remote_dir, venv_dir]:
