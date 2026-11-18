@@ -393,7 +393,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 ssh.sftp_put(conf_file, remote_dir + "/" + os.path.basename(conf_file))
 
                 if vm.configured is None:
-                    if len(self.inf.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST:
+                    if vm.use_distributed_ctxt():
                         self.log_info("Using ctxt_agent_dist")
                         ctxt_agent_command = "/ctxt_agent_dist.py "
                     else:
@@ -455,6 +455,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         host_vm_map = {}
         master_vms = []
         for vm in self.inf.get_vm_list():
+            if not vm.contextualize() or vm.deleting:
+                continue
             ansible_host = vm.get_ansible_host()
             if ansible_host:
                 if ansible_host.getId() not in host_vm_map:
@@ -464,7 +466,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 master_vms.append(vm)
         return host_vm_map, master_vms
 
-    def generate_inventory(self, tmp_dir, ansible_host=None, vm_list=None):
+    def generate_inventory(self, tmp_dir, ansible_host=None, vm_list=None, master=None):
         """
         Generate the ansible inventory file
 
@@ -484,7 +486,8 @@ class ConfManager(LoggerMixin, threading.Thread):
         if ansible_host:
             (master_name, masterdom) = (ansible_host.getHost(), "")
         else:
-            (master_name, masterdom) = self.inf.vm_master.getRequestedName(
+            master = master or (self.inf.get_vm_master(vm_list[0]) if vm_list else self.inf.vm_master)
+            (master_name, masterdom) = master.getRequestedName(
                 default_hostname=Config.DEFAULT_VM_NAME, default_domain=Config.DEFAULT_DOMAIN)
 
         all_vars = {}
@@ -579,7 +582,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 else:
                     self.log_warn("The VM ID: " + str(vm.id) + " does not have username!!")
 
-                if self.inf.vm_master and vm.id == self.inf.vm_master.id:
+                if master is vm:
                     node_vars['ansible_connection'] = 'local'
 
                 if vm.getPublicIP():
@@ -851,244 +854,140 @@ class ConfManager(LoggerMixin, threading.Thread):
         return recipe_files
 
     def configure_master(self):
-        """
-        Perform all the tasks to configure the master VM.
-          * Change the password
-          * Install ansible
-          * Copy the contextualization agent files
-        """
-        success = True
-        tmp_dir = None
-
-        # In a multi-cloud deployment some of the VMs can be configured
-        # through Ansible hosts while the rest are configured through the
-        # master. The master must be configured (ansible installed and agent
-        # files copied) only if there are VMs that are configured through it.
+        """Bootstrap every managed controller, preserving successful cloud bootstraps."""
+        self.inf.select_vm_masters()
         _, master_vms = self.get_ansible_host_vms()
+        required_clouds = {vm.cloud.id for vm in master_vms if vm.contextualize() and not vm.deleting}
+        success = required_clouds.issubset(self.inf.vm_masters)
+        for master in self.inf.vm_masters.values():
+            if not self._configure_managed_master(master):
+                success = False
 
-        if self.inf.vm_master and self.inf.ansible_configured:
-            # Check that remote_dir exists
-            # Also check if virtual env exists (new in version 1.18.0)
-            remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
-            venv_dir = CtxtAgentBase.MAMBA_ENV_DIR
-            for rd in [remote_dir, venv_dir]:
-                try:
-                    ssh = self.inf.vm_master.get_ssh(retry=True)
-                    files = ssh.sftp_list(rd)
-                except Exception as ex:
-                    self.log_exception("Error listing remote dir %s (%s)." % (rd, str(ex)))
-                    files = []
-                # if there are no files, reconfigure ansible
-                if len(files) < 4:
-                    self.log_warn("Remote dir %s not found. Reinstall ansible on master node." % rd)
-                    self.inf.ansible_configured = False
+        for ansible_host in self.inf.radl.ansible_hosts:
+            if not self._configure_external_host(ansible_host):
+                success = False
 
-        if not self.inf.ansible_configured:
-            success = False
-            cont = 0
-            while not self._stop_thread and not success and cont < Config.PLAYBOOK_RETRIES:
-                self.log_info("Sleeping %s secs." % (cont ** 2 * 5))
-                time.sleep(cont ** 2 * 5)
-                cont += 1
-                ssh = None
-                try:
-                    self.log_info("Start the contextualization process.")
-
-                    # When there are Ansible hosts, ansible is installed in the
-                    # hosts (not in the master). In a mixed case, some of the
-                    # VMs are configured through the master, so ansible must be
-                    # installed in the master as well.
-                    if self.inf.radl.ansible_hosts and not master_vms:
-                        configured_ok = True
-                    else:
-                        if not self.inf.vm_master:
-                            raise Exception("No master VM found.")
-                        ssh = self.inf.vm_master.get_ssh(retry=True, auto_close=False)
-                        if not ssh:
-                            raise Exception("Master VM does not have IP.")
-                        # Activate tty mode to avoid some problems with sudo in
-                        # REL
-                        ssh.tty = True
-
-                        # configuration dir os th emaster node to copy all the
-                        # contextualization files
-                        tmp_dir = tempfile.mkdtemp()
-                        # Now call the ansible installation process on the
-                        # master node
-                        ansible_version = None
-                        if self.inf.radl.contextualize.options:
-                            if 'ansible_version' in self.inf.radl.contextualize.options:
-                                ansible_version = self.inf.radl.contextualize.options['ansible_version'].getValue()
-                        configured_ok = self.configure_ansible(ssh, tmp_dir, ansible_version)
-
-                        if not configured_ok:
-                            self.log_error("Error in the ansible installation process")
-                            if not self.inf.ansible_configured:
-                                self.inf.ansible_configured = False
-                        else:
-                            self.log_info("Ansible installation finished successfully")
-
-                    if configured_ok:
-                        remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
-                        self.log_info("Copy the contextualization agent files")
-                        files = []
-                        files.append((Config.IM_PATH + "/CtxtAgentBase.py", remote_dir + "/IM/CtxtAgentBase.py"))
-                        files.append((Config.IM_PATH + "/SSH.py", remote_dir + "/IM/SSH.py"))
-                        files.append((Config.IM_PATH + "/SSHRetry.py", remote_dir + "/IM/SSHRetry.py"))
-                        files.append((Config.IM_PATH + "/retry.py", remote_dir + "/IM/retry.py"))
-                        files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent_dist.py",
-                                      remote_dir + "/ctxt_agent_dist.py"))
-                        files.append((Config.CONTEXTUALIZATION_DIR + "/ctxt_agent.py", remote_dir + "/ctxt_agent.py"))
-                        # copy an empty init to make IM as package
-                        files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
-                        # copy the ansible_install script to install the nodes
-                        files.append((Config.CONTEXTUALIZATION_DIR + "/ansible_install.sh",
-                                      remote_dir + "/ansible_install.sh"))
-
-                        # Copy the agent files to the Ansible hosts. In a mixed
-                        # case (some of the VMs are configured through the
-                        # hosts and some through the master) they are copied to
-                        # the hosts and to the master.
-                        if self.inf.radl.ansible_hosts:
-                            for ansible_host in self.inf.radl.ansible_hosts:
-                                (user, passwd, private_key) = ansible_host.getCredentialValues()
-                                host_ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
-                                host_ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o755)
-                                host_ssh.sftp_mkdir(remote_dir, 0o700)
-                                host_ssh.sftp_mkdir(remote_dir + "/IM")
-                                host_ssh.sftp_put_files(files)
-                                # Copy the utils helper files
-                                host_ssh.sftp_mkdir(remote_dir + "/utils")
-                                host_ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "//utils")
-                                # Copy the ansible_utils files
-                                host_ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
-                                host_ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils",
-                                                      remote_dir + "/IM/ansible_utils")
-                                host_ssh.close()
-
-                        # Copy the agent files to the master when some of the
-                        # VMs are configured through it (no Ansible hosts at
-                        # all, or a mixed case)
-                        if master_vms:
-                            ssh.sftp_mkdir(remote_dir, 0o700)
-                            ssh.sftp_mkdir(remote_dir + "/IM")
-                            ssh.sftp_put_files(files)
-                            # Copy the utils helper files
-                            ssh.sftp_mkdir(remote_dir + "/utils")
-                            ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "/utils")
-                            # Copy the ansible_utils files
-                            ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
-                            ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
-
-                    success = configured_ok
-
-                except Exception as ex:
-                    self.log_exception("Error in the ansible installation process")
-                    self.inf.add_cont_msg("Error in the ansible installation process: " + str(ex))
-                    if not self.inf.ansible_configured:
-                        self.inf.ansible_configured = False
-                    success = False
-                finally:
-                    if ssh:
-                        ssh.close()
-                    if tmp_dir:
-                        shutil.rmtree(tmp_dir, ignore_errors=True)
-
-            if success:
-                self.inf.ansible_configured = True
-                self.inf.set_configured(True)
-                # Force to save the data to store the log data
-                IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
-            else:
-                self.inf.ansible_configured = False
-                self.inf.set_configured(False)
-
+        self.inf.ansible_configured = success
+        self.inf.set_configured(success)
+        IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
         return success
 
-    def wait_master(self):
-        """
-            - Select the master VM
-            - Wait it to boot and has the SSH port open
-
-        When there are Ansible hosts, the IM does not need to wait for the
-        master to configure the VMs that are configured through the hosts. But
-        in a mixed case (some VMs configured through Ansible hosts and other
-        VMs through a master, e.g. a multi-cloud deployment where only some of
-        the clouds define an Ansible host), the master is still needed for the
-        remaining VMs, so it must be selected and waited.
-        """
-        if self.inf.radl.ansible_hosts:
-            self.log_info("Using ansible hosts: " +
-                          ", ".join(host.getHost() for host in self.inf.radl.ansible_hosts))
-            _, master_vms = self.get_ansible_host_vms()
-            if not master_vms:
-                self.inf.set_configured(True)
-                return True
-
-        # First assure that ansible is installed in the master
-        if not self.inf.vm_master or self.inf.vm_master.destroy:
-            # If the user has deleted the master vm, it must be configured
-            # again
-            self.inf.ansible_configured = None
-
-        success = True
-        if not self.inf.ansible_configured:
-            # Select the master VM
+    def _configure_managed_master(self, master):
+        """Validate/install Ansible and upload the agent on one cloud controller."""
+        cloud_id = master.cloud.id
+        for attempt in range(Config.PLAYBOOK_RETRIES):
+            if self._stop_thread:
+                break
+            time.sleep(attempt ** 2 * 5)
             ssh = None
+            tmp_dir = None
             try:
-                self.inf.add_cont_msg("Select master VM")
-                self.inf.select_vm_master()
-
-                if not self.inf.vm_master:
-                    # If there are not a valid master VM, exit
-                    self.log_error("No correct Master VM found. Exit")
-                    self.inf.add_cont_msg("Contextualization Error: No correct Master VM found. Check if there a "
-                                          "linux VM with Public IP.")
-                    self.inf.set_configured(False)
-                    return
-
-                self.log_info("Wait the master VM to be running")
-
-                self.inf.add_cont_msg("Wait master VM to boot")
-                all_running = self.wait_vm_running(self.inf.vm_master, Config.WAIT_RUNNING_VM_TIMEOUT)
-
-                if not all_running:
-                    self.log_error("Error Waiting the Master VM to boot, exit")
-                    self.inf.add_cont_msg("Contextualization Error: Error Waiting the Master VM to boot")
-                    self.inf.set_configured(False)
-                    return
-
-                self.inf.add_cont_msg("Wait master VM to have the SSH active.")
-                is_connected, msg = self.wait_vm_ssh_acccess(self.inf.vm_master, Config.WAIT_SSH_ACCCESS_TIMEOUT)
-                if not is_connected:
-                    self.log_error("Error Waiting the Master VM to have the SSH active, exit: " + msg)
-                    self.inf.add_cont_msg("Contextualization Error: Error Waiting the Master VM to have the SSH"
-                                          " active: " + msg)
-                    self.inf.set_configured(False)
-                    return
-
-                self.log_info("VMs available.")
-
-                # Check and change if necessary the credentials of the master
-                # vm
-                ssh = self.inf.vm_master.get_ssh(retry=True, auto_close=False)
-                # Activate tty mode to avoid some problems with sudo in REL
+                ssh = master.get_ssh(retry=True, auto_close=False)
+                if not ssh:
+                    raise Exception("Master VM does not have IP")
                 ssh.tty = True
-                self.change_master_credentials(ssh)
-
-                # Force to save the data to store the log data
-                IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
-
-                self.inf.set_configured(True)
-            except Exception:
-                self.log_exception("Error waiting the master VM to be running")
-                self.inf.set_configured(False)
+                configured = self.inf.ansible_configured_masters.get(cloud_id) == master.im_id
+                if configured:
+                    for remote_dir in (Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/",
+                                       CtxtAgentBase.MAMBA_ENV_DIR):
+                        try:
+                            if len(ssh.sftp_list(remote_dir)) < 4:
+                                configured = False
+                        except Exception:
+                            configured = False
+                if not configured:
+                    self.inf.ansible_configured_masters.pop(cloud_id, None)
+                    tmp_dir = tempfile.mkdtemp()
+                    version = (self.inf.radl.contextualize.options or {}).get('ansible_version')
+                    version = version.getValue() if version else None
+                    if not self.configure_ansible(ssh, tmp_dir, version):
+                        raise Exception("Ansible installation failed")
+                self._copy_agent_files(ssh)
+                self.inf.ansible_configured_masters[cloud_id] = master.im_id
+                return True
+            except Exception as ex:
+                self.log_exception("Error bootstrapping master in cloud %s" % cloud_id)
+                self.inf.add_cont_msg("Error bootstrapping master in cloud %s: %s" % (cloud_id, ex))
             finally:
                 if ssh:
                     ssh.close()
-        else:
-            self.inf.set_configured(True)
+                if tmp_dir:
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+        return False
 
+    def _configure_external_host(self, ansible_host):
+        """Upload the agent to an existing external controller with bootstrap retries."""
+        for attempt in range(Config.PLAYBOOK_RETRIES):
+            if self._stop_thread:
+                break
+            time.sleep(attempt ** 2 * 5)
+            ssh = None
+            try:
+                user, passwd, private_key = ansible_host.getCredentialValues()
+                ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
+                self._copy_agent_files(ssh)
+                return True
+            except Exception as ex:
+                self.log_exception("Error copying contextualization agent to Ansible host")
+                self.inf.add_cont_msg("Error copying contextualization agent: %s" % ex)
+            finally:
+                if ssh:
+                    ssh.close()
+        return False
+
+    def _copy_agent_files(self, ssh):
+        """Upload the common agent files to a managed master or external host."""
+        remote_dir = Config.REMOTE_CONF_DIR + "/" + str(self.inf.id) + "/"
+        files = [(Config.IM_PATH + "/" + name, remote_dir + "/IM/" + name)
+                 for name in ("CtxtAgentBase.py", "SSH.py", "SSHRetry.py", "retry.py")]
+        files.extend((Config.CONTEXTUALIZATION_DIR + "/" + name, remote_dir + "/" + name)
+                     for name in ("ctxt_agent_dist.py", "ctxt_agent.py", "ansible_install.sh"))
+        files.append((Config.CONTEXTUALIZATION_DIR + "/__init__.py", remote_dir + "/IM/__init__.py"))
+        ssh.sftp_mkdir(Config.REMOTE_CONF_DIR, 0o755)
+        ssh.sftp_mkdir(remote_dir, 0o700)
+        ssh.sftp_mkdir(remote_dir + "/IM")
+        ssh.sftp_put_files(files)
+        ssh.sftp_mkdir(remote_dir + "/utils")
+        ssh.sftp_put_dir(Config.RECIPES_DIR + "/utils", remote_dir + "/utils")
+        ssh.sftp_mkdir(remote_dir + "/IM/ansible_utils")
+        ssh.sftp_put_dir(Config.IM_PATH + "/ansible_utils", remote_dir + "/IM/ansible_utils")
+
+    def wait_master(self):
+        """Select and wait for a managed controller in every cloud that needs one."""
+        self.inf.select_vm_masters()
+        _, master_vms = self.get_ansible_host_vms()
+        required_clouds = {vm.cloud.id for vm in master_vms if vm.contextualize() and not vm.deleting}
+        missing = required_clouds.difference(self.inf.vm_masters)
+        if missing:
+            self.inf.add_cont_msg("Contextualization Error: No correct Master VM found for clouds: %s. "
+                                  "A Linux VM with public IP or proxy access is required in each cloud." %
+                                  ", ".join(str(cloud_id) for cloud_id in missing))
+            self.inf.set_configured(False)
+            return False
+
+        success = True
+        for cloud_id, master in self.inf.vm_masters.items():
+            ssh = None
+            try:
+                self.inf.add_cont_msg("Wait master VM in cloud %s to boot" % cloud_id)
+                if not self.wait_vm_running(master, Config.WAIT_RUNNING_VM_TIMEOUT):
+                    raise Exception("Error waiting the master VM to boot")
+                connected, msg = self.wait_vm_ssh_acccess(master, Config.WAIT_SSH_ACCCESS_TIMEOUT)
+                if not connected:
+                    raise Exception("Error waiting the master VM to have SSH active: " + msg)
+                ssh = master.get_ssh(retry=True, auto_close=False)
+                ssh.tty = True
+                self.change_master_credentials(ssh, master)
+            except Exception as ex:
+                self.log_exception("Error waiting the master VM in cloud %s" % cloud_id)
+                self.inf.add_cont_msg("Contextualization Error in cloud %s: %s" % (cloud_id, ex))
+                success = False
+            finally:
+                if ssh:
+                    ssh.close()
+
+        self.inf.set_configured(success)
+        IM.InfrastructureList.InfrastructureList.save_data(self.inf.id)
         return success
 
     def generate_playbooks_and_hosts(self):
@@ -1175,16 +1074,18 @@ class ConfManager(LoggerMixin, threading.Thread):
                     ssh = SSHRetry(ansible_host.getHost(), user, passwd, private_key)
                     upload_files(file_list, ssh)
 
-            if not self.inf.radl.ansible_hosts or master_vms:
-                # Generate the inventory and the general conf file scoped to
-                # the VMs that are configured through the master. When there
-                # are no Ansible hosts at all this is the whole infrastructure
-                # (the original behaviour).
+            managed_clouds = {}
+            for vm in master_vms:
+                managed_clouds.setdefault(vm.cloud.id, []).append(vm)
+            for cloud_id, cloud_vms in managed_clouds.items():
+                master = self.inf.get_vm_master(cloud_vms[0])
+                if not master:
+                    raise Exception("No master VM found for cloud %s" % cloud_id)
                 file_list = list(filenames)
-                file_list.append(self.generate_inventory(tmp_dir, None, master_vms))
-                self.create_general_conf_file(tmp_dir + "/" + conf_file, master_vms)
+                file_list.append(self.generate_inventory(tmp_dir, None, cloud_vms, master))
+                self.create_general_conf_file(tmp_dir + "/" + conf_file, cloud_vms, master)
                 file_list.append(conf_file)
-                ssh = self.inf.vm_master.get_ssh(retry=True)
+                ssh = master.get_ssh(retry=True)
                 upload_files(file_list, ssh)
 
             self.inf.set_configured(True)
@@ -1302,18 +1203,19 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         return 0
 
-    def change_master_credentials(self, ssh):
+    def change_master_credentials(self, ssh, master=None):
         """
         Chech the RADL of the VM master to see if we must change the user credentials
 
         Arguments:
            - ssh(:py:class:`IM.SSH`): Object with the authentication data to access the master VM.
         """
+        master = master or self.inf.vm_master
         change_creds = False
         try:
-            creds = self.inf.vm_master.getCredentialValues()
+            creds = master.getCredentialValues()
             (user, passwd, _, _) = creds
-            new_creds = self.inf.vm_master.getCredentialValues(new=True)
+            new_creds = master.getCredentialValues(new=True)
             if len(list(set(new_creds))) > 1 or list(set(new_creds))[0] is not None:
                 change_creds = False
                 if self.cmp_credentials(new_creds, creds) != 0:
@@ -1342,7 +1244,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                             ssh.private_key = new_private_key
 
                 if change_creds:
-                    self.inf.vm_master.info.systems[0].updateNewCredentialValues()
+                    master.info.systems[0].updateNewCredentialValues()
         except Exception:
             self.log_exception("Error changing credentials to master VM.")
 
@@ -1515,6 +1417,7 @@ class ConfManager(LoggerMixin, threading.Thread):
             with open(tmp_dir + "/inventory.cfg", 'w') as inv_out:
                 ssh_args = ""
                 if ssh.proxy_host:
+                    ssh_options = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
                     # if user set the private key
                     if ssh.proxy_host.private_key:
                         priv_key_filename = "/var/tmp/%s_%s_%s.pem" % (ssh.proxy_host.username,
@@ -1527,8 +1430,6 @@ class ConfManager(LoggerMixin, threading.Thread):
                         with open(priv_key_filename, 'w') as f:
                             f.write(ssh.proxy_host.private_key)
                         os.chmod(priv_key_filename, 0o600)
-
-                        ssh_options = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
 
                         proxy_command = "ssh -W %%h:%%p -i %s -p %d %s %s@%s" % (priv_key_filename,
                                                                                  ssh.proxy_host.port,
@@ -1614,10 +1515,12 @@ class ConfManager(LoggerMixin, threading.Thread):
 
         return success
 
-    def create_general_conf_file(self, conf_file, vm_list):
+    def create_general_conf_file(self, conf_file, vm_list, master=None):
         """
         Create the configuration file needed by the contextualization agent
         """
+        if master is None and vm_list and not vm_list[0].get_ansible_host():
+            master = self.inf.get_vm_master(vm_list[0])
         roles, collections = self.get_ansible_roles_and_collections(self.inf.radl)
         conf_data = {}
         conf_data['ansible_collections'] = collections
@@ -1635,7 +1538,7 @@ class ConfManager(LoggerMixin, threading.Thread):
                 vm_conf_data['id'] = vm.im_id
                 if vm.getOS():
                     vm_conf_data['os'] = vm.getOS().lower()
-                if self.inf.vm_master and vm.im_id == self.inf.vm_master.im_id:
+                if master is vm:
                     vm_conf_data['master'] = True
                 else:
                     vm_conf_data['master'] = False

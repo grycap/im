@@ -1094,6 +1094,10 @@ class VirtualMachine(LoggerMixin):
 
         return ansible_host
 
+    def use_distributed_ctxt(self):
+        """Distributed agents require an IM-managed controller VM for file/log exchange."""
+        return not self.get_ansible_host() and len(self.inf.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST
+
     def get_ssh_ansible_master(self, retry=True, auto_close=True):
         ansible_host = self.get_ansible_host()
         if ansible_host:
@@ -1103,10 +1107,12 @@ class VirtualMachine(LoggerMixin):
             else:
                 return SSH(ansible_host.getHost(), user, passwd, private_key, auto_close=auto_close)
         else:
-            if self.inf.vm_master:
-                return self.inf.vm_master.get_ssh(retry=retry, auto_close=auto_close)
+            master = self.inf.get_vm_master(self)
+            if master:
+                return master.get_ssh(retry=retry, auto_close=auto_close)
             else:
-                self.log_warn("There is not master VM. Do not return SSH object.")
+                cloud_id = self.cloud.id if self.cloud else None
+                self.log_warn("There is not master VM for cloud %s. Do not return SSH object." % cloud_id)
                 return None
 
     def __lt__(self, other):

@@ -579,15 +579,12 @@ def get_command(step, sel_inf, infid, vmid, request):
                 ssh_ok = ssh.test_connectivity(time_out=2)
 
             if ssh_ok:
-                if sel_inf.vm_master and int(vmid) == sel_inf.vm_master.creation_im_id:
-                    logger.debug("Step 2: Is the master do no make ssh command.")
+                master = None if sel_vm.get_ansible_host() else sel_inf.get_vm_master(sel_vm)
+                if sel_vm is master or (master and sel_vm.isConnectedWith(master)):
+                    logger.debug("Step 2: VM is the controller or connected to its cloud controller.")
                     info = "true"
                 else:
-                    if sel_vm.isConnectedWith(sel_inf.vm_master):
-                        logger.debug("Step 2: Is connected with the master do no make ssh command.")
-                        info = "true"
-                    else:
-                        info = sel_vm.get_ssh_command()
+                    info = sel_vm.get_ssh_command()
             else:
                 info = "wait"
     else:

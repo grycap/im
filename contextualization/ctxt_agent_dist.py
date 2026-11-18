@@ -408,7 +408,7 @@ class CtxtAgent(CtxtAgentBase):
                         errors = []
                         lock = threading.Lock()
                         if CtxtAgent.MAX_SIMULTANEOUS_SSH <= 0:
-                            threads = len(general_conf_data['vms']) - 1
+                            threads = max(1, len(general_conf_data['vms']) - 1)
                         else:
                             threads = CtxtAgent.MAX_SIMULTANEOUS_SSH
                         pool = ThreadPool(processes=threads)

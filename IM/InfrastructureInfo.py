@@ -19,6 +19,7 @@ import threading
 import time
 from uuid import uuid1
 import json
+from copy import deepcopy
 
 import IM.ConfManager
 from datetime import datetime, timedelta
@@ -91,6 +92,8 @@ class InfrastructureInfo:
         """ConfManager Thread to contextualize"""
         self.vm_master = None
         """VM selected as the master node to the contextualization step"""
+        self.vm_masters = {}
+        """VM selected as the contextualization master for each cloud."""
         self.vm_id = 0
         """Next vm id available."""
         self.cont_out = ""
@@ -99,6 +102,8 @@ class InfrastructureInfo:
         """List of contextualization tasks"""
         self.ansible_configured = None
         """Flag to specify that ansible is configured successfully in the master node of this inf."""
+        self.ansible_configured_masters = {}
+        """Cloud to VM ID mapping of successfully bootstrapped managed masters."""
         self.configured = None
         """Flag to specify that the configuration threads of this inf has finished successfully or with errors."""
         self.conf_threads = []
@@ -130,6 +135,7 @@ class InfrastructureInfo:
             del odict['last_access']
         if odict['vm_master']:
             odict['vm_master'] = odict['vm_master'].im_id
+        odict['vm_masters'] = {cloud_id: vm.im_id for cloud_id, vm in odict.get('vm_masters', {}).items()}
         vm_list = []
         for vm in odict['vm_list']:
             vm_list.append(vm.serialize())
@@ -146,9 +152,10 @@ class InfrastructureInfo:
     def deserialize(str_data):
         newinf = InfrastructureInfo()
         newinf.creation_date = None
-        dic = str_data if isinstance(str_data, dict) else json.loads(str_data)
+        dic = deepcopy(str_data) if isinstance(str_data, dict) else json.loads(str_data)
         vm_list = dic['vm_list']
         vm_master_id = dic['vm_master']
+        vm_masters_ids = dic.pop('vm_masters', None)
         dic['vm_master'] = None
         dic['vm_list'] = []
         if dic['auth']:
@@ -175,6 +182,16 @@ class InfrastructureInfo:
             if vm.im_id == vm_master_id:
                 newinf.vm_master = vm
             newinf.vm_list.append(vm)
+        if vm_masters_ids is not None:
+            newinf.vm_masters = {cloud_id: next((vm for vm in newinf.vm_list if vm.im_id == vm_id), None)
+                                 for cloud_id, vm_id in vm_masters_ids.items()}
+            newinf.vm_masters = {cloud_id: vm for cloud_id, vm in newinf.vm_masters.items() if vm}
+        elif newinf.vm_master and newinf.vm_master.cloud:
+            # Legacy records only persisted one master; retain it for its cloud.
+            newinf.vm_masters = {newinf.vm_master.cloud.id: newinf.vm_master}
+        if ('ansible_configured_masters' not in dic and newinf.ansible_configured and
+                newinf.vm_master and newinf.vm_master.cloud):
+            newinf.ansible_configured_masters = {newinf.vm_master.cloud.id: newinf.vm_master.im_id}
         newinf.adding = False
         newinf.deleting = False
         return newinf
@@ -463,31 +480,53 @@ class InfrastructureInfo:
         return radl
 
     def select_vm_master(self):
-        """
-        Select the VM master of the infrastructure.
-        The master VM must be have a Linux OS connected with the maximum number of VMs
-        It will select the first created VM that fulfills this requirements
-        and store the value in the vm_master field
-        """
-        # If it was previously selected do no select a new one
-        if self.vm_master and not self.vm_master.destroy and not self.vm_master.deleting:
-            return self.vm_master
+        """Compatibility entry point; also select masters for the other clouds."""
+        self.select_vm_masters()
+        return self.vm_master
 
-        self.vm_master = None
-        max_vms_connected = -1
-        for vm in self.get_vm_list():
-            vms_connected = -1
-            if (vm.contextualize() and vm.getOS() and vm.getOS().lower() == 'linux' and
-                    (vm.hasPublicNet() or vm.getProxyHost())):
-                # check that is connected with other VMs
-                vms_connected = 0
-                for other_vm in self.get_vm_list():
-                    if vm.isConnectedWith(other_vm):
-                        vms_connected += 1
+    def select_vm_masters(self):
+        """Select one eligible managed master independently for each cloud."""
+        if self.ansible_configured and not self.ansible_configured_masters and self.vm_master:
+            self.ansible_configured_masters[self.vm_master.cloud.id] = self.vm_master.im_id
+        managed_vms = [vm for vm in self.get_vm_list()
+                       if not vm.deleting and vm.contextualize() and not vm.get_ansible_host()]
+        clouds = {}
+        for vm in managed_vms:
+            clouds.setdefault(vm.cloud.id, []).append(vm)
+        previous = dict(self.vm_masters)
+        if self.vm_master:
+            previous.setdefault(self.vm_master.cloud.id, self.vm_master)
 
-                if vms_connected > max_vms_connected:
-                    max_vms_connected = vms_connected
-                    self.vm_master = vm
+        selected = {}
+        for cloud_id, vms in clouds.items():
+            candidates = [vm for vm in vms if vm.getOS() and vm.getOS().lower() == 'linux' and
+                          (vm.hasPublicNet() or vm.getProxyHost())]
+            current = previous.get(cloud_id)
+            if current in candidates:
+                selected[cloud_id] = current
+            elif candidates:
+                selected[cloud_id] = max(candidates, key=lambda vm: sum(vm.isConnectedWith(other) for other in vms))
+
+        self.vm_masters = selected
+        self.vm_master = self.vm_master if self.vm_master in selected.values() else next(iter(selected.values()), None)
+        self.ansible_configured_masters = {cloud_id: vm_id
+                                           for cloud_id, vm_id in self.ansible_configured_masters.items()
+                                           if cloud_id in selected and selected[cloud_id].im_id == vm_id}
+        if any(self.ansible_configured_masters.get(cloud_id) != vm.im_id for cloud_id, vm in selected.items()):
+            self.ansible_configured = False
+        return selected
+
+    def get_vm_master(self, vm):
+        """Resolve a managed controller without falling back across clouds."""
+        cloud_id = vm.cloud.id if vm.cloud else None
+        master = self.vm_masters.get(cloud_id)
+        if not master and self.vm_master:
+            legacy_cloud = self.vm_master.cloud.id if self.vm_master.cloud else None
+            if legacy_cloud == cloud_id:
+                master = self.vm_master
+        if master and not master.destroy and not master.deleting:
+            return master
+        return None
 
     def vm_in_ctxt_tasks(self, vm):
         found = False
@@ -616,37 +655,46 @@ class InfrastructureInfo:
             ctxt_task.append((-1, 0, self, ['generate_playbooks_and_hosts']))
 
             use_dist = len(self.get_vm_list()) > Config.VM_NUM_USE_CTXT_DIST
-            for cont, vm in enumerate(self.get_vm_list()):
+            controllers = set()
+            for vm in self.get_vm_list():
                 if not vm.contextualize():
                     vm.configured = True
                     vm.cont_out = "Contextualization disabled"
                     continue
                 tasks = {}
+                host = vm.get_ansible_host()
+                controller = ('ansible', host.getId()) if host else ('cloud', vm.cloud.id)
+                first_vm = controller not in controllers
+                controllers.add(controller)
 
                 # Add basic tasks for all VMs
-                if use_dist:
+                if vm.use_distributed_ctxt():
                     init_steps = 5
                     tasks[0] = ['install_ansible']
                     tasks[1] = ['basic']
-                    if cont == 0:
+                    if first_vm:
                         tasks[2] = ['gen_facts_cache']
                     else:
                         tasks[2] = []
-                    if cont == 0:
+                    if first_vm:
                         tasks[3] = []
                     else:
                         tasks[3] = ['copy_facts_cache']
                     tasks[4] = ['main_' + vm.info.systems[0].name]
                 else:
-                    init_steps = 3
-                    if cont == 0:
-                        # In the first VM put the wait all ssh task
+                    init_steps = 5 if use_dist else 3
+                    if first_vm:
+                        # Wait only the VMs assigned to this controller.
                         tasks[0] = ['wait_all_ssh']
                         tasks[1] = ['basic']
                     else:
                         tasks[0] = []
                         tasks[1] = ['basic']
-                    tasks[2] = ['main_' + vm.info.systems[0].name]
+                    if use_dist:
+                        # Keep user recipe steps aligned with the distributed controllers.
+                        tasks[2] = []
+                        tasks[3] = []
+                    tasks[init_steps - 1] = ['main_' + vm.info.systems[0].name]
 
                 # And the specific tasks only for the specified ones
                 if not vm_list or vm.im_id in vm_list:

@@ -69,9 +69,9 @@ element with ``name`` ``tomcat``.
 The ``network`` keyword enables representing different networks so that the 
 VMs can be attached to them.
 
-The ``ansible`` keyword enables the specification of external nodes that will act as the
-ansible master node to configure the VMs. These nodes must be connected in a
-network with all the VMs of the infrastructure.
+The ``ansible`` keyword enables the specification of external nodes that act as
+Ansible controllers. Each controller must be able to reach the VMs assigned to it;
+it does not need connectivity to VMs assigned to other controllers.
 
 The sentences under the keyword ``contextualize`` indicate the recipes that
 will be executed during the deployment of the virtual machine.
@@ -163,6 +163,53 @@ The supported features are:
    
 ``credentials.private_key = '<private_key>'``
    Indicate the SSH private key.
+
+``cloud_id = '<cloud_id>'``
+   Restrict the external controller to VMs deployed in this cloud, unless a
+   system explicitly selects another controller with ``ansible_host``.
+
+Contextualization Controllers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For each VM, an explicit system ``ansible_host`` takes precedence over an
+external controller matching its cloud. A controller without ``cloud_id`` is
+the fallback for VMs without either of these selections. For example::
+
+   ansible site_a (
+      host = 'controller.example.org' and
+      cloud_id = 'cloud-a' and
+      credentials.username = 'ansible' and
+      credentials.password = '<password>'
+   )
+
+VMs in ``cloud-a`` use this external controller. For VMs not assigned to any
+external controller, IM reuses one existing VM **in each cloud** as its managed
+master; it does not deploy additional VMs. A candidate must be enabled for
+contextualization, run Linux, and have a public network or SSH proxy access.
+Destroyed or deleting VMs and VMs assigned to external controllers are not
+candidates. If a cloud has no eligible candidate, contextualization fails with
+a message identifying that cloud rather than using another cloud's master.
+
+Existing eligible masters are retained across reconfiguration. When replacement
+is needed, IM chooses the candidate connected to the most managed VMs in the
+same cloud, retaining creation order for ties. IM waits for and bootstraps each
+managed master independently, including credential changes, Ansible installation
+and agent upload. A failure still blocks the infrastructure's later
+contextualization steps; a retry can reuse successful cloud bootstraps.
+
+Each controller receives an inventory and agent configuration containing only
+its assigned VMs. On managed controllers, ``IM_MASTER_*`` variables and the
+inventory's local connection refer to that cloud's master. External inventories
+use the external controller's hostname and do not mark a managed VM as local.
+SSH agent launch, monitoring, cancellation and reverse tunnels use the same controller
+selection. Cross-cloud host variables and facts are therefore not available
+through these scoped inventories. The shared ``etc_hosts`` file still describes
+the infrastructure.
+
+Above ``VM_NUM_USE_CTXT_DIST``, managed controllers use distributed agents with
+a separate facts-cache seed per controller. External controllers keep executing
+the agent locally rather than relying on an IM-managed master for file/log
+exchange; recipe step numbers remain aligned across both modes.
 
 .. _radl_network:
 
@@ -692,7 +739,7 @@ kill the process if some of the steps takes more time than expected.
 
 The optional "option" lines enable to specify some contextualizacion option values. Currently only
 ``ansible_version`` is supported. It enables the user to specify the ansible version to be installed
-in the "master" VM that will be used to configure all the VMs of the infrastructure. For example::
+in each IM-managed "master" VM used to configure the VMs of its cloud. For example::
 
    option ansible_version = '2.6.20'
 
