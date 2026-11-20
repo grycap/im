@@ -274,6 +274,13 @@ class InfrastructureManager:
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
+        # Serialize request preparation before changing any active RADL.
+        with sel_inf._contextualization_lock:
+            sel_inf.check_contextualization_available(radl.contextualize)
+            return InfrastructureManager._reconfigure(sel_inf, radl, auth, vm_list)
+
+    @staticmethod
+    def _reconfigure(sel_inf, radl, auth, vm_list=None):
         # Update infrastructure RADL with this new RADL
         # Add or update configures
         for s in radl.configures:
@@ -288,8 +295,19 @@ class InfrastructureManager:
                 "Inf ID: " + sel_inf.id + ": " +
                 "(Re)definition of %s %s" % (type(s), s.getId()))
 
+        # Add or update embedded upgrade recipes independently from configure.
+        for s in radl.upgrades:
+            if s.recipes:
+                try:
+                    yaml.safe_load(s.recipes)
+                except Exception as ex:
+                    raise Exception("Error parsing upgrade YAML: %s" % str(ex))
+            sel_inf.radl.add(s.clone(), "replace")
+            InfrastructureManager.logger.info(
+                "Inf ID: " + sel_inf.id + ": (Re)definition of upgrade %s" % s.getId())
+
         # and update contextualize
-        sel_inf.radl.add(radl.contextualize)
+        sel_inf.set_contextualize(radl.contextualize)
 
         # Check if the user want to set a new password to any system:
         for radl_system in sel_inf.radl.systems:
@@ -337,7 +355,7 @@ class InfrastructureManager:
         sel_inf.ansible_configured = None
         sel_inf.Contextualize(auth, vm_list)
 
-        IM.InfrastructureList.InfrastructureList.save_data(inf_id)
+        IM.InfrastructureList.InfrastructureList.save_data(sel_inf.id)
 
         return ""
 
@@ -568,6 +586,13 @@ class InfrastructureManager:
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
+        incoming = radl_data if isinstance(radl_data, RADL) else radl_parse.parse_radl(radl_data)
+        with sel_inf._contextualization_lock:
+            sel_inf.check_contextualization_available(incoming.contextualize)
+            return InfrastructureManager._add_resource(sel_inf, inf_id, incoming, auth, context)
+
+    @staticmethod
+    def _add_resource(sel_inf, inf_id, radl_data, auth, context=True):
         if sel_inf.deleted:
             InfrastructureManager.logger.info("Inf ID: %s: Deleted Infrastructure. Stop deploying!" % sel_inf.id)
             return []
@@ -738,6 +763,12 @@ class InfrastructureManager:
 
         sel_inf = InfrastructureManager.get_infrastructure(inf_id, auth)
 
+        with sel_inf._contextualization_lock:
+            sel_inf.check_contextualization_available()
+            return InfrastructureManager._remove_resource(sel_inf, inf_id, vm_list, auth, context)
+
+    @staticmethod
+    def _remove_resource(sel_inf, inf_id, vm_list, auth, context=True):
         if isinstance(vm_list, str):
             vm_ids = vm_list.split(",")
         elif isinstance(vm_list, int):
