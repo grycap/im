@@ -793,7 +793,9 @@ class CloudConnector(LoggerMixin):
                 if im_auth and im_auth[0].get("token"):
                     egi_domain = str(domain[:-1] if domain.endswith(".") else domain)
                     _, egi_domain, _ = EGICloudConnector._get_wildcard_host_domain(hostname, egi_domain)
-                    found, _ = EGICloudConnector._get_domains(im_auth[0].get("token"), egi_domain)
+                    found, error_msg = EGICloudConnector._get_domains(im_auth[0].get("token"), egi_domain)
+                    if error_msg:
+                        self.log_error("Domain %s not found in DyDNS domains. Error: %s" % (egi_domain, error_msg))
                 else:
                     found = domain
             except Exception as dyex:
